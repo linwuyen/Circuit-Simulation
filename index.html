@@ -55,6 +55,56 @@ h1 {
   font-size: 17px;
   line-height: 1.75;
 }
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+  margin: 22px 0;
+}
+.mode {
+  display: grid;
+  gap: 9px;
+  min-height: 150px;
+  padding: 17px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 8px 24px rgba(23, 32, 38, 0.06);
+}
+.mode:hover {
+  border-color: #b7c2d2;
+  transform: translateY(-1px);
+}
+.mode strong {
+  font-size: 20px;
+}
+.mode p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+.mode .tag {
+  width: fit-content;
+}
+.section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 26px 0 12px;
+}
+.section-head h2 {
+  margin: 0;
+  font-size: 22px;
+}
+.section-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
@@ -149,8 +199,38 @@ h1 {
   <section class="top">
     <div class="eyebrow">Circuit Simulation Learning Pack</div>
     <h1>電路模擬說明教材總入口</h1>
-    <p class="lead">這裡集中管理電源、ADC、FOC、SPI、BMS、DAC 與 AFE 的互動式教學頁。每個卡片都連到可直接開啟的本地入口頁。</p>
+    <p class="lead">這裡集中管理電源、ADC、FOC、SPI、BMS、DAC 與 AFE 的互動式教學頁。初學者建議先走「初學路線」或「實驗任務」，熟悉後再進各主題完整教材。</p>
   </section>
+
+  <section class="mode-grid" aria-label="學習模式">
+    <a class="mode" href="beginner.html">
+      <span class="tag">BEGINNER</span>
+      <strong>初學者拆解路線</strong>
+      <p>每個主題拆成一句話、生活比喻、最小操作、判讀與實務用途。</p>
+    </a>
+    <a class="mode" href="labs.html">
+      <span class="tag">LABS</span>
+      <strong>實用實驗任務</strong>
+      <p>用工程任務驅動學習：調參、達成條件、留下可交付紀錄。</p>
+    </a>
+    <a class="mode" href="troubleshooting.html">
+      <span class="tag">DEBUG</span>
+      <strong>故障速查表</strong>
+      <p>從看到的症狀反查可能原因、確認方式、修法與對應模擬頁。</p>
+    </a>
+    <a class="mode" href="report.html">
+      <span class="tag">REPORT</span>
+      <strong>實驗報告產生器</strong>
+      <p>把任務、參數、觀察與工程結論整理成 Markdown 或列印紀錄。</p>
+    </a>
+  </section>
+
+  <div class="section-head">
+    <div>
+      <h2>完整主題教材</h2>
+      <p>已經知道要學哪個主題時，直接從這裡進入。</p>
+    </div>
+  </div>
 
   <section class="grid" aria-label="教材清單">
     <a class="card" href="0_buck_converter_/index.html">
@@ -216,7 +296,7 @@ h1 {
   </section>
 
   <section class="notice">
-    建議從這個頁面分流到各教材。正式入口都已整理成本地相對連結；封存檔位於各子資料夾的 <code>legacy</code> 或 <code>originals</code>。專案說明請看 <a href="README.md">README.md</a>。
+    建議初學者先用 <a href="beginner.html">初學者拆解路線</a> 建立直覺，再用 <a href="labs.html">實用實驗任務</a> 練操作；卡住時查 <a href="troubleshooting.html">故障速查表</a>。正式入口都已整理成本地相對連結；封存檔位於各子資料夾的 <code>legacy</code> 或 <code>originals</code>。專案說明請看 <a href="README.md">README.md</a>。
   </section>
 </main>
 </body>
