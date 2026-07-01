@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPI 高速傳輸與 FIFO 溢位硬體模擬器</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="../../assets/vendor/tailwindcss-cdn.js"></script>
+    <!-- Google Fonts for digital look -->    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f172a;
+        }
+        .digital-font {
+            font-family: 'Orbitron', sans-serif;
+        }
+        .code-font {
+            font-family: 'Fira Code', monospace;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur px-6 py-4 flex flex-wrap justify-between items-center gap-4">
+        <div class="flex items-center gap-3">
+            <div class="h-4 w-4 rounded-full bg-amber-500 animate-pulse"></div>
+            <h1 class="text-xl font-bold tracking-wider text-amber-500 digital-font">SPI HIGH-SPEED OVERRUN SIMULATOR</h1>
+            <span class="text-xs bg-slate-800 px-2.5 py-1 rounded-full border border-slate-700 text-slate-400">v1.2 (C2000 C28x Base)</span>
+        </div>
+        <div class="text-sm text-slate-400">
+            當前設定：<span class="text-amber-400 font-semibold digital-font">12.5 MHz / 32-bit</span>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="flex-1 p-6 grid grid-cols-1 xl:grid-cols-12 gap-6 overflow-y-auto">
+        
+        <!-- Left Panel: Configurations & Control (4 cols) -->
+        <section class="xl:col-span-4 flex flex-col gap-6">
+            
+            <!-- Parameters Configuration Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg">
+                <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-800 pb-2 flex items-center justify-between">
+                    <span>⚙️ 模擬參數設定</span>
+                    <button id="btnResetConfig" class="text-xs text-amber-500 hover:text-amber-400 underline">恢復預設</button>
+                </h2>
+                
+                <div class="flex flex-col gap-4">
+                    <!-- SPI Frequency -->
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-300">SPI 傳輸頻率 (SCLK)</span>
+                            <span class="text-amber-400 font-mono" id="valFreq">12.5 MHz</span>
+                        </div>
+                        <input type="range" id="paramFreq" min="1" max="20" step="0.5" value="12.5" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                    </div>
+
+                    <!-- Packet Width -->
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-300">單次封包長度 (Packet Width)</span>
+                            <span class="text-amber-400 font-mono" id="valBits">32-bit</span>
+                        </div>
+                        <select id="paramBits" class="w-full bg-slate-800 border border-slate-700 rounded-md py-1.5 px-3 text-sm text-slate-200 focus:outline-none focus:border-amber-500">
+                            <option value="8">8-bit</option>
+                            <option value="16">16-bit</option>
+                            <option value="32" selected>32-bit (C2000 需佔用 2層 FIFO)</option>
+                        </select>
+                    </div>
+
+                    <!-- Slave CPU Processing Time -->
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-300">Slave CPU 處理時間 (T_process)</span>
+                            <span class="text-red-400 font-mono" id="valTproc">10.0 μs</span>
+                        </div>
+                        <input type="range" id="paramTproc" min="0.5" max="50" step="0.5" value="10.0" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+                        <p class="text-xs text-slate-500 mt-1">CPU 執行 ISR、讀取暫存器並進行控制演算法所需的時間</p>
+                    </div>
+
+                    <!-- Master Inter-packet Delay -->
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-300">Master 傳輸間隔 (Gap Delay)</span>
+                            <span class="text-emerald-400 font-mono" id="valTgap">0.0 μs</span>
+                        </div>
+                        <input type="range" id="paramTgap" min="0" max="50" step="0.5" value="0.0" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                        <p class="text-xs text-slate-500 mt-1">Master 在連續傳送封包之間主動插入的等待時間</p>
+                    </div>
+
+                    <!-- Packet Count to Send -->
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-300">壓力測試總封包數 (Packets)</span>
+                            <span class="text-amber-400 font-mono" id="valPackets">4095</span>
+                        </div>
+                        <input type="range" id="paramPackets" min="10" max="4095" step="5" value="4095" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Architecture Mode Selection Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg">
+                <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-800 pb-2">🛡️ 傳輸保護模式選擇</h2>
+                <div class="flex flex-col gap-3">
+                    
+                    <!-- Mode 1: No FIFO -->
+                    <label class="relative flex p-3 rounded-lg border border-slate-800 bg-slate-950/40 cursor-pointer select-none hover:border-slate-700 transition" id="labelMode1">
+                        <input type="radio" name="paramMode" value="1" class="mt-1 mr-3 accent-amber-500">
+                        <div class="text-sm">
+                            <p class="font-semibold text-slate-200">標準無 FIFO 模式</p>
+                            <p class="text-xs text-slate-400 mt-1">僅依賴單個 16-bit RXBUF。新資料抵達時舊資料若未讀取即立刻覆蓋。</p>
+                        </div>
+                    </label>
+
+                    <!-- Mode 2: C2000 FIFO Only -->
+                    <label class="relative flex p-3 rounded-lg border border-slate-800 bg-slate-950/40 cursor-pointer select-none hover:border-slate-700 transition" id="labelMode2">
+                        <input type="radio" name="paramMode" value="2" checked class="mt-1 mr-3 accent-amber-500">
+                        <div class="text-sm">
+                            <p class="font-semibold text-slate-200 text-amber-400">C2000 16-Level FIFO 模式</p>
+                            <p class="text-xs text-slate-400 mt-1">開啟 16-word FIFO。當 FIFO 全滿時引發 RXFFOVF 溢位，後續封包被丟棄。</p>
+                        </div>
+                    </label>
+
+                    <!-- Mode 3: Hardware Handshake -->
+                    <label class="relative flex p-3 rounded-lg border border-slate-800 bg-slate-950/40 cursor-pointer select-none hover:border-slate-700 transition" id="labelMode3">
+                        <input type="radio" name="paramMode" value="3" class="mt-1 mr-3 accent-emerald-500">
+                        <div class="text-sm">
+                            <p class="font-semibold text-slate-200 text-emerald-400">GPIO Ready/Busy 硬體握手</p>
+                            <p class="text-xs text-slate-400 mt-1">Slave 處理數據時拉高 BUSY 線，強迫 Master 暫停時鐘發送。0% 丟包！</p>
+                        </div>
+                    </label>
+
+                    <!-- Mode 4: DMA -->
+                    <label class="relative flex p-3 rounded-lg border border-slate-800 bg-slate-950/40 cursor-pointer select-none hover:border-slate-700 transition" id="labelMode4">
+                        <input type="radio" name="paramMode" value="4" class="mt-1 mr-3 accent-blue-500">
+                        <div class="text-sm">
+                            <p class="font-semibold text-slate-200 text-blue-400">DMA 背景自動搬移 (Ping-Pong)</p>
+                            <p class="text-xs text-slate-400 mt-1">利用 DMA 自動將 FIFO 的數據秒速搬至 RAM，完全不佔用 CPU 中斷開銷。</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Right Panel: Simulation View & Visualizer (8 cols) -->
+        <section class="xl:col-span-8 flex flex-col gap-6">
+
+            <!-- Control Actions Console -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg flex flex-wrap gap-4 items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <button id="btnRunStressTest" class="bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-bold px-5 py-2.5 rounded-lg text-sm flex items-center gap-2 transition duration-150">
+                        ⚡ 執行極限壓力測試
+                    </button>
+                    <button id="btnStepSim" class="border border-slate-700 hover:bg-slate-800 text-slate-200 px-4 py-2.5 rounded-lg text-sm transition duration-150">
+                        ➡️ 單步模擬 (1 幀)
+                    </button>
+                    <button id="btnAutoPlay" class="border border-slate-700 hover:bg-slate-800 text-slate-200 px-4 py-2.5 rounded-lg text-sm transition duration-150 flex items-center gap-2">
+                        ▶️ 自動展示
+                    </button>
+                </div>
+                <button id="btnResetSimulation" class="text-slate-400 hover:text-slate-200 border border-slate-800 hover:border-slate-700 px-4 py-2.5 rounded-lg text-sm transition duration-150">
+                    🔄 重置模擬狀態
+                </button>
+            </div>
+
+            <!-- Stress Test Diagnostic Report -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                
+                <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+                    <span class="text-xs font-semibold text-slate-400 uppercase">發送總筆數</span>
+                    <div class="flex justify-between items-baseline mt-2">
+                        <span class="text-3xl font-bold digital-font text-slate-100" id="statSent">0</span>
+                        <span class="text-xs text-slate-500">Packets</span>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+                    <span class="text-xs font-semibold text-slate-400 uppercase">成功接收數</span>
+                    <div class="flex justify-between items-baseline mt-2">
+                        <span class="text-3xl font-bold digital-font text-emerald-400" id="statReceived">0</span>
+                        <span class="text-xs text-emerald-600" id="statRecvPercent">0.0%</span>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+                    <span class="text-xs font-semibold text-slate-400 uppercase">溢位丟失數</span>
+                    <div class="flex justify-between items-baseline mt-2">
+                        <span class="text-3xl font-bold digital-font text-red-500 animate-pulse" id="statLost">0</span>
+                        <span class="text-xs text-red-600" id="statLostPercent">0.0%</span>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+                    <span class="text-xs font-semibold text-slate-400 uppercase">硬體溢位旗標</span>
+                    <div class="flex justify-between items-center mt-2">
+                        <span class="text-sm font-bold code-font text-slate-300">RXFFOVF</span>
+                        <span class="px-2.5 py-1 text-xs rounded font-bold digital-font text-slate-500 bg-slate-800" id="statOvfFlag">RESET</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- C2000 SPI FIFO Hardware Live Diagram -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg">
+                <div class="flex justify-between items-center mb-4 border-b border-slate-800 pb-2">
+                    <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <span>📟 TI C2000 SPI FIFO 暫存器實體對照鏡</span>
+                    </h3>
+                    <div class="flex gap-2">
+                        <button id="btnManualRead16" class="bg-slate-800 hover:bg-slate-700 active:scale-95 text-xs text-amber-500 font-semibold px-2.5 py-1.5 rounded border border-slate-700 transition">
+                            手動讀取 16-bit (動 1步)
+                        </button>
+                        <button id="btnManualRead32" class="bg-slate-800 hover:bg-slate-700 active:scale-95 text-xs text-amber-400 font-semibold px-2.5 py-1.5 rounded border border-slate-700 transition">
+                            手動讀取 32-bit (動 2步)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Circular / Linear FIFO Array Representation -->
+                <div class="relative py-4">
+                    <!-- Current State Indicators -->
+                    <div class="flex justify-between text-xs text-slate-400 mb-3 bg-slate-950 p-2.5 rounded border border-slate-800/80">
+                        <div>
+                            <span>FIFO 目前深度 (RXFFST)：</span>
+                            <span class="font-bold font-mono text-amber-400" id="liveRxffst">0 / 16 (Words)</span>
+                        </div>
+                        <div>
+                            <span>寫入指針 (W)：</span>
+                            <span class="font-bold font-mono text-cyan-400" id="liveWritePtr">0</span>
+                        </div>
+                        <div>
+                            <span>讀取指針 (R)：</span>
+                            <span class="font-bold font-mono text-rose-400" id="liveReadPtr">0</span>
+                        </div>
+                    </div>
+
+                    <!-- 16 slots block representation -->
+                    <div class="grid grid-cols-8 md:grid-cols-16 gap-2" id="fifoGridContainer">
+                        <!-- Filled by JS -->
+                    </div>
+
+                    <div class="mt-4 flex gap-6 text-xs justify-center items-center">
+                        <span class="flex items-center gap-1.5 text-slate-400">
+                            <span class="inline-block w-3.5 h-3.5 rounded bg-slate-800 border border-slate-700"></span> 空閒中
+                        </span>
+                        <span class="flex items-center gap-1.5 text-slate-400">
+                            <span class="inline-block w-3.5 h-3.5 rounded bg-amber-500/80 border border-amber-400"></span> 滿載暫存 (16-bit)
+                        </span>
+                        <span class="flex items-center gap-1.5 text-slate-400">
+                            <span class="inline-block w-3.5 h-3.5 rounded bg-cyan-500 text-slate-950 font-bold px-1 py-0.5 text-[8px]">W</span> 寫入指針 (Master 端輸入)
+                        </span>
+                        <span class="flex items-center gap-1.5 text-slate-400">
+                            <span class="inline-block w-3.5 h-3.5 rounded bg-rose-500 text-slate-950 font-bold px-1 py-0.5 text-[8px]">R</span> 讀取指針 (Slave CPU 端提取)
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Oscilloscope Signal Trace -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <span>📊 虛擬邏輯分析儀 (Real-time Trace)</span>
+                    </h3>
+                    <span class="text-xs text-slate-500" id="timeCounter">物理時間軸: 0.00 μs</span>
+                </div>
+                <div class="bg-slate-950 rounded-lg p-2 border border-slate-800">
+                    <canvas id="scopeCanvas" class="w-full h-48 block" width="800" height="240"></canvas>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1.5">註：此處以黃色 SCLK 叢集脈衝代表一個 $2.56\ \mu\text{s}$ 的 32-bit 數據傳輸。CS (藍) 拉低代表傳送啟動。BUSY (紅) 為 GPIO 握手指示線。</p>
+            </div>
+
+            <!-- Console Log / Analysis Text Area -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg flex-1 flex flex-col">
+                <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-widest mb-3 pb-2 border-b border-slate-800">📊 實時物理診斷與優化建議</h3>
+                <div id="diagnosticText" class="text-sm text-slate-300 leading-relaxed bg-slate-950 p-4 rounded-lg border border-slate-800 h-32 overflow-y-auto code-font">
+                    [系統訊息] 模擬器已準備就緒，請點選「執行極限壓力測試」或「自動展示」。
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 bg-slate-900/40 py-3 text-center text-xs text-slate-500">
+        SPI Master-Slave Core Physical Simulator Built for TI C28x Series (C2000). Powered by Gemini.
+    </footer>
+
+    <!-- Simulation Engine logic script -->
+    <script>
+        // --- Hardcoded System Parameters based on First Principles ---
+        let config = {
+            sclkFreqMHz: 12.5,
+            packetBits: 32,
+            tProcUs: 10.0,
+            tGapUs: 0.0,
+            packetCount: 4095,
+            mode: 2 // default 2: C2000 FIFO Only
+        };
+
+        // Live Simulation Variables
+        let simState = {
+            sent: 0,
+            received: 0,
+            lost: 0,
+            ovfTriggered: false,
+            firstOvfTimeUs: -1,
+            fifoWords: 0, // RXFFST: ranges from 0 to 16
+            writePtr: 0,  // C2000 internal pointer (0-15)
+            readPtr: 0,   // C2000 internal pointer (0-15)
+            currentTimeUs: 0.0,
+            slaveCpuBusyUntilUs: 0.0,
+            logQueue: [],
+            fifoArray: Array(16).fill(false) // Whether slot has active unread data
+        };
+
+        // Signal Trace Cache
+        let traceData = []; // Cache of signal transitions for drawing {t, cs, sclk, busy, ovf}
+
+        // --- DOM Elements ---
+        const paramFreq = document.getElementById('paramFreq');
+        const valFreq = document.getElementById('valFreq');
+        const paramBits = document.getElementById('paramBits');
+        const valBits = document.getElementById('valBits');
+        const paramTproc = document.getElementById('paramTproc');
+        const valTproc = document.getElementById('valTproc');
+        const paramTgap = document.getElementById('paramTgap');
+        const valTgap = document.getElementById('valTgap');
+        const paramPackets = document.getElementById('paramPackets');
+        const valPackets = document.getElementById('valPackets');
+        const btnResetConfig = document.getElementById('btnResetConfig');
+
+        const btnRunStressTest = document.getElementById('btnRunStressTest');
+        const btnStepSim = document.getElementById('btnStepSim');
+        const btnAutoPlay = document.getElementById('btnAutoPlay');
+        const btnResetSimulation = document.getElementById('btnResetSimulation');
+        
+        const btnManualRead16 = document.getElementById('btnManualRead16');
+        const btnManualRead32 = document.getElementById('btnManualRead32');
+
+        const statSent = document.getElementById('statSent');
+        const statReceived = document.getElementById('statReceived');
+        const statRecvPercent = document.getElementById('statRecvPercent');
+        const statLost = document.getElementById('statLost');
+        const statLostPercent = document.getElementById('statLostPercent');
+        const statOvfFlag = document.getElementById('statOvfFlag');
+
+        const liveRxffst = document.getElementById('liveRxffst');
+        const liveWritePtr = document.getElementById('liveWritePtr');
+        const liveReadPtr = document.getElementById('liveReadPtr');
+        const fifoGridContainer = document.getElementById('fifoGridContainer');
+        const diagnosticText = document.getElementById('diagnosticText');
+        const scopeCanvas = document.getElementById('scopeCanvas');
+        const timeCounter = document.getElementById('timeCounter');
+
+        // --- Interactive Init & Event Listeners ---
+        function initListeners() {
+            // Sliders
+            paramFreq.addEventListener('input', (e) => {
+                config.sclkFreqMHz = parseFloat(e.target.value);
+                valFreq.innerText = `${config.sclkFreqMHz.toFixed(1)} MHz`;
+                recalcTimes();
+            });
+            paramBits.addEventListener('change', (e) => {
+                config.packetBits = parseInt(e.target.value);
+                valBits.innerText = `${config.packetBits}-bit`;
+                recalcTimes();
+            });
+            paramTproc.addEventListener('input', (e) => {
+                config.tProcUs = parseFloat(e.target.value);
+                valTproc.innerText = `${config.tProcUs.toFixed(1)} μs`;
+            });
+            paramTgap.addEventListener('input', (e) => {
+                config.tGapUs = parseFloat(e.target.value);
+                valTgap.innerText = `${config.tGapUs.toFixed(1)} μs`;
+            });
+            paramPackets.addEventListener('input', (e) => {
+                config.packetCount = parseInt(e.target.value);
+                valPackets.innerText = config.packetCount;
+            });
+
+            btnResetConfig.addEventListener('click', () => {
+                paramFreq.value = 12.5;
+                config.sclkFreqMHz = 12.5;
+                valFreq.innerText = "12.5 MHz";
+
+                paramBits.value = "32";
+                config.packetBits = 32;
+                valBits.innerText = "32-bit";
+
+                paramTproc.value = 10.0;
+                config.tProcUs = 10.0;
+                valTproc.innerText = "10.0 μs";
+
+                paramTgap.value = 0.0;
+                config.tGapUs = 0.0;
+                valTgap.innerText = "0.0 μs";
+
+                paramPackets.value = 4095;
+                config.packetCount = 4095;
+                valPackets.innerText = 4095;
+
+                recalcTimes();
+                resetSimulation();
+            });
+
+            // Modes
+            document.querySelectorAll('input[name="paramMode"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    config.mode = parseInt(e.target.value);
+                    resetSimulation();
+                });
+            });
+
+            // Action buttons
+            btnRunStressTest.addEventListener('click', () => {
+                runStressTestInstant();
+            });
+
+            btnStepSim.addEventListener('click', () => {
+                stopAutoPlay();
+                stepSimulation();
+            });
+
+            btnResetSimulation.addEventListener('click', () => {
+                stopAutoPlay();
+                resetSimulation();
+            });
+
+            btnManualRead16.addEventListener('click', () => {
+                manualRead(1);
+            });
+            btnManualRead32.addEventListener('click', () => {
+                manualRead(2);
+            });
+
+            let playInterval = null;
+            btnAutoPlay.addEventListener('click', () => {
+                if (playInterval) {
+                    stopAutoPlay();
+                } else {
+                    btnAutoPlay.innerHTML = "⏸️ 暫停展示";
+                    btnAutoPlay.classList.add('bg-slate-800');
+                    playInterval = setInterval(() => {
+                        if (simState.sent >= config.packetCount) {
+                            stopAutoPlay();
+                            addLog("▶️ [展示] 傳輸已全部完成！");
+                            return;
+                        }
+                        stepSimulation();
+                    }, 400);
+                }
+            });
+
+            function stopAutoPlay() {
+                if (playInterval) {
+                    clearInterval(playInterval);
+                    playInterval = null;
+                }
+                btnAutoPlay.innerHTML = "▶️ 自動展示";
+                btnAutoPlay.classList.remove('bg-slate-800');
+            }
+        }
+
+        function recalcTimes() {
+            // T_packet = bits / frequency
+            let tPacket = config.packetBits / config.sclkFreqMHz;
+            addLog(`⚙️ 系統參數更新: 單次封包物理傳輸耗時 (T_packet) = ${tPacket.toFixed(3)} μs.`);
+        }
+
+        // --- Hardware Renderer ---
+        function renderHardwareUI() {
+            // 1. Stats Counter updating
+            statSent.innerText = simState.sent;
+            statReceived.innerText = simState.received;
+            statLost.innerText = simState.lost;
+
+            let total = simState.sent || 1;
+            let recvPercent = (simState.received / total) * 100;
+            let lostPercent = (simState.lost / total) * 100;
+            statRecvPercent.innerText = `${recvPercent.toFixed(1)}%`;
+            statLostPercent.innerText = `${lostPercent.toFixed(1)}%`;
+
+            if (simState.lost > 0) {
+                statLost.classList.add('text-red-500');
+                statLost.classList.remove('text-slate-100');
+            } else {
+                statLost.classList.remove('text-red-500');
+                statLost.classList.add('text-slate-100');
+            }
+
+            // OVF Flag style updating
+            if (simState.ovfTriggered) {
+                statOvfFlag.innerText = "OVERFLOW";
+                statOvfFlag.className = "px-2.5 py-1 text-xs rounded font-bold digital-font text-red-100 bg-red-600 animate-pulse";
+            } else {
+                statOvfFlag.innerText = "RESET";
+                statOvfFlag.className = "px-2.5 py-1 text-xs rounded font-bold digital-font text-slate-500 bg-slate-800";
+            }
+
+            // 2. FIFO live register indicators
+            let scaleWord = (config.packetBits === 32) ? "Words" : "Slots";
+            liveRxffst.innerText = `${simState.fifoWords} / 16 (${scaleWord})`;
+            liveWritePtr.innerText = simState.writePtr;
+            liveReadPtr.innerText = simState.readPtr;
+
+            // 3. Grid Renderer
+            fifoGridContainer.innerHTML = '';
+            for (let i = 0; i < 16; i++) {
+                const cell = document.createElement('div');
+                cell.className = "relative h-14 rounded-lg flex flex-col items-center justify-center border transition-all duration-150 text-xs font-mono";
+
+                // Base Colors for Slots
+                if (simState.fifoArray[i]) {
+                    cell.className += " bg-amber-500/10 border-amber-500/80 text-amber-300 shadow-[inset_0_0_8px_rgba(245,158,11,0.2)]";
+                } else {
+                    cell.className += " bg-slate-950/40 border-slate-800 text-slate-600";
+                }
+
+                // Inner text index
+                const numSpan = document.createElement('span');
+                numSpan.className = "text-[10px] text-slate-500 absolute top-1 left-1.5";
+                numSpan.innerText = i;
+                cell.appendChild(numSpan);
+
+                // Word Payload marker
+                if (simState.fifoArray[i]) {
+                    const dataSpan = document.createElement('span');
+                    dataSpan.className = "font-bold text-[10px] scale-90";
+                    dataSpan.innerText = "16-bit";
+                    cell.appendChild(dataSpan);
+                }
+
+                // Pointer Tags Indicators
+                const tagContainer = document.createElement('div');
+                tagContainer.className = "absolute bottom-1 flex gap-1";
+
+                if (i === simState.writePtr) {
+                    const wTag = document.createElement('span');
+                    wTag.className = "bg-cyan-500 text-slate-950 font-bold px-1 rounded text-[8px] tracking-tighter shadow-md";
+                    wTag.innerText = "W";
+                    tagContainer.appendChild(wTag);
+                }
+                if (i === simState.readPtr) {
+                    const rTag = document.createElement('span');
+                    rTag.className = "bg-rose-500 text-slate-100 font-bold px-1 rounded text-[8px] tracking-tighter shadow-md";
+                    rTag.innerText = "R";
+                    tagContainer.appendChild(rTag);
+                }
+                cell.appendChild(tagContainer);
+                fifoGridContainer.appendChild(cell);
+            }
+
+            // Draw oscilloscope
+            drawOscilloscope();
+        }
+
+        // --- Diagnostic Console Logger ---
+        function addLog(text) {
+            simState.logQueue.push(text);
+            if (simState.logQueue.length > 50) {
+                simState.logQueue.shift();
+            }
+            diagnosticText.innerHTML = simState.logQueue.join("<br/>");
+            diagnosticText.scrollTop = diagnosticText.scrollHeight;
+        }
+
+        // --- Manual Read Actions ---
+        function manualRead(words) {
+            if (config.mode === 1) {
+                // No FIFO
+                if (simState.fifoWords > 0) {
+                    simState.fifoWords = 0;
+                    simState.fifoArray.fill(false);
+                    addLog(`📥 [CPU 手動讀取] 讀取 RXBUF。緩衝區排空。`);
+                } else {
+                    addLog(`📥 [CPU 手動讀取] RXBUF 已空，讀出無效垃圾資料。`);
+                }
+                renderHardwareUI();
+                return;
+            }
+
+            if (simState.fifoWords <= 0) {
+                addLog(`📥 [CPU 手動讀取] C2000 FIFO 已空，讀出無效資料。`);
+                return;
+            }
+
+            let wordsToRead = Math.min(words, simState.fifoWords);
+            for (let w = 0; w < wordsToRead; w++) {
+                simState.fifoArray[simState.readPtr] = false;
+                simState.readPtr = (simState.readPtr + 1) % 16;
+                simState.fifoWords--;
+            }
+
+            addLog(`📥 [CPU 手動讀取] 提取了 ${wordsToRead} 個 16-bit 字元。指針移至 ${simState.readPtr}。`);
+            renderHardwareUI();
+        }
+
+        // --- Simulation Reset ---
+        function resetSimulation() {
+            simState.sent = 0;
+            simState.received = 0;
+            simState.lost = 0;
+            simState.ovfTriggered = false;
+            simState.firstOvfTimeUs = -1;
+            simState.fifoWords = 0;
+            simState.writePtr = 0;
+            simState.readPtr = 0;
+            simState.currentTimeUs = 0.0;
+            simState.slaveCpuBusyUntilUs = 0.0;
+            simState.fifoArray.fill(false);
+            simState.logQueue = [];
+            traceData = [];
+
+            timeCounter.innerText = "物理時間軸: 0.00 μs";
+
+            addLog("🔄 [系統] 模擬器已重置。");
+            renderHardwareUI();
+        }
+
+        // --- Step-by-step Simulation Runner ---
+        function stepSimulation() {
+            let tPacket = config.packetBits / config.sclkFreqMHz;
+            let wordsPerPacket = (config.packetBits === 32) ? 2 : 1;
+
+            // 1. Calculate timing point of next packet
+            let packetStart = simState.currentTimeUs;
+            let packetEnd = packetStart + tPacket;
+
+            // Mode 3 (GPIO Ready/Busy Handshake) specific dynamic delay
+            if (config.mode === 3 && simState.currentTimeUs < simState.slaveCpuBusyUntilUs) {
+                // If busy, Master clock is halted. Master must wait until Slave becomes idle.
+                let waitDuration = simState.slaveCpuBusyUntilUs - simState.currentTimeUs;
+                packetStart = simState.slaveCpuBusyUntilUs;
+                packetEnd = packetStart + tPacket;
+                addLog(`🎛️ [GPIO 握手] Master 偵測到 BUSY 為高電平，時鐘暫停並延遲了 ${waitDuration.toFixed(2)} μs。`);
+                simState.currentTimeUs = packetStart; // Sync timeline
+            }
+
+            // 2. Transmit Packet
+            simState.sent++;
+            let isOverrun = false;
+
+            // Collect Signal Data Cache for oscilloscope
+            traceData.push({
+                t: packetStart,
+                cs: 1,
+                sclk: 0,
+                busy: (packetStart < simState.slaveCpuBusyUntilUs) ? 1 : 0,
+                ovf: simState.ovfTriggered ? 1 : 0
+            });
+            // Signal Active Phase
+            traceData.push({
+                t: packetStart + 0.01,
+                cs: 0,
+                sclk: 1,
+                busy: (packetStart < simState.slaveCpuBusyUntilUs) ? 1 : 0,
+                ovf: simState.ovfTriggered ? 1 : 0
+            });
+
+            // 3. Slave Logic Behavior Evaluation
+            if (config.mode === 1) {
+                // MODE 1: Standard No FIFO (1-level RXBUF only)
+                if (simState.fifoWords > 0 && packetEnd < simState.slaveCpuBusyUntilUs) {
+                    // Previous data not read yet, and we are still busy! Overrun!
+                    isOverrun = true;
+                    simState.lost++;
+                    simState.ovfTriggered = true;
+                    if (simState.firstOvfTimeUs === -1) simState.firstOvfTimeUs = packetEnd;
+                    addLog(`🚨 [溢位警告] 第 ${simState.sent} 筆封包到達！RXBUF 已滿且未被讀取。數據被直接覆蓋覆滅。`);
+                } else {
+                    // Success! Overwrites RXBUF
+                    simState.received++;
+                    simState.fifoWords = 1;
+                    simState.fifoArray[0] = true;
+                    // Trigger CPU processing task
+                    simState.slaveCpuBusyUntilUs = packetEnd + config.tProcUs;
+                    // Auto Read when CPU finishes task
+                    simState.fifoWords = 0;
+                    simState.fifoArray[0] = false;
+                }
+            } else if (config.mode === 4) {
+                // MODE 4: DMA Controller Mode (Instantly flushes background buffer)
+                simState.received++;
+                // DMA operates at hardware bus speeds, transfer time is effectively ~100ns (neglectable)
+                simState.fifoWords = 0;
+                simState.fifoArray.fill(false);
+                addLog(`🎯 [DMA 背景搬移] 封包 ${simState.sent} 透過 DMA 自動搬運至大容量 RAM，FIFO 保持 0 占用。`);
+            } else {
+                // MODE 2 & 3: C2000 FIFO Modes (16-level)
+                // Before packet lands, does CPU have time to finish current ISR and read some words?
+                // Calculate how many times CPU can fire ISR and read from FIFO before packet completes
+                let currentSimTime = simState.currentTimeUs;
+                
+                // C2000 reads FIFO during its processing window
+                while (simState.slaveCpuBusyUntilUs <= packetEnd && simState.fifoWords > 0) {
+                    // CPU finished its task and reads next packet from FIFO
+                    let processFinishTime = simState.slaveCpuBusyUntilUs;
+                    if (processFinishTime < currentSimTime) {
+                        processFinishTime = currentSimTime;
+                    }
+                    
+                    // Consume 1 packet (2 words if 32-bit, 1 word if 16-bit)
+                    let wordsToConsume = Math.min(wordsPerPacket, simState.fifoWords);
+                    for (let w = 0; w < wordsToConsume; w++) {
+                        simState.fifoArray[simState.readPtr] = false;
+                        simState.readPtr = (simState.readPtr + 1) % 16;
+                        simState.fifoWords--;
+                    }
+                    
+                    // CPU triggers next task immediately if FIFO has more data
+                    if (simState.fifoWords > 0) {
+                        simState.slaveCpuBusyUntilUs = processFinishTime + config.tProcUs;
+                    } else {
+                        // All read. CPU goes Idle.
+                        simState.slaveCpuBusyUntilUs = processFinishTime + config.tProcUs; 
+                        break;
+                    }
+                }
+
+                // Now packet completes at packetEnd, hard push to FIFO
+                if (simState.fifoWords + wordsPerPacket > 16) {
+                    // FIFO Overrun!
+                    isOverrun = true;
+                    simState.lost++;
+                    simState.ovfTriggered = true;
+                    if (simState.firstOvfTimeUs === -1) simState.firstOvfTimeUs = packetEnd;
+                    addLog(`🚨 [溢位警告] 第 ${simState.sent} 筆封包到達！FIFO 剩餘空間不足以存放 ${wordsPerPacket} 字元。數據丟失！`);
+                } else {
+                    // Fits in FIFO
+                    simState.received++;
+                    for (let w = 0; w < wordsPerPacket; w++) {
+                        simState.fifoArray[simState.writePtr] = true;
+                        simState.writePtr = (simState.writePtr + 1) % 16;
+                        simState.fifoWords++;
+                    }
+                    
+                    // If CPU is currently idle, trigger the processing chain immediately
+                    if (packetEnd >= simState.slaveCpuBusyUntilUs) {
+                        simState.slaveCpuBusyUntilUs = packetEnd + config.tProcUs;
+                    }
+                    
+                    addLog(`📥 [接收成功] 第 ${simState.sent} 筆封包寫入 FIFO。目前 RXFFST: ${simState.fifoWords}`);
+                }
+            }
+
+            // Signal End Phase
+            traceData.push({
+                t: packetEnd - 0.01,
+                cs: 0,
+                sclk: 1,
+                busy: (packetEnd < simState.slaveCpuBusyUntilUs) ? 1 : 0,
+                ovf: simState.ovfTriggered ? 1 : 0
+            });
+            traceData.push({
+                t: packetEnd,
+                cs: 1,
+                sclk: 0,
+                busy: (packetEnd < simState.slaveCpuBusyUntilUs) ? 1 : 0,
+                ovf: simState.ovfTriggered ? 1 : 0
+            });
+
+            // Fast forward timeline to next packet start (includes Master Gap Delay)
+            simState.currentTimeUs = packetEnd + config.tGapUs;
+            timeCounter.innerText = `物理時間軸: ${simState.currentTimeUs.toFixed(2)} μs`;
+
+            // Clean up old traces to keep scope responsive
+            if (traceData.length > 100) {
+                traceData.shift();
+                traceData.shift();
+                traceData.shift();
+                traceData.shift();
+            }
+
+            renderHardwareUI();
+        }
+
+        // --- Fast Queue Simulator for Stress Test (4095 Packets) ---
+        function runStressTestInstant() {
+            resetSimulation();
+            let total = config.packetCount;
+            let tPacket = config.packetBits / config.sclkFreqMHz;
+            let wordsPerPacket = (config.packetBits === 32) ? 2 : 1;
+            
+            addLog(`🚀 [開始測試] 啟動 4095 筆高速極限壓力模擬中...`);
+
+            let currentTime = 0.0;
+            let slaveCpuBusyUntil = 0.0;
+            let fifoWords = 0;
+            let writePtr = 0;
+            let readPtr = 0;
+            let received = 0;
+            let lost = 0;
+            let ovfTriggered = false;
+            let firstOvfTime = -1;
+
+            for (let i = 1; i <= total; i++) {
+                let packetStart = currentTime;
+                
+                // Hardware Handshake Mode
+                if (config.mode === 3 && packetStart < slaveCpuBusyUntil) {
+                    packetStart = slaveCpuBusyUntil;
+                }
+
+                let packetEnd = packetStart + tPacket;
+
+                if (config.mode === 1) {
+                    // No FIFO
+                    if (fifoWords > 0 && packetEnd < slaveCpuBusyUntil) {
+                        lost++;
+                        ovfTriggered = true;
+                        if (firstOvfTime === -1) firstOvfTime = packetEnd;
+                    } else {
+                        received++;
+                        fifoWords = 1;
+                        slaveCpuBusyUntil = packetEnd + config.tProcUs;
+                        // instantly read by CPU when CPU becomes free
+                        fifoWords = 0;
+                    }
+                } else if (config.mode === 4) {
+                    // DMA flushes background
+                    received++;
+                    fifoWords = 0;
+                } else {
+                    // C2000 FIFO (Mode 2 & 3)
+                    // Let CPU drain FIFO during transmission
+                    while (slaveCpuBusyUntil <= packetEnd && fifoWords > 0) {
+                        let processStart = Math.max(slaveCpuBusyUntil, packetStart);
+                        let wordsToConsume = Math.min(wordsPerPacket, fifoWords);
+                        
+                        readPtr = (readPtr + wordsToConsume) % 16;
+                        fifoWords -= wordsToConsume;
+                        slaveCpuBusyUntil = processStart + config.tProcUs;
+                    }
+
+                    // Push next packet to FIFO
+                    if (fifoWords + wordsPerPacket > 16) {
+                        lost++;
+                        ovfTriggered = true;
+                        if (firstOvfTime === -1) firstOvfTime = packetEnd;
+                    } else {
+                        received++;
+                        writePtr = (writePtr + wordsPerPacket) % 16;
+                        fifoWords += wordsPerPacket;
+                        
+                        if (packetEnd >= slaveCpuBusyUntil) {
+                            slaveCpuBusyUntil = packetEnd + config.tProcUs;
+                        }
+                    }
+                }
+
+                // Update timeline for next packet
+                currentTime = packetEnd + config.tGapUs;
+            }
+
+            // Copy results back to UI state
+            simState.sent = total;
+            simState.received = received;
+            simState.lost = lost;
+            simState.ovfTriggered = ovfTriggered;
+            simState.firstOvfTimeUs = firstOvfTime;
+            simState.fifoWords = fifoWords;
+            simState.writePtr = writePtr;
+            simState.readPtr = readPtr;
+            simState.currentTimeUs = currentTime;
+
+            // Generate some artificial visual traces around the overflow event for scope
+            traceData = [];
+            let mockTime = firstOvfTime > 0 ? firstOvfTime - 10 : 0;
+            for (let k = 0; k < 40; k++) {
+                let busyState = (mockTime < slaveCpuBusyUntil) ? 1 : 0;
+                let activeOvf = (ovfTriggered && mockTime >= firstOvfTime) ? 1 : 0;
+                traceData.push({ t: mockTime, cs: 1, sclk: 0, busy: busyState, ovf: activeOvf });
+                traceData.push({ t: mockTime + 1, cs: 0, sclk: 1, busy: busyState, ovf: activeOvf });
+                traceData.push({ t: mockTime + 2.56, cs: 0, sclk: 1, busy: busyState, ovf: activeOvf });
+                traceData.push({ t: mockTime + 2.56 + config.tGapUs, cs: 1, sclk: 0, busy: busyState, ovf: activeOvf });
+                mockTime += 2.56 + config.tGapUs + 1.0;
+            }
+
+            timeCounter.innerText = `物理時間軸: ${simState.currentTimeUs.toFixed(2)} μs`;
+            renderHardwareUI();
+            generateDiagnosticReport();
+        }
+
+        function generateDiagnosticReport() {
+            let tPacket = config.packetBits / config.sclkFreqMHz;
+            let lossPercent = (simState.lost / simState.sent) * 100;
+            let rStr = `📊 <strong>[極限壓力測試結果]</strong><br/>`;
+            rStr += `• 傳輸總封包：<span class="text-amber-400 font-bold">${simState.sent} 筆</span><br/>`;
+            rStr += `• 成功接收：<span class="text-emerald-400 font-bold">${simState.received} 筆</span><br/>`;
+            rStr += `• 溢位丟失：<span class="text-red-500 font-bold">${simState.lost} 筆</span><br/>`;
+            rStr += `• 數據掉包率：<span class="text-red-400 font-bold">${lossPercent.toFixed(2)}%</span><br/>`;
+            
+            if (simState.ovfTriggered) {
+                rStr += `• 首次溢位發生的物理時間：<span class="text-amber-500 font-bold">${simState.firstOvfTimeUs.toFixed(2)} μs</span><br/>`;
+                rStr += `• 溢位關鍵因素診斷：<br/>`;
+                
+                if (config.mode === 1) {
+                    rStr += `<span class="text-rose-400">🚨 偵測到「無 FIFO 保護模式」缺陷。只要 CPU 處理時間 (${config.tProcUs} μs) 大於 1 幀傳輸時間 (${tPacket.toFixed(2)} μs)，第 2 筆數據便立即覆蓋！建議開啟 C2000 FIFO 模式。</span>`;
+                } else if (config.mode === 2) {
+                    let maxSafeFifoBufferTime = 8 * tPacket;
+                    rStr += `<span class="text-rose-400">🚨 在第 9 筆封包發生了 Overrun 覆蓋。因為 CPU 的 ISR 耗時高達 ${config.tProcUs} μs，而 8 層有效 FIFO 緩衝極限只能撐 ${maxSafeFifoBufferTime.toFixed(2)} μs。超出時間後全部噴掉！</span><br/>`;
+                    rStr += `<span class="text-emerald-400">💡 專家建議：在 Master 端插入微秒級延遲 (如將 Gap Delay 設為 ${Math.max(0, config.tProcUs - tPacket).toFixed(1)} μs)，或者在 Slave 開啟 DMA / 硬體握手機制。</span>`;
+                }
+            } else {
+                rStr += `<span class="text-emerald-400 font-bold">🎉 [完美同步] 0 溢位！0 掉包！Slave 完美吃下所有高速資料！</span><br/>`;
+                if (config.mode === 3) {
+                    rStr += `<span class="text-emerald-300">💡 [硬體評鑑] GPIO 握手機制成功利用實體 Busy 線，使 Master 時鐘因應 Slave 的處理負荷動態調速，實現了極高彈性且最穩健的可靠性。</span>`;
+                } else if (config.mode === 4) {
+                    rStr += `<span class="text-blue-300">💡 [硬體評鑑] DMA 背景乒乓傳輸完美運作，完全繞過 C28x 內核運算阻塞。這是對實時控制系統（如逆變器控制、閉迴路回授）效益最高的極限方案。</span>`;
+                } else {
+                    rStr += `<span class="text-emerald-300">💡 [硬體評鑑] CPU 處理速度快於 SPI 流入速度（或傳輸間隔足夠），FIFO 未發生堆積溢位。</span>`;
+                }
+            }
+            diagnosticText.innerHTML = rStr;
+        }
+
+        // --- Oscilloscope Drawing Function (Using Canvas) ---
+        function drawOscilloscope() {
+            const ctx = scopeCanvas.getContext('2d');
+            const w = scopeCanvas.width;
+            const h = scopeCanvas.height;
+
+            // Background
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(0, 0, w, h);
+
+            // Draw Grid Lines (10 divisions)
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            for (let i = 1; i < 10; i++) {
+                // Vertical lines
+                ctx.beginPath();
+                ctx.moveTo((w / 10) * i, 0);
+                ctx.lineTo((w / 10) * i, h);
+                ctx.stroke();
+
+                // Horizontal lines
+                ctx.beginPath();
+                ctx.moveTo(0, (h / 4) * i);
+                ctx.lineTo(w, (h / 4) * i);
+                ctx.stroke();
+            }
+
+            // Labels
+            ctx.font = '10px Fira Code';
+            ctx.fillStyle = '#64748b';
+            ctx.fillText('CH1: CS', 10, 30);
+            ctx.fillText('CH2: SCLK', 10, 85);
+            ctx.fillText('CH3: BUSY', 10, 145);
+            ctx.fillText('CH4: RXFFOVF', 10, 205);
+
+            if (traceData.length < 2) return;
+
+            // Draw Channels (CS, SCLK, BUSY, OVF)
+            const drawTrace = (getY, color, field) => {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1.8;
+                ctx.beginPath();
+
+                let firstX = null;
+                for (let i = 0; i < traceData.length; i++) {
+                    let point = traceData[i];
+                    // Map time range of cached traces onto 0 - w canvas width
+                    let minT = traceData[0].t;
+                    let maxT = traceData[traceData.length - 1].t;
+                    let range = (maxT - minT) || 1;
+
+                    let x = ((point.t - minT) / range) * (w - 100) + 80;
+                    let y = getY(point[field]);
+
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        // Create sharp square wave steps
+                        let prevPoint = traceData[i-1];
+                        let prevX = ((prevPoint.t - minT) / range) * (w - 100) + 80;
+                        ctx.lineTo(x, getY(prevPoint[field])); // horizontal step
+                        ctx.lineTo(x, y); // vertical step
+                    }
+                }
+                ctx.stroke();
+            };
+
+            // CH1: CS (Active Low, 0=low, 1=high)
+            drawTrace(val => (val === 0) ? 45 : 20, '#38bdf8', 'cs');
+
+            // CH2: SCLK (0=idle, 1=clock burst)
+            drawTrace(val => {
+                if (val === 1) {
+                    // Draw mini square pulses inside the block visually
+                    return (Math.sin(Date.now() / 20) > 0) ? 75 : 95;
+                }
+                return 95;
+            }, '#fbbf24', 'sclk');
+
+            // CH3: BUSY Line
+            drawTrace(val => (val === 1) ? 125 : 155, '#f87171', 'busy');
+
+            // CH4: RXFFOVF Overflow Flag
+            drawTrace(val => (val === 1) ? 185 : 215, '#ec4899', 'ovf');
+        }
+
+        // --- Application Bootstrap ---
+        window.onload = function() {
+            initListeners();
+            resetSimulation();
+        };
+    </script>
+</body>
+</html>

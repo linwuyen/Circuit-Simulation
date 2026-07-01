@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>09 整合實驗 | F28388D BMS 教學模擬器</title>
+  <link rel="stylesheet" href="assets/bms-tutorial.css">
+</head>
+<body data-page="lab" data-chapter="9">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="brand-title">F28388D BMS 教學模擬器</span><span class="brand-subtitle">09 整合實驗</span></div>
+      <nav class="nav" aria-label="章節導覽">
+        <a href="index.html">首頁</a><a href="01_overview.html">總覽</a><a href="02_sense.html">量測</a><a href="03_compare.html">比較</a><a href="04_decide.html">決定</a><a href="05_actuate.html">致動</a><a href="06_report.html">回報</a><a href="07_coordinate.html">協同</a><a href="08_failsafe.html">失效</a><a href="09_integrate.html" aria-current="page">整合</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="hero">
+      <div>
+        <span class="eyebrow">Lesson 09 · 把整條鏈串起來</span>
+        <h1>最後把它當成一個小型 HIL:改輸入、下指令、看診斷、觸發保護。</h1>
+        <p class="lead">這頁故意保留較多元件,因為你已經在前面各環分別練過。現在的目標是把「量測→比較→決定→致動→回報」串成可重現的測試案例,而不是只看單一元件。</p>
+      </div>
+      <div class="panel">
+        <h2>測試案例範例</h2>
+        <ol class="checklist" style="margin-top:12px;">
+          <li>電壓設 4000mV,請求放電,確認接觸器閉合。</li>
+          <li>按 IPC 同步,送 `22 01`,確認 UDS 讀到同一個電壓。</li>
+          <li>電流拉到 160A,確認 FAULT_LOCK 與接觸器斷開。</li>
+          <li>硬體重置後,把電壓拉 4300mV,確認 OVP 不能放電。</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="lesson-layout">
+      <aside>
+        <div class="panel">
+          <div class="panel-title"><h2>系統狀態</h2></div>
+          <div style="display:grid;gap:10px;">
+            <div id="system-state" class="state-pill"><span class="led"></span>INIT</div>
+            <div id="contactor" class="state-pill red"><span class="led"></span>斷開 OPEN</div>
+            <div class="metric"><span>SPI_Err_Cnt</span><strong id="fsm-spi-count">0</strong></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title"><h2>狀態機</h2></div>
+          <div class="state-flow">
+            <div class="state-box" data-state="INIT">INIT</div>
+            <div class="state-box" data-state="STANDBY">STANDBY</div>
+            <div class="state-box" data-state="DISCHARGE">DISCHARGE</div>
+            <div class="state-box" data-state="FAULT">FAULT</div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title"><h2>事件紀錄</h2></div>
+          <div id="fsm-log" class="event-log">
+            <div class="event ok">整合實驗待命。</div>
+          </div>
+        </div>
+      </aside>
+
+      <section>
+        <div class="panel">
+          <div class="panel-title"><h2>BMS 控制與感測</h2><small>量測 + 決定</small></div>
+          <div class="controls">
+            <label class="range-row">
+              <span class="range-label"><span>最高單體電壓</span><strong id="fsm-voltage-value">4000 mV</strong></span>
+              <input id="fsm-voltage-slider" type="range" min="3000" max="4300" value="4000">
+            </label>
+            <label class="range-row">
+              <span class="range-label"><span>Pack 總電流</span><strong id="fsm-current-value">0.0 A</strong></span>
+              <input id="fsm-current-slider" type="range" min="0" max="200" value="0">
+            </label>
+            <div class="button-row">
+              <button id="fsm-request" class="btn primary">請求放電 / 下一步</button>
+              <button id="fsm-spi" class="btn">注入 SPI 錯誤</button>
+              <button id="lab-sync" class="btn green">IPC 同步到 CM4</button>
+              <button id="fsm-reset" class="btn danger">硬體重置</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><h2>CM4 / UDS 診斷</h2><small>回報:讀取同步後的 CM4 資料</small></div>
+          <div class="metric-grid">
+            <div class="metric"><span>CM4 IPC_Rx_V</span><strong id="uds-cm4-voltage">0x0FA0</strong></div>
+            <div class="metric"><span>UDS_Session</span><strong id="uds-session">0x01</strong></div>
+            <div class="metric"><span>輸入電壓</span><strong id="uds-voltage-value">4000 mV / 0x0FA0</strong></div>
+          </div>
+          <input id="uds-voltage-slider" class="hidden" type="range" min="3000" max="4300" value="4000">
+          <div id="uds-term" class="terminal" style="margin-top:14px;">
+            <div>&gt;&gt; Integrated UDS terminal initialized.</div>
+            <div>&gt;&gt; Use IPC sync before reading voltage.</div>
+          </div>
+          <div class="terminal-input">
+            <input id="uds-input" type="text" placeholder="例如:22 01">
+            <button id="uds-send" class="btn primary">Send</button>
+          </div>
+          <div class="button-row" style="margin-top:12px;">
+            <button class="btn" data-uds="10 03">10 03</button>
+            <button class="btn" data-uds="22 01">22 01</button>
+            <button class="btn" data-uds="27 01">27 01</button>
+            <button id="uds-cm4-off" class="btn danger">模擬 CM4 掛起</button>
+          </div>
+          <div id="uds-cm4-state" class="state-pill green" style="margin-top:12px;"><span class="led"></span>CM4 ONLINE</div>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" style="margin-top:20px;">
+      <div class="panel-title"><h2>把教學變成實務練習</h2></div>
+      <table class="mini-table">
+        <thead><tr><th>練習題</th><th>你要交付的結果</th></tr></thead>
+        <tbody>
+          <tr><td>正常放電流程</td><td>列出從 INIT 到 DISCHARGE 的前置條件與事件 log。</td></tr>
+          <tr><td>診斷讀值一致性</td><td>證明 AFE 電壓、CPU1 資料、CM4 UDS 回應一致。</td></tr>
+          <tr><td>過流保護</td><td>說明接觸器何時斷開,以及為什麼不應自動恢復。</td></tr>
+          <tr><td>CM4 離線</td><td>說明診斷離線不等於高壓安全失效,CPU1 watchdog 還要負責安全收斂。</td></tr>
+        </tbody>
+      </table>
+      <div class="callout" style="margin-top:14px;">完成後,可用每個面板事件 log 右上角的「匯出 .txt」把操作紀錄存成報告附件。學完九章後,再到首頁開 legacy 的三核心完整模擬器對照。</div>
+    </section>
+
+    <nav class="footer-nav">
+      <a href="08_failsafe.html">上一章:失效安全 · 故障注入</a>
+      <a href="index.html">回首頁</a>
+    </nav>
+  </main>
+  <script src="assets/bms-sim.js"></script>
+  <script src="assets/bms-learn.js"></script>
+</body>
+</html>

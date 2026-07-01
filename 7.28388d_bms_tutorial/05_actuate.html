@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>05 致動 · 接觸器與預充 | F28388D BMS 教學模擬器</title>
+  <link rel="stylesheet" href="assets/bms-tutorial.css">
+</head>
+<body data-page="precharge" data-chapter="5">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="brand-title">F28388D BMS 教學模擬器</span><span class="brand-subtitle">05 致動 · 接觸器與預充</span></div>
+      <nav class="nav" aria-label="章節導覽">
+        <a href="index.html">首頁</a><a href="01_overview.html">總覽</a><a href="02_sense.html">量測</a><a href="03_compare.html">比較</a><a href="04_decide.html">決定</a><a href="05_actuate.html" aria-current="page">致動</a><a href="06_report.html">回報</a><a href="07_coordinate.html">協同</a><a href="08_failsafe.html">失效</a><a href="09_integrate.html">整合</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="hero">
+      <div>
+        <span class="eyebrow">Lesson 05 · 鏈的第④環</span>
+        <h1>致動是把決定變成實體動作:閉合主正之前,一定要先預充。</h1>
+        <p class="lead">高壓側有一顆大電容。如果直接閉合主正接觸器,瞬間突波電流會燒掉接點與熔絲。所以要先走預充支路,用電阻限流替電容充電,等電壓追到電池端約 95%,才無縫切到主正。</p>
+      </div>
+      <div class="panel">
+        <h2>狀態</h2>
+        <div style="display:grid;gap:10px;margin-top:12px;">
+          <div id="contactor" class="state-pill red"><span class="led"></span>斷開 OPEN</div>
+          <div class="metric"><span>階段</span><strong id="pre-stage">待命 STANDBY</strong></div>
+          <div class="metric"><span>電容電壓</span><strong id="pre-cap">0 V / 355 V</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="lesson-layout">
+      <aside>
+        <div class="panel">
+          <div class="panel-title"><h2>操作任務</h2></div>
+          <ol class="guide-list">
+            <li><span>1</span><div><strong>按「開始預充」</strong><em>看電容沿 RC 曲線充電。</em></div></li>
+            <li><span>2</span><div><strong>等到 95%</strong><em>主正閉合、預充斷開,進入 RUN。</em></div></li>
+            <li><span>3</span><div><strong>按「負載短路」</strong><em>電壓建不起來,看預充逾時鎖定。</em></div></li>
+          </ol>
+        </div>
+        <div class="panel">
+          <div class="panel-title"><h2>接觸器時序</h2></div>
+          <table class="mini-table">
+            <tr><th>步驟</th><th>動作</th></tr>
+            <tr><td>1</td><td>閉合主負 + 預充繼電器(主正仍開)。</td></tr>
+            <tr><td>2</td><td>電流經預充電阻給電容充電,限突波。</td></tr>
+            <tr><td>3</td><td>電容達 ~95%,閉合主正、斷開預充。</td></tr>
+            <tr><td>逾時</td><td>建不起來 → 判定短路,鎖定 FAULT。</td></tr>
+          </table>
+        </div>
+        <div class="panel">
+          <div class="callout warning">如果這是你的車:每次上電那短短零點幾秒的「喀、喀」,就是主負/預充先動、再切主正的聲音。少了預充,接觸器壽命會被突波電流快速吃掉。</div>
+        </div>
+      </aside>
+
+      <section>
+        <div class="panel">
+          <div class="panel-title"><h2>預充模擬</h2><small>RC 充電 + 接觸器切換</small></div>
+          <div style="margin:6px 0 14px;">
+            <div style="height:14px;border:1px solid var(--line);border-radius:999px;background:var(--surface-2);overflow:hidden;">
+              <div id="pre-bar" style="height:100%;width:0%;background:var(--green);transition:width 0.12s linear;"></div>
+            </div>
+          </div>
+          <div class="button-row">
+            <button id="pre-start" class="btn primary">開始預充(正常)</button>
+            <button id="pre-short" class="btn danger">負載短路情境</button>
+            <button id="pre-reset" class="btn">重置</button>
+          </div>
+          <div class="reg-note">真實對應:三顆繼電器由 GPIO 控制(改寫前要先 <code>EALLOW</code>)。預充完成的判斷是「電容電壓 ≥ 電池端 × 95%」或量測預充電流已衰減;逾時門檻(本頁 1000ms)對應韌體裡的 <code>PRECHARGE_TIMEOUT_MS</code>,逾時即視為負載側短路。</div>
+        </div>
+        <div class="panel">
+          <div class="panel-title"><h2>高壓迴路繼電器</h2><small>跟著預充時序切換</small></div>
+          <div class="relay-grid">
+            <div id="r-neg" class="relay open"><span>主負 Main−</span><strong>斷開 OPEN</strong></div>
+            <div id="r-pre" class="relay open"><span>預充 Precharge</span><strong>斷開 OPEN</strong></div>
+            <div id="r-pos" class="relay open"><span>主正 Main+</span><strong>斷開 OPEN</strong></div>
+          </div>
+          <div id="pre-safety" class="state-pill green" style="margin-top:14px;"><span class="led"></span>安全防禦:正常</div>
+        </div>
+        <div class="panel">
+          <div class="panel-title"><h2>事件紀錄</h2><small>最新事件在最上方</small></div>
+          <div id="pre-log" class="event-log">
+            <div class="event ok">預充實驗待命。</div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" style="margin-top:20px;">
+      <div class="panel-title"><h2>帶走這三句</h2></div>
+      <ul class="checklist">
+        <li>致動前一定要先預充,用電阻限制突波電流,保護接觸器。</li>
+        <li>電容追到電池端約 95% 才閉合主正、斷開預充。</li>
+        <li>預充逾時通常代表負載側短路,要直接鎖定保護。</li>
+      </ul>
+    </section>
+
+    <nav class="footer-nav">
+      <a href="04_decide.html">上一章:決定 · BMS 狀態機</a>
+      <a href="06_report.html">下一章:回報 · CAN/UDS</a>
+    </nav>
+  </main>
+  <script src="assets/bms-sim.js"></script>
+  <script src="assets/bms-learn.js"></script>
+</body>
+</html>

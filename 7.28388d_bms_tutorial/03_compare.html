@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>03 比較 · 安全門檻 | F28388D BMS 教學模擬器</title>
+  <link rel="stylesheet" href="assets/bms-tutorial.css">
+</head>
+<body data-page="compare" data-chapter="3">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="brand-title">F28388D BMS 教學模擬器</span><span class="brand-subtitle">03 比較 · 安全門檻</span></div>
+      <nav class="nav" aria-label="章節導覽">
+        <a href="index.html">首頁</a><a href="01_overview.html">總覽</a><a href="02_sense.html">量測</a><a href="03_compare.html" aria-current="page">比較</a><a href="04_decide.html">決定</a><a href="05_actuate.html">致動</a><a href="06_report.html">回報</a><a href="07_coordinate.html">協同</a><a href="08_failsafe.html">失效</a><a href="09_integrate.html">整合</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="hero">
+      <div>
+        <span class="eyebrow">Lesson 03 · 鏈的第②環</span>
+        <h1>比較這一層只做一件事:把量測值丟進門檻,得到 PASS / HOLD / FAULT。</h1>
+        <p class="lead">它不切換狀態、不開關接觸器,只產生「判定」。把這層單獨拉出來,你會看清楚為什麼 OVP 和「放電上限」是兩個不同的數字,以及那條偏高灰帶的意義。</p>
+      </div>
+      <div class="panel">
+        <h2>三條門檻</h2>
+        <table class="mini-table" style="margin-top:10px;">
+          <tr><th>條件</th><th>判定</th></tr>
+          <tr><td>V ≤ 4150 mV</td><td>可放電窗:允許進 DISCHARGE。</td></tr>
+          <tr><td>4150 &lt; V ≤ 4250</td><td>偏高灰帶:未過充,但不准放電。</td></tr>
+          <tr><td>V &gt; 4250 mV</td><td>OVP:過壓,必須 FAULT。</td></tr>
+          <tr><td>I &gt; 150 A</td><td>OCP:過流,接觸器斷開。</td></tr>
+          <tr><td>T &gt; 60 °C</td><td>OT:過溫,進入保護。</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <section class="lesson-layout">
+      <aside>
+        <div class="panel">
+          <div class="panel-title"><h2>操作任務</h2></div>
+          <ol class="guide-list">
+            <li><span>1</span><div><strong>點一顆電芯</strong><em>注入過壓(4.35V),看它變紅、判定 FAULT。</em></div></li>
+            <li><span>2</span><div><strong>再點同一顆</strong><em>循環成欠壓(2.50V),最低電芯越界。</em></div></li>
+            <li><span>3</span><div><strong>點一個 NTC</strong><em>注入過溫(65°C),溫度也是門檻。</em></div></li>
+            <li><span>4</span><div><strong>電流拉過 150 A</strong><em>即使電壓正常,也會 FAULT。</em></div></li>
+          </ol>
+        </div>
+        <div class="panel">
+          <div class="callout">為什麼要兩個電壓門檻?OVP(4250)是「絕對不能越」的紅線;放電上限(4150)留了一段安全邊界與遲滯,避免電壓在紅線邊緣一直抖動造成反覆開關。</div>
+        </div>
+        <div class="panel">
+          <div class="callout warning">如果這是你的車:廠商把「能放電」的線設得比「過壓跳閘」更保守,就是不想讓你在滿電邊緣頻繁觸發保護,既傷元件也影響體驗。</div>
+        </div>
+      </aside>
+
+      <section>
+        <div class="panel">
+          <div class="panel-title"><h2>96 電芯 / 12 NTC 採樣矩陣</h2><small>點電芯注入過壓/欠壓,點 NTC 注入過溫</small></div>
+          <div class="metric-grid">
+            <div class="metric"><span>最高電芯</span><strong id="compare-max-cell">3700 mV</strong></div>
+            <div class="metric"><span>最低電芯</span><strong id="compare-min-cell">3700 mV</strong></div>
+            <div class="metric"><span>最高溫</span><strong id="compare-max-temp">25 °C</strong></div>
+          </div>
+          <div id="compare-cell-grid" class="cell-grid" style="margin-top:12px;"></div>
+          <div id="compare-ntc-grid" class="ntc-grid"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title"><h2>門檻判定</h2><small>把最高/最低值丟進門檻,只產生判定</small></div>
+          <div style="display:grid;gap:10px;margin-bottom:14px;">
+            <div id="compare-verdict" class="state-pill"><span class="led"></span>綜合判定</div>
+          </div>
+          <div id="compare-voltage-status" class="callout"></div>
+          <div id="compare-temp-status" class="callout" style="margin-top:10px;"></div>
+          <label class="range-row" style="margin-top:14px;">
+            <span class="range-label"><span>Pack 總電流</span><strong id="compare-current-value">0.0 A</strong></span>
+            <input id="compare-current-slider" type="range" min="0" max="220" value="0">
+          </label>
+          <div id="compare-current-status" class="callout"></div>
+          <div class="metric-grid" style="margin-top:14px;">
+            <div class="metric"><span>最高電芯 (hex)</span><strong id="compare-voltage-hex">0x0E74</strong></div>
+            <div class="metric"><span>電流 (hex)</span><strong id="compare-current-hex">0x0000</strong></div>
+            <div class="metric"><span>放電窗</span><strong>≤ 4150</strong></div>
+          </div>
+          <div class="reg-note">真實對應:這層在韌體裡通常是一串純比較,例如 <code>if (max_cell &gt; OVP_MV) verdict = FAULT;</code>。它把 96 顆電芯的最高/最低值與最高溫拿去和門檻比,只回傳判定旗標(flag),把「要不要切狀態、要不要動接觸器」留給下一章的狀態機。把判斷和動作分開,程式才好測、好驗證。</div>
+        </div>
+        <div class="panel">
+          <div class="callout">小提醒:這頁沒有事件 log,因為「比較」是無狀態的純函式——同樣的輸入永遠得到同樣的判定。狀態與歷程是下一章狀態機的事。</div>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" style="margin-top:20px;">
+      <div class="panel-title"><h2>帶走這三句</h2></div>
+      <ul class="checklist">
+        <li>比較層是無狀態純函式:輸入相同,判定就相同。</li>
+        <li>OVP 與放電上限是兩個數字,中間那段是安全邊界/遲滯。</li>
+        <li>判斷與動作分離,系統才好測試、好驗證。</li>
+      </ul>
+    </section>
+
+    <nav class="footer-nav">
+      <a href="02_sense.html">上一章:量測 · AFE 感測</a>
+      <a href="04_decide.html">下一章:決定 · BMS 狀態機</a>
+    </nav>
+  </main>
+  <script src="assets/bms-sim.js"></script>
+  <script src="assets/bms-learn.js"></script>
+</body>
+</html>

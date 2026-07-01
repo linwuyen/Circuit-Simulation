@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>08 失效安全 · 故障注入 | F28388D BMS 教學模擬器</title>
+  <link rel="stylesheet" href="assets/bms-tutorial.css">
+</head>
+<body data-page="faults" data-chapter="8">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="brand-title">F28388D BMS 教學模擬器</span><span class="brand-subtitle">08 失效安全 · 故障注入</span></div>
+      <nav class="nav" aria-label="章節導覽">
+        <a href="index.html">首頁</a><a href="01_overview.html">總覽</a><a href="02_sense.html">量測</a><a href="03_compare.html">比較</a><a href="04_decide.html">決定</a><a href="05_actuate.html">致動</a><a href="06_report.html">回報</a><a href="07_coordinate.html">協同</a><a href="08_failsafe.html" aria-current="page">失效</a><a href="09_integrate.html">整合</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="hero">
+      <div>
+        <span class="eyebrow">Lesson 08 · 鏈的安全出口</span>
+        <h1>安全設計不能只看正常流程,要故意把系統弄壞來驗證反應。</h1>
+        <p class="lead">這頁用四個情境練習故障判讀:過壓、過流、AFE SPI 失聯、CM4 掛起。每個情境都對應鏈上不同環節的失效。目標不是讓畫面變紅,而是看懂「為什麼要打開接觸器,而且不自動恢復」。</p>
+      </div>
+      <div class="panel">
+        <h2>安全狀態</h2>
+        <div style="display:grid;gap:10px;margin-top:12px;">
+          <div id="system-state" class="state-pill amber"><span class="led"></span>STANDBY</div>
+          <div id="contactor" class="state-pill red"><span class="led"></span>斷開 OPEN</div>
+          <div class="metric"><span>WDT_to_CM4</span><strong id="fault-watchdog">OK</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="lesson-layout">
+      <aside>
+        <div class="panel">
+          <div class="panel-title"><h2>故障實驗</h2></div>
+          <div class="button-row">
+            <button class="btn danger" data-fault="ovp">過壓 OVP</button>
+            <button class="btn danger" data-fault="ocp">過流 OCP</button>
+            <button class="btn danger" data-fault="spi">AFE SPI 失聯</button>
+            <button class="btn danger" data-fault="cm4">CM4 掛起</button>
+            <button id="fault-reset" class="btn">重置實驗</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title"><h2>對應鏈的哪一環</h2></div>
+          <table class="mini-table">
+            <tr><th>故障</th><th>失效環節 → 安全反應</th></tr>
+            <tr><td>OVP</td><td>比較/決定 → 禁止充放電,FAULT_LOCK。</td></tr>
+            <tr><td>OCP</td><td>致動 → 斷開接觸器,避免熱失控。</td></tr>
+            <tr><td>SPI 失聯</td><td>量測 → 資料不可信,不能繼續放電。</td></tr>
+            <tr><td>CM4 掛起</td><td>回報/協同 → 診斷離線,CPU1 watchdog 仍要拉回安全。</td></tr>
+          </table>
+        </div>
+        <div class="panel">
+          <div class="callout warning">如果這是你的車:故障燈亮起後不會因為你重新踩油門就消失,必須進廠用診斷儀確認原因、清除故障碼,這正是「鎖定不自動恢復」的用意。</div>
+        </div>
+      </aside>
+
+      <section>
+        <div class="panel">
+          <div class="panel-title"><h2>狀態轉換</h2><small>看故障如何收斂到安全狀態</small></div>
+          <div class="state-flow">
+            <div class="state-box" data-state="INIT">INIT</div>
+            <div class="state-box active" data-state="STANDBY">STANDBY</div>
+            <div class="state-box" data-state="DISCHARGE">DISCHARGE</div>
+            <div class="state-box" data-state="FAULT">FAULT_LOCK</div>
+          </div>
+          <div class="callout warning" style="margin-top:16px;">FAULT_LOCK 的重點是「鎖定」。實車通常需要明確的重置流程、故障清除條件與診斷紀錄,不應該自己偷偷恢復。</div>
+        </div>
+        <div class="panel">
+          <div class="panel-title"><h2>事件紀錄</h2><small>最新事件在最上方</small></div>
+          <div id="fault-log" class="event-log">
+            <div class="event ok">故障注入實驗待命。</div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" style="margin-top:20px;">
+      <div class="panel-title"><h2>帶走這三句</h2></div>
+      <ul class="checklist">
+        <li>每種故障都對應鏈上某一環的失效,反應方式不同但都導向安全。</li>
+        <li>感測失聯時,正確做法是「不信任資料」而非繼續放電。</li>
+        <li>診斷核心掛掉不等於高壓安全失效,看門狗仍要負責收斂。</li>
+      </ul>
+    </section>
+
+    <nav class="footer-nav">
+      <a href="07_coordinate.html">上一章:協同 · 多核與 IPC</a>
+      <a href="09_integrate.html">下一章:整合實驗</a>
+    </nav>
+  </main>
+  <script src="assets/bms-sim.js"></script>
+  <script src="assets/bms-learn.js"></script>
+</body>
+</html>

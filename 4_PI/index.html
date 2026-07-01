@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PI 控制器波德圖｜微課程地圖</title>
+    <script src="../assets/vendor/tailwindcss-cdn.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
+        .card { transition: all .15s; }
+        .card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.08); }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+<div class="max-w-5xl mx-auto">
+
+    <div class="mb-8">
+        <p class="text-sm font-semibold text-blue-600 mb-1">逆變器控制 · 波德圖入門</p>
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">從零讀懂 PI 控制器的波德圖</h1>
+        <p class="text-gray-600 max-w-2xl">原本一頁塞了 8 個概念,初學者會被淹沒。這裡把它拆成 <b>6 個小關卡</b>,每一關只講一件事、只動 1~2 個滑桿,看得到因果。照順序走完,你就能自己設計控制器。</p>
+    </div>
+
+    <!-- 學習路徑 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        <a href="01_what_is_bode.html" class="card block bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+            <div class="flex items-center gap-3 mb-2">
+                <span class="w-9 h-9 flex items-center justify-center rounded-lg bg-blue-100 text-blue-700 font-bold">01</span>
+                <h2 class="font-bold text-gray-800">波德圖的「一個點」是什麼</h2>
+            </div>
+            <p class="text-sm text-gray-600">丟一個正弦波進系統,輸出被放大幾倍、慢了幾度。把這件事看懂,波德圖就只是把所有頻率連起來而已。</p>
+            <p class="text-xs text-gray-400 mt-2">學會：增益、相位、dB、為何用 log 頻率</p>
+        </a>
+
+        <a href="02_integrator.html" class="card block bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+            <div class="flex items-center gap-3 mb-2">
+                <span class="w-9 h-9 flex items-center justify-center rounded-lg bg-blue-100 text-blue-700 font-bold">02</span>
+                <h2 class="font-bold text-gray-800">積分器 Ki/s 的「指紋」</h2>
+            </div>
+            <p class="text-sm text-gray-600">只看積分器：斜率永遠 −20dB/decade、相位永遠 −90°。它讓低頻超準,代價是吃掉相位裕度。</p>
+            <p class="text-xs text-gray-400 mt-2">學會：積分=消穩態誤差，代價 −90°</p>
+        </a>
+
+        <a href="03_pi_controller.html" class="card block bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+            <div class="flex items-center gap-3 mb-2">
+                <span class="w-9 h-9 flex items-center justify-center rounded-lg bg-blue-100 text-blue-700 font-bold">03</span>
+                <h2 class="font-bold text-gray-800">加上 Kp → PI 控制器 C(s)</h2>
+            </div>
+            <p class="text-sm text-gray-600">比例 + 積分合體。轉折頻率 fz = Ki/(2π·Kp) 決定「低頻用積分、高頻用比例」在哪裡交棒。</p>
+            <p class="text-xs text-gray-400 mt-2">學會：Kp 與 Ki 各自的角色</p>
+        </a>
+
+        <a href="04_lc_plant.html" class="card block bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+            <div class="flex items-center gap-3 mb-2">
+                <span class="w-9 h-9 flex items-center justify-center rounded-lg bg-amber-100 text-amber-700 font-bold">04</span>
+                <h2 class="font-bold text-gray-800">LC 受控體 P(s) 會諧振</h2>
+            </div>
+            <p class="text-sm text-gray-600">硬體本身(LC 濾波器)在諧振頻率會有一個放大峰。阻尼越小峰越尖越危險——逆變器最怕的就是它。</p>
+            <p class="text-xs text-gray-400 mt-2">學會：諧振峰、阻尼 ζ、相位摔到 −180°</p>
+        </a>
+
+        <a href="05_add_in_db.html" class="card block bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+            <div class="flex items-center gap-3 mb-2">
+                <span class="w-9 h-9 flex items-center justify-center rounded-lg bg-blue-100 text-blue-700 font-bold">05</span>
+                <h2 class="font-bold text-gray-800">相乘變相加 → 開迴路 L(s)</h2>
+            </div>
+            <p class="text-sm text-gray-600">波德圖最大的好處：在 dB 上,把控制器 C(s) 和受控體 P(s) 上下「相加」就得到 L(s)。</p>
+            <p class="text-xs text-gray-400 mt-2">學會：L = C + P（在 dB 上）</p>
+        </a>
+
+        <a href="06_stability.html" class="card block bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+            <div class="flex items-center gap-3 mb-2">
+                <span class="w-9 h-9 flex items-center justify-center rounded-lg bg-green-100 text-green-700 font-bold">06</span>
+                <h2 class="font-bold text-gray-800">穩定度 + 時域：fc / PM / GM</h2>
+            </div>
+            <p class="text-sm text-gray-600">三個關鍵指標,並排顯示「給一個指令時輸出怎麼追上去」。親眼看到 PM 小 = 過衝振鈴。</p>
+            <p class="text-xs text-gray-400 mt-2">學會：把頻域數字翻成真實的時域行為</p>
+        </a>
+
+    </div>
+
+    <!-- 沙盒 + 挑戰 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        <a href="pi.html" class="card block bg-gradient-to-r from-slate-800 to-slate-700 text-white rounded-xl p-5 shadow-sm">
+            <div class="flex items-center gap-3 mb-1">
+                <span class="w-9 h-9 flex items-center justify-center rounded-lg bg-white/15 font-bold">★</span>
+                <h2 class="font-bold">設計沙盒（總複習）</h2>
+            </div>
+            <p class="text-sm text-slate-200">走完 6 關後,回到完整模擬器自由設計。三個一鍵情境、即時健康度分析全在這裡。</p>
+        </a>
+        <a href="07_challenge.html" class="card block bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-xl p-5 shadow-sm">
+            <div class="flex items-center gap-3 mb-1">
+                <span class="w-9 h-9 flex items-center justify-center rounded-lg bg-white/20 font-bold">🏆</span>
+                <h2 class="font-bold">挑戰任務（驗收）</h2>
+            </div>
+            <p class="text-sm text-amber-50">4 道由淺入深的設計題,給規格、你來調 Kp/Ki,即時判定 ✅/⬜,全達標就通關。會記住你破過的關。</p>
+        </a>
+    </div>
+
+    <p class="text-center text-xs text-gray-400 mt-8">建議照 01 → 06 順序學習。每頁底部都有「下一關」。</p>
+</div>
+</body>
+</html>

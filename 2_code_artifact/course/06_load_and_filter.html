@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第 6 課 · 負載與 LC 濾波</title>
+  <script src="../../assets/vendor/tailwindcss-cdn.js"></script>
+  <link rel="stylesheet" href="shared/theme.css">
+</head>
+<body class="min-h-screen">
+  <div class="max-w-6xl mx-auto px-4 py-6">
+    <header class="flex items-center justify-between mb-5">
+      <div class="flex items-center gap-3">
+        <span class="tag text-emerald-400">第 6 課 / 8</span>
+        <h1 class="text-lg md:text-xl font-bold text-slate-100">🧹 負載類型與 LC 濾波</h1>
+      </div>
+      <a href="index.html" class="text-xs text-slate-400 hover:text-emerald-400">📍 課程地圖</a>
+    </header>
+
+    <div class="edu-card edu-goal mb-4">
+      <h3 class="text-emerald-400">🎯 本課目標</h3>
+      <p>同樣一串 PWM 電壓，<b>接不同負載，電流長相完全不同</b>。本課比較三種負載：純電阻 <b>R</b>、電阻+電感 <b>RL</b>、以及加上 <b>LC 低通濾波器</b>，並理解濾波器如何把方塊 PWM 變回乾淨正弦——以及它的<b>截止頻率</b>該怎麼擺。</p>
+    </div>
+
+    <div id="sim" class="mb-5"></div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+      <div class="edu-card edu-try">
+        <h3 class="text-amber-400">🔬 動手做（切換上方「負載類型」）</h3>
+        <ol>
+          <li><b>純電阻 R</b>：金色電流 CH3 跟電壓 CH1 <b>長得一模一樣</b>（同相、一樣方）—— 電阻不儲能。</li>
+          <li><b>感性 RL</b>：CH3 變得<b>平滑且落後</b>電壓 —— 電感把高頻濾掉、又造成相位延遲。</li>
+          <li><b>LC 濾波器</b>：青色 CH2（負載端電壓）變成一條<b>乾淨正弦</b>，PWM 的稜角全被磨平。</li>
+        </ol>
+      </div>
+      <div class="edu-card edu-expect">
+        <h3 class="text-cyan-400">✅ 你應該看到 / 為什麼</h3>
+        <p>負載決定電流：<b>R</b> 讓電流照抄電壓；<b>L</b> 讓電流是電壓的「積分」（平滑+落後）；<b>LC</b> 形成<b>二階低通濾波器</b>，放行低頻基波、擋掉高頻開關諧波。</p>
+        <p>本模型 L<sub>f</sub>=12mH、C<sub>f</sub>=33µF，截止頻率 <b style="font-family:monospace">f₀ = 1/(2π√(LC)) ≈ 253 Hz</b>。它剛好夾在<b>基波 50Hz（放行）</b>與<b>載波 1000Hz（阻擋）</b>之間，所以正弦留下、開關紋波被濾掉。</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="edu-card edu-apply">
+        <h3 class="text-blue-400">🌍 這在真實世界用在哪</h3>
+        <ul>
+          <li>逆變器輸出端的 LC 濾波器，決定併網/供電的波形品質（THD 法規）。</li>
+          <li>馬達本身就是 RL 負載，所以驅動馬達時常常<b>不需要</b>額外濾波器。</li>
+          <li>DC-DC 轉換器的輸出 LC 也是同個原理：把開關漣波濾成平直直流。</li>
+        </ul>
+      </div>
+      <div class="edu-card edu-tradeoff">
+        <h3 class="text-purple-300">⚖️ 工程取捨：截止頻率怎麼擺？</h3>
+        <p>規則：<b>基波 ≪ f₀ ≪ 載波</b>。f₀ 太高 → 濾不乾淨、紋波殘留；f₀ 太低（L、C 很大）→ 波形乾淨但<b>體積大、成本高、動態反應慢</b>。把載波 f<sub>c</sub> 調高，可以讓你用更小的 L、C 達到同樣乾淨度——這就把第 3 課的「f<sub>c</sub> 取捨」串起來了。</p>
+      </div>
+    </div>
+
+    <div class="edu-card quiz mt-4">
+      <h3 class="text-slate-200">❓ 考考你</h3>
+      <details><summary>為什麼純電阻負載的電流跟電壓一模一樣，電感負載卻不是？</summary><div class="ans">電阻 i=v/R，瞬間跟隨。電感 i 由 v 積分而來（di/dt=v/L），會平滑高頻並造成落後，所以電流更圓滑、相位落後。</div></details>
+      <details><summary>如果把 LC 的截止頻率設得比載波頻率還高，會怎樣？</summary><div class="ans">濾波器擋不住開關諧波，負載端仍有明顯紋波，等於沒濾乾淨。f₀ 必須明顯低於載波頻率。</div></details>
+      <details><summary>驅動馬達為什麼常常不用額外的輸出濾波器？</summary><div class="ans">馬達繞組本身是很大的電感（RL 負載），已經把電流濾得很平滑，PWM 電壓的高頻成分被繞組電感擋掉了。</div></details>
+    </div>
+
+    <nav id="lesson-nav" class="lesson-nav"></nav>
+  </div>
+
+  <script src="shared/widget.js"></script>
+  <script src="shared/ui.js"></script>
+  <script>
+    PE.mount('#sim', {
+      topology: 'half',
+      allowTopology: false,
+      loads: ['R', 'RL', 'LC'],
+      modulations: ['spwm'],
+      controls: { ma: true, freq: true, fc: true, manual: false },
+      channels: { ch1: true, ch2: true, ch3: true },
+      defaults: { load: 'R', modulation: 'spwm', autoMode: true, ma: 0.8, freq: 50, fc: 1000 },
+      metrics: false
+    });
+    EDU.renderNav(6);
+  </script>
+</body>
+</html>

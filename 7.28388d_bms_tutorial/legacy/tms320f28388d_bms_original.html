@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TMS320F28388D BMS 3-Core Simulator</title>
+    <!-- Tailwind CSS -->
+    <script src="../../assets/vendor/tailwindcss-cdn.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="../../assets/vendor/fontawesome/css/all.min.css">
+    <style>        
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background-color: #0b0f19;
+        }
+        .tech-font {
+            font-family: 'Share Tech Mono', monospace;
+        }
+        .glow-cyan {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.35);
+        }
+        .glow-red {
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+        }
+        .glow-green {
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.4);
+        }
+        /* 自定義捲軸 */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111827;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+    </style>
+</head>
+<body class="text-slate-200 min-h-screen p-4 xl:p-6 flex flex-col justify-between">
+
+    <!-- 頂部導航欄與系統標題 -->
+    <header class="border-b border-cyan-900/50 pb-4 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="flex items-center gap-3">
+            <div class="bg-cyan-950 p-2.5 rounded-lg border border-cyan-500/30 glow-cyan">
+                <i class="fa-solid fa-microchip text-cyan-400 text-2xl animate-pulse"></i>
+            </div>
+            <div>
+                <h1 class="text-xl md:text-2xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-400">
+                    TMS320F28388D BMS 雙核心/三核心系統模擬器
+                </h1>
+                <p class="text-xs text-slate-400">
+                    模擬專案一 (三核無鎖 IPC)、專案二 (CAN-FD & UDS 診斷棧)、專案三 (AFE SPI-DMA 與 CRC 容錯重傳)
+                </p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3 bg-slate-900/80 border border-slate-800 px-4 py-2 rounded-lg text-sm">
+            <span class="flex h-2.5 w-2.5 relative">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+            <span class="text-xs text-slate-400">硬體仿真鏈路: 100% 正常</span>
+            <span class="border-l border-slate-800 pl-3 text-cyan-400 font-bold tech-font text-base" id="system-clock">200.00 MHz</span>
+        </div>
+    </header>
+
+    <!-- 主工作區：三欄網格佈局 -->
+    <main class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-grow">
+
+        <!-- 左側欄：三核心架構與記憶體共享可視化 (占 5 欄) -->
+        <section class="lg:col-span-5 flex flex-col gap-6">
+            
+            <!-- 核心架構區 -->
+            <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col gap-4 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full filter blur-xl pointer-events-none"></div>
+                <h2 class="text-sm font-semibold tracking-wider text-cyan-400 border-b border-slate-800 pb-2">
+                    <i class="fa-solid fa-network-wired mr-2"></i>TMS320F28388D 內部三核運行監控
+                </h2>
+                
+                <!-- CPU1、CPU2、CM 架構卡片 -->
+                <div class="grid grid-cols-3 gap-3">
+                    
+                    <!-- CPU1 卡片 -->
+                    <div id="card-cpu1" class="border border-slate-800 bg-slate-950/80 p-3 rounded-lg flex flex-col justify-between transition-all duration-300">
+                        <div class="flex justify-between items-start">
+                            <span class="text-xs font-bold text-indigo-400">CPU1</span>
+                            <span class="text-[10px] bg-indigo-950 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-800">C28x-1</span>
+                        </div>
+                        <div class="my-3">
+                            <div class="text-[10px] text-slate-400">保護 & 總壓監控</div>
+                            <div class="text-sm font-bold tech-font text-emerald-400 mt-1" id="cpu1-task">100μs ISR 正常</div>
+                        </div>
+                        <div class="border-t border-slate-900 pt-2 flex flex-col gap-1 text-[10px] text-slate-400">
+                            <div>主繼電器: <span class="font-bold" id="status-relay-pos">斷開</span></div>
+                            <div>預充繼電器: <span class="font-bold" id="status-relay-pre">斷開</span></div>
+                        </div>
+                    </div>
+
+                    <!-- CPU2 卡片 -->
+                    <div id="card-cpu2" class="border border-cyan-500/30 bg-slate-950/80 p-3 rounded-lg flex flex-col justify-between glow-cyan transition-all duration-300">
+                        <div class="flex justify-between items-start">
+                            <span class="text-xs font-bold text-cyan-400">CPU2</span>
+                            <span class="text-[10px] bg-cyan-950 text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-800">C28x-2</span>
+                        </div>
+                        <div class="my-3">
+                            <div class="text-[10px] text-slate-400">BMS 狀態與控制</div>
+                            <div class="text-sm font-bold tech-font text-cyan-400 mt-1" id="cpu2-state">STATE: INIT</div>
+                        </div>
+                        <div class="border-t border-slate-900 pt-2 flex flex-col gap-1 text-[10px] text-slate-400">
+                            <div>SoC: <span class="font-bold text-cyan-400 tech-font" id="status-soc">85.4%</span></div>
+                            <div>均衡開關: <span class="font-bold" id="status-balancing">關閉</span></div>
+                        </div>
+                    </div>
+
+                    <!-- CM 卡片 -->
+                    <div id="card-cm" class="border border-slate-800 bg-slate-950/80 p-3 rounded-lg flex flex-col justify-between transition-all duration-300">
+                        <div class="flex justify-between items-start">
+                            <span class="text-xs font-bold text-amber-400">CM</span>
+                            <span class="text-[10px] bg-amber-950 text-amber-300 px-1.5 py-0.5 rounded border border-amber-800">Cortex-M4</span>
+                        </div>
+                        <div class="my-3">
+                            <div class="text-[10px] text-slate-400">外部通訊 & 診斷</div>
+                            <div class="text-sm font-bold tech-font text-amber-400 mt-1">CAN-FD: 5Mbps</div>
+                        </div>
+                        <div class="border-t border-slate-900 pt-2 flex flex-col gap-1 text-[10px] text-slate-400">
+                            <div>UDS 權限: <span class="font-bold text-rose-500" id="status-uds-lock">LOCKED</span></div>
+                            <div>MCAN FIFO: <span class="font-bold text-emerald-400" id="status-mcan-fifo">空閒</span></div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Shared RAM (GS0/GS1 Ping-Pong 緩衝區可視化) -->
+                <div class="bg-slate-950 border border-slate-800 p-3 rounded-lg flex flex-col gap-2">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-400">GS0 共享記憶體雙緩衝區 (CPU2 ──> CM)</span>
+                        <span class="text-[10px] text-cyan-400 bg-cyan-950/40 px-1.5 py-0.5 rounded border border-cyan-900/50">Ping-Pong Mode</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-4 py-2 px-1">
+                        <!-- PING 緩衝 -->
+                        <div id="buf-ping" class="flex-1 bg-cyan-950/30 border border-cyan-500/50 rounded p-2 text-center transition-all duration-300">
+                            <div class="text-[10px] font-bold text-cyan-400">PING BUFFER</div>
+                            <div class="text-[9px] text-slate-400 mt-1" id="ping-status">數據就緒 (0x0000C000)</div>
+                        </div>
+                        <!-- 動態傳輸箭頭 -->
+                        <div class="flex flex-col items-center justify-center">
+                            <i id="bus-flow-icon" class="fa-solid fa-angles-right text-cyan-400 text-sm animate-pulse"></i>
+                            <span class="text-[8px] text-slate-500 mt-1">1.2μs Copy</span>
+                        </div>
+                        <!-- PONG 緩衝 -->
+                        <div id="buf-pong" class="flex-1 bg-slate-900 border border-slate-800 rounded p-2 text-center transition-all duration-300">
+                            <div class="text-[10px] font-bold text-slate-500">PONG BUFFER</div>
+                            <div class="text-[9px] text-slate-500 mt-1" id="pong-status">寫入中 (0x0000D000)</div>
+                        </div>
+                    </div>
+                    <!-- 數據封包欄位即時解析 -->
+                    <div class="text-[10px] bg-slate-900 p-2 rounded text-slate-400 leading-relaxed font-mono">
+                        <div class="flex justify-between"><span class="text-slate-500">GS1 (CM CMD):</span> <span class="text-emerald-400" id="gs1-cmd">0x0000E000 -> STANDBY</span></div>
+                        <div class="flex justify-between"><span class="text-slate-500">GS0 Active Addr:</span> <span class="text-cyan-400" id="gs0-addr">0x0000C000 (Ping)</span></div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- SPI + DMA AFE 仿真晶片與噪聲干擾模擬 -->
+            <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col gap-4 relative overflow-hidden">
+                <h2 class="text-sm font-semibold tracking-wider text-teal-400 border-b border-slate-800 pb-2">
+                    <i class="fa-solid fa-wifi mr-2"></i>專案三: AFE 晶片模擬器 & SPI-DMA 鏈路
+                </h2>
+                
+                <div class="bg-slate-950 border border-slate-800 p-3 rounded-lg flex flex-col gap-3">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-400">外部 BQ76952 AFE 仿真晶片 (SPI 10MHz + DMA 通道 1)</span>
+                        <span id="afe-link-badge" class="text-[10px] text-teal-400 bg-teal-950/40 px-1.5 py-0.5 rounded border border-teal-900/50">CRC-8 查表驗證開啟</span>
+                    </div>
+
+                    <!-- 物理參數與重試狀態 -->
+                    <div class="grid grid-cols-2 gap-3 text-xs">
+                        <div class="bg-slate-900 p-2 rounded flex flex-col justify-between">
+                            <span class="text-slate-500">SPI 波特率 (SPIBRR=4)</span>
+                            <span class="font-bold text-slate-300 mt-1">10.0 Mbps</span>
+                        </div>
+                        <div class="bg-slate-900 p-2 rounded flex flex-col justify-between">
+                            <span class="text-slate-500">AFE 通訊故障計數 (Retry)</span>
+                            <span class="font-bold mt-1 text-emerald-400 tech-font text-base" id="afe-retry">0 / 3 (無丟包)</span>
+                        </div>
+                    </div>
+
+                    <!-- 噪聲滑動條 -->
+                    <div class="bg-slate-900 p-3 rounded flex flex-col gap-2">
+                        <div class="flex justify-between text-[11px]">
+                            <span class="text-slate-400"><i class="fa-solid fa-bolt text-yellow-500 mr-1"></i>共模干擾瞬態噪聲注入 (EMI Noise)</span>
+                            <span class="text-amber-400 font-bold tech-font" id="noise-val">0 %</span>
+                        </div>
+                        <input type="range" id="noise-slider" min="0" max="100" value="0" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                        <div class="text-[9px] text-slate-500">
+                            提高噪聲模擬共模噪聲引發的 SPI 數據位元翻轉。超過 50% 將觸發 CRC-8 錯誤並進入 3 次重傳。
+                        </div>
+                    </div>
+
+                    <!-- AFE 即時通訊波形與傳輸成功率 -->
+                    <div class="flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-900 pt-2">
+                        <span>SPI 幀大小: <span class="text-teal-400">192 Bytes</span></span>
+                        <span>查表算力耗時: <span class="text-teal-400">1.92 μs</span></span>
+                        <span>通訊成功率: <span class="text-emerald-400 font-bold" id="comm-success-rate">100.0%</span></span>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- 中間欄：96顆電芯與12路NTC矩陣 (占 4 欄) -->
+        <section class="lg:col-span-4 flex flex-col gap-6">
+            
+            <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col gap-4 flex-grow">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <h2 class="text-sm font-semibold tracking-wider text-indigo-400">
+                        <i class="fa-solid fa-battery-three-quarters mr-2"></i>96 電芯與 12 NTC 採樣矩陣
+                    </h2>
+                    <button onclick="resetAllCells()" class="text-[10px] text-cyan-400 hover:text-cyan-300 transition-colors bg-cyan-950/30 px-2 py-0.5 rounded border border-cyan-900">
+                        <i class="fa-solid fa-rotate-left mr-1"></i>一鍵還原
+                    </button>
+                </div>
+
+                <!-- 故障注入指南 -->
+                <p class="text-[10px] text-slate-400 leading-relaxed bg-slate-950 p-2.5 rounded border border-slate-900">
+                    <strong class="text-amber-400">互動式保護模擬：</strong> 點擊矩陣中任何一個 <span class="text-emerald-400">電芯</span> 注入過壓 (4.35V) 或欠壓 (2.50V)；點擊 <span class="text-orange-400">NTC</span> 注入過溫 (65°C)，觀察 CPU1 的硬體安全關斷與 UDS DTC 記錄。
+                </p>
+
+                <!-- 96 顆電芯網格 (簡化為 96 個微型方格) -->
+                <div>
+                    <div class="flex justify-between items-center text-xs mb-2">
+                        <span class="text-slate-400 font-bold">96-Cell 串聯電壓矩陣 (單位: V)</span>
+                        <span class="text-[10px] text-slate-500">標準: 3.0V - 4.2V</span>
+                    </div>
+                    <!-- 96 電芯網格容器 -->
+                    <div class="grid grid-cols-12 gap-1 bg-slate-950 p-2 rounded-lg border border-slate-800 max-h-[190px] overflow-y-auto" id="cell-grid">
+                        <!-- JS 動態生成 96 個 Cell -->
+                    </div>
+                </div>
+
+                <!-- 12 路 NTC 溫度監控 -->
+                <div>
+                    <div class="flex justify-between items-center text-xs mb-2">
+                        <span class="text-slate-400 font-bold">12-Channel NTC 溫度採樣 (單位: °C)</span>
+                        <span class="text-[10px] text-slate-500">保護點: &gt;62 °C</span>
+                    </div>
+                    <div class="grid grid-cols-6 gap-1.5 bg-slate-950 p-2 rounded-lg border border-slate-800" id="ntc-grid">
+                        <!-- JS 動態生成 12 個 NTC -->
+                    </div>
+                </div>
+
+                <!-- 系統即時總線數據指標 -->
+                <div class="grid grid-cols-3 gap-2 mt-auto">
+                    <div class="bg-slate-950 border border-slate-800 p-2 rounded text-center">
+                        <div class="text-[9px] text-slate-500">電芯最高電壓</div>
+                        <div class="text-xs font-bold mt-1 tech-font text-cyan-400" id="val-max-cell">3.725 V</div>
+                    </div>
+                    <div class="bg-slate-950 border border-slate-800 p-2 rounded text-center">
+                        <div class="text-[9px] text-slate-500">電芯最低電壓</div>
+                        <div class="text-xs font-bold mt-1 tech-font text-cyan-400" id="val-min-cell">3.712 V</div>
+                    </div>
+                    <div class="bg-slate-950 border border-slate-800 p-2 rounded text-center">
+                        <div class="text-[9px] text-slate-500">最大電芯溫差</div>
+                        <div class="text-xs font-bold mt-1 tech-font text-cyan-400" id="val-temp-diff">1.5 °C</div>
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- 右側欄：UDS 診斷儀表板與 VCU 控制台 (占 3 欄) -->
+        <section class="lg:col-span-3 flex flex-col gap-6">
+            
+            <!-- VCU 主機指令控制台 -->
+            <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col gap-4">
+                <h2 class="text-sm font-semibold tracking-wider text-indigo-400 border-b border-slate-800 pb-2">
+                    <i class="fa-solid fa-car mr-2"></i>整車控制器 (VCU / CAN-FD 主機)
+                </h2>
+                
+                <div class="flex flex-col gap-2.5">
+                    <button onclick="sendVcuCommand('CMD_START_PRECHARGE')" class="w-full py-2 bg-indigo-950/40 hover:bg-indigo-900/60 border border-indigo-700/50 hover:border-indigo-500 text-indigo-300 font-bold rounded-lg text-xs transition-all flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-plug text-indigo-400"></i>發送「啟動預充電」指令
+                    </button>
+                    <button onclick="sendVcuCommand('CMD_SHUTDOWN')" class="w-full py-2 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-900/50 hover:border-rose-500 text-rose-300 font-bold rounded-lg text-xs transition-all flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-power-off text-rose-400"></i>發送「緊急安全關斷」
+                    </button>
+                </div>
+            </div>
+
+            <!-- UDS 診斷會話主控台 -->
+            <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col gap-4 flex-grow relative overflow-hidden">
+                <h2 class="text-sm font-semibold tracking-wider text-amber-400 border-b border-slate-800 pb-2">
+                    <i class="fa-solid fa-user-shield mr-2"></i>ISO 14229 UDS 診斷終端
+                </h2>
+
+                <div class="bg-slate-950 border border-slate-800 p-2.5 rounded-lg flex flex-col gap-3 text-xs">
+                    
+                    <!-- UDS 安全訪問模組 -->
+                    <div class="border-b border-slate-800/60 pb-3 flex flex-col gap-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-400 font-bold">0x27 Security Access</span>
+                            <span id="uds-lock-badge" class="text-[9px] bg-rose-950/60 text-rose-400 px-1.5 py-0.5 rounded border border-rose-900">LOCKED</span>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-2 text-[11px] my-1">
+                            <button onclick="udsRequestSeed()" class="py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded font-medium transition-all">
+                                1. 請求 Seed (01)
+                            </button>
+                            <button onclick="udsAutoSolveKey()" id="btn-calc-key" disabled class="py-1.5 bg-slate-900/40 border border-slate-800/40 text-slate-500 rounded font-medium transition-all">
+                                2. 自動推導 Key
+                            </button>
+                        </div>
+
+                        <!-- 數據流可視化 -->
+                        <div class="bg-slate-900 p-2 rounded text-[10px] font-mono flex flex-col gap-1 text-slate-400">
+                            <div>Seed: <span class="text-amber-400 font-bold" id="uds-seed-display">0x00000000</span></div>
+                            <div>密鑰算法: <span class="text-indigo-400">FNV-1a 32-bit</span></div>
+                        </div>
+
+                        <!-- 發送密鑰驗證 -->
+                        <div class="flex gap-2 mt-1">
+                            <input type="text" id="uds-key-input" placeholder="輸入 32-bit Key 十六進位" class="flex-grow bg-slate-900 border border-slate-800 rounded px-2.5 py-1 text-[11px] font-mono text-cyan-400 focus:outline-none focus:border-cyan-500">
+                            <button onclick="udsVerifyKey()" class="px-3 bg-cyan-950 text-cyan-400 border border-cyan-800 rounded font-bold text-[11px] hover:bg-cyan-900/60 transition-all">
+                                驗證 (02)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 讀取故障碼 (DTC) 模組 -->
+                    <div class="flex flex-col gap-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-400 font-bold">0x19 Read DTC</span>
+                            <span class="text-[10px] text-slate-500">OBD-II 數據幀</span>
+                        </div>
+                        <button onclick="udsReadDTC()" class="w-full py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded font-medium transition-all">
+                            讀取歷史故障碼 (0x19 02 01)
+                        </button>
+                        <div id="dtc-response" class="bg-slate-900 p-2 rounded text-[10px] font-mono text-slate-400 leading-relaxed min-h-[45px] flex items-center justify-center border border-slate-950 text-center">
+                            無診斷響應
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- 診斷功能設置保護參數 (解鎖後方可操作) -->
+                <div class="mt-auto bg-slate-950/40 border border-slate-900 p-2.5 rounded-lg text-xs flex flex-col gap-2">
+                    <span class="text-slate-400 font-bold"><i class="fa-solid fa-gears mr-1 text-cyan-500"></i>安全防禦限制閾值 (唯讀)</span>
+                    <div class="flex justify-between items-center text-[10px]">
+                        <span class="text-slate-500">電芯過壓閾值:</span>
+                        <span id="cfg-ov-thresh" class="font-bold text-slate-400">4.300 V</span>
+                    </div>
+                    <div class="flex justify-between items-center text-[10px]">
+                        <span class="text-slate-500">電芯過溫閾值:</span>
+                        <span id="cfg-ot-thresh" class="font-bold text-slate-400">62.0 °C</span>
+                    </div>
+                    <p class="text-[8px] text-rose-500" id="cfg-lock-hint">
+                        ⚠️ 必須先解鎖 0x27 Security Access，否則寫入配置將觸發 NRC 0x33
+                    </p>
+                    <div class="flex gap-1.5 mt-1" id="cfg-unlock-controls" style="display: none;">
+                        <button onclick="changeThreshold('OV', -0.1)" class="flex-1 py-1 bg-cyan-950 border border-cyan-800 text-cyan-400 rounded text-[9px] hover:bg-cyan-900 transition-all">-0.1V 降額保護</button>
+                        <button onclick="changeThreshold('OT', -5)" class="flex-1 py-1 bg-cyan-950 border border-cyan-800 text-cyan-400 rounded text-[9px] hover:bg-cyan-900 transition-all">-5°C 降溫保護</button>
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- 底部：模擬器動態日誌終端與狀態報告 -->
+    <footer class="mt-6 grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
+        
+        <!-- 即時序列埠日誌終端 (占 9 欄) -->
+        <div class="md:col-span-9 bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col gap-2">
+            <div class="flex justify-between items-center border-b border-slate-900 pb-1 text-xs">
+                <span class="text-slate-400 font-bold"><i class="fa-solid fa-terminal mr-2 text-cyan-400"></i>F28388D 即時偵錯中斷日誌 (UART/SCI Console)</span>
+                <span class="text-slate-500" id="log-clock">TIME: 0 ms</span>
+            </div>
+            <div id="log-terminal" class="h-[120px] overflow-y-auto font-mono text-[10px] text-emerald-400 leading-relaxed flex flex-col gap-0.5">
+                <!-- JS 動態寫入日誌 -->
+            </div>
+        </div>
+
+        <!-- 實體繼電器與保護反饋器 (占 3 欄) -->
+        <div class="md:col-span-3 bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col gap-3 justify-between">
+            <h2 class="text-xs font-semibold tracking-wider text-rose-400 border-b border-slate-800 pb-1.5">
+                <i class="fa-solid fa-circle-exclamation mr-1.5"></i>高壓迴路繼電器與安全狀態
+            </h2>
+            
+            <div class="flex flex-col gap-1.5 text-xs">
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500">主正繼電器 (Main+):</span>
+                    <span id="badge-relay-pos" class="px-2 py-0.5 rounded text-[10px] bg-slate-950 text-slate-500 border border-slate-800 font-bold">CLOSED</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500">預充電器 (Precharge):</span>
+                    <span id="badge-relay-pre" class="px-2 py-0.5 rounded text-[10px] bg-slate-950 text-slate-500 border border-slate-800 font-bold">OPEN</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500">高壓端預充電容 (Cap):</span>
+                    <span id="badge-cap-volt" class="font-bold text-slate-400 tech-font">0.00 V / 400V</span>
+                </div>
+            </div>
+
+            <div id="status-safety-alert" class="bg-emerald-950/40 border border-emerald-900/60 text-emerald-400 px-3 py-1.5 rounded text-[10px] font-bold text-center glow-green">
+                <i class="fa-solid fa-shield-halved mr-1.5"></i>系統防禦：ASIL-D 正常
+            </div>
+        </div>
+
+    </footer>
+
+    <!-- 自定義系統消息提示框 (取代 alert()) -->
+    <div id="custom-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl flex flex-col gap-4">
+            <div class="flex items-center gap-3 border-b border-slate-800 pb-3">
+                <span id="modal-icon-container" class="p-2 bg-rose-950/50 rounded-lg border border-rose-800">
+                    <i id="modal-icon" class="fa-solid fa-triangle-exclamation text-rose-500 text-xl"></i>
+                </span>
+                <h3 id="modal-title" class="text-base font-bold text-slate-200">系統警告</h3>
+            </div>
+            <p id="modal-message" class="text-xs text-slate-400 leading-relaxed">
+                訊息內容...
+            </p>
+            <div class="flex justify-end mt-2">
+                <button onclick="closeModal()" class="px-4 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold rounded-lg text-xs transition-all">
+                    確認關閉
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 系統模擬與邏輯控制 JavaScript -->
+    <script>
+        // --- 1. 核心 BMS 初始化參數與物理常數 ---
+        const SYSCLK = 200.00; // MHz
+        const NUM_CELLS = 96;
+        const NUM_NTC = 12;
+        
+        // 系統動態狀態變數
+        let systemTime = 0; // ms
+        let bmsState = 'INIT'; // INIT, STANDBY, PRECHARGE, RUN, FAULT
+        let activeFaultCode = 0; // 0:正常, 1:過流, 2:過溫, 3:過壓, 4:預充超時, 5:AFE通訊失敗
+        
+        let cells = Array(NUM_CELLS).fill(3.7); // 默認 3.7V
+        let ntcs = Array(NUM_NTC).fill(25.0); // 默認 25 °C
+        
+        let currentLoad = 0.0; // A
+        let capVoltage = 0.0; // V (預電容電壓)
+        let packVoltage = 355.2; // V (96 * 3.7V)
+        let stateOfCharge = 85.4; // %
+        
+        // 繼電器狀態 (0: 斷開, 1: 閉合)
+        let relayPos = 0;
+        let relayNeg = 0;
+        let relayPre = 0;
+        
+        // UDS 模組變數
+        let udsSeed = 0;
+        let udsSecurityLevel = 0; // 0: LOCKED, 1: UNLOCKED
+        
+        // AFE 模組變數
+        let emiNoise = 0;
+        let afeRetryCounter = 0;
+        let totalTransmissions = 0;
+        let failedTransmissions = 0;
+
+        // 保護限額閾值
+        let thresholdOV = 4.300; // 過壓閾值
+        let thresholdOT = 62.0;  // 過溫閾值
+
+        // 定時器
+        let simInterval = null;
+        let prechargeTimerCount = 0;
+
+        // --- 2. 視窗載入與初始化 ---
+        window.onload = function() {
+            generateCellGrid();
+            generateNtcGrid();
+            
+            // 寫入首批啟動日誌
+            logToTerminal("CPU1", "系統時脈初使化完成: " + SYSCLK.toFixed(2) + " MHz");
+            logToTerminal("CPU1", "載入 2838x_FLASH_lnk_cpu1.cmd 成功...");
+            logToTerminal("CPU2", "BMS 狀態機核心加載完畢。");
+            logToTerminal("CM", "Cortex-M4 網路與 CAN-FD (MCAN) 通訊協定棧初始化中...");
+            
+            // 啟動主動狀態運算 (10ms 頻率調度，等同實體晶片主迴圈週期)
+            simInterval = setInterval(runMainLoop, 10);
+            
+            // 寫入初始化
+            setTimeout(() => {
+                if (bmsState === 'INIT') {
+                    bmsState = 'STANDBY';
+                    logToTerminal("CPU2", "系統自檢成功! 狀態切換: INIT ──> STANDBY");
+                    logToTerminal("CM", "發送 CAN-FD 幀: BMS_Ready_Pulse (ID: 0x18FEE002) 頻率 10ms");
+                }
+            }, 1500);
+        };
+
+        // --- 3. 網格動態生成 ---
+        function generateCellGrid() {
+            const grid = document.getElementById('cell-grid');
+            grid.innerHTML = '';
+            for (let i = 0; i < NUM_CELLS; i++) {
+                const cellVal = cells[i];
+                const div = document.createElement('div');
+                div.id = `cell-${i}`;
+                div.className = 'bg-emerald-950/40 border border-emerald-900 text-[9px] text-emerald-400 font-bold p-1 rounded text-center cursor-pointer hover:bg-emerald-800/30 transition-all tech-font';
+                div.innerHTML = cellVal.toFixed(2);
+                div.onclick = () => injectCellFault(i);
+                grid.appendChild(div);
+            }
+        }
+
+        function generateNtcGrid() {
+            const grid = document.getElementById('ntc-grid');
+            grid.innerHTML = '';
+            for (let i = 0; i < NUM_NTC; i++) {
+                const ntcVal = ntcs[i];
+                const div = document.createElement('div');
+                div.id = `ntc-${i}`;
+                div.className = 'bg-indigo-950/40 border border-indigo-900 text-[10px] text-indigo-400 font-bold p-1 rounded text-center cursor-pointer hover:bg-indigo-800/30 transition-all tech-font';
+                div.innerHTML = ntcVal.toFixed(1) + '°';
+                div.onclick = () => injectNtcFault(i);
+                grid.appendChild(div);
+            }
+        }
+
+        // --- 4. 故障與噪聲注入邏輯 ---
+        function injectCellFault(idx) {
+            if (bmsState === 'FAULT') {
+                showModal("系統處於 FAULT 狀態", "請先點擊頂部『一鍵還原』修復故障並發送指令。");
+                return;
+            }
+            
+            // 循環切換故障: 正常 -> 過壓 -> 欠壓 -> 正常
+            if (cells[idx] === 3.7) {
+                cells[idx] = 4.35; // 過壓 (超過閾值 4.3V)
+                logToTerminal("CPU2", `🚨 採樣異常：Cell ${idx+1} 電壓突升至 4.35V (過壓閥值: ${thresholdOV.toFixed(3)}V)`);
+            } else if (cells[idx] === 4.35) {
+                cells[idx] = 2.50; // 欠壓
+                logToTerminal("CPU2", `🚨 採樣異常：Cell ${idx+1} 電壓驟降至 2.50V (低電壓警戒)`);
+            } else {
+                cells[idx] = 3.7;
+                logToTerminal("CPU2", `ℹ️ 訊號還原：Cell ${idx+1} 回復至正常規格。`);
+            }
+            
+            updateGridDisplay();
+        }
+
+        function injectNtcFault(idx) {
+            if (bmsState === 'FAULT') {
+                showModal("系統處於 FAULT 狀態", "請先點擊頂部『一鍵還原』修復故障並發送指令。");
+                return;
+            }
+
+            if (ntcs[idx] === 25.0) {
+                ntcs[idx] = 65.0; // 過溫
+                logToTerminal("CPU2", `🚨 溫度報警：NTC ${idx+1} 採樣溫度 65.0°C (過溫閾值: ${thresholdOT.toFixed(1)}°C)`);
+            } else {
+                ntcs[idx] = 25.0;
+                logToTerminal("CPU2", `ℹ️ 溫度還原：NTC ${idx+1} 回復至 25.0°C。`);
+            }
+            generateNtcGrid();
+        }
+
+        function resetAllCells() {
+            cells = Array(NUM_CELLS).fill(3.7);
+            ntcs = Array(NUM_NTC).fill(25.0);
+            activeFaultCode = 0;
+            bmsState = 'STANDBY';
+            relayPos = 0;
+            relayNeg = 0;
+            relayPre = 0;
+            capVoltage = 0.0;
+            currentLoad = 0.0;
+            afeRetryCounter = 0;
+            failedTransmissions = 0;
+            totalTransmissions = 100; // 給予一個初始值防抖
+            
+            updateGridDisplay();
+            generateNtcGrid();
+            
+            logToTerminal("CPU1", "⚠️ 一鍵重置硬體環境，主繼電器關閉。安全警報消除。");
+            logToTerminal("CPU2", "狀態變更: ──> STANDBY 準備就緒");
+            document.getElementById('status-safety-alert').className = "bg-emerald-950/40 border border-emerald-900/60 text-emerald-400 px-3 py-1.5 rounded text-center glow-green text-[10px] font-bold";
+            document.getElementById('status-safety-alert').innerHTML = `<i class="fa-solid fa-shield-halved mr-1.5"></i>系統防禦：ASIL-D 正常`;
+        }
+
+        function updateGridDisplay() {
+            for (let i = 0; i < NUM_CELLS; i++) {
+                const cellDiv = document.getElementById(`cell-${i}`);
+                if (!cellDiv) continue;
+                cellDiv.innerHTML = cells[i].toFixed(2);
+                if (cells[i] > 4.3) {
+                    cellDiv.className = 'bg-rose-950 text-rose-400 border border-rose-500 font-bold p-1 rounded text-center cursor-pointer glow-red tech-font text-[9px]';
+                } else if (cells[i] < 3.0) {
+                    cellDiv.className = 'bg-amber-950 text-amber-400 border border-amber-500 font-bold p-1 rounded text-center cursor-pointer tech-font text-[9px]';
+                } else {
+                    cellDiv.className = 'bg-emerald-950/40 border border-emerald-900 text-[9px] text-emerald-400 font-bold p-1 rounded text-center cursor-pointer hover:bg-emerald-800/30 transition-all tech-font';
+                }
+            }
+        }
+
+        // --- 5. 核心即時仿真與時序主迴圈 (200MHz / 10ms 時序) ---
+        function runMainLoop() {
+            systemTime += 10; // 每次前進 10ms
+            if (systemTime % 1000 === 0) {
+                document.getElementById('log-clock').innerHTML = `TIME: ${systemTime} ms`;
+            }
+
+            // 更新總電壓
+            packVoltage = cells.reduce((a, b) => a + b, 0);
+
+            // AFE SPI-DMA 通訊模擬（每 10ms 一幀數據）
+            simulateAfeCommunication();
+
+            // 故障檢測 (100us 安全限速防禦，此處隨 10ms 主迴圈掃描)
+            checkSafetyThresholds();
+
+            // 狀態機行為
+            executeStateBehaviour();
+
+            // 畫面更新
+            updateGuiMetrics();
+        }
+
+        function simulateAfeCommunication() {
+            totalTransmissions++;
+            const noise = parseInt(document.getElementById('noise-slider').value);
+            document.getElementById('noise-val').innerText = `${noise} %`;
+            
+            // 模擬電磁干擾機率
+            let hasError = false;
+            if (noise > 0) {
+                let errorThreshold = noise * 0.8; 
+                let roll = Math.random() * 100;
+                if (roll < errorThreshold) {
+                    hasError = true;
+                }
+            }
+
+            if (hasError) {
+                failedTransmissions++;
+                afeRetryCounter++;
+                if (afeRetryCounter > 3) {
+                    // 達到 3 次重傳，直接觸發通訊故障
+                    activeFaultCode = 5;
+                    bmsState = 'FAULT';
+                    logToTerminal("CPU1", "⛔ 嚴重通訊錯誤：AFE 連續 3 次 CRC-8 查表失敗，硬體 Trip-Zone 瞬間介入!");
+                } else {
+                    logToTerminal("CPU2", `⚠️ SPI 通訊干擾！CRC 校驗失敗，重傳計數：${afeRetryCounter}/3 (100us 容錯延遲)`);
+                }
+            } else {
+                // 如果通訊正常，緩慢消退 retry 狀態
+                if (systemTime % 200 === 0 && afeRetryCounter > 0) {
+                    afeRetryCounter = 0;
+                }
+            }
+
+            // 計算成功率
+            let successRate = ((totalTransmissions - failedTransmissions) / totalTransmissions) * 100;
+            document.getElementById('comm-success-rate').innerText = `${successRate.toFixed(1)}%`;
+            document.getElementById('afe-retry').innerText = `${afeRetryCounter} / 3`;
+            
+            const badge = document.getElementById('afe-link-badge');
+            if (afeRetryCounter > 0) {
+                badge.className = "text-[10px] text-rose-400 bg-rose-950/40 px-1.5 py-0.5 rounded border border-rose-900/50 animate-pulse";
+                badge.innerText = "SPI 數據重傳中";
+            } else {
+                badge.className = "text-[10px] text-teal-400 bg-teal-950/40 px-1.5 py-0.5 rounded border border-teal-900/50";
+                badge.innerText = "CRC-8 查表驗證開啟";
+            }
+        }
+
+        function checkSafetyThresholds() {
+            if (bmsState === 'FAULT') return;
+
+            // 1. 檢測過壓 (OV)
+            let maxCell = Math.max(...cells);
+            if (maxCell > thresholdOV) {
+                activeFaultCode = 3;
+                bmsState = 'FAULT';
+                logToTerminal("CPU1", `⚡ 物理超載：檢測到 Cell 電壓高達 ${maxCell.toFixed(3)}V (限制: ${thresholdOV.toFixed(3)}V)`);
+                logToTerminal("CPU1", "⚡ [HARDWARE PROTECTION]: 觸發 Trip-Zone 安全中斷，1μs 內切斷 Main+ 繼電器!");
+            }
+
+            // 2. 檢測過溫 (OT)
+            let maxNtc = Math.max(...ntcs);
+            if (maxNtc > thresholdOT) {
+                activeFaultCode = 2;
+                bmsState = 'FAULT';
+                logToTerminal("CPU1", `🔥 溫度危險：NTC 電池最高溫達 ${maxNtc.toFixed(1)}°C (限制: ${thresholdOT.toFixed(1)}°C)`);
+                logToTerminal("CPU1", "⚡ [HARDWARE PROTECTION]: Trip-Zone 鎖死主繼電器。");
+            }
+
+            // 3. 模擬負載過流
+            if (currentLoad > 350.0) {
+                activeFaultCode = 1;
+                bmsState = 'FAULT';
+                logToTerminal("CPU1", `🔌 過流暴走：主高壓迴路電流達 ${currentLoad.toFixed(1)}A，觸發瞬時過流保護!`);
+            }
+        }
+
+        function executeStateBehaviour() {
+            switch (bmsState) {
+                case 'INIT':
+                    relayPos = 0;
+                    relayNeg = 0;
+                    relayPre = 0;
+                    capVoltage = 0.0;
+                    break;
+                case 'STANDBY':
+                    relayPos = 0;
+                    relayNeg = 0;
+                    relayPre = 0;
+                    if (capVoltage > 0) capVoltage -= 2.0; // 斷開後緩慢放電
+                    if (capVoltage < 0) capVoltage = 0;
+                    break;
+                case 'PRECHARGE':
+                    // 預充電：主負閉合、預充閉合、主正斷開
+                    relayNeg = 1;
+                    relayPre = 1;
+                    relayPos = 0;
+                    
+                    // 電容充電
+                    prechargeTimerCount += 10; // ms
+                    if (capVoltage < packVoltage * 0.95) {
+                        capVoltage += (packVoltage - capVoltage) * 0.15; // 模擬 RC 充電曲線
+                    } else {
+                        // 預充完成，無縫切換
+                        relayPos = 1;
+                        relayPre = 0;
+                        bmsState = 'RUN';
+                        logToTerminal("CPU2", `✅ 預充完成！電容電壓已達電池端之 95% (${capVoltage.toFixed(1)}V)`);
+                        logToTerminal("CPU1", "EALLOW; 主正繼電器閉合，斷開預充支路。進入全功率運行。");
+                    }
+
+                    // 預充超時判斷 (大於 500ms)
+                    if (prechargeTimerCount > 500 && bmsState === 'PRECHARGE') {
+                        activeFaultCode = 4;
+                        bmsState = 'FAULT';
+                        logToTerminal("CPU1", "🚨 [FAULT-TIMEOUOT]: 預充電 500ms 內電容電壓未能建立，判定負載側短路!");
+                    }
+                    break;
+                case 'RUN':
+                    relayNeg = 1;
+                    relayPos = 1;
+                    relayPre = 0;
+                    // 充電/放電時的 SoC 微幅變動
+                    if (systemTime % 1000 === 0) {
+                        stateOfCharge -= 0.02; // 放電微小下降
+                    }
+                    break;
+                case 'FAULT':
+                    // 故障：所有繼電器立刻強制跳閘
+                    relayPos = 0;
+                    relayNeg = 0;
+                    relayPre = 0;
+                    if (capVoltage > 0) capVoltage -= 10.0; // 快速洩放
+                    if (capVoltage < 0) capVoltage = 0;
+                    break;
+            }
+        }
+
+        function updateGuiMetrics() {
+            // 核心 2 狀態顯示
+            document.getElementById('cpu2-state').innerText = `STATE: ${bmsState}`;
+            const cardCpu2 = document.getElementById('card-cpu2');
+            if (bmsState === 'FAULT') {
+                cardCpu2.className = "border border-rose-500 bg-slate-950/80 p-3 rounded-lg flex flex-col justify-between glow-red transition-all duration-300";
+            } else if (bmsState === 'RUN') {
+                cardCpu2.className = "border border-emerald-500/50 bg-slate-950/80 p-3 rounded-lg flex flex-col justify-between glow-green transition-all duration-300";
+            } else {
+                cardCpu2.className = "border border-cyan-500/30 bg-slate-950/80 p-3 rounded-lg flex flex-col justify-between glow-cyan transition-all duration-300";
+            }
+
+            // 更新繼電器圖示與底端狀態
+            document.getElementById('status-relay-pos').innerText = relayPos ? "閉合" : "斷開";
+            document.getElementById('status-relay-pre').innerText = relayPre ? "閉合" : "斷開";
+            document.getElementById('status-soc').innerText = stateOfCharge.toFixed(1) + '%';
+            
+            // 繼電器小標籤
+            const rPos = document.getElementById('badge-relay-pos');
+            rPos.innerText = relayPos ? "CLOSED" : "OPEN";
+            rPos.className = `px-2 py-0.5 rounded text-[10px] font-bold ${relayPos ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-slate-950 text-slate-500 border border-slate-800'}`;
+            
+            const rPre = document.getElementById('badge-relay-pre');
+            rPre.innerText = relayPre ? "CLOSED" : "OPEN";
+            rPre.className = `px-2 py-0.5 rounded text-[10px] font-bold ${relayPre ? 'bg-indigo-950 text-indigo-400 border border-indigo-800' : 'bg-slate-950 text-slate-500 border border-slate-800'}`;
+
+            document.getElementById('badge-cap-volt').innerText = `${capVoltage.toFixed(1)} V / 355.2V`;
+
+            // 更新數據包解析
+            document.getElementById('gs0-addr').innerText = (systemTime % 200 < 100) ? "0x0000C000 (Ping)" : "0x0000D000 (Pong)";
+            document.getElementById('gs1-cmd').innerText = `0x0000E000 -> ${bmsState}`;
+
+            // PING PONG 緩衝區動畫
+            const pingBuf = document.getElementById('buf-ping');
+            const pongBuf = document.getElementById('buf-pong');
+            const flowIcon = document.getElementById('bus-flow-icon');
+
+            if (bmsState !== 'FAULT') {
+                if (systemTime % 200 < 100) {
+                    pingBuf.className = "flex-1 bg-cyan-950/30 border border-cyan-500/50 rounded p-2 text-center transition-all duration-300";
+                    pingBuf.innerHTML = `<div class="text-[10px] font-bold text-cyan-400">PING BUFFER</div><div class="text-[9px] text-slate-400 mt-1">數據就緒 (0x0000C000)</div>`;
+                    
+                    pongBuf.className = "flex-1 bg-slate-900 border border-slate-800 rounded p-2 text-center transition-all duration-300";
+                    pongBuf.innerHTML = `<div class="text-[10px] font-bold text-slate-500">PONG BUFFER</div><div class="text-[9px] text-slate-500 mt-1">寫入中 (0x0000D000)</div>`;
+                    
+                    flowIcon.className = "fa-solid fa-angles-right text-cyan-400 text-sm animate-pulse";
+                } else {
+                    pingBuf.className = "flex-1 bg-slate-900 border border-slate-800 rounded p-2 text-center transition-all duration-300";
+                    pingBuf.innerHTML = `<div class="text-[10px] font-bold text-slate-500">PING BUFFER</div><div class="text-[9px] text-slate-500 mt-1">寫入中 (0x0000C000)</div>`;
+                    
+                    pongBuf.className = "flex-1 bg-cyan-950/30 border border-cyan-500/50 rounded p-2 text-center transition-all duration-300";
+                    pongBuf.innerHTML = `<div class="text-[10px] font-bold text-cyan-400">PONG BUFFER</div><div class="text-[9px] text-slate-400 mt-1">數據就緒 (0x0000D000)</div>`;
+                    
+                    flowIcon.className = "fa-solid fa-angles-left text-cyan-400 text-sm animate-pulse";
+                }
+            }
+
+            // 更新 96 電芯最高/最低
+            document.getElementById('val-max-cell').innerText = Math.max(...cells).toFixed(3) + ' V';
+            document.getElementById('val-min-cell').innerText = Math.min(...cells).toFixed(3) + ' V';
+            document.getElementById('val-temp-diff').innerText = (Math.max(...ntcs) - Math.min(...ntcs)).toFixed(1) + ' °C';
+
+            // 安全反饋警報欄
+            const safetyAlert = document.getElementById('status-safety-alert');
+            if (bmsState === 'FAULT') {
+                safetyAlert.className = "bg-rose-950/40 border border-rose-900/60 text-rose-400 px-3 py-1.5 rounded text-center glow-red text-[10px] font-bold";
+                safetyAlert.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1.5"></i>系統防禦：ASIL-D 故障切斷`;
+            } else {
+                safetyAlert.className = "bg-emerald-950/40 border border-emerald-900/60 text-emerald-400 px-3 py-1.5 rounded text-center glow-green text-[10px] font-bold";
+                safetyAlert.innerHTML = `<i class="fa-solid fa-shield-halved mr-1.5"></i>系統防禦：ASIL-D 正常`;
+            }
+        }
+
+        // --- 6. VCU 命令模擬發送 ---
+        function sendVcuCommand(cmd) {
+            if (cmd === 'CMD_START_PRECHARGE') {
+                if (bmsState === 'FAULT') {
+                    showModal("拒絕啟動", "系統目前處於 FAULT 狀態，請先點擊『一鍵還原』排除物理故障。");
+                    return;
+                }
+                if (bmsState !== 'STANDBY') {
+                    showModal("無效操作", "系統目前不處於 STANDBY 狀態，無法執行預充電。");
+                    return;
+                }
+                bmsState = 'PRECHARGE';
+                prechargeTimerCount = 0;
+                capVoltage = 0.0;
+                logToTerminal("CM", "📥 VCU 透過 CAN-FD (ID: 0x18FEE001) 傳送啟動預充命令！");
+                logToTerminal("CPU2", "狀態變更: STANDBY ──> PRECHARGE 核心交握成功");
+            } else if (cmd === 'CMD_SHUTDOWN') {
+                bmsState = 'FAULT';
+                activeFaultCode = 1; // 虛擬過流安全觸發
+                logToTerminal("CM", "📥 VCU 下達 CAN-FD 緊急關斷信號！");
+                logToTerminal("CPU1", "EALLOW; 立即觸發 Trip-Zone、清除 GPIO 輸出。所有接觸器強行切斷。");
+            }
+        }
+
+        // --- 7. UDS (ISO 14229) 診斷棧模擬與 FNV-1a 加密 ---
+        function udsRequestSeed() {
+            // 產生 32-bit 隨機 Seed
+            udsSeed = Math.floor(Math.random() * 0xFFFFFFFF);
+            document.getElementById('uds-seed-display').innerText = '0x' + udsSeed.toString(16).toUpperCase();
+            document.getElementById('btn-calc-key').disabled = false;
+            document.getElementById('btn-calc-key').className = "py-1.5 bg-amber-950/40 border border-amber-700/50 hover:border-amber-500 text-amber-300 rounded font-medium transition-all text-[11px]";
+            logToTerminal("CM", `UDS 0x27 響應：發送挑戰 Seed：0x${udsSeed.toString(16).toUpperCase()}`);
+        }
+
+        // FNV-1a 32-bit 哈希算法 (與 bms_f28388d_projects.md 規格一致)
+        function calculateFNV1a(seed) {
+            let hash = seed ^ 0x811C9DC5;
+            // 模擬 32-bit 無符號整數乘法 hash = hash * 0x01000193
+            hash = Math.imul(hash, 16777619) >>> 0;
+            return hash;
+        }
+
+        function udsAutoSolveKey() {
+            let key = calculateFNV1a(udsSeed);
+            document.getElementById('uds-key-input').value = '0x' + key.toString(16).toUpperCase();
+            logToTerminal("CM", `UDS 0x27 控制台：自動依 FNV-1a 算法推導密鑰...`);
+        }
+
+        function udsVerifyKey() {
+            const val = document.getElementById('uds-key-input').value.trim();
+            if (!val) {
+                showModal("驗證失敗", "請先點擊請求 Seed 並輸入或自動推導 Key。");
+                return;
+            }
+
+            let inputKey = parseInt(val.replace('0x', ''), 16);
+            let expectedKey = calculateFNV1a(udsSeed);
+
+            if (inputKey === expectedKey) {
+                udsSecurityLevel = 1;
+                document.getElementById('status-uds-lock').innerText = "UNLOCKED";
+                document.getElementById('status-uds-lock').className = "font-bold text-emerald-400";
+                document.getElementById('uds-lock-badge').innerText = "UNLOCKED";
+                document.getElementById('uds-lock-badge').className = "text-[9px] bg-emerald-950/60 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-900";
+                
+                // 開放防禦上限配置
+                document.getElementById('cfg-unlock-controls').style.display = 'flex';
+                document.getElementById('cfg-lock-hint').style.display = 'none';
+                
+                logToTerminal("CM", "✅ UDS 0x27 驗證通過：安全解鎖成功！BMS 保護參數可寫。");
+                showModal("UDS 安全訪問成功", "安全級別 1 解鎖！現在你可以對下方的『電芯過壓閥值』或『過溫閥值』進行動態保護降額調整。", "info");
+            } else {
+                udsSecurityLevel = 0;
+                logToTerminal("CM", "❌ UDS 0x27 安全失敗：密鑰不正確，返回否定響應 (NRC 0x35)");
+                showModal("UDS 否定響應 (NRC 0x35)", "驗證失敗：Client 發送的 Key 與 BMS 算出的密鑰不一致。存取遭到拒絕。");
+            }
+        }
+
+        function udsReadDTC() {
+            const resp = document.getElementById('dtc-response');
+            if (activeFaultCode === 0) {
+                resp.innerHTML = `<span class="text-emerald-400">響應 [0x59, 0x02, 0x01]:</span><br>無當前激活故障代碼 (No Active DTC)`;
+                logToTerminal("CM", "UDS 0x19 查詢：返回 [0x59, 0x02, 0x01] (系統正常)");
+            } else if (activeFaultCode === 2) {
+                // 電芯過溫
+                resp.innerHTML = `<span class="text-rose-400">DTC 報文:</span><br>59 02 01 9A 01 15 09<br><span class="text-rose-400">[0x9A0115] 電芯過溫</span>`;
+                logToTerminal("CM", "UDS 0x19 查詢：電芯過溫 [DTC: 0x9A0115] Status: Active (0x09)");
+            } else if (activeFaultCode === 3) {
+                // 電芯過壓
+                resp.innerHTML = `<span class="text-rose-400">DTC 報文:</span><br>59 02 01 9A 01 02 09<br><span class="text-rose-400">[0x9A0102] 電芯過電壓</span>`;
+                logToTerminal("CM", "UDS 0x19 查詢：電芯過壓 [DTC: 0x9A0102]");
+            } else if (activeFaultCode === 4) {
+                // 預充超時
+                resp.innerHTML = `<span class="text-rose-400">DTC 報文:</span><br>59 02 01 9B 12 04 09<br><span class="text-rose-400">[0x9B1204] 預充超時失效</span>`;
+            } else {
+                // 其他
+                resp.innerHTML = `<span class="text-rose-400">DTC 報文:</span><br>59 02 01 9F 00 00 09<br><span class="text-rose-400">一般系統保護</span>`;
+            }
+        }
+
+        function changeThreshold(type, step) {
+            if (udsSecurityLevel !== 1) {
+                showModal("寫入拒絕 (NRC 0x33)", "安全性控制限制：保護引腳參數處於 LOCKED 狀態，無法寫入！請先通過 0x27 安全解鎖挑戰。");
+                return;
+            }
+            if (type === 'OV') {
+                thresholdOV += step;
+                document.getElementById('cfg-ov-thresh').innerText = thresholdOV.toFixed(3) + ' V';
+                logToTerminal("CPU2", `⚙️ 保護參數寫入：過壓安全防禦線動態調整為 ${thresholdOV.toFixed(3)} V`);
+            } else if (type === 'OT') {
+                thresholdOT += step;
+                document.getElementById('cfg-ot-thresh').innerText = thresholdOT.toFixed(1) + ' °C';
+                logToTerminal("CPU2", `⚙️ 保護參數寫入：過溫安全防禦線動態調整為 ${thresholdOT.toFixed(1)} °C`);
+            }
+        }
+
+        // --- 8. 序列埠日誌終端調度 ---
+        function logToTerminal(core, msg) {
+            const term = document.getElementById('log-terminal');
+            let color = "text-emerald-400";
+            if (core === 'CPU1') color = "text-indigo-400";
+            if (core === 'CM') color = "text-amber-400";
+            if (msg.includes("🚨") || msg.includes("Protection") || msg.includes("保護") || msg.includes("故障")) {
+                color = "text-rose-400 font-bold";
+            } else if (msg.includes("⚙️") || msg.includes("還原")) {
+                color = "text-cyan-400";
+            }
+
+            const line = document.createElement('div');
+            line.className = `${color}`;
+            line.innerHTML = `[${core}] [${(systemTime/1000).toFixed(3)}s]: ${msg}`;
+            term.appendChild(line);
+            term.scrollTop = term.scrollHeight; // 自動滾動
+        }
+
+        // --- 9. 自定義模態框控制器 ---
+        function showModal(title, message, type = 'error') {
+            const modal = document.getElementById('custom-modal');
+            const titleEl = document.getElementById('modal-title');
+            const msgEl = document.getElementById('modal-message');
+            const iconContainer = document.getElementById('modal-icon-container');
+            const icon = document.getElementById('modal-icon');
+
+            titleEl.innerText = title;
+            msgEl.innerText = message;
+
+            if (type === 'info') {
+                iconContainer.className = "p-2 bg-cyan-950/50 rounded-lg border border-cyan-800";
+                icon.className = "fa-solid fa-circle-info text-cyan-400 text-xl";
+            } else {
+                iconContainer.className = "p-2 bg-rose-950/50 rounded-lg border border-rose-800";
+                icon.className = "fa-solid fa-triangle-exclamation text-rose-500 text-xl";
+            }
+
+            modal.classList.remove('pointer-events-none');
+            modal.classList.add('opacity-100');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('custom-modal');
+            modal.classList.add('pointer-events-none');
+            modal.classList.remove('opacity-100');
+        }
+    </script>
+</body>
+</html>

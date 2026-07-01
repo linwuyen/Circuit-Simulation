@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>06 穩定度 fc/PM/GM + 時域階躍響應</title>
+    <script src="../assets/vendor/tailwindcss-cdn.js"></script>
+    <script src="../assets/vendor/chart.umd.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
+        .nav a { padding:.25rem .6rem; border-radius:.4rem; font-size:.85rem; white-space:nowrap; }
+        .nav a:hover { background:#f0fdf4; }
+        .nav a.active { background:#16a34a; color:#fff; font-weight:700; }
+        .chart-container { position: relative; height: 30vh; min-height: 230px; background:#fff; border-radius:.5rem; padding:1rem; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+        input[type=range]{ width:100%; }
+        .card { background:#fff; border-radius:.5rem; padding:1rem; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+        .status-badge { display:inline-block; padding:.2rem .7rem; border-radius:9999px; font-weight:600; font-size:.8rem; }
+        .status-safe { background:#dcfce7; color:#166534; }
+        .status-warn { background:#fef08a; color:#854d0e; }
+        .status-danger { background:#fee2e2; color:#991b1b; }
+        .preset-btn { font-size:.75rem; padding:.4rem .5rem; border-radius:.4rem; border:1px solid #cbd5e1; background:#fff; cursor:pointer; text-align:left; }
+        .preset-btn:hover { background:#eff6ff; border-color:#93c5fd; }
+        .legend-dot { display:inline-block; width:.75rem; height:.75rem; border-radius:9999px; margin-right:.35rem; vertical-align:middle; }
+    </style>
+</head>
+<body class="p-4 md:p-6">
+<div class="max-w-6xl mx-auto">
+
+    <nav class="nav bg-white rounded-lg shadow-sm px-3 py-2 mb-5 flex flex-wrap items-center gap-1 text-gray-600">
+        <a href="index.html" class="font-bold text-gray-700">📚 地圖</a><span class="text-gray-300">|</span>
+        <a href="01_what_is_bode.html" title="波德圖的一個點">01</a>
+        <a href="02_integrator.html" title="積分器">02</a>
+        <a href="03_pi_controller.html" title="PI 控制器">03</a>
+        <a href="04_lc_plant.html" title="LC 受控體">04</a>
+        <a href="05_add_in_db.html" title="相乘變相加">05</a>
+        <a href="06_stability.html" class="active" title="穩定度+時域">06</a>
+        <a href="pi.html" class="ml-auto" title="設計沙盒">★ 沙盒</a>
+        <a href="07_challenge.html" title="挑戰任務">🏆 挑戰</a>
+    </nav>
+
+    <div class="mb-5">
+        <p class="text-sm font-semibold text-green-600">關卡 06 · 收尾</p>
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-800 mb-2">把波德圖讀成「會不會翻車」——並親眼看時域</h1>
+        <p class="text-gray-600">前 5 關都在頻域。但工程師真正在意的是<b>時域</b>:給一個指令,輸出追得快不快、會不會過衝振盪。這一關把兩邊<b>並排</b>,讓你看見 fc / PM / GM 三個數字怎麼決定右下角那條曲線。</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div class="space-y-4">
+            <div class="card">
+                <label class="block text-sm font-bold text-gray-700 mb-1">Kp：<span id="kp-val" class="text-blue-600">0.39</span></label>
+                <input type="range" id="kp-slider" min="0.01" max="2.0" step="0.01" value="0.39">
+            </div>
+            <div class="card">
+                <label class="block text-sm font-bold text-gray-700 mb-1">Ki：<span id="ki-val" class="text-blue-600">3400</span></label>
+                <input type="range" id="ki-slider" min="100" max="50000" step="100" value="3400">
+            </div>
+
+            <div class="card">
+                <h3 class="font-bold text-gray-800 border-b pb-2 mb-3 text-sm">🎚️ 一鍵情境（先感受差異）</h3>
+                <div class="grid gap-2">
+                    <button class="preset-btn" data-kp="0.20" data-ki="1500">① 穩健保守：慢但很穩(PM 大)</button>
+                    <button class="preset-btn" data-kp="0.39" data-ki="3400">② 良好設計：頻寬逼近安全上限</button>
+                    <button class="preset-btn" data-kp="0.80" data-ki="9000">③ 太貪心：撞諧振峰 → 發散</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="font-bold text-gray-800 border-b pb-2 mb-3 text-sm">三個關鍵指標</h3>
+                <div class="mb-2 flex justify-between items-baseline">
+                    <span class="text-xs text-gray-600">交越頻率 fc(頻寬／快慢)</span>
+                    <span id="fc-val" class="font-bold text-gray-900">-- </span>
+                </div>
+                <div class="mb-2 flex justify-between items-baseline">
+                    <span class="text-xs text-gray-600">相位裕度 PM(離翻車距離)</span>
+                    <span><span id="pm-val" class="font-bold text-gray-900">--</span> <span id="pm-status" class="status-badge">--</span></span>
+                </div>
+                <div class="mb-2 flex justify-between items-baseline">
+                    <span class="text-xs text-gray-600">增益裕度 GM(諧振安全)</span>
+                    <span id="gm-val" class="font-bold text-gray-900">--</span>
+                </div>
+                <div class="flex justify-between items-baseline border-t pt-2">
+                    <span class="text-xs text-gray-600">→ 時域過衝量</span>
+                    <span id="os-val" class="font-bold text-orange-600">--</span>
+                </div>
+            </div>
+
+            <div class="bg-emerald-50 p-4 rounded-lg border border-emerald-100 text-sm">
+                <h4 class="font-bold text-emerald-800 mb-1">🗣️ 白話結論</h4>
+                <p id="narrative" class="text-xs text-emerald-900 leading-relaxed">--</p>
+            </div>
+
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-100 text-sm">
+                <h4 class="font-bold text-blue-800 mb-1">💡 頻域 ↔ 時域對照</h4>
+                <ul class="text-xs text-blue-700 space-y-1 list-disc pl-4">
+                    <li><b>PM 大(>60°)</b> → 右圖<b>慢慢爬</b>、不過衝。穩但拖。</li>
+                    <li><b>PM 黃金(45~60°)</b> → 右圖<b>快速到位、幾乎不震</b>。</li>
+                    <li><b>PM 小(<30°)</b> → 右圖<b>衝過頭、來回震鈴</b>。</li>
+                    <li><b>PM ≤ 0 或 GM 不足</b> → 右圖<b>振幅越來越大 = 發散翻車</b>。試情境③。</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2 space-y-4">
+            <div class="bg-white rounded-lg shadow-sm px-4 py-2 text-xs flex flex-wrap gap-x-4 gap-y-1">
+                <span><span class="legend-dot" style="background:#2563eb"></span>L(s)</span>
+                <span><span class="legend-dot" style="background:#16a34a"></span>交越 fc</span>
+                <span><span class="legend-dot" style="background:#a855f7"></span>諧振 fn</span>
+                <span class="text-gray-400">紅虛線：0dB / −180° 死亡線</span>
+            </div>
+            <div class="chart-container"><canvas id="gainChart"></canvas></div>
+            <div class="chart-container"><canvas id="phaseChart"></canvas></div>
+            <div class="chart-container"><canvas id="stepChart"></canvas></div>
+        </div>
+    </div>
+
+    <div class="flex justify-between items-center mt-6 text-sm">
+        <a href="05_add_in_db.html" class="px-4 py-2 rounded-lg bg-white shadow-sm text-gray-600 hover:bg-gray-50">← 上一關：相乘變相加</a>
+        <a href="pi.html" class="px-4 py-2 rounded-lg bg-slate-800 text-white shadow-sm hover:bg-slate-700 font-semibold">完課！前往設計沙盒 ★ →</a>
+    </div>
+</div>
+
+<script>
+const Wn = 10000, WnSq = Wn*Wn, Zeta = 0.2, TwoZetaWn = 2*Zeta*Wn;
+const F_RES = Wn/(2*Math.PI);
+const F_MIN = 10, F_MAX = 100000, N = 300;
+const freqs = [];
+for (let i = 0; i < N; i++) freqs.push(F_MIN * Math.pow(F_MAX / F_MIN, i / (N - 1)));
+
+let gainChart, phaseChart, stepChart;
+function fmtHz(f){ return f >= 1000 ? (f/1000).toFixed(2)+' kHz' : f.toFixed(0)+' Hz'; }
+function cMul(ar,ai,br,bi){ return {re:ar*br-ai*bi, im:ar*bi+ai*br}; }
+function unwrap(raw){ let off=0; const o=[]; for(let i=0;i<raw.length;i++){ if(i>0){const d=raw[i]-raw[i-1]; if(d>180)off-=360; else if(d<-180)off+=360;} o.push(raw[i]+off);} return o; }
+
+function bodePoint(f, kp, ki){
+    const w = 2*Math.PI*f;
+    const C = { re: kp, im: -ki/w };
+    const dre = WnSq - w*w, dim = w*TwoZetaWn, den = dre*dre+dim*dim;
+    const P = { re: WnSq*dre/den, im: -WnSq*dim/den };
+    const L = cMul(C.re,C.im,P.re,P.im);
+    return { Lg: 20*Math.log10(Math.hypot(L.re,L.im)), Lp: Math.atan2(L.im,L.re)*180/Math.PI };
+}
+
+function calculateBode(kp, ki){
+    const Lg=[], LpR=[];
+    for (const f of freqs){ const p=bodePoint(f,kp,ki); Lg.push(p.Lg); LpR.push(p.Lp); }
+    const Lp = unwrap(LpR);
+    let fc=0,pm=0,pcAtFc=null,hasCross=false;
+    for (let i=1;i<freqs.length;i++){
+        if (Lg[i-1]>0 && Lg[i]<=0){
+            const r = Lg[i-1]/(Lg[i-1]-Lg[i]);
+            const lf = Math.log10(freqs[i-1]) + r*(Math.log10(freqs[i])-Math.log10(freqs[i-1]));
+            fc = Math.pow(10,lf); pcAtFc = Lp[i-1]+r*(Lp[i]-Lp[i-1]); pm = 180+pcAtFc; hasCross=true; break;
+        }
+    }
+    let gm=Infinity,fGm=0,gmFinite=false;
+    for (let i=1;i<freqs.length;i++){
+        if (Lp[i-1]>-180 && Lp[i]<=-180){
+            const r=(Lp[i-1]+180)/(Lp[i-1]-Lp[i]);
+            const lf=Math.log10(freqs[i-1])+r*(Math.log10(freqs[i])-Math.log10(freqs[i-1]));
+            fGm=Math.pow(10,lf); const gAt=Lg[i-1]+r*(Lg[i]-Lg[i-1]); gm=-gAt; gmFinite=true; break;
+        }
+    }
+    return { Lg:Lg.map((y,i)=>({x:freqs[i],y})), Lp:Lp.map((y,i)=>({x:freqs[i],y})),
+             m:{hasCross,fc,pm,pcAtFc,gm,fGm,gmFinite} };
+}
+
+// 閉迴路 T(s)=L/(1+L) 的單位階躍響應（3 階狀態空間 + RK4）
+function simulateStep(kp, ki){
+    const a2 = TwoZetaWn, a1 = WnSq*(1+kp), a0 = ki*WnSq;
+    const b1 = kp*WnSq, b0 = ki*WnSq;
+    const dt = 2e-6, tEnd = 6e-3, steps = Math.round(tEnd/dt);
+    let x1=0,x2=0,x3=0, peak=0, diverged=false;
+    const data=[];
+    const dv=(a,b,c)=>[b, c, -a0*a - a1*b - a2*c + 1];
+    for (let i=0;i<=steps;i++){
+        const y = b0*x1 + b1*x2;
+        if (i%5===0) data.push({x:i*dt*1000, y});
+        if (y>peak) peak=y;
+        if (!isFinite(y) || Math.abs(y)>50){ diverged=true; break; }
+        const k1=dv(x1,x2,x3);
+        const k2=dv(x1+0.5*dt*k1[0], x2+0.5*dt*k1[1], x3+0.5*dt*k1[2]);
+        const k3=dv(x1+0.5*dt*k2[0], x2+0.5*dt*k2[1], x3+0.5*dt*k2[2]);
+        const k4=dv(x1+dt*k3[0], x2+dt*k3[1], x3+dt*k3[2]);
+        x1+=dt/6*(k1[0]+2*k2[0]+2*k3[0]+k4[0]);
+        x2+=dt/6*(k1[1]+2*k2[1]+2*k3[1]+k4[1]);
+        x3+=dt/6*(k1[2]+2*k2[2]+2*k3[2]+k4[2]);
+    }
+    return { data, diverged, overshoot: Math.max(0,(peak-1)*100) };
+}
+
+function buildNarrative(m, step){
+    if (!m.hasCross) return "增益整段在 0dB 以下,系統幾乎追不動指令(頻寬≈0)。把 Kp/Ki 調大,藍線上移開始穿越 0dB。";
+    if (step.diverged || m.pm<=0) return `相位裕度為 ${m.pm.toFixed(0)}°(≤0)→ 閉迴路發散!右圖振幅越衝越大,這就是翻車。多半是太貪心撞上 ${fmtHz(m.fGm||F_RES)} 的諧振峰。`;
+    let s = `交越頻率約 <b>${fmtHz(m.fc)}</b>,PM <b>${m.pm.toFixed(0)}°</b>。`;
+    if (m.pm>=45 && m.pm<=70) s += `落在黃金區間 → 右圖快速到位、過衝僅 ${step.overshoot.toFixed(0)}%,又快又穩 👍。`;
+    else if (m.pm<45) s += `偏低 → 右圖明顯過衝(${step.overshoot.toFixed(0)}%)、來回振鈴。`;
+    else s += `偏高 → 右圖很穩但爬得慢、偏保守。`;
+    if (m.gmFinite && m.gm<6) s += ` ⚠️ GM 只剩 ${m.gm.toFixed(1)} dB,諧振峰逼近 0dB,容易在 ${fmtHz(m.fGm)} 震盪。`;
+    return s;
+}
+
+function update(){
+    const kp = parseFloat(document.getElementById('kp-slider').value);
+    const ki = parseFloat(document.getElementById('ki-slider').value);
+    document.getElementById('kp-val').textContent = kp.toFixed(2);
+    document.getElementById('ki-val').textContent = ki;
+
+    const b = calculateBode(kp, ki);
+    const m = b.m;
+    const step = simulateStep(kp, ki);
+
+    // 指標面板
+    document.getElementById('fc-val').textContent = m.hasCross ? fmtHz(m.fc) : '未交越';
+    document.getElementById('gm-val').textContent = m.gmFinite ? m.gm.toFixed(1)+' dB' : '∞';
+    document.getElementById('os-val').textContent = step.diverged ? '發散 💥' : step.overshoot.toFixed(0)+' %';
+    const pmStatus = document.getElementById('pm-status');
+    if (m.hasCross){
+        document.getElementById('pm-val').textContent = m.pm.toFixed(0)+'°';
+        const gmOk = !m.gmFinite || m.gm>6;
+        if (m.pm>45 && m.pm<70 && gmOk){ pmStatus.textContent='最佳'; pmStatus.className='status-badge status-safe'; }
+        else if (m.pm>0 && (!m.gmFinite||m.gm>0)){ pmStatus.textContent='欠阻尼'; pmStatus.className='status-badge status-warn'; }
+        else { pmStatus.textContent='發散'; pmStatus.className='status-badge status-danger'; }
+    } else { document.getElementById('pm-val').textContent='--'; pmStatus.textContent='未交越'; pmStatus.className='status-badge status-warn'; }
+    document.getElementById('narrative').innerHTML = buildNarrative(m, step);
+
+    // 增益圖
+    const gset=[ { data:b.Lg, borderColor:'#2563eb', borderWidth:2.5, fill:false },
+        { data:[{x:F_MIN,y:0},{x:F_MAX,y:0}], borderColor:'rgba(239,68,68,0.5)', borderWidth:1.5, borderDash:[6,4], pointRadius:0, fill:false },
+        { data:[{x:F_RES,y:-80},{x:F_RES,y:80}], borderColor:'rgba(168,85,247,0.4)', borderWidth:1.5, borderDash:[3,3], pointRadius:0, fill:false } ];
+    if (m.hasCross){ gset.push({ data:[{x:m.fc,y:-80},{x:m.fc,y:80}], borderColor:'rgba(22,163,74,0.7)', borderWidth:1.5, pointRadius:0, fill:false });
+        gset.push({ data:[{x:m.fc,y:0}], borderColor:'#16a34a', backgroundColor:'#16a34a', pointRadius:6, showLine:false }); }
+    gainChart.data.datasets = gset; gainChart.update();
+
+    // 相位圖
+    const pset=[ { data:b.Lp, borderColor:'#2563eb', borderWidth:2.5, fill:false },
+        { data:[{x:F_MIN,y:-180},{x:F_MAX,y:-180}], borderColor:'rgba(239,68,68,0.7)', borderWidth:2, borderDash:[6,4], pointRadius:0, fill:false },
+        { data:[{x:F_RES,y:-270},{x:F_RES,y:0}], borderColor:'rgba(168,85,247,0.4)', borderWidth:1.5, borderDash:[3,3], pointRadius:0, fill:false } ];
+    if (m.hasCross){ pset.push({ data:[{x:m.fc,y:-270},{x:m.fc,y:0}], borderColor:'rgba(22,163,74,0.7)', borderWidth:1.5, pointRadius:0, fill:false });
+        pset.push({ data:[{x:m.fc,y:m.pcAtFc}], borderColor:'#16a34a', backgroundColor:'#16a34a', pointRadius:6, showLine:false }); }
+    phaseChart.data.datasets = pset; phaseChart.update();
+
+    // 階躍響應
+    stepChart.data.datasets[0].data = step.data;
+    stepChart.update();
+}
+
+function init(){
+    const common = {
+        responsive: true, maintainAspectRatio: false, parsing: false, animation: { duration: 90 },
+        elements: { point: { radius: 0 }, line: { tension: 0 } },
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: { x: { type: 'logarithmic', min: F_MIN, max: F_MAX, title: { display: true, text: '頻率 (Hz, log)' }, grid: { color: 'rgba(0,0,0,.05)' } } }
+    };
+    gainChart = new Chart(document.getElementById('gainChart').getContext('2d'), { type:'line', data:{datasets:[]},
+        options:{ ...common, plugins:{ ...common.plugins, title:{ display:true, text:'① 增益：藍線穿過 0dB 的綠點 = 頻寬 fc', align:'start' } },
+            scales:{ ...common.scales, y:{ min:-80, max:80, title:{ display:true, text:'Magnitude (dB)' }, grid:{ color:'rgba(0,0,0,.05)' } } } } });
+    phaseChart = new Chart(document.getElementById('phaseChart').getContext('2d'), { type:'line', data:{datasets:[]},
+        options:{ ...common, plugins:{ ...common.plugins, title:{ display:true, text:'② 相位：綠線處離 −180° 的距離 = PM', align:'start' } },
+            scales:{ ...common.scales, y:{ min:-270, max:0, title:{ display:true, text:'Phase (deg)' }, grid:{ color:'rgba(0,0,0,.05)' } } } } });
+    stepChart = new Chart(document.getElementById('stepChart').getContext('2d'), { type:'line',
+        data:{ datasets:[
+            { label:'輸出', data:[], borderColor:'#ea580c', borderWidth:2.5, pointRadius:0, fill:false },
+            { label:'指令', data:[{x:0,y:1},{x:6,y:1}], borderColor:'rgba(100,116,139,0.7)', borderWidth:1.5, borderDash:[6,4], pointRadius:0, fill:false }
+        ]},
+        options:{ responsive:true, maintainAspectRatio:false, parsing:false, animation:{duration:90},
+            elements:{ point:{radius:0}, line:{tension:0} },
+            plugins:{ legend:{display:false}, tooltip:{enabled:false}, title:{ display:true, text:'③ 時域階躍響應：給指令(灰虛線)，輸出(橘)怎麼追', align:'start' } },
+            scales:{ x:{ type:'linear', min:0, max:6, title:{ display:true, text:'時間 (ms)' }, grid:{color:'rgba(0,0,0,.05)'} },
+                     y:{ min:-0.2, max:2.2, title:{ display:true, text:'輸出 (目標=1)' }, grid:{color:'rgba(0,0,0,.05)'} } } } });
+}
+
+['kp-slider','ki-slider'].forEach(id => document.getElementById(id).addEventListener('input', update));
+document.querySelectorAll('.preset-btn').forEach(btn => btn.addEventListener('click', () => {
+    document.getElementById('kp-slider').value = btn.dataset.kp;
+    document.getElementById('ki-slider').value = btn.dataset.ki;
+    update();
+}));
+init();
+update();
+</script>
+</body>
+</html>

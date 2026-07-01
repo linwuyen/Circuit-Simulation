@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第 3 課 · PWM 與平均電壓</title>
+  <script src="../../assets/vendor/tailwindcss-cdn.js"></script>
+  <link rel="stylesheet" href="shared/theme.css">
+</head>
+<body class="min-h-screen">
+  <div class="max-w-6xl mx-auto px-4 py-6">
+    <header class="flex items-center justify-between mb-5">
+      <div class="flex items-center gap-3">
+        <span class="tag text-emerald-400">第 3 課 / 8</span>
+        <h1 class="text-lg md:text-xl font-bold text-slate-100">⏹️ PWM 與平均電壓</h1>
+      </div>
+      <a href="index.html" class="text-xs text-slate-400 hover:text-emerald-400">📍 課程地圖</a>
+    </header>
+
+    <div class="edu-card edu-goal mb-4">
+      <h3 class="text-emerald-400">🎯 本課目標</h3>
+      <p>理解 <b>PWM（脈寬調變）</b>的核心魔法：開關只會「全開」或「全關」，但只要快速切換、控制<b>導通時間的比例（占空比）</b>，輸出的<b>平均電壓</b>就能是任何你想要的值。一句話：<b>平均輸出 ≈ 占空比 × Vdc</b>。它怎麼產生？用一個<b>比較器</b>：參考波 vs 高頻三角載波。</p>
+    </div>
+
+    <div id="sim" class="mb-5"></div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+      <div class="edu-card edu-try">
+        <h3 class="text-amber-400">🔬 動手做</h3>
+        <ol>
+          <li>已打開 <b>CH4</b>：紅色是<b>參考波</b>、灰色是<b>三角載波</b>。規則很簡單：<b>紅 &gt; 灰 → 開關 ON</b>。</li>
+          <li>看綠色 <b>CH1</b>：它就是被「切」出來的方塊脈衝。注意在<b>參考波高的地方，脈衝變寬</b>（導通時間長 → 那段平均電壓高）。</li>
+          <li>拉 <b>載波頻率 f<sub>c</sub></b> 滑桿調高 → 單位時間內脈衝變多、變細；調低 → 脈衝變少、變粗。</li>
+          <li>拉 <b>m<sub>a</sub></b>（參考波幅度）→ 整體脈衝寬窄跟著變，平均電壓也跟著變。</li>
+        </ol>
+      </div>
+      <div class="edu-card edu-expect">
+        <h3 class="text-cyan-400">✅ 你應該看到 / 為什麼</h3>
+        <p>輸出永遠是離散的方塊（只有 +/− 兩個準位），但<b>脈衝寬度隨參考波改變</b>。把這些脈衝在一個載波週期內「平均」，得到的就是參考波的形狀。</p>
+        <p>這就是「<b>用數位的開/關，合成出類比的平均值</b>」。載波頻率越高，平均得越細、越接近理想，但開關次數變多 → 切換損耗上升（這是下面的取捨）。</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="edu-card edu-apply">
+        <h3 class="text-blue-400">🌍 這在真實世界用在哪</h3>
+        <ul>
+          <li>馬達調速、LED 調光、DC-DC 轉換、D 類音響放大器，全都靠 PWM。</li>
+          <li>MCU 內的「<b>比較暫存器 (CMP)</b>」就是這個比較器：你寫一個數字進去，硬體自動產生對應占空比。</li>
+          <li>TI C2000 ePWM 的計數器 = 三角載波，CMPA = 你的參考值。</li>
+        </ul>
+      </div>
+      <div class="edu-card edu-tradeoff">
+        <h3 class="text-purple-300">⚖️ 工程取捨：載波頻率怎麼選？</h3>
+        <p><b>f<sub>c</sub> 拉高</b>：平均更平滑、濾波器可以更小、噪音超出聽覺範圍；<b>但</b>每次開關都有損耗，f<sub>c</sub> 越高 → <span class="gloss" title="開關切換瞬間電壓電流交疊產生的損耗，與頻率成正比">切換損耗</span>與發熱越大、效率下降。這就是為什麼工業變頻器常用 2~16kHz，而不是越高越好。</p>
+      </div>
+    </div>
+
+    <div class="edu-card quiz mt-4">
+      <h3 class="text-slate-200">❓ 考考你</h3>
+      <details><summary>占空比 50% 時，半橋輸出的平均電壓是多少？</summary><div class="ans">約 0V。因為一半時間 +Vdc/2、一半時間 −Vdc/2，平均相消。占空比要 &gt; 50% 平均才為正。</div></details>
+      <details><summary>為什麼不直接用「線性穩壓」把電壓降到想要的值，而要用 PWM 開關？</summary><div class="ans">線性穩壓靠電阻分壓，多餘能量全變成熱，效率低。PWM 開關理想上不耗能（全開時無壓降、全關時無電流），效率可達 95%+。</div></details>
+      <details><summary>把 f<sub>c</sub> 調到跟基波 f 很接近，會發生什麼？</summary><div class="ans">一個基波週期內只有幾個脈衝，平均得很粗糙，輸出諧波嚴重、難以濾波。所以 f<sub>c</sub> 通常是 f 的數十到上千倍。</div></details>
+    </div>
+
+    <nav id="lesson-nav" class="lesson-nav"></nav>
+  </div>
+
+  <script src="shared/widget.js"></script>
+  <script src="shared/ui.js"></script>
+  <script>
+    PE.mount('#sim', {
+      topology: 'half',
+      allowTopology: false,
+      loads: ['R'],
+      modulations: ['spwm', 'square'],
+      controls: { ma: true, freq: true, fc: true, manual: false },
+      channels: { ch1: true, ch4: true },
+      defaults: { load: 'R', modulation: 'spwm', autoMode: true, ma: 0.8, freq: 50, fc: 600 },
+      metrics: false
+    });
+    EDU.renderNav(3);
+  </script>
+</body>
+</html>

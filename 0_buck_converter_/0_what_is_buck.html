@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>0 · Buck 在做什麼？切碎再撫平</title>
+<style>
+  :root{--bg:#f1f5f9;--card:#fff;--ink:#1e293b;--muted:#64748b;--hint:#94a3b8;--line:#e2e8f0;--blue:#2563eb;--red:#dc2626;--purple:#7c3aed;--green:#059669;--cyan:#0891b2;--amber:#b45309;--mono:ui-monospace,Consolas,Menlo,monospace;--radius:12px;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Noto Sans TC","Microsoft JhengHei",sans-serif;line-height:1.7}
+  .wrap{max-width:900px;margin:0 auto;padding:22px 20px 64px}
+  a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+  .crumb{font-size:13px;color:var(--hint);margin-bottom:8px}
+  h1{font-size:23px;font-weight:600;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:15px;margin:0 0 20px}
+  .stage{display:grid;grid-template-columns:340px 1fr;gap:20px;align-items:start}
+  @media(max-width:760px){.stage{grid-template-columns:1fr}}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+  .cap{font-size:12.5px;margin-top:8px;text-align:center;font-weight:600}
+  .ctrl{margin:16px 0 0}
+  .row{display:flex;justify-content:space-between;margin-bottom:4px}
+  label{font-size:13px;color:var(--muted)}
+  .val{font-family:var(--mono);font-weight:600}
+  input[type=range]{width:100%}
+  .hint{font-size:11.5px;color:var(--hint);margin-top:3px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:10px;margin-bottom:12px}
+  .metric{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+  .metric .t{font-size:11.5px;color:var(--muted);margin-bottom:2px}
+  .metric .n{font-size:20px;font-weight:600;font-family:var(--mono)}
+  .scope{background:#0f172a;border-radius:var(--radius);padding:12px 14px;margin-bottom:12px}
+  .scope .stitle{color:#cbd5e1;font-size:12.5px;font-family:var(--mono);margin-bottom:4px}
+  .formula{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:10px 13px;font-family:var(--mono);font-size:12.5px;color:var(--muted);line-height:1.8}
+  .try{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:13px 16px;margin:20px 0 0;font-size:14.5px;color:#1e3a8a}
+  .try b{color:#1e40af}
+  .takeaway{background:#dcfce7;border:1px solid #86efac;border-radius:10px;padding:13px 16px;margin:12px 0 0;font-size:15px;color:#065f46}
+  .takeaway code{background:#bbf7d0;padding:1px 6px;border-radius:4px;font-family:var(--mono)}
+  .nav{display:flex;justify-content:space-between;margin-top:26px;gap:10px}
+  .nav a{font-size:14px;padding:9px 16px;border:1px solid var(--line);border-radius:9px;background:var(--card)}
+  .nav a.next{border-color:#93c5fd;color:#1d4ed8;font-weight:600}
+  .foot{margin-top:28px;font-size:11.5px;color:var(--hint);text-align:center}
+  code{background:#eef2f7;padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="crumb">步驟 0 / 5 · <a href="index.html">← 學習地圖</a></div>
+  <h1>Buck 在做什麼？切碎再撫平</h1>
+  <p class="sub">一句話：開關把高電壓快速切成方波，「平均」下來就是想要的低電壓。</p>
+
+  <div class="stage">
+    <div>
+      <div class="panel">
+        <div id="circ"></div>
+        <div class="cap" id="ccap" style="color:var(--blue)">🔵 聚焦：SW 開關（負責「切」）</div>
+        <div class="ctrl">
+          <div class="row"><label for="vin">輸入電壓 Vin</label><span class="val" id="vinO" style="color:#1d4ed8">12 V</span></div>
+          <input id="vin" type="range" min="5" max="30" step="0.5" value="12" style="accent-color:#2563eb">
+        </div>
+        <div class="ctrl">
+          <div class="row"><label for="duty">佔空比 Duty（開關 ON 的時間比例）</label><span class="val" id="dutyO" style="color:#7c3aed">40 %</span></div>
+          <input id="duty" type="range" min="5" max="95" step="1" value="40" style="accent-color:#7c3aed">
+          <div class="hint">↑ ON 的比例越高 → 平均電壓越高 → Vout 越大</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="cards">
+        <div class="metric"><div class="t">輸出電壓 Vout</div><div class="n" id="voutN" style="color:#059669">4.8 V</div></div>
+        <div class="metric"><div class="t">= D × Vin</div><div class="n" id="calcN">0.40×12</div></div>
+      </div>
+      <div class="scope">
+        <div class="stitle">開關節點電壓（方波）＋ 平均值＝Vout</div>
+        <svg id="sw" width="100%" viewBox="0 0 440 200" style="display:block"></svg>
+      </div>
+      <div class="formula" id="f"></div>
+    </div>
+  </div>
+
+  <div class="try">🔧 <b>動手試：</b>把 Duty 拖到 <b>50%</b>，方波 ON / OFF 各半，平均線剛好落在 Vin 的一半。再把 Duty 往上拉，看綠色平均線（＝Vout）跟著往上爬。</div>
+  <div class="takeaway">📌 <b>帶走這句：</b>buck 不是「電阻分壓」，是用開關控制「ON 的時間比例」。理想下 <code>Vout = D × Vin</code>。後面幾頁都圍著這個 ON / OFF 切換在跑。</div>
+
+  <div class="nav">
+    <a href="index.html">← 學習地圖</a>
+    <a class="next" href="1_inductor_triangle.html">下一頁：電感三角波 →</a>
+  </div>
+  <p class="foot">理想化模型（忽略損耗與壓降），用於建立直覺。</p>
+</div>
+
+<script>
+(function(){
+  var $=function(i){return document.getElementById(i);};
+  function circuitSVG(focus){
+    var acc={sw:'#2563eb',L:'#dc2626',D:'#7c3aed',C:'#059669',load:'#0891b2'};
+    function c(id){return focus===id?acc[id]:'#475569';}
+    function w(id){return focus===id?3.4:2;}
+    var s='<svg viewBox="0 0 340 170" width="100%" style="max-width:340px;display:block;margin:0 auto">';
+    s+='<line x1="30" y1="146" x2="312" y2="146" stroke="#94a3b8" stroke-width="2"/>';
+    s+='<circle cx="30" cy="94" r="14" fill="none" stroke="#475569" stroke-width="2"/><text x="30" y="98" text-anchor="middle" font-size="10" fill="#475569">Vin</text>';
+    s+='<line x1="30" y1="48" x2="30" y2="80" stroke="#475569" stroke-width="2"/><line x1="30" y1="108" x2="30" y2="146" stroke="#475569" stroke-width="2"/>';
+    s+='<line x1="30" y1="48" x2="88" y2="48" stroke="#475569" stroke-width="2"/>';
+    s+='<rect x="88" y="36" width="34" height="24" rx="4" fill="#fff" stroke="'+c('sw')+'" stroke-width="'+w('sw')+'"/><text x="105" y="52" text-anchor="middle" font-size="11" fill="'+c('sw')+'">SW</text>';
+    s+='<line x1="122" y1="48" x2="150" y2="48" stroke="#475569" stroke-width="2"/><circle cx="150" cy="48" r="3" fill="#475569"/>';
+    s+='<line x1="150" y1="48" x2="164" y2="48" stroke="#475569" stroke-width="2"/><rect x="164" y="38" width="58" height="20" rx="10" fill="#fff" stroke="'+c('L')+'" stroke-width="'+w('L')+'"/><text x="193" y="52" text-anchor="middle" font-size="11" fill="'+c('L')+'">L</text>';
+    s+='<line x1="222" y1="48" x2="252" y2="48" stroke="#475569" stroke-width="2"/><circle cx="252" cy="48" r="3" fill="#475569"/>';
+    s+='<line x1="150" y1="48" x2="150" y2="84" stroke="#475569" stroke-width="2"/><path d="M138,106 L162,106 L150,88 Z" fill="none" stroke="'+c('D')+'" stroke-width="'+w('D')+'"/><line x1="138" y1="88" x2="162" y2="88" stroke="'+c('D')+'" stroke-width="'+w('D')+'"/><line x1="150" y1="106" x2="150" y2="146" stroke="#475569" stroke-width="2"/><text x="128" y="104" text-anchor="middle" font-size="11" fill="'+c('D')+'">D</text>';
+    s+='<line x1="252" y1="48" x2="252" y2="90" stroke="#475569" stroke-width="2"/><line x1="240" y1="90" x2="264" y2="90" stroke="'+c('C')+'" stroke-width="'+w('C')+'"/><line x1="240" y1="98" x2="264" y2="98" stroke="'+c('C')+'" stroke-width="'+w('C')+'"/><line x1="252" y1="98" x2="252" y2="146" stroke="#475569" stroke-width="2"/><text x="274" y="98" font-size="11" fill="'+c('C')+'">C</text>';
+    s+='<line x1="252" y1="48" x2="300" y2="48" stroke="#475569" stroke-width="2"/><line x1="300" y1="48" x2="300" y2="72" stroke="#475569" stroke-width="2"/><rect x="290" y="72" width="20" height="40" rx="3" fill="#fff" stroke="'+c('load')+'" stroke-width="'+w('load')+'"/><text x="300" y="66" text-anchor="middle" font-size="9" fill="'+c('load')+'">負載</text><line x1="300" y1="112" x2="300" y2="146" stroke="#475569" stroke-width="2"/>';
+    s+='<text x="250" y="32" text-anchor="middle" font-size="10" fill="#1d4ed8">Vout</text>';
+    s+='</svg>';
+    return s;
+  }
+  $("circ").innerHTML=circuitSVG("sw");
+
+  var W=440,H=200,pL=40,pR=14,pT=18,pB=26,plotW=W-pL-pR,periodW=plotW/2,y0=H-pB;
+  function render(){
+    var vin=+$("vin").value, duty=+$("duty").value/100;
+    var vout=duty*vin;
+    $("vinO").textContent=vin+" V"; $("dutyO").textContent=Math.round(duty*100)+" %";
+    $("voutN").textContent=vout.toFixed(1)+" V"; $("calcN").textContent=duty.toFixed(2)+"×"+vin;
+    var maxY=vin*1.18;
+    function sY(v){return y0-(v/maxY)*(y0-pT);}
+    var Hy=sY(vin),Ly=sY(0),Avg=sY(vout);
+    var s='';
+    // ON shading both periods
+    for(var p=0;p<2;p++){var xs=pL+p*periodW;s+='<rect x="'+xs+'" y="'+pT+'" width="'+(duty*periodW)+'" height="'+(y0-pT)+'" fill="rgba(124,58,237,0.16)"/>';}
+    // 0 axis
+    s+='<line x1="'+pL+'" y1="'+Ly+'" x2="'+(W-pR)+'" y2="'+Ly+'" stroke="#334155" stroke-width="1" stroke-dasharray="4"/><text x="6" y="'+(Ly+3)+'" fill="#64748b" font-size="10">0V</text>';
+    // square wave
+    var pts=[];
+    for(var q=0;q<2;q++){var x0=pL+q*periodW,xon=x0+duty*periodW;pts.push([x0,Hy],[xon,Hy],[xon,Ly],[x0+periodW,Ly]);}
+    s+='<polyline points="'+pts.map(function(a){return a[0].toFixed(1)+','+a[1].toFixed(1);}).join(' ')+'" fill="none" stroke="#a78bfa" stroke-width="2.5"/>';
+    // average line = Vout
+    s+='<line x1="'+pL+'" y1="'+Avg+'" x2="'+(W-pR)+'" y2="'+Avg+'" stroke="#10b981" stroke-width="2.5" stroke-dasharray="6"/>';
+    s+='<text x="'+(W-pR-2)+'" y="'+(Avg-5)+'" text-anchor="end" fill="#34d399" font-size="11">平均 = Vout '+vout.toFixed(1)+'V</text>';
+    s+='<text x="'+(W-pR-2)+'" y="'+(Hy+12)+'" text-anchor="end" fill="#c4b5fd" font-size="10">Vin '+vin+'V</text>';
+    // labels ON/OFF
+    s+='<text x="'+(pL+duty*periodW/2)+'" y="'+(y0+13)+'" text-anchor="middle" fill="#94a3b8" font-size="9">ON</text>';
+    s+='<text x="'+(pL+duty*periodW+(periodW-duty*periodW)/2)+'" y="'+(y0+13)+'" text-anchor="middle" fill="#94a3b8" font-size="9">OFF</text>';
+    $("sw").innerHTML=s;
+    $("f").innerHTML="一個週期裡，開關 ON 的比例 D = "+(duty*100).toFixed(0)+"%<br>輸出平均電壓 Vout = D × Vin = "+duty.toFixed(2)+" × "+vin+" = <b style='color:#059669'>"+vout.toFixed(2)+" V</b>";
+  }
+  $("vin").addEventListener("input",render);$("duty").addEventListener("input",render);
+  render();
+})();
+</script>
+</body>
+</html>

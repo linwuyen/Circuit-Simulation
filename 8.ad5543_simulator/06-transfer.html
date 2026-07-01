@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>第6課 轉移函數與線性 — AD5543 教學</title>
+<link rel="stylesheet" href="assets/common.css" />
+</head>
+<body>
+<div class="wrap">
+  <div id="nav-top"></div>
+
+  <div class="lesson-head">
+    <span class="lesson-num">第 6 課</span>
+    <h1>轉移函數與線性:D 與 VOUT 是一條直線</h1>
+    <p class="goal">這一課你會懂:把每個數位碼對應的輸出畫出來,會是<b>一條直線</b> —— 這就是「線性 DAC」的意思,也是它好用的原因。</p>
+  </div>
+
+  <div class="teach">
+    <div class="analogy">
+      <span class="emoji">📈</span>
+      <div><b>轉移函數</b>就是「輸入 → 輸出」的對應圖。橫軸是數位碼 D(0 → 0xFFFF),縱軸是 VOUT。
+      因為 VOUT = −VREF × (D/2¹⁶),D 每加 1,VOUT 就固定變動一個 LSB → 連起來是<b>一條直線</b>。
+      線性代表:你「寫多少碼」與「得到多少電壓」之間有可預測的固定比例,做控制、做校正都很方便。</div>
+    </div>
+  </div>
+
+  <div class="trythis">
+    <div class="sec-label">🧪 動手試試</div>
+    <ol>
+      <li>拉動數位碼滑桿,看綠色亮點<b>沿著直線</b>移動 —— 永遠落在線上,不會彎。</li>
+      <li>改變 VREF,整條線的<b>斜率</b>跟著變(VREF 大,線陡;VREF 小,線緩)。</li>
+      <li>把 VREF 設成負值,直線會<b>上下翻轉</b>(斜率變號)。對照左下角 VOUT 數值。</li>
+    </ol>
+  </div>
+
+  <div class="panel sim">
+    <div class="sec-label" style="margin:0">轉移函數 (D → VOUT)</div>
+    <div class="viz"><div id="chart"></div></div>
+    <p id="chartCaption" class="hint"></p>
+    <div class="ctrl">
+      <label class="row"><span>VREF (V)</span><span id="vrefVal" style="color:var(--blue-400)"></span></label>
+      <input id="vref" type="range" min="-10" max="10" step="0.1" oninput="setVref(this.value)" style="accent-color:#60a5fa" />
+      <label class="row" style="margin-top:8px"><span>數位碼 D</span><span id="codeVal" style="color:var(--green-400)"></span></label>
+      <input id="code" type="range" min="0" max="65535" step="1" oninput="setCodeRaw(this.value)" style="accent-color:#4ade80" />
+      <div id="presets" class="presets"></div>
+    </div>
+    <div class="stats-grid" id="stats"></div>
+  </div>
+
+  <div class="takeaways">
+    <div class="sec-label">📌 重點整理</div>
+    <ul>
+      <li>理想 DAC 的轉移函數是<b>一條直線</b>:VOUT 與 D 成正比。</li>
+      <li><b>VREF 決定斜率</b>(滿刻度高度),正負 VREF 決定線往上或往下。</li>
+      <li>真實晶片會有微小彎曲(<b>INL/DNL</b>),這是「線有多直」的規格 —— 但整體仍視為線性元件。</li>
+    </ul>
+  </div>
+
+  <div class="quiz" id="quiz"></div>
+  <div id="refs"></div>
+  <div id="nav-bottom"></div>
+</div>
+
+<script src="assets/common.js"></script>
+<script>
+const state = { vref: 10, code: 32768, mode: 'standard' };
+function setVref(v){ state.vref = parseFloat(v); render(); }
+function setCodeRaw(v){ state.code = parseInt(v,10); render(); }
+function setCode(v){ state.code = v; render(); }
+
+function render(){
+  const c = DAC.compute(state);
+  document.getElementById('vref').value = state.vref;
+  document.getElementById('code').value = state.code;
+  document.getElementById('vrefVal').textContent = Number(state.vref).toFixed(1)+' V';
+  document.getElementById('codeVal').textContent = state.code+'  (0x'+state.code.toString(16).toUpperCase().padStart(4,'0')+')';
+  document.getElementById('presets').innerHTML = DAC.buildPresets(state.code);
+  document.getElementById('chart').innerHTML = DAC.buildChart(state, c);
+  document.getElementById('stats').innerHTML = DAC.buildStats(state, c);
+  document.getElementById('chartCaption').innerHTML =
+    'DAC 是<b style="color:var(--blue-300)">線性</b>元件 —— 數位碼與輸出電壓是一條直線。移動滑桿,看綠色亮點怎麼沿著線走。';
+}
+
+DAC.renderNav('06-transfer.html');
+render();
+document.getElementById('refs').innerHTML = DAC.readMore([
+  { term: 'INL (積分非線性)', desc: '整體輸出偏離理想直線的最大量;決定「這條線有多直」。' },
+  { term: 'DNL (微分非線性)', desc: '相鄰兩碼間的實際步階與理想 1 LSB 的差;DNL > −1 LSB 即保證單調。' },
+  { term: 'Gain Error', desc: '滿刻度端實際與理想的差(斜率誤差),可由校正修掉(見第 7 課)。' },
+  { term: 'Monotonic', desc: '碼增加輸出必不倒退;閉迴路控制與自動校正都依賴這個特性。' },
+]);
+DAC.quiz('quiz', [
+  { q: '理想 DAC 的轉移函數(D 對 VOUT)長什麼樣?',
+    options: ['一條直線','一個圓','階梯狀亂跳','拋物線'],
+    answer: 0,
+    explain: 'VOUT 與 D 成正比,連起來是一條直線,所以叫線性 DAC。' },
+  { q: '把 VREF 變大,轉移函數那條線會怎樣?',
+    options: ['變平(斜率變小)','變陡(斜率變大)','左右平移','消失'],
+    answer: 1,
+    explain: 'VREF 決定滿刻度高度,也就是直線的斜率;VREF 越大線越陡。' },
+  { q: '描述「這條線有多直」的規格是?',
+    options: ['SPI 時脈','INL / DNL(積分/微分非線性)','封裝大小','工作電壓'],
+    answer: 1,
+    explain: 'INL/DNL 衡量實際輸出偏離理想直線的程度,是 DAC 線性度的關鍵規格。' },
+  { q: '把 VREF 由正改成負,轉移函數的直線會?',
+    options: ['消失','上下翻轉(斜率變號)','變成水平線','左右鏡射'],
+    answer: 1,
+    explain: 'VREF 變號 → 斜率變號,直線繞 0 軸上下翻轉。' },
+  { q: 'DNL 規格保證「單調」的條件是?',
+    options: ['DNL > −1 LSB','DNL = 0 必須完全為零','INL = 100 LSB','跟 DNL 無關'],
+    answer: 0,
+    explain: '只要 DNL 不低於 −1 LSB,碼增加輸出就不會倒退,即保證單調。' },
+], '06-transfer.html', { pick: 3 });
+</script>
+</body>
+</html>

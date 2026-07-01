@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>故障字典 · αβ 波形 → 病因速查</title>
+<link rel="stylesheet" href="foc-style.css">
+<style>
+  .hero{padding:22px 22px 16px;border-bottom:1px solid var(--line);background:rgba(15,23,42,.5)}
+  .hero h1{margin:0 0 6px;font-size:22px;color:var(--emer2);letter-spacing:.5px}
+  .hero p{margin:0;color:var(--mut);font-size:13px;max-width:820px;line-height:1.7}
+  .howto{margin-top:12px;font-size:12px;color:var(--dim);display:flex;gap:18px;flex-wrap:wrap}
+  .howto b{color:var(--emer2)}
+  .ref-dot{display:inline-block;width:18px;height:0;border-top:2px dashed rgba(148,163,184,.6);vertical-align:middle;margin-right:5px}
+
+  .dict{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;padding:20px 22px}
+  .fcard{background:rgba(15,23,42,.55);border:1px solid var(--line);border-radius:12px;overflow:hidden;
+    display:flex;flex-direction:column;transition:.15s}
+  .fcard:hover{border-color:var(--emer);transform:translateY(-2px)}
+  .fcard .scope{border-radius:0;border:none;border-bottom:2px solid #0f3025}
+  .scope.mini{height:190px}
+  .finfo{padding:13px 15px 15px;display:flex;flex-direction:column;gap:8px}
+  .ftitle{display:flex;align-items:center;gap:8px;justify-content:space-between}
+  .ftitle .nm{font-size:15px;font-weight:800;color:var(--ink)}
+  .ftitle .ic{font-size:18px}
+  .ftitle .dq{font-size:10px;font-family:'Share Tech Mono',monospace;color:var(--cyan);
+    border:1px solid rgba(34,211,238,.35);border-radius:5px;padding:2px 6px;white-space:nowrap}
+  .line{font-size:12.5px;line-height:1.6;color:var(--mut)}
+  .line .k{display:inline-block;min-width:0;font-weight:700;margin-right:5px}
+  .line.cause{color:#fca5a5}.line.cause .k{color:#f87171}
+  .line.confirm .k{color:#7dd3fc}
+  .line.fix .k{color:var(--emer2)}
+  .warn{color:#fcd34d}
+
+  .summary{margin:6px 22px 26px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .summary h2{margin:0;font-size:13px;letter-spacing:1px;color:var(--ink);padding:13px 16px;
+    background:rgba(15,23,42,.7);border-bottom:1px solid var(--line)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:9px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--mut);font-weight:600;font-size:11px;letter-spacing:.5px;background:rgba(15,23,42,.4)}
+  td .shp{font-family:'Share Tech Mono',monospace;color:var(--emer2);white-space:nowrap}
+  tr:last-child td{border-bottom:none}
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <div class="crumb">FOC 教學課程 · 🔧 現場速查</div>
+    <h1>故障字典 · 看波形長相，反推故障原因</h1>
+    <div class="sub">把 L6–L8 學到的「一個故障一種形狀」整理成一張現場可查的表</div>
+  </div>
+  <div class="prog">速查 REF</div>
+</header>
+
+<div class="hero">
+  <h1>🩺 αβ 波形 → 病因速查</h1>
+  <p>調機時，先看電流的 αβ 軌跡長什麼樣，再對照下表反推哪裡出問題。每張卡片都疊了一圈
+     <span class="ref-dot"></span><b>淡虛線 = 健康正圓</b>當基準，偏離越多代表問題越嚴重。</p>
+  <div class="howto">
+    <span>① 先記住 <b>正圓</b> 是健康長相</span>
+    <span>② 比對你的波形像哪一張</span>
+    <span>③ 照 <b>🔍 確認 → 🔧 修法</b> 處理</span>
+  </div>
+</div>
+
+<main class="dict" id="dict"></main>
+
+<div class="summary">
+  <h2>📋 一頁對照表（可列印貼牆）</h2>
+  <table>
+    <thead><tr><th>波形長相</th><th>dq 訊號特徵</th><th>病因</th><th>第一步怎麼確認</th><th>怎麼修</th></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<nav class="foot">
+  <a href="L8-overmodulation.html">← L8</a>
+  <a href="index.html">課程地圖</a>
+  <a class="next" href="L9-capstone.html">L9 完整診斷儀 →</a>
+</nav>
+
+<script src="foc-core.js"></script>
+<script>
+const TAU = FOC.TAU;
+// 每個故障：path(θ)→{a,b} 畫出特徵 αβ 軌跡；其餘為診斷資訊
+const FAULTS = [
+  { icon:'⭕', name:'正圓（健康基準）', color:'#34d399', dq:'穩定直流點',
+    path:t=>({a:Math.cos(t), b:Math.sin(t)}),
+    cause:'一切正常 —— 兩相對稱、無偏置、未飽和。先把這個「正常長相」記在腦裡。',
+    confirm:'圓心在原點、半徑固定、邊緣平滑；dq 是一個幾乎不動的點。',
+    fix:'無需處理。把它當作所有比對的基準。' },
+
+  { icon:'🥚', name:'橢圓', color:'#f59e0b', dq:'2× 電頻脈動',
+    path:t=>({a:1.32*Math.cos(t), b:0.78*Math.sin(t)}),
+    cause:'兩相電流感測 / ADC 增益不對稱（一相放大、另一相縮小）。',
+    confirm:'比較兩相電流峰值是否一致；dq 上看到 2 倍電頻的脈動。',
+    fix:'逐相做增益校正；兩相盡量共用同一參考電壓 / 同型號感測器。' },
+
+  { icon:'🎯', name:'偏心圓（圓心偏移）', color:'#22d3ee', dq:'1× 基頻脈動',
+    path:t=>({a:Math.cos(t)+0.30, b:Math.sin(t)+0.12}),
+    cause:'電流感測器 / ADC 直流偏置 —— 零電流時讀數不為零。',
+    confirm:'圓心明顯偏離原點；dq 出現 1 倍（基頻）脈動。',
+    fix:'上電時做電流零點校正：無 PWM 時取樣多次取平均，當 offset 扣掉。' },
+
+  { icon:'✶', name:'六角漣波 / 星形', color:'#a78bfa', dq:'6× 頻漣波',
+    path:t=>{const r=1+0.16*Math.cos(6*t); return {a:r*Math.cos(t), b:r*Math.sin(t)};},
+    cause:'逆變器死區時間 —— 每 60° 注入固定伏秒誤差（靜止系的 5、7 次諧波）。',
+    confirm:'圓周出現 6 個規律凹凸；電流 FFT 看到 6 倍電頻成分。',
+    fix:'死區補償：依電流方向前饋補回損失的伏秒；量測開關元件 Vsat。' },
+
+  { icon:'⬡', name:'六邊形削頂', color:'#ef4444', dq:'低次諧波 / 飽和', hex:true,
+    path:t=>{const c=FOC.clipToHexagon(1.18*Math.cos(t),1.18*Math.sin(t)); return {a:c.alpha,b:c.beta};},
+    cause:'電壓指令超過母線線性區（|V|>1.0），被 SVPWM 六邊形夾住。',
+    confirm:'圓被夾成六邊形、波形削頂；占空比貼到 0% / 100%。',
+    fix:'提高母線電壓、降低扭矩 / 轉速指令，或進入弱磁控制。' },
+
+  { icon:'🧭', name:'αβ 正常，但 Id≠0', color:'#64748b', dq:'操作點跑掉', note:'⚠ 這個在 αβ 看不出來！',
+    path:t=>({a:Math.cos(t), b:Math.sin(t)}),
+    cause:'轉子位置角 θ 偏移（編碼器 / Hall 未對齊、相序接錯）。',
+    confirm:'αβ 看起來正常，要改看 dq：Id 不為零、效率與最大扭矩下降、同電流發熱變大。',
+    fix:'做電氣零位對齊校準（對齊 d 軸）；檢查編碼器零點與三相接線順序。' },
+];
+
+const dict = document.getElementById('dict');
+const cards = [];
+FAULTS.forEach(f=>{
+  const art=document.createElement('article'); art.className='fcard';
+  art.innerHTML=`
+    <div class="scope mini"><canvas></canvas><span class="lab">αβ 電流軌跡</span></div>
+    <div class="finfo">
+      <div class="ftitle"><span class="nm"><span class="ic">${f.icon}</span> ${f.name}</span>
+        <span class="dq">dq: ${f.dq}</span></div>
+      <div class="line cause"><span class="k">病因</span>${f.cause}</div>
+      <div class="line confirm"><span class="k">🔍 確認</span>${f.note?'<span class="warn">'+f.note+'</span> ':''}${f.confirm}</div>
+      <div class="line fix"><span class="k">🔧 修法</span>${f.fix}</div>
+    </div>`;
+  dict.appendChild(art);
+  const cv=art.querySelector('canvas');
+  cards.push({cv, ctx:cv.getContext('2d'), f});
+});
+
+// 對照表
+const tb=document.getElementById('tbody');
+FAULTS.forEach(f=>{
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td><span class="shp">${f.icon} ${f.name}</span></td>
+    <td>${f.dq}</td><td>${f.cause}</td><td>${f.confirm}</td><td>${f.fix}</td>`;
+  tb.appendChild(tr);
+});
+
+function resize(){ cards.forEach(c=>FOC.fit(c.cv)); }
+window.addEventListener('resize', resize);
+
+let phase=0;
+function draw(c){
+  const {cv,ctx,f}=c, W=cv.width,H=cv.height,cx=W/2,cy=H/2,s=Math.min(W,H)*0.34;
+  FOC.plane(ctx,W,H,cx,cy,s,{hexagon:!!f.hex});
+  // 健康基準正圓（淡虛線）
+  ctx.strokeStyle='rgba(148,163,184,.30)'; ctx.lineWidth=1; ctx.setLineDash([3,4]);
+  ctx.beginPath(); ctx.arc(cx,cy,s,0,TAU); ctx.stroke(); ctx.setLineDash([]);
+  // 完整故障軌跡
+  const N=180, pts=[];
+  for(let i=0;i<=N;i++){const t=i/N*TAU,p=f.path(t);pts.push({x:cx+p.a*s,y:cy-p.b*s});}
+  ctx.strokeStyle=f.color+'44'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+  for(let i=1;i<=N;i++)ctx.lineTo(pts[i].x,pts[i].y); ctx.stroke();
+  // 移動亮點 + 拖尾
+  const head=Math.floor(phase)%N;
+  ctx.strokeStyle=f.color; ctx.lineWidth=2.5; ctx.shadowBlur=6; ctx.shadowColor=f.color;
+  ctx.beginPath();
+  for(let k=42;k>=0;k--){const p=pts[(head-k+N)%N]; k===42?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);}
+  ctx.stroke(); ctx.shadowBlur=0;
+  const hp=pts[head];
+  ctx.beginPath(); ctx.arc(hp.x,hp.y,4,0,TAU); ctx.fillStyle='#fff';
+  ctx.shadowBlur=10; ctx.shadowColor='#fff'; ctx.fill(); ctx.shadowBlur=0;
+  // θ 誤差卡：特別提示
+  if(f.note){ ctx.fillStyle='rgba(148,163,184,.85)'; ctx.font='600 11px monospace';
+    ctx.textAlign='center'; ctx.fillText('看起來正常 → 要看 dq', cx, H-12); ctx.textAlign='left'; }
+}
+function loop(){ phase+=1.1; cards.forEach(draw); requestAnimationFrame(loop); }
+resize(); loop();
+</script>
+<script src="foc-quiz.js"></script>
+<script>FOCQuiz.mount('FAULT')</script>
+</body>
+</html>

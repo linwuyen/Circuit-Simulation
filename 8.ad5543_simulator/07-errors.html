@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>第7課 真實誤差與校正 — AD5543 教學</title>
+<link rel="stylesheet" href="assets/common.css" />
+</head>
+<body>
+<div class="wrap">
+  <div id="nav-top"></div>
+
+  <div class="lesson-head">
+    <span class="lesson-num">第 7 課</span>
+    <h1>真實世界誤差:Offset、Gain 與校正</h1>
+    <p class="goal">這一課你會懂:理想公式很漂亮,但真實電路會有<b>偏移 (Offset)</b> 與<b>增益 (Gain)</b> 誤差,以及怎麼用<b>兩點校正</b>把它修掉。</p>
+  </div>
+
+  <div class="teach">
+    <div class="analogy">
+      <span class="emoji">🎯</span>
+      <div><b>Offset(偏移)</b>= 整條線「上下平移」:連零刻度都不是 0 V。<br>
+      <b>Gain(增益)</b>= 線的「斜率」不對:滿刻度差了一截。<br>
+      真實系統大多是這兩種誤差<b>疊加</b>在一起。好消息是:只要它仍是直線,就能用<b>兩點校正</b>幾乎完全修正回來 —— 這也是為什麼產品出廠都要做 calibration。</div>
+    </div>
+  </div>
+
+  <div class="trythis">
+    <div class="sec-label">🧪 動手試試</div>
+    <ol>
+      <li>先按 <span class="k">誤差:開</span>。拉 <span class="k">Offset</span>,看圖中橘色虛線整條<b>上下平移</b>,理想(黃)不動。</li>
+      <li>改拉 <span class="k">Gain</span>,看橘線<b>斜率改變</b>,在滿刻度端差距最大。</li>
+      <li>下方<b>兩點校正小工具</b>:輸入你「想要」的兩個點與「實測」到的值,它會幫你算出校正係數,把實測拉回理想。</li>
+    </ol>
+  </div>
+
+  <div class="panel sim">
+    <div class="row-between">
+      <div class="sec-label" style="margin:0">理想 vs 真實</div>
+      <button id="errToggle" class="btn" onclick="toggleErr()"></button>
+    </div>
+    <div class="viz"><div id="chart"></div></div>
+    <div id="errControls" class="errctrls">
+      <div><label class="row"><span>Offset 偏移誤差</span><span id="offsetVal" style="color:var(--orange-300)"></span></label>
+        <input id="offset" type="range" min="-50" max="50" step="0.5" oninput="setOffset(this.value)" style="accent-color:#fb923c" /></div>
+      <div><label class="row"><span>Gain 增益誤差</span><span id="gainVal" style="color:var(--orange-300)"></span></label>
+        <input id="gain" type="range" min="-3" max="3" step="0.05" oninput="setGain(this.value)" style="accent-color:#fb923c" /></div>
+    </div>
+    <div id="errValues"></div>
+    <div class="ctrl">
+      <label class="row"><span>VREF (V)</span><span id="vrefVal" style="color:var(--blue-400)"></span></label>
+      <input id="vref" type="range" min="-10" max="10" step="0.1" oninput="setVref(this.value)" style="accent-color:#60a5fa" />
+      <label class="row" style="margin-top:8px"><span>數位碼 D</span><span id="codeVal" style="color:var(--green-400)"></span></label>
+      <input id="code" type="range" min="0" max="65535" step="1" oninput="setCodeRaw(this.value)" style="accent-color:#4ade80" />
+    </div>
+    <p class="hint">Offset 把整條線上下平移(零刻度也不為 0);Gain 改變線的斜率。真實系統大多兩者疊加,所以要校正。</p>
+  </div>
+
+  <div class="panel">
+    <div class="sec-label">🛠️ 兩點校正小工具(實用)</div>
+    <p class="hint" style="margin-top:0">原理:真實 = Gain × 理想 + Offset。量兩個點就能解出 Gain 與 Offset,之後用 <b>理想 = (實測 − Offset) / Gain</b> 還原。</p>
+    <div class="calc-grid">
+      <div class="field"><label>點 A — 理想值 (V)</label><input id="ax" type="number" value="0" step="0.001" oninput="calcCal()" /></div>
+      <div class="field"><label>點 A — 實測值 (V)</label><input id="ay" type="number" value="0.005" step="0.001" oninput="calcCal()" /></div>
+      <div class="field"><label>點 B — 理想值 (V)</label><input id="bx" type="number" value="-5" step="0.001" oninput="calcCal()" /></div>
+      <div class="field"><label>點 B — 實測值 (V)</label><input id="by" type="number" value="-5.030" step="0.001" oninput="calcCal()" /></div>
+    </div>
+    <div class="result-card" id="calOut" style="margin-top:14px"></div>
+  </div>
+
+  <div class="takeaways">
+    <div class="sec-label">📌 重點整理</div>
+    <ul>
+      <li><b>Offset</b> = 零點沒對準(整條線平移);<b>Gain</b> = 斜率不對(滿刻度差一截)。</li>
+      <li>只要輸出仍是直線,<b>兩點校正</b>就能算出 Gain/Offset 並還原,精度大幅提升。</li>
+      <li>誤差來源:VREF 不準、運放失調、電阻容差、溫漂 —— 這就是真實電路與理想公式的差距。</li>
+    </ul>
+  </div>
+
+  <div class="quiz" id="quiz"></div>
+  <div id="refs"></div>
+  <div id="nav-bottom"></div>
+</div>
+
+<script src="assets/common.js"></script>
+<script>
+const state = { vref: 10, code: 32768, mode: 'standard', enableErrors: true, offsetMv: 5, gainPct: 0.5 };
+function setVref(v){ state.vref = parseFloat(v); render(); }
+function setCodeRaw(v){ state.code = parseInt(v,10); render(); }
+function setOffset(v){ state.offsetMv = parseFloat(v); render(); }
+function setGain(v){ state.gainPct = parseFloat(v); render(); }
+function toggleErr(){ state.enableErrors = !state.enableErrors; render(); }
+
+function render(){
+  const c = DAC.compute(state);
+  document.getElementById('vref').value = state.vref;
+  document.getElementById('code').value = state.code;
+  document.getElementById('offset').value = state.offsetMv;
+  document.getElementById('gain').value = state.gainPct;
+  document.getElementById('vrefVal').textContent = Number(state.vref).toFixed(1)+' V';
+  document.getElementById('codeVal').textContent = state.code+'  (0x'+state.code.toString(16).toUpperCase().padStart(4,'0')+')';
+  document.getElementById('offsetVal').textContent = Number(state.offsetMv).toFixed(1)+' mV';
+  document.getElementById('gainVal').textContent = Number(state.gainPct).toFixed(2)+' %';
+  document.getElementById('chart').innerHTML = DAC.buildChart(state, c);
+  document.getElementById('errValues').innerHTML = DAC.buildErrValues(c);
+  const et = document.getElementById('errToggle');
+  et.textContent = state.enableErrors ? '誤差:開(點此關閉)' : '誤差:關(點此開啟)';
+  et.className = 'btn' + (state.enableErrors ? ' on' : '');
+  const ec = document.getElementById('errControls');
+  ec.style.opacity = state.enableErrors ? '1' : '0.4';
+  ec.style.pointerEvents = state.enableErrors ? 'auto' : 'none';
+}
+
+function calcCal(){
+  const ax=parseFloat(ax_()), ay=parseFloat(ay_()), bx=parseFloat(bx_()), by=parseFloat(by_());
+  const out = document.getElementById('calOut');
+  if ([ax,ay,bx,by].some(isNaN) || Math.abs(by-ay) < 1e-9 || Math.abs(bx-ax) < 1e-9){
+    out.innerHTML = '<span class="hint">請輸入兩個「理想值不同」的點。</span>'; return;
+  }
+  const gain = (by - ay) / (bx - ax);          // 實測 = gain*理想 + offset
+  const offset = ay - gain * ax;
+  out.innerHTML = '<div style="font-size:.85rem;color:var(--slate-400)">解出的誤差模型</div>'
+    + '<div class="big">Gain = '+gain.toFixed(5)+'</div>'
+    + '<p style="margin:6px 0 0;font-family:var(--mono);font-size:.9rem;color:var(--slate-200)">Offset = '+(offset*1000).toFixed(2)+' mV</p>'
+    + '<p style="margin:8px 0 0;font-size:.82rem;color:var(--green-400)">校正公式:理想 = (實測 − ('+offset.toFixed(4)+')) / '+gain.toFixed(5)+'</p>'
+    + '<p class="hint" style="margin-top:6px">把這條套用到每次量到的實測值,就能還原成接近理想的輸出。</p>';
+}
+function ax_(){return document.getElementById('ax').value;}
+function ay_(){return document.getElementById('ay').value;}
+function bx_(){return document.getElementById('bx').value;}
+function by_(){return document.getElementById('by').value;}
+
+DAC.renderNav('07-errors.html');
+render();
+calcCal();
+document.getElementById('refs').innerHTML = DAC.readMore([
+  { term: 'Offset Error', desc: '零碼時的輸出偏移(整條線平移);多半來自運放 VOS 與 IB。' },
+  { term: 'Gain Error', desc: '滿刻度斜率誤差;來自 VREF 不準、RFB/外接電阻容差。' },
+  { term: 'Tempco (ppm/°C)', desc: '增益/偏移隨溫度漂移的速率;ratiometric 設計能抑制大部分漂移。' },
+  { term: 'System Calibration', desc: '兩點(或多點)校正流程,量測後以 (實測−Offset)/Gain 還原 —— 即本課的小工具。' },
+]);
+DAC.quiz('quiz', [
+  { q: '只有 Offset 誤差時,轉移函數會怎樣?',
+    options: ['整條線上下平移(連 0 刻度都不為 0)','斜率改變','變成曲線','完全正常'],
+    answer: 0,
+    explain: 'Offset 讓整條線平移,零碼時輸出不為 0,但斜率不變。' },
+  { q: 'Gain 誤差的特徵是?',
+    options: ['零點偏移','斜率不對,滿刻度端差距最大','頻率改變','只影響 LSB'],
+    answer: 1,
+    explain: 'Gain 改變斜率,越靠滿刻度,理想與實測差距越大。' },
+  { q: '為什麼「兩點校正」能修掉這兩種誤差?',
+    options: ['因為誤差是隨機的','因為輸出仍是直線,兩點即可定出斜率與截距','因為晶片會自動修','因為換更貴的晶片'],
+    answer: 1,
+    explain: '直線由兩點唯一決定,量兩點即可解出 Gain(斜率)與 Offset(截距),再反推還原。' },
+  { q: '下列哪一個「不是」典型的誤差來源?',
+    options: ['VREF 不夠準','運放失調電壓 VOS','電阻容差與溫漂','數位碼是用二進位表示'],
+    answer: 3,
+    explain: '用二進位表示不會造成誤差;誤差來自類比端(VREF、運放、電阻、溫度)。' },
+  { q: '校正模型「實測 = Gain × 理想 + Offset」中,Gain 對應直線的?',
+    options: ['截距','斜率','起點','長度'],
+    answer: 1,
+    explain: 'Gain 是斜率、Offset 是截距;這也是為什麼量兩點就能完全決定。' },
+], '07-errors.html', { pick: 3 });
+</script>
+</body>
+</html>

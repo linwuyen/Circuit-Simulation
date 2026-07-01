@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L6 · ADC 增益不對稱</title>
+<link rel="stylesheet" href="foc-style.css">
+</head>
+<body>
+<header class="top">
+  <div>
+    <div class="crumb">FOC 教學課程 · 階段 ③ 硬體非理想</div>
+    <h1>L6 · ADC 增益不對稱 (圓 → 橢圓)</h1>
+    <div class="sub">兩相電流感測器增益不一致，正圓被壓成橢圓</div>
+  </div>
+  <div class="prog">第 6 / 9 課</div>
+</header>
+
+<main class="stage">
+  <div class="scopes two">
+    <div class="scope sq">
+      <canvas id="cv-xy"></canvas>
+      <span class="lab">αβ 軌跡</span>
+      <span class="lab tr" id="shape">正圓</span>
+    </div>
+    <div class="scope sq">
+      <canvas id="cv-yt"></canvas>
+      <span class="lab">αβ 時域</span>
+      <span class="lab tr"><span style="color:#10b981">●</span>Vα <span style="color:#f59e0b">●</span>Vβ</span>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <h2>故障注入</h2>
+    <div class="ctrl">
+      <div class="row"><span>A/B 增益不對稱</span><span class="v" id="v-g">0 %</span></div>
+      <input type="range" id="p-g" min="0" max="50" value="0">
+    </div>
+    <div class="ctrl">
+      <div class="row"><span>轉速 ω</span><span class="v" id="v-w">90 Hz</span></div>
+      <input type="range" id="p-w" min="20" max="300" value="90">
+    </div>
+    <div class="readout">
+      <div class="cell"><span>Vα 振幅</span><span id="r-a">0.80</span></div>
+      <div class="cell"><span>Vβ 振幅</span><span id="r-b">0.80</span></div>
+      <div class="cell"><span>長短軸比</span><span id="r-r">1.00</span></div>
+      <div class="cell"><span>形狀</span><span id="r-s">圓</span></div>
+    </div>
+    <div class="task"><b>🎯 動手試</b>
+      慢慢拉「增益不對稱」：左圖正圓沿水平拉長、垂直壓扁成橢圓；右圖兩條波明明同頻，<strong>振幅卻不一樣</strong>了。</div>
+    <div class="aha"><b>💡 你學到了</b>
+      α 軸放大 (1+g)、β 軸縮小 (1−g)，圓就變橢圓。真實成因是兩個相電流 ADC 通道增益沒對齊，會在 dq 產生 2 倍頻脈動 → 轉矩抖動、嗡嗡聲。校正方法：通道增益校準。</div>
+  </aside>
+</main>
+
+<nav class="foot">
+  <a href="L5-coupling.html">← L5</a>
+  <a href="index.html">課程地圖</a>
+  <a class="next" href="L7-deadtime.html">下一課：L7 死區時間 →</a>
+</nav>
+
+<script src="foc-core.js"></script>
+<script>
+const cvXY=document.getElementById('cv-xy'),ctxXY=cvXY.getContext('2d');
+const cvYT=document.getElementById('cv-yt'),ctxYT=cvYT.getContext('2d');
+const pG=document.getElementById('p-g'),pW=document.getElementById('p-w');
+let g=0,w=90,theta=0,last=performance.now();const MAG=0.8;
+
+function ui(){g=+pG.value/100;w=+pW.value;
+  document.getElementById('v-g').textContent=(g*100).toFixed(0)+' %';
+  document.getElementById('v-w').textContent=w+' Hz';}
+[pG,pW].forEach(p=>p.addEventListener('input',ui));
+function comp(a){return{alpha:MAG*Math.cos(a)*(1+g),beta:MAG*Math.sin(a)*(1-g)};}
+function resize(){FOC.fit(cvXY);FOC.fit(cvYT);}
+window.addEventListener('resize',resize);
+
+function loop(now){
+  const dt=Math.min(.016,(now-last)/1000);last=now;
+  theta=(theta+FOC.TAU*w*dt)%FOC.TAU;
+  const W=cvXY.width,H=cvXY.height,cx=W/2,cy=H/2,s=Math.min(W,H)*0.42;
+  FOC.plane(ctxXY,W,H,cx,cy,s,{unitCircle:true});
+  const pts=[];for(let i=0;i<=240;i++){const v=comp(i/240*FOC.TAU);pts.push({x:cx+v.alpha*s,y:cy-v.beta*s});}
+  FOC.poly(ctxXY,pts,'rgba(16,185,129,.45)',1.4);
+  const c=comp(theta);FOC.vector(ctxXY,cx,cy,c.alpha,c.beta,s,'#34d399');
+
+  const W2=cvYT.width,H2=cvYT.height,c2=H2/2,sy=H2*0.36;
+  ctxYT.clearRect(0,0,W2,H2);
+  ctxYT.strokeStyle='rgba(99,102,241,.15)';ctxYT.beginPath();ctxYT.moveTo(0,c2);ctxYT.lineTo(W2,c2);ctxYT.stroke();
+  const pa=[],pb=[];
+  for(let x=0;x<W2;x++){const ang=theta-(x/W2)*FOC.TAU*1.5;const v=comp(ang);
+    pa.push({x:W2-x,y:c2-v.alpha*sy});pb.push({x:W2-x,y:c2-v.beta*sy});}
+  FOC.poly(ctxYT,pa,'#10b981');FOC.poly(ctxYT,pb,'#f59e0b');
+
+  const ra=MAG*(1+g),rb=MAG*(1-g),ratio=ra/rb;
+  document.getElementById('r-a').textContent=ra.toFixed(2);
+  document.getElementById('r-b').textContent=rb.toFixed(2);
+  document.getElementById('r-r').textContent=ratio.toFixed(2);
+  const sh=g<0.02?'圓':(g<0.2?'微橢圓':'明顯橢圓');
+  document.getElementById('r-s').textContent=sh;
+  document.getElementById('shape').textContent=g<0.02?'正圓':'橢圓';
+  requestAnimationFrame(loop);
+}
+resize();ui();requestAnimationFrame(loop);
+</script>
+<script src="foc-quiz.js"></script>
+<script>FOCQuiz.mount('L6')</script>
+<script src="foc-lab.js"></script>
+<script>FOCLab.mount('L6')</script>
+</body>
+</html>

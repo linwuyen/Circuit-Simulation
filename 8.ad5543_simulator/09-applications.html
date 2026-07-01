@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>第9課 應用情境 — AD5543 教學</title>
+<link rel="stylesheet" href="assets/common.css" />
+</head>
+<body>
+<div class="wrap">
+  <div id="nav-top"></div>
+
+  <div class="lesson-head">
+    <span class="lesson-num">第 9 課 · 進階應用</span>
+    <h1>應用情境:把乘法 DAC 當「數位旋鈕」用</h1>
+    <p class="goal">這一課你會懂:既然輸出 = VREF × 比例,只要把 <b>VREF 換成你的訊號</b>,DAC 就變成一個<b>用數位碼控制的衰減器 / 可程式增益</b>,還能做波形縮放與自動校正。</p>
+  </div>
+
+  <div class="teach">
+    <div class="analogy">
+      <span class="emoji">🎛️</span>
+      <div>前 8 課都把 VREF 當「固定直流」。但乘法 DAC 的精髓是:<b>VREF 可以是會動的交流訊號</b>。
+      這時輸出 = 輸入訊號 × (D/2¹⁶) —— 等於一顆<b>用程式碼轉動的音量旋鈕</b>。<br><br>
+      基本接法是<b>衰減</b>(0 ~ 1 倍);若把 DAC 放到運放的<b>回授路徑</b>,就反過來變成<b>可程式增益放大器(PGA,增益 = 2¹⁶/D)</b>。
+      下面的 demo 用一個正弦輸入,讓你拉數位碼即時改變輸出大小與相位。</div>
+    </div>
+  </div>
+
+  <div class="trythis">
+    <div class="sec-label">🧪 動手試試</div>
+    <ol>
+      <li>拉 <span class="k">數位碼</span>:看綠色輸出正弦的<b>振幅</b>跟著縮放,右側增益(倍率與 dB)即時更新。</li>
+      <li>碼設一半(0x8000)→ 輸出約為輸入的 <span class="k">0.5 倍(−6 dB)</span>;碼設 0 → 輸出靜音。</li>
+      <li>切換 <span class="k">相位</span>:標準(反相)時輸出與輸入<b>上下相反</b>,正輸出則同相。</li>
+      <li>調 <span class="k">輸入振幅(VREF)</span>:這代表你餵進去的交流訊號大小。</li>
+    </ol>
+  </div>
+
+  <div class="panel sim">
+    <div class="row-between">
+      <div class="sec-label" style="margin:0">數位衰減器 / 波形縮放 demo</div>
+      <button id="modeBtn" class="btn" onclick="toggleMode()"></button>
+    </div>
+    <div class="viz"><div id="wave"></div></div>
+    <div class="ctrl">
+      <label class="row"><span>輸入訊號振幅(VREF 峰值, V)</span><span id="vrefVal" style="color:var(--blue-400)"></span></label>
+      <input id="vref" type="range" min="0.5" max="10" step="0.1" value="8" oninput="setVref(this.value)" style="accent-color:#60a5fa" />
+      <label class="row" style="margin-top:8px"><span>數位碼 D(數位音量旋鈕)</span><span id="codeVal" style="color:var(--green-400)"></span></label>
+      <input id="code" type="range" min="0" max="65535" step="1" value="32768" oninput="setCodeRaw(this.value)" style="accent-color:#4ade80" />
+      <div id="presets" class="presets"></div>
+    </div>
+    <div class="stats-grid" id="gains"></div>
+  </div>
+
+  <div>
+    <div class="sec-label">🧰 常見應用一覽</div>
+    <div class="map">
+      <div class="concept"><div class="t">🔊 數位音量 / 衰減器</div><p>把音訊或感測訊號接到 VREF,用數位碼即時調整大小(0 ~ 1 倍),無機械電位器、可程式、可重現。</p></div>
+      <div class="concept"><div class="t">📈 可程式增益放大器 (PGA)</div><p>把 MDAC 放進運放回授路徑,增益變成 2¹⁶/D,可用程式碼選擇放大倍率,常見於量測前端。</p></div>
+      <div class="concept"><div class="t">〰️ 波形產生 / 縮放</div><p>VREF 餵入參考波形,連續更新數位碼即可做振幅調變(AM)、包絡控制或任意波形縮放。</p></div>
+      <div class="concept"><div class="t">🎯 自動校正 / 微調源</div><p>當作高解析度的可程式電壓/增益微調(trim),取代手調可變電阻,做產線自動校正。</p></div>
+      <div class="concept"><div class="t">🔧 增益微調 (Gain Trim)</div><p>串在訊號鏈中對既有增益做 ±少許百分比的精細修正,補償元件容差。</p></div>
+      <div class="concept"><div class="t">🧪 四象限相乘</div><p>VREF 與碼皆可正負 → 真正的類比相乘器,可做相位敏感偵測等運算。</p></div>
+    </div>
+  </div>
+
+  <div class="takeaways">
+    <div class="sec-label">📌 重點整理 · 課程總結</div>
+    <ul>
+      <li>把 VREF 換成<b>會動的訊號</b>,乘法 DAC 就是<b>數位控制的旋鈕</b>:輸出 = 訊號 × (D/2¹⁶)。</li>
+      <li>基本接法是<b>衰減(0~1×)</b>;放進回授路徑則成<b>可程式增益(PGA)</b>。</li>
+      <li>整套課:<b>比例旋鈕 → 位元 → R-2R/IOUT → TIA/RFB → 極性 → 線性 → 誤差校正 → SPI → 應用</b>。你已經走完一條完整訊號鏈!🎓</li>
+    </ul>
+  </div>
+
+  <div class="quiz" id="quiz"></div>
+  <div id="refs"></div>
+  <div id="nav-bottom"></div>
+</div>
+
+<script src="assets/common.js"></script>
+<script>
+const state = { vref: 8, code: 32768, mode: 'standard' };
+function setVref(v){ state.vref = parseFloat(v); render(); }
+function setCodeRaw(v){ state.code = parseInt(v,10); render(); }
+function setCode(v){ state.code = v; render(); }
+function toggleMode(){ state.mode = state.mode === 'standard' ? 'positive' : 'standard'; render(); }
+
+function buildWave(){
+  const X0 = 40, X1 = 405, cy = 100, cycles = 2, pxPerV = 7;
+  const A = Math.min(Math.abs(state.vref), 10);
+  const ratio = state.code / DAC.MAX;
+  const sign = state.mode === 'standard' ? -1 : 1;   // 標準=反相
+  function path(amp, ph){
+    let p = '';
+    for (let i = 0; i <= 160; i++){
+      const x = X0 + (i/160)*(X1-X0);
+      const t = (i/160)*cycles*2*Math.PI;
+      const y = cy - ph*amp*pxPerV*Math.sin(t);
+      p += (i===0?'M':'L') + x.toFixed(1) + ' ' + Math.max(8,Math.min(192,y)).toFixed(1) + ' ';
+    }
+    return p;
+  }
+  const inP = path(A, 1), outP = path(A*ratio, sign);
+  let s = '<svg viewBox="0 0 420 200" style="width:100%">';
+  s += '<line x1="'+X0+'" y1="'+cy+'" x2="'+X1+'" y2="'+cy+'" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3 3"/>';
+  s += '<path d="'+inP+'" fill="none" stroke="#2563eb" stroke-width="2" opacity="0.55"/>';
+  s += '<path d="'+outP+'" fill="none" stroke="#16a34a" stroke-width="2.5"/>';
+  s += '<rect x="300" y="8" width="116" height="34" rx="4" fill="#0f172a" opacity="0.75"/>';
+  s += '<line x1="308" y1="18" x2="324" y2="18" stroke="#2563eb" stroke-width="2"/><text x="328" y="21" fill="#cbd5e1" font-size="9">輸入 VREF</text>';
+  s += '<line x1="308" y1="32" x2="324" y2="32" stroke="#16a34a" stroke-width="2.5"/><text x="328" y="35" fill="#cbd5e1" font-size="9">輸出 VOUT</text>';
+  s += '</svg>';
+  return s;
+}
+
+function render(){
+  const ratio = state.code / DAC.MAX;
+  document.getElementById('vref').value = state.vref;
+  document.getElementById('code').value = state.code;
+  document.getElementById('vrefVal').textContent = Number(state.vref).toFixed(1)+' V';
+  document.getElementById('codeVal').textContent = state.code+'  (0x'+state.code.toString(16).toUpperCase().padStart(4,'0')+')';
+  document.getElementById('presets').innerHTML = DAC.buildPresets(state.code);
+  document.getElementById('wave').innerHTML = buildWave();
+  const dB = ratio > 0 ? (20*Math.log10(ratio)).toFixed(1)+' dB' : '−∞ dB';
+  const outAmp = (Math.abs(state.vref)*ratio).toFixed(3);
+  const tile = (c,l,v,h)=>'<div class="stat"><div class="lab">'+l+'</div><div class="val" style="color:'+c+'">'+v+'</div><div class="h">'+h+'</div></div>';
+  document.getElementById('gains').innerHTML =
+      tile('var(--green-400)','增益(倍率)', (ratio).toFixed(4)+' ×', '= D / 2¹⁶,基本接法為衰減')
+    + tile('var(--blue-400)','增益(分貝)', dB, '20·log₁₀(D/2¹⁶)')
+    + tile('var(--amber-300)','輸出峰值', outAmp+' V', '輸入峰值 × 增益')
+    + tile('var(--purple-400)','相位', state.mode==='standard'?'反相 (180°)':'同相 (0°)', state.mode==='standard'?'單級標準接法':'雙級正輸出');
+  const mb = document.getElementById('modeBtn');
+  mb.textContent = state.mode==='standard' ? '相位:反相 ⇄ 切同相' : '相位:同相 ⇄ 切反相';
+  mb.className = 'btn' + (state.mode==='positive'?' on':'');
+}
+
+DAC.renderNav('09-applications.html');
+render();
+document.getElementById('refs').innerHTML = DAC.readMore([
+  { term: 'Multiplying Mode (AC Reference)', desc: 'VREF 可為交流;datasheet 會給 VREF 的頻寬與多象限應用電路。' },
+  { term: 'Programmable Gain (MDAC in feedback)', desc: '把 MDAC 放進運放回授,增益 = 2¹⁶/D,即可程式增益放大器。' },
+  { term: 'Reference Multiplying Bandwidth', desc: '訊號路徑可用頻寬上限;做波形縮放/調變時要看這項。' },
+  { term: 'Applications Section', desc: 'datasheet 末段的典型應用:可程式衰減器、增益微調、波形產生等。' },
+]);
+DAC.quiz('quiz', [
+  { q: '把交流訊號接到 VREF、數位碼當旋鈕,DAC 的基本功能是?',
+    options: ['放大 100 倍','用數位碼控制的衰減器(0~1 倍)','整流','濾波'],
+    answer: 1,
+    explain: '輸出 = 訊號 × (D/2¹⁶),比例 0~1,所以基本接法是可程式衰減器。' },
+  { q: '數位碼設為 0x8000(一半),輸出大約是輸入的幾倍、幾 dB?',
+    options: ['1 倍,0 dB','0.5 倍,約 −6 dB','2 倍,+6 dB','0 倍,靜音'],
+    answer: 1,
+    explain: '比例 0.5 → 0.5 倍,20·log₁₀(0.5) ≈ −6 dB。' },
+  { q: '想得到「大於 1」的可程式增益,要怎麼接?',
+    options: ['加大 VREF 就好','把 MDAC 放進運放的回授路徑(增益 = 2¹⁶/D)','把碼設成負數','換成電壓輸出 DAC'],
+    answer: 1,
+    explain: 'MDAC 在回授路徑時增益 = 2¹⁶/D,可大於 1,成為 PGA。' },
+  { q: '標準單級接法下,輸出正弦與輸入正弦的相位關係?',
+    options: ['同相','反相(差 180°)','差 90°','無關'],
+    answer: 1,
+    explain: '內建 RFB 反相,所以標準接法輸出與輸入反相。' },
+  { q: '下列哪個「不是」乘法 DAC 的典型應用?',
+    options: ['可程式衰減器','波形振幅調變','數位增益微調','當作微處理器的 CPU'],
+    answer: 3,
+    explain: '它是類比訊號縮放/相乘元件,不是運算核心。' },
+], '09-applications.html', { pick: 3 });
+</script>
+</body>
+</html>

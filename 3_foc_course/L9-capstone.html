@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L9 · 完整雙路 DAC 診斷示波器</title>
+<link rel="stylesheet" href="foc-style.css">
+<style>
+  .scopes.capstone { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .scope.short { height: 220px; }
+  .diagnosis { display: grid; gap: 8px; font-size: 12px; line-height: 1.55; }
+  .diagnosis .row { display: grid; grid-template-columns: 82px 1fr; gap: 8px; padding: 8px 9px; border: 1px solid var(--line); border-radius: 8px; background: #0b1220; }
+  .diagnosis b { color: var(--emer2); }
+  select { width: 100%; min-height: 36px; border: 1px solid var(--line); border-radius: 8px; background: #0b1220; color: var(--ink); padding: 7px 9px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <div class="crumb">FOC 教學課程 · 階段 ④ 整合</div>
+    <h1>L9 · 完整雙路 DAC 診斷示波器</h1>
+    <div class="sub">把 αβ、dq 與三相時域放在一起，練習從波形形狀反推原因</div>
+  </div>
+  <div class="prog">第 9 / 9 課</div>
+</header>
+
+<main class="stage">
+  <div class="scopes capstone">
+    <div class="scope sq">
+      <canvas id="cv-ab"></canvas>
+      <span class="lab">CH1/CH2：αβ DAC 軌跡</span>
+      <span class="lab tr" id="abLabel">正常圓</span>
+    </div>
+    <div class="scope short">
+      <canvas id="cv-dq"></canvas>
+      <span class="lab">dq 追蹤：Id / Iq</span>
+      <span class="lab tr"><span style="color:#34d399">●</span>Id <span style="color:#22d3ee">●</span>Iq</span>
+    </div>
+    <div class="scope short">
+      <canvas id="cv-abc"></canvas>
+      <span class="lab">三相時域：Ia / Ib / Ic</span>
+      <span class="lab tr"><span style="color:#34d399">●</span>A <span style="color:#22d3ee">●</span>B <span style="color:#a78bfa">●</span>C</span>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <h2>診斷設定</h2>
+    <label class="ctrl">
+      <div class="row"><span>故障預設</span><span class="v" id="presetName">正常</span></div>
+      <select id="preset">
+        <option value="normal">正常：圓形軌跡 + 穩定 dq</option>
+        <option value="gain">ADC 增益不對稱：αβ 橢圓</option>
+        <option value="deadtime">死區時間：六角星與 6 次脈動</option>
+        <option value="overmod">過調變：貼六邊形 / 削頂</option>
+        <option value="coupling">未解耦：dq 階躍互相牽動</option>
+      </select>
+    </label>
+    <div class="ctrl">
+      <div class="row"><span>電氣頻率</span><span class="v" id="v-f">80 Hz</span></div>
+      <input type="range" id="p-f" min="20" max="240" value="80">
+    </div>
+    <div class="ctrl">
+      <div class="row"><span>扭矩電流 Iq</span><span class="v" id="v-iq">0.72 pu</span></div>
+      <input type="range" id="p-iq" min="0.2" max="1.1" step="0.02" value="0.72">
+    </div>
+    <div class="ctrl">
+      <div class="row"><span>電壓利用率</span><span class="v" id="v-v">0.82</span></div>
+      <input type="range" id="p-v" min="0.3" max="1.3" step="0.02" value="0.82">
+    </div>
+    <div class="readout">
+      <div class="cell"><span>αβ 形狀</span><span id="r-shape">圓</span></div>
+      <div class="cell"><span>dq 症狀</span><span id="r-dq">穩定</span></div>
+      <div class="cell"><span>疑似病因</span><span id="r-cause">無</span></div>
+      <div class="cell"><span>下一步</span><span id="r-action">基準紀錄</span></div>
+    </div>
+    <div class="diagnosis" id="diagnosis"></div>
+    <div class="task"><b>🎯 動手試</b>逐一切換故障預設，先只看左邊 αβ 軌跡猜病因，再用 dq 與三相時域驗證。最後回到 <code>fault-dictionary.html</code> 對照速查表。</div>
+    <div class="aha"><b>💡 結業重點</b>調機時不要只看一條波形。αβ 看形狀、dq 看控制是否變成直流、三相時域看實際輸出是否削頂或畸變，三者合起來才有診斷力。</div>
+  </aside>
+</main>
+
+<nav class="foot">
+  <a href="L8-overmodulation.html">← L8</a>
+  <a href="index.html">課程地圖</a>
+  <a class="next" href="fault-dictionary.html">故障字典速查 →</a>
+</nav>
+
+<script src="foc-core.js"></script>
+<script>
+const cvAB = document.getElementById('cv-ab');
+const cvDQ = document.getElementById('cv-dq');
+const cvABC = document.getElementById('cv-abc');
+const cAB = cvAB.getContext('2d');
+const cDQ = cvDQ.getContext('2d');
+const cABC = cvABC.getContext('2d');
+const preset = document.getElementById('preset');
+const pF = document.getElementById('p-f');
+const pIq = document.getElementById('p-iq');
+const pV = document.getElementById('p-v');
+let theta = 0;
+let last = performance.now();
+
+const INFO = {
+  normal: {
+    name: '正常',
+    shape: '圓',
+    dq: '穩定',
+    cause: '無',
+    action: '基準紀錄',
+    rows: [['觀察', 'αβ 是圓，dq 幾乎是直流。'], ['驗證', '三相平衡且沒有固定角度凹陷。']]
+  },
+  gain: {
+    name: 'ADC 增益不對稱',
+    shape: '橢圓',
+    dq: '2倍頻',
+    cause: '增益校正',
+    action: '重校 ADC',
+    rows: [['觀察', 'αβ 圓被壓成橢圓。'], ['驗證', 'dq 出現兩倍電氣頻率脈動。']]
+  },
+  deadtime: {
+    name: '死區時間',
+    shape: '六角星',
+    dq: '6倍頻',
+    cause: '死區補償',
+    action: '量測相電流方向',
+    rows: [['觀察', '每 60 度有固定誤差。'], ['驗證', '低速或小電流時更明顯。']]
+  },
+  overmod: {
+    name: '過調變',
+    shape: '貼六邊形',
+    dq: '削頂',
+    cause: '母線不足',
+    action: '弱磁或降扭矩',
+    rows: [['觀察', '軌跡碰到六邊形邊界。'], ['驗證', '三相波形頂部被壓平。']]
+  },
+  coupling: {
+    name: '未解耦',
+    shape: '暫態螺旋',
+    dq: '互相牽動',
+    cause: '缺前饋',
+    action: '補 ωL 解耦',
+    rows: [['觀察', 'Iq 階躍時 Id 被拖動。'], ['驗證', '高速時比低速更嚴重。']]
+  }
+};
+
+function fitAll() {
+  FOC.fit(cvAB);
+  FOC.fit(cvDQ);
+  FOC.fit(cvABC);
+}
+window.addEventListener('resize', fitAll);
+
+function updateLabels() {
+  const info = INFO[preset.value];
+  document.getElementById('presetName').textContent = info.name;
+  document.getElementById('v-f').textContent = pF.value + ' Hz';
+  document.getElementById('v-iq').textContent = (+pIq.value).toFixed(2) + ' pu';
+  document.getElementById('v-v').textContent = (+pV.value).toFixed(2);
+  document.getElementById('r-shape').textContent = info.shape;
+  document.getElementById('r-dq').textContent = info.dq;
+  document.getElementById('r-cause').textContent = info.cause;
+  document.getElementById('r-action').textContent = info.action;
+  document.getElementById('abLabel').textContent = info.shape;
+  document.getElementById('diagnosis').innerHTML = info.rows.map(r => '<div class="row"><b>' + r[0] + '</b><span>' + r[1] + '</span></div>').join('');
+}
+[preset, pF, pIq, pV].forEach(el => el.addEventListener('input', updateLabels));
+
+function sample(angle, nowSec) {
+  const mode = preset.value;
+  const iq = +pIq.value;
+  let mag = +pV.value;
+  let a = mag * Math.cos(angle);
+  let b = mag * Math.sin(angle);
+
+  if (mode === 'gain') {
+    a *= 1.16;
+    b *= 0.88;
+  }
+  if (mode === 'deadtime') {
+    const ripple = 0.09 * Math.sign(Math.sin(6 * angle));
+    a += ripple * Math.cos(angle);
+    b += ripple * Math.sin(angle);
+  }
+  if (mode === 'coupling') {
+    const pulse = Math.sin(nowSec * 1.4) > 0 ? 1 : -1;
+    const wobble = 0.16 * Math.sin(nowSec * 4.2) * pulse;
+    a += wobble * Math.cos(angle + Math.PI / 2);
+    b += wobble * Math.sin(angle + Math.PI / 2);
+  }
+  if (mode === 'overmod') {
+    const clipped = FOC.clipToHexagon(a, b);
+    a = clipped.alpha;
+    b = clipped.beta;
+  }
+  const dq = FOC.park(a, b, angle);
+  const abc = FOC.invClarke(a, b);
+  return { a, b, dqD: dq.d, dqQ: dq.q * iq, abc };
+}
+
+function drawPlane(nowSec) {
+  const W = cvAB.width;
+  const H = cvAB.height;
+  const cx = W / 2;
+  const cy = H / 2;
+  const scale = Math.min(W, H) * 0.36;
+  FOC.plane(cAB, W, H, cx, cy, scale, { unitCircle: true, hexagon: true });
+  const pts = [];
+  for (let i = 0; i <= 360; i++) {
+    const s = sample(i / 360 * FOC.TAU, nowSec);
+    pts.push({ x: cx + s.a * scale, y: cy - s.b * scale });
+  }
+  FOC.poly(cAB, pts, '#34d399', 2);
+  const live = sample(theta, nowSec);
+  FOC.vector(cAB, cx, cy, live.a, live.b, scale, '#22d3ee');
+}
+
+function drawStrip(canvas, ctx, channels, colors) {
+  const W = canvas.width;
+  const H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(0,240,150,.12)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    const y = H * i / 4;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W, y);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(0,240,150,.18)';
+  ctx.beginPath();
+  ctx.moveTo(0, H / 2);
+  ctx.lineTo(W, H / 2);
+  ctx.stroke();
+  channels.forEach((pts, i) => FOC.poly(ctx, pts, colors[i], 2));
+}
+
+function drawTime(nowSec) {
+  const dqD = [], dqQ = [], ia = [], ib = [], ic = [];
+  const W1 = cvDQ.width;
+  const H1 = cvDQ.height;
+  const W2 = cvABC.width;
+  const H2 = cvABC.height;
+  for (let x = 0; x < W1; x++) {
+    const a = theta - (x / W1) * FOC.TAU * 2.2;
+    const s = sample(a, nowSec - x / W1);
+    dqD.push({ x: W1 - x, y: H1 / 2 - s.dqD * H1 * 0.26 });
+    dqQ.push({ x: W1 - x, y: H1 / 2 - s.dqQ * H1 * 0.26 });
+  }
+  for (let x = 0; x < W2; x++) {
+    const a = theta - (x / W2) * FOC.TAU * 1.8;
+    const s = sample(a, nowSec - x / W2);
+    ia.push({ x: W2 - x, y: H2 / 2 - s.abc.a * H2 * 0.28 });
+    ib.push({ x: W2 - x, y: H2 / 2 - s.abc.b * H2 * 0.28 });
+    ic.push({ x: W2 - x, y: H2 / 2 - s.abc.c * H2 * 0.28 });
+  }
+  drawStrip(cvDQ, cDQ, [dqD, dqQ], ['#34d399', '#22d3ee']);
+  drawStrip(cvABC, cABC, [ia, ib, ic], ['#34d399', '#22d3ee', '#a78bfa']);
+}
+
+function loop(now) {
+  const dt = Math.min(0.02, (now - last) / 1000);
+  last = now;
+  theta = (theta + FOC.TAU * (+pF.value) * dt) % FOC.TAU;
+  const t = now / 1000;
+  drawPlane(t);
+  drawTime(t);
+  requestAnimationFrame(loop);
+}
+fitAll();
+updateLabels();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

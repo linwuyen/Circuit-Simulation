@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>電力電子逆變器 · 互動教程</title>
+  <script src="../../assets/vendor/tailwindcss-cdn.js"></script>
+  <link rel="stylesheet" href="shared/theme.css">
+</head>
+<body class="min-h-screen">
+  <div class="max-w-5xl mx-auto px-4 py-8">
+
+    <!-- Hero -->
+    <header class="mb-8">
+      <div class="flex items-center gap-3 mb-2">
+        <div class="bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 p-2 rounded-xl font-black shadow-lg shadow-emerald-500/20">⚡</div>
+        <div>
+          <h1 class="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-teal-200 bg-clip-text text-transparent">電力電子逆變器 · 互動教程</h1>
+          <p class="text-sm text-slate-400">從「電感的脾氣」一路玩到三相 SVPWM ——每課一個概念、一個模擬器、一組動手實驗</p>
+        </div>
+      </div>
+      <p class="text-xs text-slate-500 leading-relaxed mt-3 max-w-3xl">
+        這套教程把原本資訊量很大的單頁模擬器，<b class="text-slate-300">拆成 8 堂循序漸進的小課</b>。每一課只聚焦一個新觀念，搭配可即時操作的示波器與電路圖，
+        並附「動手做 / 你應該看到 / 真實應用 / 工程取捨 / 考考你」。建議<b class="text-slate-300">依序從第 1 課開始</b>。
+      </p>
+    </header>
+
+    <!-- 進度條 -->
+    <div class="edu-card mb-6">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-bold text-slate-300">學習進度</span>
+        <span id="hub-progress" class="text-xs font-mono text-emerald-400">已完成 0 / 8 課</span>
+      </div>
+      <div class="h-2 bg-slate-800 rounded-full overflow-hidden">
+        <div id="hub-progress-fill" class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all" style="width:0%"></div>
+      </div>
+      <div class="mt-2 text-right">
+        <button id="reset-progress" class="text-[11px] text-slate-500 hover:text-red-400 transition">重置進度</button>
+      </div>
+    </div>
+
+    <!-- 課程卡格 -->
+    <div id="hub-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8"></div>
+
+    <!-- 學習路徑說明 -->
+    <div class="edu-card edu-goal mb-6">
+      <h3 class="text-emerald-400">🗺️ 這條學習路徑的設計邏輯</h3>
+      <p><b>基礎直覺（1–2）</b>：先懂電感為何需要續流、半橋為何要死區 → <b>調變原理（3–4）</b>：PWM 如何用開關做出平均電壓、再進化成正弦 → <b>進階拓撲（5–7）</b>：全橋多電平、負載與濾波、三相 SVPWM → <b>結業量測（8）</b>：把直覺變成可比較的數據。</p>
+    </div>
+
+    <!-- 相關資源 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="edu-card edu-apply">
+        <h3 class="text-blue-400">🔧 進階／完整工具</h3>
+        <ul>
+          <li><a href="../code_artifact.html" class="text-emerald-400 hover:underline">完整版單頁模擬器</a>：把所有功能放同一畫面（含新手導覽）。學完這 8 課再回頭看會很順。</li>
+        </ul>
+      </div>
+      <div class="edu-card edu-tradeoff">
+        <h3 class="text-purple-300">📚 相關教材（同一資料夾系列）</h3>
+        <ul>
+          <li><b>0_buck_converter</b>：DC-DC 降壓，續流二極體的延伸。</li>
+          <li><b>3_foc_course</b>：馬達磁場導向控制，SVPWM 的應用。</li>
+          <li><b>4_PI</b>：PI 控制器，閉環調節的基礎。</li>
+        </ul>
+      </div>
+    </div>
+
+    <footer class="text-center text-xs text-slate-600 mt-10">電力電子互動教程 · 物理求解器以 20µs 步長即時運算</footer>
+  </div>
+
+  <script src="shared/ui.js"></script>
+  <script>
+    EDU.renderHub();
+    document.getElementById('reset-progress').addEventListener('click', function () {
+      if (confirm('確定要重置所有課程進度嗎？')) { EDU.reset(); EDU.renderHub(); }
+    });
+  </script>
+</body>
+</html>

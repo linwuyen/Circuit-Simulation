@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>第1課 比例旋鈕 — AD5543 教學</title>
+<link rel="stylesheet" href="assets/common.css" />
+</head>
+<body>
+<div class="wrap">
+  <div id="nav-top"></div>
+
+  <div class="lesson-head">
+    <span class="lesson-num">第 1 課</span>
+    <h1>比例旋鈕:DAC 到底在做什麼</h1>
+    <p class="goal">這一課你會懂:DAC 的輸出 = <b>比例 (D/2¹⁶) × VREF</b>。先把這條最核心的式子玩熟,後面全部都建立在它上面。</p>
+  </div>
+
+  <div class="teach">
+    <div class="analogy">
+      <span class="emoji">🎚️</span>
+      <div>想像 VREF 是「水壓」,而數位碼 D 是一顆<b>音量旋鈕</b>。旋鈕轉到底(65535)就全開、輸出最大;轉到 0 就全關、輸出 0。
+      DAC 不會「製造」電壓,它只是<b>按比例分一部分 VREF 出來</b>。所以只要記住:<b>輸出大小 = 旋鈕開幾成 × VREF</b>。</div>
+    </div>
+  </div>
+
+  <div class="trythis">
+    <div class="sec-label">🧪 動手試試</div>
+    <ol>
+      <li>把 <span class="k">VREF</span> 設到 <span class="k">10 V</span>,數位碼按下方 <span class="k">中刻度</span>(0x8000)。觀察 VOUT 大約是 −5 V —— 剛好一半。</li>
+      <li>改按 <span class="k">¼ 刻度</span>(0x4000),VOUT 變約 −2.5 V。比例減半,輸出就減半。</li>
+      <li>把 <span class="k">VREF</span> 拉到 <span class="k">−10 V</span>(負值)。輸出極性整個翻過來 —— 這就是「乘法」DAC 的特色。</li>
+    </ol>
+  </div>
+
+  <div class="panel sim">
+    <div class="ctrl">
+      <label class="row"><span>VREF 參考電壓 (V)</span><span id="vrefVal" style="color:var(--blue-400)"></span></label>
+      <input id="vref" type="range" min="-10" max="10" step="0.1" oninput="setVref(this.value)" style="accent-color:#60a5fa" />
+      <p class="hint">💡 VREF 可正可負。負值會讓輸出反向 —— 一般(非乘法)DAC 做不到。</p>
+    </div>
+    <div class="ctrl">
+      <label class="row"><span>DAC 數位碼 D (十進位)</span><span id="codeVal" style="color:var(--green-400)"></span></label>
+      <input id="code" type="range" min="0" max="65535" step="1" oninput="setCodeRaw(this.value)" style="accent-color:#4ade80" />
+      <div class="hexrow"><span>0x0000</span><span>0x8000</span><span>0xFFFF</span></div>
+      <div id="presets" class="presets"></div>
+    </div>
+    <div id="mathModel" class="mathbox"></div>
+  </div>
+
+  <div class="takeaways">
+    <div class="sec-label">📌 重點整理</div>
+    <ul>
+      <li>核心公式只有一條:<b>VOUT = −VREF × (D / 2¹⁶)</b>(這顆晶片內建反相,所以有負號)。</li>
+      <li>D 從 0 到 65535,等於把比例從 <b>0% 轉到 ~100%</b>;輸出跟著線性走。</li>
+      <li>VREF 決定<b>滿刻度與極性</b>,D 決定<b>目前佔幾成</b>。兩個分工要分清楚。</li>
+    </ul>
+  </div>
+
+  <div class="quiz" id="quiz"></div>
+  <div id="refs"></div>
+  <div id="nav-bottom"></div>
+</div>
+
+<script src="assets/common.js"></script>
+<script>
+const state = { vref: 10, code: 32768, mode: 'standard' };
+function setVref(v){ state.vref = parseFloat(v); render(); }
+function setCodeRaw(v){ state.code = parseInt(v,10); render(); }
+function setCode(v){ state.code = v; render(); }
+
+function render(){
+  const c = DAC.compute(state);
+  document.getElementById('vref').value = state.vref;
+  document.getElementById('code').value = state.code;
+  document.getElementById('vrefVal').textContent = Number(state.vref).toFixed(1)+' V';
+  document.getElementById('codeVal').textContent = state.code + '  (0x'+state.code.toString(16).toUpperCase().padStart(4,'0')+')';
+  document.getElementById('presets').innerHTML = DAC.buildPresets(state.code);
+  document.getElementById('mathModel').innerHTML = DAC.buildMath(state, c);
+}
+
+DAC.renderNav('01-ratio.html');
+render();
+document.getElementById('refs').innerHTML = DAC.readMore([
+  { term: 'Transfer Function', desc: 'datasheet 的轉移函數式,就是本課的 VOUT = −VREF × (D / 2¹⁶);先看懂這條,其餘規格都圍著它轉。' },
+  { term: 'VREF Range', desc: '參考電壓可達約 ±10 V,且可為交流訊號 —— 這是它能做「乘法/四象限」的前提。' },
+  { term: '2- / 4-Quadrant Multiplication', desc: '單極性 VREF 是 2 象限;VREF 可正可負(或 AC)時為 4 象限相乘。' },
+]);
+DAC.quiz('quiz', [
+  { q: '把數位碼設成滿刻度 0xFFFF、VREF = 10 V,VOUT 大約是多少?',
+    options: ['約 +10 V','約 −10 V','約 0 V','約 −5 V'],
+    answer: 1,
+    explain: '比例 ≈ 100%,VOUT = −VREF × ~1 ≈ −10 V(內建反相所以是負的)。' },
+  { q: 'VREF 在這顆 DAC 裡扮演什麼角色?',
+    options: ['決定輸出的滿刻度與極性','決定解析度有幾個 bit','只能是固定 2.5V','控制 SPI 速度'],
+    answer: 0,
+    explain: 'VREF 是被「縮放」的對象,它決定滿刻度範圍與正負極性;D 才是決定佔幾成的旋鈕。' },
+  { q: '為什麼它被叫做「乘法 (multiplying) DAC」?',
+    options: ['因為要用乘法器晶片','因為輸出是兩個數位碼相乘','因為輸出 = 比例 × VREF,VREF 可變甚至可為交流','因為價格是別人的兩倍'],
+    answer: 2,
+    explain: '輸出正比於 VREF 與 D 的乘積,VREF 可正可負、可為交流訊號,所以能做四象限相乘。' },
+  { q: 'VREF 不變,把數位碼從 0x4000 加倍到 0x8000,VOUT 會?',
+    options: ['不變','大約變兩倍','變一半','反相'],
+    answer: 1,
+    explain: '輸出與比例 D/2¹⁶ 成正比,碼加倍 → 比例加倍 → 輸出大約變兩倍。' },
+  { q: '數位碼設為 0(零刻度)時,理想 VOUT 是?',
+    options: ['等於 VREF','約 0 V','約 −VREF/2','無法預測'],
+    answer: 1,
+    explain: '比例 = 0,VOUT = −VREF × 0 = 0 V。' },
+], '01-ratio.html', { pick: 3 });
+</script>
+</body>
+</html>

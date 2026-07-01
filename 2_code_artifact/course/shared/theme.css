@@ -1,0 +1,185 @@
+/* =========================================================================
+   電力電子互動教程 — 共用主題
+   暗色示波器風格 + 教學版型元件（目標 / 動手做 / 預期 / 應用 / 考考你 / 導航）
+   ========================================================================= */
+
+:root {
+  --bg:        #0b0f19;
+  --panel:     rgba(15, 23, 42, 0.55);
+  --panel-2:   #0f172a;
+  --line:      #1e293b;
+  --line-2:    #334155;
+  --text:      #e2e8f0;
+  --muted:     #94a3b8;
+  --faint:     #64748b;
+  --emerald:   #10b981;
+  --cyan:      #22d3ee;
+  --amber:     #f59e0b;
+  --red:       #ef4444;
+  --blue:      #3b82f6;
+  --purple:    #a78bfa;
+}
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Noto Sans TC', 'JetBrains Mono', sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+/* ---------- 示波器螢幕 ---------- */
+.oscilloscope-screen {
+  background-color: #02050c;
+  background-image:
+    radial-gradient(circle, rgba(16, 185, 129, 0.04) 1px, transparent 1px),
+    linear-gradient(to right, rgba(16, 185, 129, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(16, 185, 129, 0.06) 1px, transparent 1px);
+  background-size: 100% 100%, 32px 32px, 32px 32px;
+  background-position: center;
+}
+
+/* ---------- 電流流動動畫 ---------- */
+.glowing-path        { stroke-dasharray: 6; animation: dash 0.8s linear infinite; }
+.glowing-path-diode  { stroke-dasharray: 6; animation: dash-reverse 0.8s linear infinite; }
+@keyframes dash         { to { stroke-dashoffset: -12; } }
+@keyframes dash-reverse { to { stroke-dashoffset:  12; } }
+.glow-green { filter: drop-shadow(0 0 3px #10b981); }
+.glow-amber { filter: drop-shadow(0 0 4px #f59e0b); }
+.glow-blue  { filter: drop-shadow(0 0 3px #3b82f6); }
+.glow-red   { filter: drop-shadow(0 0 5px #ef4444); }
+
+/* ---------- 教學版型卡片 ---------- */
+.edu-card {
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  padding: 1rem 1.15rem;
+  background: var(--panel);
+}
+.edu-card h3 { margin: 0 0 .5rem; font-size: .82rem; font-weight: 700; letter-spacing: .03em; }
+.edu-card p  { font-size: .8rem; line-height: 1.7; color: #cbd5e1; margin: .35rem 0; }
+.edu-card ol, .edu-card ul { font-size: .8rem; line-height: 1.7; color: #cbd5e1; padding-left: 1.25rem; margin: .35rem 0; }
+.edu-card li { margin: .2rem 0; }
+.edu-card b, .edu-card strong { color: #f1f5f9; }
+
+/* 不同教學區塊的左側色條 */
+.edu-goal   { border-left: 3px solid var(--emerald); }
+.edu-try    { border-left: 3px solid var(--amber);  background: rgba(245,158,11,.05); }
+.edu-expect { border-left: 3px solid var(--cyan);   }
+.edu-apply  { border-left: 3px solid var(--blue);   }
+.edu-tradeoff { border-left: 3px solid var(--purple); background: rgba(167,139,250,.05); }
+
+.tag {
+  display: inline-block; font-size: .62rem; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; padding: .15rem .5rem; border-radius: .4rem;
+  border: 1px solid currentColor;
+}
+
+/* ---------- 名詞提示 (glossary) ---------- */
+.gloss {
+  border-bottom: 1px dotted var(--amber);
+  cursor: help; color: #fcd34d;
+}
+
+/* ---------- 考考你 ---------- */
+.quiz { margin-top: .6rem; }
+.quiz details {
+  border: 1px solid var(--line);
+  border-radius: .6rem;
+  padding: .55rem .7rem;
+  margin: .4rem 0;
+  background: var(--panel-2);
+}
+.quiz summary {
+  cursor: pointer; font-size: .8rem; font-weight: 600; color: #e2e8f0;
+  list-style: none; user-select: none;
+}
+.quiz summary::before { content: "❓ "; }
+.quiz details[open] summary { color: var(--emerald); }
+.quiz .ans {
+  margin-top: .5rem; padding-top: .5rem; border-top: 1px dashed var(--line-2);
+  font-size: .78rem; line-height: 1.65; color: #cbd5e1;
+}
+.quiz .ans::before { content: "✅ "; }
+
+/* ---------- 課程導航列 ---------- */
+.lesson-nav {
+  display: flex; justify-content: space-between; align-items: center; gap: .75rem;
+  margin: 1.5rem 0 2rem;
+}
+.lesson-nav a {
+  flex: 1; text-decoration: none; padding: .7rem .9rem; border-radius: .75rem;
+  border: 1px solid var(--line); background: var(--panel-2);
+  font-size: .8rem; color: var(--muted); transition: all .15s;
+}
+.lesson-nav a:hover { border-color: var(--emerald); color: #fff; }
+.lesson-nav a.next { text-align: right; }
+.lesson-nav a.disabled { opacity: .35; pointer-events: none; }
+.lesson-nav a small { display: block; font-size: .62rem; opacity: .6; }
+.lesson-done-btn {
+  flex: 0 0 auto; cursor: pointer; padding: .7rem 1rem; border-radius: .75rem;
+  border: 1px solid var(--line-2); background: var(--panel-2);
+  font-size: .78rem; font-weight: 700; color: var(--muted); transition: all .15s;
+}
+.lesson-done-btn:hover { border-color: var(--emerald); color: #fff; }
+.lesson-done-btn.is-done { background: rgba(16,185,129,.12); border-color: var(--emerald); color: var(--emerald); }
+
+/* ---------- 進度膠囊 (hub) ---------- */
+.lesson-card {
+  display: block; text-decoration: none; position: relative;
+  border: 1px solid var(--line); border-radius: 1rem; padding: 1.1rem 1.2rem;
+  background: var(--panel); transition: all .15s;
+}
+.lesson-card:hover { border-color: var(--emerald); transform: translateY(-2px); }
+.lesson-card .num {
+  font-family: 'JetBrains Mono', monospace; font-size: 1.6rem; font-weight: 700;
+  color: var(--faint); line-height: 1;
+}
+.lesson-card.done .num { color: var(--emerald); }
+.lesson-card .done-badge {
+  position: absolute; top: 1rem; right: 1rem; font-size: .65rem; font-weight: 700;
+  color: var(--emerald); display: none;
+}
+.lesson-card.done .done-badge { display: inline; }
+
+/* ---------- 模擬器外殼通用 ---------- */
+.sim-shell { border: 1px solid var(--line); border-radius: 1rem; background: var(--panel); padding: 1rem; }
+.hidden { display: none !important; }
+
+/* ---------- 浮動列印按鈕 ---------- */
+.print-btn {
+  position: fixed; bottom: 1.25rem; right: 1.25rem; z-index: 50;
+  padding: .65rem 1rem; border-radius: .8rem; cursor: pointer;
+  border: 1px solid var(--line-2); background: var(--panel-2);
+  color: var(--muted); font-size: .8rem; font-weight: 700; transition: all .15s;
+  box-shadow: 0 6px 20px rgba(0,0,0,.35);
+}
+.print-btn:hover { border-color: var(--emerald); color: #fff; }
+
+/* ---------- 列印 / 另存 PDF：把教學卡整理成一頁重點 ---------- */
+@media print {
+  @page { margin: 14mm; }
+  html, body { background: #fff !important; color: #111 !important; }
+  /* 隱藏互動元件、導航、按鈕（只留可閱讀的重點） */
+  #sim, #lesson-nav, .no-print, header > a, #reset-progress { display: none !important; }
+  .max-w-6xl, .max-w-5xl { max-width: 100% !important; }
+
+  header h1 { color: #111 !important; -webkit-text-fill-color: #111 !important; font-size: 18pt; }
+  .tag { color: #111 !important; border-color: #999 !important; }
+
+  .edu-card, .quiz details {
+    background: #fff !important; border: 1px solid #bbb !important;
+    box-shadow: none !important; break-inside: avoid; page-break-inside: avoid;
+    margin: 6px 0;
+  }
+  .edu-card h3, .quiz summary { color: #111 !important; }
+  .edu-card p, .edu-card li, .quiz .ans { color: #222 !important; }
+  .edu-card b, .edu-card strong { color: #000 !important; }
+  .gloss { color: #111 !important; border-bottom-color: #888; }
+  /* 列印時展開所有解答（beforeprint 也會把 details 打開） */
+  .quiz .ans { display: block !important; }
+  a { color: #111 !important; text-decoration: none !important; }
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #334155; }

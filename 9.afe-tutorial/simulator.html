@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AFE 教練版模擬器</title>
+    <link rel="stylesheet" href="assets/app.css">
+    <script src="../assets/vendor/lucide.min.js"></script>
+    <script src="assets/app.js" defer></script>
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="index.html">
+            <span class="brand-mark"><i data-lucide="activity"></i></span>
+            <span><span class="brand-title">AFE Tutorial</span><span class="brand-subtitle">教練版模擬器</span></span>
+        </a>
+        <nav class="nav">
+            <a data-nav href="index.html"><i data-lucide="map"></i>總覽</a>
+            <a data-nav href="01-concepts.html"><i data-lucide="blocks"></i>觀念</a>
+            <a data-nav href="02-waveforms.html"><i data-lucide="waves"></i>波形</a>
+            <a data-nav href="03-control-loop.html"><i data-lucide="route"></i>控制</a>
+            <a data-nav href="04-lab.html"><i data-lucide="clipboard-list"></i>實驗</a>
+            <a data-nav href="simulator.html"><i data-lucide="monitor-play"></i>模擬器</a>
+        </nav>
+    </header>
+
+    <main class="page wide-page">
+        <section class="intro">
+            <div class="eyebrow">Simulator coach</div>
+            <h1>保留完整模擬器，但加上初學者的觀察腳本。</h1>
+            <p class="lead">這一頁適合上課示範。左側是解說順序，右側是原始動態模擬器。第一次看時先不要急著調全部參數，先完成一輪固定觀察。</p>
+        </section>
+
+        <section class="sim-layout">
+            <aside class="stack sticky-side">
+                <section class="panel">
+                    <h2>第一輪只看 4 件事</h2>
+                    <div class="checklist" data-checklist="simulator">
+                        <label class="check-row"><input type="checkbox"> DC Bus 是否往 400 V 靠近。</label>
+                        <label class="check-row"><input type="checkbox"> PFC 時 I_grid 是否與 V_grid 同相。</label>
+                        <label class="check-row"><input type="checkbox"> Inverter 時能量流向是否反轉。</label>
+                        <label class="check-row"><input type="checkbox"> 點 AC、AFE、DC 節點後，代碼視窗是否切到對應模組。</label>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <h2>講解話術</h2>
+                    <div class="stack">
+                        <p><strong>先講目的：</strong>AFE 的目標是穩 DC 母線，同時讓 AC 端電流品質好。</p>
+                        <p><strong>再講方向：</strong>負載吃電時是 PFC；DC 端回灌時是 Inverter。</p>
+                        <p><strong>最後講控制：</strong>PLL 找角度，DDS 畫出參考正弦，PI 讓實際電流追上參考。</p>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <h2>實用改法</h2>
+                    <p class="muted">未來若要再升級，可以把原始模擬器的狀態匯出成 JSON，讓實驗頁自動讀取 V_bus、PF、模式與滑桿值。現在這版先用人工紀錄，最穩、最容易教。</p>
+                    <div class="actions">
+                        <a class="button primary" href="04-lab.html"><i data-lucide="clipboard-list"></i>前往實驗工作台</a>
+                    </div>
+                </section>
+            </aside>
+
+            <section class="sim-box">
+                <iframe title="AFE 原始模擬器" src="simulator-core.html"></iframe>
+            </section>
+        </section>
+    </main>
+
+    <footer class="footer">右側 iframe 載入的是拆解資料夾內的 simulator-core.html，也就是原始 afe.html 的複製版。</footer>
+</body>
+</html>

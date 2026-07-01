@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>08. 症狀 → 原因除錯表</title>
+  <link rel="stylesheet" href="assets/spi.css">
+</head>
+<body data-lesson="08">
+  <header>
+    <div class="header-inner">
+      <p class="eyebrow">SPI 初學者課程 · 第 9 課 / 共 9 課</p>
+      <h1>08. 症狀 → 原因除錯表</h1>
+      <p class="subtitle">把前面所有觀念收斂成一張「查表」：輸入你看到的現象，它給你<strong>由高機率到低機率</strong>的檢查順序，以及該用什麼工具量哪裡。</p>
+      <nav class="top-nav" id="lessonNav"></nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="tldr">
+      <span class="k">🎯 一句話先懂</span>
+      <p>除錯不要亂槍打鳥。先看<strong>現象</strong>，依機率排序逐項排除：全 0/全 FF → 查 MISO 與 CS；位移 → 查 CPHA；高速偶發 → 查時序/訊號；連續掉 → 查 FIFO/ISR/DMA。</p>
+    </section>
+
+    <div class="layout-2col">
+      <section class="stack">
+        <div class="panel">
+          <div class="panel-title"><h2>🎮 描述你的現象</h2><small>選最接近的</small></div>
+          <div class="field-grid">
+            <div class="field">
+              <label for="symptom"><span>主要症狀</span><small>Symptom</small></label>
+              <select id="symptom">
+                <option value="all0">讀值一直是 0x00</option>
+                <option value="allf">讀值一直是 0xFF</option>
+                <option value="shift">資料看起來左移或右移一 bit</option>
+                <option value="random">低速正常，高速偶發錯</option>
+                <option value="overrun" selected>連續資料時 RXFFOVF / overrun</option>
+                <option value="firstbad">每筆第一個 byte 錯，後面正常</option>
+                <option value="wrongreg">讀到的 register 不符合預期</option>
+              </select>
+            </div>
+            <div class="two">
+              <div class="field">
+                <label for="sclkMHz"><span>SCLK</span><small>MHz</small></label>
+                <input id="sclkMHz" type="number" min="0.1" max="100" step="0.1" value="12.5">
+              </div>
+              <div class="field">
+                <label for="wireCm"><span>線長</span><small>cm</small></label>
+                <input id="wireCm" type="number" min="1" max="200" step="1" value="15">
+              </div>
+            </div>
+            <div class="two">
+              <div class="field">
+                <label for="expectedHex"><span>預期讀值</span><small>hex</small></label>
+                <input id="expectedHex" value="5A" spellcheck="false">
+              </div>
+              <div class="field">
+                <label for="actualHex"><span>實際讀值</span><small>hex</small></label>
+                <input id="actualHex" value="00" spellcheck="false">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><h2>量測工具怎麼用</h2><small>不要只看程式</small></div>
+          <div class="prose">
+            <ul>
+              <li><strong>邏輯分析儀</strong>：先確認 CS / SCLK / MOSI / MISO 符合 transaction，並切換解碼 mode 對照。</li>
+              <li><strong>示波器</strong>：看邊緣品質、ringing、setup/hold 餘裕。</li>
+              <li><strong>暫存器觀察</strong>：看 RXFFST、RXFFOVF、中斷旗標是否如預期變化。</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="stack">
+        <div class="panel">
+          <div class="panel-title"><h2 id="resultTitle">先處理 overrun</h2><small id="resTag">建議</small></div>
+          <div id="resultBox" class="callout danger">
+            <p id="resultText">連續資料掉包時，優先確認 FIFO 與 ISR / DMA 是否跟得上。</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><h2>建議 debug 順序</h2><small>高機率 → 低機率</small></div>
+          <div class="steps" id="checklist"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><h2>快速判斷</h2><small>從讀值推原因</small></div>
+          <div class="callout info" id="quickCompare"></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel">
+      <div class="panel-title"><h2>C2000 FIFO ISR 提醒</h2><small>概念版</small></div>
+      <pre class="code"><span class="kw">interrupt void</span> <span class="fn">spi_rx_isr</span>(<span class="kw">void</span>)
+{
+    <span class="kw">while</span> (RXFFST &gt;= WORDS_PER_PACKET) {
+        <span class="fn">read_one_packet_from_SPIRXBUF</span>();
+        <span class="fn">push_packet_to_ring_buffer</span>();
+    }
+
+    <span class="kw">if</span> (RXFFOVF == <span class="kw">1</span>) {
+        <span class="fn">record_overrun_error</span>();
+        <span class="fn">clear_rx_overflow_flag_in_TRM_order</span>();
+    }
+
+    <span class="fn">clear_rx_interrupt_flag_in_TRM_order</span>();
+}</pre>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title"><h2>整套課程回顧</h2><small>串起來看</small></div>
+      <div class="prose">
+        <ul>
+          <li>讀不到東西（全 0/全 FF）→ 多半是<strong>接線 / CS / 選中</strong>（第 1、7 課）。</li>
+          <li>位移、第一 bit 錯 → 多半是<strong>CPOL/CPHA / bit order</strong>（第 3、4 課）。</li>
+          <li>低速好、高速錯 → 多半是<strong>時序餘裕 / 訊號完整性</strong>（第 4、7 課）。</li>
+          <li>連續資料掉 → 多半是<strong>FIFO / ISR / DMA 吞吐</strong>（第 5、6 課）。</li>
+        </ul>
+      </div>
+    </section>
+
+    <div class="pager" id="pager"></div>
+  </main>
+
+  <footer>恭喜走完九課 🎉 回 <a href="index.html">課程入口</a>。實機暫存器與清旗順序請以你的 C2000 型號 TRM 為準。</footer>
+
+  <script src="assets/spi-lesson.js"></script>
+  <script>
+    var $ = function (id) { return document.getElementById(id); };
+    var dom = {
+      symptom: $("symptom"), sclkMHz: $("sclkMHz"), wireCm: $("wireCm"),
+      expectedHex: $("expectedHex"), actualHex: $("actualHex"),
+      resultBox: $("resultBox"), resultTitle: $("resultTitle"), resultText: $("resultText"),
+      checklist: $("checklist"), quickCompare: $("quickCompare")
+    };
+    var recipes = {
+      all0: { level: "danger", title: "先查 MISO 是否被拉低或 Slave 沒輸出",
+        text: "0x00 常見於 MISO 被短到低、Slave 沒被選到、CS 極性錯、或讀取命令根本沒讓 Slave drive MISO。",
+        steps: [["看 MISO 實體波形", "若一直低，先查接線、腳位 mux、Slave 是否上電。"],["確認 CS 極性", "很多裝置 CS 拉低才輸出；CS 錯時 MISO 可能保持 Hi-Z。"],["確認讀命令與 dummy byte", "有些 IC 要先送位址，再送 dummy clocks 才回資料。"],["檢查 MCU 腳位設定", "MISO 腳是否設成 SPI input，而不是 GPIO output。"]] },
+      allf: { level: "danger", title: "先查 MISO 是否浮接或被拉高",
+        text: "0xFF 常見於 MISO 沒被 Slave drive，線上只有 pull-up，或 CS 沒選到正確 Slave。",
+        steps: [["量 MISO 是否浮接", "用示波器看是否真的切換，而不是一直高。"],["確認 Slave 是否回應", "CS 拉低後，Slave 才應該在 MISO 輸出。"],["檢查多 Slave 匯流排", "其他 Slave 不該同時 drive MISO。"],["降低 SCLK 先試", "低速變正常，再回頭查時序與線路。"]] },
+      shift: { level: "danger", title: "優先懷疑 CPHA 或 bit order",
+        text: "資料像左移或右移一 bit，常見於取樣邊緣不一致，或 MSB/LSB first 設錯。",
+        steps: [["對 datasheet 的 SPI mode", "確認 Slave 要 Mode 0/1/2/3 哪一個。"],["用邏輯分析儀切換解碼 mode", "換 mode 後解碼正確，代表 CPOL/CPHA 設錯。"],["確認 bit order", "多數 register protocol 用 MSB first。"],["檢查第一個 bit 準備時間", "CPHA=0 時資料須在第一個取樣邊緣前穩定。"]] },
+      random: { level: "warn", title: "高速偶發錯，先看時序與訊號品質",
+        text: "低速正常、高速錯誤通常不是 protocol 寫錯，而是 setup margin、線長、ringing 或 level shifter 延遲不足。",
+        steps: [["把 SCLK 降到一半", "若錯誤消失，代表速度或訊號品質是主因。"],["看 SCLK 與 MISO 邊緣", "量資料穩定到取樣邊緣的時間。"],["縮短線、加地線參考", "杜邦線太長或地回路差會很不穩。"],["確認驅動與上升時間", "必要時調 drive strength 或串聯小電阻改善 ringing。"]] },
+      overrun: { level: "danger", title: "先處理 FIFO / ISR / DMA 吞吐量",
+        text: "RXFFOVF 代表資料已進來但接收端沒及時讀走。這是流量與處理速度問題，不是 CPOL/CPHA。",
+        steps: [["看 RXFFST 是否持續升高", "水位一路往滿走，代表 CPU 平均讀速不足。"],["ISR 一次讀多筆", "不要只讀一次 SPIRXBUF 就離開，應讀到低水位。"],["Master 加 gap 或握手", "資料不可掉時，用 Ready/Busy 或 ACK 控制節奏。"],["大量 burst 改 DMA", "4095 筆這種連續資料，不建議全靠逐筆 ISR。"]] },
+      firstbad: { level: "warn", title: "先查 CS 節奏與 dummy byte",
+        text: "第一個 byte 錯、後面正常，常見於 Slave 需要 command latency、第一筆是 status/dummy，或 CS 拉高切斷 transaction。",
+        steps: [["確認 datasheet read sequence", "有些裝置第一個回來的是無效資料。"],["CS 是否整段保持有效", "有些裝置 CS 每 byte 拉高會重置 bit counter。"],["檢查 CPHA=0 第一 bit", "第一個 bit 沒提早準備好時特別容易錯。"],["加入 dummy byte 測試", "多送 1 byte clock，看有效資料是否往後移。"]] },
+      wrongreg: { level: "warn", title: "先查 protocol 格式",
+        text: "讀到資料但不是預期 register，通常是命令 bit、R/W bit、address 長度、auto-increment 或 endian 順序錯。",
+        steps: [["重看 command 格式", "很多 IC 把 R/W bit 放在 address 最高位。"],["確認 address byte 數量", "8-bit、16-bit address 混用很容易錯位。"],["確認 endian 與 word order", "16/32-bit register 常有高低 byte 順序問題。"],["對照 datasheet waveform", "逐 byte 標出 command、address、dummy、data。"]] }
+    };
+    function cleanHex(v) { var c = String(v).trim().replace(/^0x/i, "").replace(/[^0-9a-f]/gi, ""); return c || "0"; }
+    function bitShiftHint(expected, actual) {
+      var e = parseInt(cleanHex(expected), 16) & 0xff, a = parseInt(cleanHex(actual), 16) & 0xff;
+      if (a === ((e << 1) & 0xff)) return "實際值很像預期值左移 1 bit，優先查 CPHA / sample edge。";
+      if (a === (e >> 1)) return "實際值很像預期值右移 1 bit，優先查 CPHA / 第一個 bit 準備時間。";
+      if (a === 0x00) return "實際值是 0x00，先確認 MISO 是否一直低或 Slave 沒輸出。";
+      if (a === 0xff) return "實際值是 0xFF，先確認 MISO 是否浮接、被拉高或 CS 沒選到 Slave。";
+      return "實際值不是簡單的全 0、全 1 或一位位移，建議用邏輯分析儀逐 byte 對 protocol。";
+    }
+    function render() {
+      var recipe = recipes[dom.symptom.value] || recipes.overrun;
+      var sclk = Math.max(0.1, Number(dom.sclkMHz.value) || 12.5), wire = Math.max(1, Number(dom.wireCm.value) || 15);
+      dom.resultBox.className = "callout " + recipe.level;
+      dom.resultTitle.textContent = recipe.title;
+      dom.resultText.textContent = recipe.text;
+      dom.checklist.innerHTML = recipe.steps.map(function (step, i) {
+        return '<div class="step-row"><div class="num">' + (i + 1) + '</div><div><strong>' + step[0] + '</strong><span>' + step[1] + '</span></div></div>';
+      }).join("");
+      var speedHint = (sclk > 20 || wire > 30)
+        ? "目前 SCLK " + sclk.toFixed(1) + " MHz、線長 " + wire.toFixed(0) + " cm，已需認真看訊號完整性。"
+        : "目前 SCLK " + sclk.toFixed(1) + " MHz、線長 " + wire.toFixed(0) + " cm，仍建議用低速對照一次。";
+      dom.quickCompare.innerHTML =
+        "<p><strong>讀值比較：</strong>" + bitShiftHint(dom.expectedHex.value, dom.actualHex.value) + "<br>" +
+        "<strong>速度/線路：</strong>" + speedHint + "<br>" +
+        "<strong>下一步：</strong>先用邏輯分析儀確認 transaction，再用第 6 課估算吞吐量。</p>";
+    }
+    [dom.symptom, dom.sclkMHz, dom.wireCm, dom.expectedHex, dom.actualHex].forEach(function (e) {
+      e.addEventListener("input", render); e.addEventListener("change", render);
+    });
+    render();
+  </script>
+</body>
+</html>

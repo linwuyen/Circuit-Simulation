@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C2000 ADC 教學系列 · 總覽</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-lesson="0">
+<div class="wrap">
+
+  <div id="topnav"></div>
+
+  <div class="hero">
+    <div class="badge">🧮</div>
+    <div>
+      <h1>C2000 馬達控制 ADC ─ 從零學起</h1>
+      <p class="sub">把原本「一頁全部塞」的計算器，拆成 6 堂課循序漸進。每堂只學一件事，最後再回到完整工具。</p>
+    </div>
+  </div>
+
+  <!-- 大局觀 -->
+  <div class="block goal">
+    <h2><span class="k">大局觀</span> 這整套到底在幹嘛？</h2>
+    <p class="big">讓 C2000 晶片「看得到」流過馬達的電流，和供電的母線電壓。</p>
+    <p style="margin:10px 0 0;color:#475569;font-size:14px;">
+      晶片裡的 ADC 只能讀 <b>0V ~ 3.3V</b> 的小訊號。但電流有好幾十安培、電壓有好幾百伏特——
+      塞不進去。所以要用一連串硬體電路把訊號「<b>縮小＋平移</b>」成 ADC 看得懂的電壓，
+      ADC 讀成 0~4095 的數字，最後韌體再用「<b>還原係數</b>」換回真正的電流／電壓。
+    </p>
+    <p style="margin:10px 0 0;color:#64748b;font-size:13px;">👇 下面這張圖就是完整旅程，點任一段可以跳到對應的課。</p>
+  </div>
+
+  <!-- 完整訊號鏈圖 -->
+  <div class="block">
+    <h2>🔭 完整訊號鏈地圖</h2>
+    <div class="schematic">
+      <svg viewBox="0 0 760 360" width="100%" font-family="system-ui,sans-serif">
+        <defs>
+          <marker id="ar" markerWidth="7" markerHeight="7" refX="5.5" refY="3" orient="auto">
+            <path d="M0,0 L7,3 L0,6 Z" fill="#94a3b8"/>
+          </marker>
+        </defs>
+
+        <!-- 電流列 -->
+        <text x="20" y="34" font-size="13" font-weight="700" fill="#1e293b">⚡ 電流路徑</text>
+        <a href="2_current_to_voltage.html">
+          <rect x="20" y="44" width="120" height="48" rx="8" fill="#eff6ff" stroke="#bfdbfe"/>
+          <text x="80" y="64" font-size="12" font-weight="700" fill="#1e40af" text-anchor="middle">Shunt 分流</text>
+          <text x="80" y="82" font-size="10" fill="#3b82f6" text-anchor="middle">V = I × R · 第2課</text>
+        </a>
+        <line x1="140" y1="68" x2="178" y2="68" stroke="#94a3b8" stroke-width="2" marker-end="url(#ar)"/>
+        <a href="2_current_to_voltage.html">
+          <rect x="180" y="44" width="120" height="48" rx="8" fill="#eff6ff" stroke="#bfdbfe"/>
+          <text x="240" y="64" font-size="12" font-weight="700" fill="#1e40af" text-anchor="middle">放大器 Gain</text>
+          <text x="240" y="82" font-size="10" fill="#3b82f6" text-anchor="middle">mV→V · 第2課</text>
+        </a>
+        <line x1="300" y1="68" x2="338" y2="68" stroke="#94a3b8" stroke-width="2" marker-end="url(#ar)"/>
+        <a href="3_why_offset.html">
+          <rect x="340" y="44" width="120" height="48" rx="8" fill="#f5f3ff" stroke="#ddd6fe"/>
+          <text x="400" y="64" font-size="12" font-weight="700" fill="#6d28d9" text-anchor="middle">墊高 Offset</text>
+          <text x="400" y="82" font-size="10" fill="#8b5cf6" text-anchor="middle">雙向 · 第3課</text>
+        </a>
+        <line x1="460" y1="68" x2="498" y2="68" stroke="#94a3b8" stroke-width="2" marker-end="url(#ar)"/>
+        <rect x="500" y="44" width="80" height="48" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
+        <text x="540" y="66" font-size="11" fill="#475569" text-anchor="middle">RC 濾波</text>
+        <text x="540" y="82" font-size="9" fill="#94a3b8" text-anchor="middle">去雜訊</text>
+        <line x1="580" y1="68" x2="618" y2="68" stroke="#22c55e" stroke-width="2.5" marker-end="url(#ar)"/>
+
+        <!-- 電壓列 -->
+        <text x="20" y="158" font-size="13" font-weight="700" fill="#1e293b">🔌 電壓路徑</text>
+        <a href="4_voltage_divider.html">
+          <rect x="20" y="168" width="160" height="48" rx="8" fill="#fef2f2" stroke="#fecaca"/>
+          <text x="100" y="188" font-size="12" font-weight="700" fill="#b91c1c" text-anchor="middle">分壓電阻 R_top/R_bot</text>
+          <text x="100" y="206" font-size="10" fill="#ef4444" text-anchor="middle">幾百V→3.3V · 第4課</text>
+        </a>
+        <line x1="180" y1="192" x2="218" y2="192" stroke="#94a3b8" stroke-width="2" marker-end="url(#ar)"/>
+        <rect x="220" y="168" width="80" height="48" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
+        <text x="260" y="190" font-size="11" fill="#475569" text-anchor="middle">RC 濾波</text>
+        <text x="260" y="206" font-size="9" fill="#94a3b8" text-anchor="middle">去雜訊</text>
+        <line x1="300" y1="192" x2="618" y2="192" stroke="#22c55e" stroke-width="2.5" marker-end="url(#ar)"/>
+
+        <!-- ADC + 晶片 -->
+        <a href="1_adc_basics.html">
+          <rect x="620" y="40" width="120" height="180" rx="10" fill="#f1f5f9" stroke="#334155" stroke-width="2"/>
+          <text x="680" y="118" font-size="14" font-weight="800" fill="#334155" text-anchor="middle">C2000</text>
+          <text x="680" y="138" font-size="12" font-weight="700" fill="#334155" text-anchor="middle">ADC</text>
+          <text x="680" y="160" font-size="10" fill="#2563eb" text-anchor="middle">0~4095</text>
+          <text x="680" y="176" font-size="9" fill="#64748b" text-anchor="middle">第1課</text>
+        </a>
+
+        <!-- 韌體 -->
+        <line x1="680" y1="220" x2="680" y2="262" stroke="#94a3b8" stroke-width="2" marker-end="url(#ar)"/>
+        <a href="5_firmware_scaling.html">
+          <rect x="540" y="264" width="220" height="56" rx="10" fill="#ecfdf5" stroke="#a7f3d0"/>
+          <text x="650" y="288" font-size="12" font-weight="700" fill="#065f46" text-anchor="middle">韌體還原 (× K 係數)</text>
+          <text x="650" y="306" font-size="10" fill="#10b981" text-anchor="middle">數字 → 真實電流/電壓 · 第5課</text>
+        </a>
+        <text x="650" y="340" font-size="11" fill="#475569" text-anchor="middle">→ float amps, float volts 給控制迴路用</text>
+      </svg>
+    </div>
+    <p class="note">綠色粗線＝已經是 ADC 看得懂的 0~3.3V 訊號。圖中每個方塊都可點。</p>
+  </div>
+
+  <!-- 課程卡 -->
+  <div class="block">
+    <h2>📚 課程清單</h2>
+    <div id="cards"></div>
+  </div>
+
+  <!-- 怎麼用 -->
+  <div class="block recap">
+    <h2>🧭 怎麼使用這套教材</h2>
+    <ul>
+      <li><b>完全新手</b>：照 1 → 2 → 3 → 4 → 5 順序走，每課玩一玩滑桿、做完「換你試試」再前進。</li>
+      <li><b>只想算參數</b>：直接跳第 6 課「實戰計算器」，填數字就出 C code。</li>
+      <li>上方進度列會記住你完成到哪一課（存在瀏覽器本機）。</li>
+    </ul>
+  </div>
+
+  <div id="botnav"></div>
+  <footer>C2000 ADC 教學系列 · 離線可用 · 直接用瀏覽器開啟 0_index.html</footer>
+</div>
+
+<script src="assets/lessons.js"></script>
+<script>
+(function(){
+  // 用共用清單渲染課程卡（跳過自己 id=0）
+  var L = window.C2000.lessons;
+  var html = '<div class="fieldgrid">';
+  L.forEach(function(x){
+    if(x.id===0) return;
+    html += '<a href="'+x.file+'" style="text-decoration:none;display:block;border:1px solid #e2e8f0;'+
+            'border-radius:10px;padding:12px 14px;background:#fff;">'+
+            '<div style="font-size:13px;color:#94a3b8;font-weight:700;">第 '+x.id+' 課</div>'+
+            '<div style="font-size:16px;font-weight:700;color:#334155;margin:2px 0;">'+x.icon+' '+x.label+'</div>'+
+            '<div style="font-size:12px;color:#64748b;">'+x.title+'</div></a>';
+  });
+  html += '</div>';
+  document.getElementById('cards').innerHTML = html;
+})();
+</script>
+</body>
+</html>

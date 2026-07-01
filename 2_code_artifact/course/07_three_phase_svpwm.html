@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第 7 課 · 三相逆變與 SVPWM</title>
+  <script src="../../assets/vendor/tailwindcss-cdn.js"></script>
+  <link rel="stylesheet" href="shared/theme.css">
+</head>
+<body class="min-h-screen">
+  <div class="max-w-6xl mx-auto px-4 py-6">
+    <header class="flex items-center justify-between mb-5">
+      <div class="flex items-center gap-3">
+        <span class="tag text-emerald-400">第 7 課 / 8</span>
+        <h1 class="text-lg md:text-xl font-bold text-slate-100">🔺 三相逆變與 SVPWM 馬鞍波</h1>
+      </div>
+      <a href="index.html" class="text-xs text-slate-400 hover:text-emerald-400">📍 課程地圖</a>
+    </header>
+
+    <div class="edu-card edu-goal mb-4">
+      <h3 class="text-emerald-400">🎯 本課目標</h3>
+      <p>把三條半橋並聯、彼此相位差 <b>120°</b>，就是<b>三相逆變橋</b>——馬達驅動與新能源併網的標準架構。本課再認識近代電力電子的精髓 <b>SVPWM</b>：它在正弦參考波裡注入三次諧波（變成「<b>馬鞍波</b>」），讓母線電壓的利用率多出約 <b>15.4%</b>。</p>
+    </div>
+
+    <div id="sim" class="mb-5"></div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+      <div class="edu-card edu-try">
+        <h3 class="text-amber-400">🔬 動手做</h3>
+        <ol>
+          <li>目前是三相 <b>SPWM</b>、RL 負載。看金/白/粉三條電流 CH3：彼此<b>相差 120°</b>，這就是三相交流。</li>
+          <li><b>看見馬鞍波：</b>確認 <b>CH4</b> 已開，把調變策略在 <b>標準 SPWM ↔ SVPWM</b> 之間切 → 紅色參考波頂部被<b>壓凹成馬鞍形</b>。</li>
+          <li>按<b>「凍結快照」</b>記下 SPWM 的數據，切到 SVPWM 再快照；把 <b>m<sub>a</sub> 拉到最大</b>，比較高調變區的 V<sub>1</sub> 與 THD。</li>
+          <li>試試 <b>六步方波 (six-step)</b>：最簡單的三相驅動，但諧波最大。</li>
+        </ol>
+      </div>
+      <div class="edu-card edu-expect">
+        <h3 class="text-cyan-400">✅ 你應該看到 / 為什麼</h3>
+        <p>三相電流是三條漂亮的、互差 120° 的正弦。SVPWM 的馬鞍波會把每相參考波頂部壓低，<b>但三相之間的「線電壓差」不受影響</b>——因為注入的三次諧波是<b>共模</b>，在線電壓相減時被消掉。</p>
+        <p>頂部壓低 → 在不進過調變的前提下，參考波可以整體再放大，於是<b>同樣母線能輸出更大的線電壓基波（多約 15.4%）</b>。在相同 m<sub>a</sub> 未飽和時兩者線電壓基波其實相同，差別要到高 m<sub>a</sub> 才看得出來。</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="edu-card edu-apply">
+        <h3 class="text-blue-400">🌍 這在真實世界用在哪</h3>
+        <ul>
+          <li>工業變頻器、伺服驅動、電動車主驅逆變器，幾乎全用三相 SVPWM。</li>
+          <li>接著可以看隔壁的 <b>3_foc_course</b>：FOC 磁場導向控制最後就是用 SVPWM 把電壓向量打出去。</li>
+          <li>新能源（太陽能/風電）三相併網逆變器也是這個架構。</li>
+        </ul>
+      </div>
+      <div class="edu-card edu-tradeoff">
+        <h3 class="text-purple-300">⚖️ 工程取捨</h3>
+        <p><b>六步方波</b>：開關損耗最低、控制最簡單，但諧波大、低速轉矩脈動嚴重。<b>SPWM</b>：乾淨、好懂，但母線利用率較低。<b>SVPWM</b>：母線利用率最高、諧波好，但運算量大——交給 C2000 這類專用 DSP 處理剛剛好。</p>
+      </div>
+    </div>
+
+    <div class="edu-card quiz mt-4">
+      <h3 class="text-slate-200">❓ 考考你</h3>
+      <details><summary>SVPWM 在每相注入了三次諧波，為什麼負載（線電壓）卻不會失真？</summary><div class="ans">三次諧波對三相是「共模」（三相同相同幅）。負載看的是線電壓 = 相減，共模成分相消，所以負載端仍是乾淨基波。</div></details>
+      <details><summary>同樣 m<sub>a</sub>=0.8，SVPWM 和 SPWM 的線電壓基波一樣嗎？</summary><div class="ans">在線性區（未飽和）一樣。SVPWM 的優勢是「天花板更高」：它能撐到更大的 m<sub>a</sub> 才進過調變，所以能榨出更大的最大基波。</div></details>
+      <details><summary>六步方波為什麼低速時馬達會抖？</summary><div class="ans">六步只有 6 個離散電壓向量、諧波大，低速時轉矩脈動明顯，造成抖動與噪音。需要 SPWM/SVPWM 細緻調變才平順。</div></details>
+    </div>
+
+    <nav id="lesson-nav" class="lesson-nav"></nav>
+  </div>
+
+  <script src="shared/widget.js"></script>
+  <script src="shared/ui.js"></script>
+  <script>
+    PE.mount('#sim', {
+      topology: 'three',
+      allowTopology: false,
+      loads: ['RL', 'LC', 'R'],
+      modulations: ['spwm', 'svpwm', 'sixstep'],
+      controls: { ma: true, freq: true, fc: true, manual: false },
+      channels: { ch1: true, ch3: true, ch4: true },
+      defaults: { load: 'RL', modulation: 'spwm', autoMode: true, ma: 0.9, freq: 50, fc: 1000 },
+      metrics: true,
+      snapshot: true
+    });
+    EDU.renderNav(7);
+  </script>
+</body>
+</html>

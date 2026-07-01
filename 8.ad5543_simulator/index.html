@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AD5543 互動教學課程</title>
+<link rel="stylesheet" href="assets/common.css" />
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <h1>⚡ AD5543 互動教學課程</h1>
+    <p class="sub">16-Bit 電流輸出乘法 DAC — 從零開始,一課一觀念,動手玩到懂</p>
+  </div>
+
+  <div class="onesentence">
+    <b>一句話先記住:</b> DAC 就是把<b> 數位碼 D </b>當成一個「<b>比例旋鈕</b>」,去縮放你給的參考電壓 <b>VREF</b>。
+    旋鈕從 0(全關)轉到 65535(全開),輸出就從 0 線性走到接近滿刻度。
+    因為「輸出 = 比例 × VREF」,所以叫<b>乘法 (multiplying)</b> DAC —— VREF 甚至能是負電壓或交流訊號。
+  </div>
+
+  <div>
+    <div class="sec-label">📚 課程地圖 (建議照順序闖關)</div>
+    <div id="map" class="map"></div>
+  </div>
+
+  <div class="row-between">
+    <span class="hint" id="progLine">進度會自動記在這台瀏覽器。</span>
+    <button class="btn" onclick="DAC.resetProgress();renderMap()">重設進度</button>
+  </div>
+
+  <div class="two-grid">
+    <div class="concept"><div class="t">這套課程怎麼設計的?</div>
+      <p>原本的「全功能模擬器」把 9 個觀念塞在一頁,初學者容易每個都看一點卻沒學透。
+      這裡把它拆成 8 課,每課只專注一個重點、附白話比喻、動手步驟與小測驗,難度由淺到深。</p></div>
+    <div class="concept"><div class="t">學完你會具備</div>
+      <p>看懂 DAC 轉移函數、算出「要輸出某個電壓該寫什麼 hex 碼」、理解 IOUT/TIA/RFB 為什麼準、
+      認得 Offset/Gain 誤差與校正,並能寫出 SPI 送碼的程式雛形。</p></div>
+  </div>
+
+  <details>
+    <summary style="cursor:pointer;color:var(--slate-400);font-size:.85rem">想要整合複習?</summary>
+    <p class="hint">請從 <a href="08-spi-design.html" style="color:var(--blue-300)">第8課 SPI 與設計計算機</a> 進入，
+    再接 <a href="09-applications.html" style="color:var(--blue-300)">第9課應用情境</a>，把轉移函數、誤差與送碼流程放在一起對照。</p>
+  </details>
+
+</div>
+
+<script src="assets/common.js"></script>
+<script>
+function renderMap(){
+  const done = DAC.getDone();
+  document.getElementById('map').innerHTML = DAC.LESSONS.map((l,i)=>{
+    const ok = done.indexOf(l.f)>-1;
+    return '<a class="card'+(ok?' done':'')+'" href="'+l.f+'">'
+      + '<span class="check">'+(ok?'✅':'')+'</span>'
+      + '<div class="cnum">第 '+(i+1)+' 課</div>'
+      + '<h3>'+l.t+'</h3><p>'+l.d+'</p></a>';
+  }).join('');
+  document.getElementById('progLine').textContent =
+    '進度:'+done.length+' / '+DAC.LESSONS.length+' 課完成(自動記在這台瀏覽器)。';
+}
+renderMap();
+</script>
+</body>
+</html>

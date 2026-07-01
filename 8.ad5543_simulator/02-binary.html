@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>第2課 數位碼與位元 — AD5543 教學</title>
+<link rel="stylesheet" href="assets/common.css" />
+</head>
+<body>
+<div class="wrap">
+  <div id="nav-top"></div>
+
+  <div class="lesson-head">
+    <span class="lesson-num">第 2 課</span>
+    <h1>數位碼與位元:那個「旋鈕值」怎麼用 16 個 0/1 表示</h1>
+    <p class="goal">這一課你會懂:16-bit 數位碼是怎麼由<b> 0 與 1 </b>組成的,每個位元(bit)有不同<b>權重</b>,<b>MSB</b> 最大、<b>LSB</b> 最小。</p>
+  </div>
+
+  <div class="teach">
+    <div class="analogy">
+      <span class="emoji">🔢</span>
+      <div>十進位裡,左邊的位數比較大(百位 > 個位)。二進位也一樣:<b>最左邊的 bit15 權重 = 32768</b>,最右邊的 <b>bit0 權重 = 1</b>。
+      把所有「是 1」的位元權重加起來,就是這個數位碼。例如 <b>0x8000</b> 只有最高位是 1 → 等於 32768 → 剛好是<b>中刻度(一半)</b>。</div>
+    </div>
+  </div>
+
+  <div class="trythis">
+    <div class="sec-label">🧪 動手試試</div>
+    <ol>
+      <li>下方暫存器,只點亮最左邊那格(bit15)。看上面數值變成 <span class="k">32768 = 0x8000</span> —— 一個 bit 就佔了一半。</li>
+      <li>再點亮 bit14。數值變 <span class="k">49152</span>(32768 + 16384 = 佔 3/4)。</li>
+      <li>全部點亮 → <span class="k">65535 = 0xFFFF</span>(滿刻度)。再全部關掉 → 0。</li>
+      <li>觀察:每點亮一個越右邊的位元,輸出只動一點點 —— 那就是它的「精細度」。</li>
+    </ol>
+  </div>
+
+  <div class="panel sim">
+    <div class="row-between">
+      <div class="sec-label" style="margin:0">🧮 16-bit 暫存器(點一下翻轉某一位元)</div>
+      <span class="hint" style="margin:0">左 = MSB(權重大) → 右 = LSB(權重小)</span>
+    </div>
+    <div id="bitReg" class="bitreg"></div>
+    <div class="mathbox" id="readout"></div>
+    <div class="ctrl">
+      <label class="row"><span>也可以直接拉滑桿</span><span id="codeVal" style="color:var(--green-400)"></span></label>
+      <input id="code" type="range" min="0" max="65535" step="1" oninput="setCodeRaw(this.value)" style="accent-color:#4ade80" />
+      <div id="presets" class="presets"></div>
+    </div>
+  </div>
+
+  <div class="takeaways">
+    <div class="sec-label">📌 重點整理</div>
+    <ul>
+      <li><b>MSB(bit15)</b>權重 32768、<b>LSB(bit0)</b>權重 1;數位碼 = 所有為 1 的位元權重總和。</li>
+      <li>16 bit → 共 <b>65536 個</b>不同的階(0 ~ 65535),這就是「16 位元解析度」的意思。</li>
+      <li>hex(十六進位)只是把 16 個 bit 每 4 個一組寫得更短:<b>0x8000、0xFFFF</b>。送進晶片時用的就是這個值。</li>
+    </ul>
+  </div>
+
+  <div class="quiz" id="quiz"></div>
+  <div id="refs"></div>
+  <div id="nav-bottom"></div>
+</div>
+
+<script src="assets/common.js"></script>
+<script>
+const state = { vref: 10, code: 32768, mode: 'standard' };
+function setCodeRaw(v){ state.code = parseInt(v,10); render(); }
+function setCode(v){ state.code = v; render(); }
+function toggleBit(i){ const w = Math.pow(2,15-i); const b = (state.code >> (15-i)) & 1; state.code = b ? state.code - w : state.code + w; render(); }
+
+function render(){
+  const c = DAC.compute(state);
+  document.getElementById('code').value = state.code;
+  document.getElementById('codeVal').textContent = state.code;
+  document.getElementById('bitReg').innerHTML = DAC.buildBitReg(c);
+  document.getElementById('presets').innerHTML = DAC.buildPresets(state.code);
+  const hex = '0x'+state.code.toString(16).toUpperCase().padStart(4,'0');
+  const bin = state.code.toString(2).padStart(16,'0').replace(/(.{4})(?=.)/g,'$1 ');
+  document.getElementById('readout').innerHTML =
+      '<p>二進位 = <span style="color:var(--blue-300)">'+bin+'</span></p>'
+    + '<p>十六進位 = <span style="color:var(--amber-300)">'+hex+'</span></p>'
+    + '<p>十進位 D = <span style="color:var(--green-400)">'+state.code+'</span></p>'
+    + '<p style="border-top:1px solid var(--slate-700);padding-top:6px;margin-top:6px">佔滿刻度比例 = D / 65536 = <span style="color:var(--green-400)">'+(c.pct).toFixed(2)+' %</span></p>';
+}
+
+DAC.renderNav('02-binary.html');
+render();
+document.getElementById('refs').innerHTML = DAC.readMore([
+  { term: 'Resolution = 16 bits', desc: '解析度 16 位元 → 2¹⁶ = 65536 個階,對應本課的位元權重總和。' },
+  { term: 'Monotonicity', desc: '保證單調:碼增加,輸出絕不反向倒退 —— 這對閉迴路控制很重要。' },
+  { term: 'LSB Size', desc: '1 LSB = |VREF| / 2¹⁶,是最小可分辨步階(VREF=10V 時約 153 µV)。' },
+  { term: 'Data Format / Hex', desc: '寫入晶片的是 16-bit 二進位碼,文件常以 hex(0x0000–0xFFFF)表示。' },
+]);
+DAC.quiz('quiz', [
+  { q: '只有 bit15 = 1,其餘為 0,這個數位碼是多少?',
+    options: ['1','32768','65535','15'],
+    answer: 1,
+    explain: 'bit15 的權重就是 2¹⁵ = 32768,所以 0x8000 = 32768,剛好是中刻度。' },
+  { q: '「16 位元解析度」代表總共有幾個不同的輸出階?',
+    options: ['16 個','256 個','65536 個','1024 個'],
+    answer: 2,
+    explain: '2¹⁶ = 65536,所以可表示 0 ~ 65535 共 65536 個階。' },
+  { q: '哪一個位元改變時,對輸出影響「最小」?',
+    options: ['bit15 (MSB)','bit8','bit0 (LSB)','都一樣'],
+    answer: 2,
+    explain: 'LSB 權重只有 1,是最小的可分辨步階,所以影響最小。' },
+  { q: '0xC000 換成十進位是多少?(提示:bit15+bit14)',
+    options: ['32768','49152','12288','65535'],
+    answer: 1,
+    explain: '0xC000 = 1100… → 32768 + 16384 = 49152(佔滿刻度 3/4)。' },
+  { q: '「16 個 bit」與「16 進位 hex」有什麼關係?',
+    options: ['完全一樣','hex 只是把每 4 個 bit 縮寫成一個字元,共 4 位 hex','hex 比較不精確','hex 只能表示 0~15'],
+    answer: 1,
+    explain: '16 bit 每 4 個一組 → 4 個 hex 字元(0x____),只是更短的寫法,資訊相同。' },
+], '02-binary.html', { pick: 3 });
+</script>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>07. 接線與常見硬體錯誤</title>
+  <link rel="stylesheet" href="assets/spi.css">
+</head>
+<body data-lesson="07">
+  <header>
+    <div class="header-inner">
+      <p class="eyebrow">SPI 初學者課程 · 第 8 課 / 共 9 課</p>
+      <h1>07. 接線與常見硬體錯誤</h1>
+      <p class="subtitle">很多「讀錯」其實是接線問題，不是程式問題。這一課用一個「故障注入器」把硬體常見坑一次看完：每種錯會出現什麼現象、怎麼確認、怎麼修。</p>
+      <nav class="top-nav" id="lessonNav"></nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="tldr">
+      <span class="k">🎯 一句話先懂</span>
+      <p>SPI 接線三原則：<strong>同名對接（不交叉）、一定要共地、線越短越好</strong>。多顆裝置時，沒被選中的 Slave 一定要讓 MISO 變高阻抗。</p>
+    </section>
+
+    <div class="layout-2col">
+      <section class="stack">
+        <div class="panel">
+          <div class="panel-title"><h2>🎮 故障注入器</h2><small>選一種錯</small></div>
+          <div class="field">
+            <label for="fault"><span>假設接線出了這個錯</span><small>fault</small></label>
+            <select id="fault">
+              <option value="ok" selected>（正確接線）</option>
+              <option value="cs">CS 極性接反 / 沒拉低</option>
+              <option value="swap">MOSI 接到 MISO（交叉了）</option>
+              <option value="gnd">忘了共地（GND 沒接）</option>
+              <option value="float">MISO 浮接、沒人 drive</option>
+              <option value="long">杜邦線太長 / 跑高速</option>
+              <option value="decouple">電源去耦不足</option>
+              <option value="multi">多 Slave MISO 互相打架</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><h2>接線前後檢查表</h2><small>照著做少踩坑</small></div>
+          <div class="prose">
+            <strong style="color:var(--teal)">接線前</strong>
+            <ul>
+              <li>VCC 電壓對齊（3.3V vs 5V？需要 level shifter 嗎）。</li>
+              <li>查好雙方的 SPI mode 與 MSB/LSB first。</li>
+              <li>確認每顆 Slave 各有一條 CS。</li>
+            </ul>
+            <strong style="color:var(--teal)">接線後（上電前）</strong>
+            <ul>
+              <li>用三用電表確認 <strong>GND 已共地</strong>、VCC 沒短路。</li>
+              <li>MOSI→MOSI、MISO→MISO、SCLK→SCLK 同名對接。</li>
+              <li>就近放 0.1µF 去耦電容。</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="stack">
+        <div class="panel">
+          <div class="panel-title"><h2 id="fTitle">正確接線</h2><small id="fTag">沒有故障</small></div>
+          <div id="fState" class="callout tip">
+            <span class="k" id="fSymK">看起來都對</span>
+            <p id="fSym">選左邊任一種故障，看它的現象。</p>
+          </div>
+          <div class="prose" id="fDetail" style="margin-top:12px"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><h2>真實晶片腳位範例</h2><small>名稱會變，角色不變</small></div>
+          <div class="table-scroll">
+            <table class="cmp">
+              <thead><tr><th>晶片 / 類型</th><th>MOSI</th><th>MISO</th><th>SCLK</th><th>CS</th></tr></thead>
+              <tbody>
+                <tr><th>W25Qxx Flash</th><td>DI (IO0)</td><td>DO (IO1)</td><td>CLK</td><td>/CS</td></tr>
+                <tr><th>MCP3008 ADC</th><td>DIN</td><td>DOUT</td><td>CLK</td><td>/CS</td></tr>
+                <tr><th>nRF24L01</th><td>MOSI</td><td>MISO</td><td>SCK</td><td>CSN</td></tr>
+                <tr><th>TI C2000</th><td>SPISIMO</td><td>SPISOMI</td><td>SPICLK</td><td>SPISTE</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="hint" style="margin-top:8px">看到 DI/DO、SDI/SDO、SIMO/SOMI、DIN/DOUT 別慌，對照「主出從入 / 主入從出」就知道誰接誰。</p>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel">
+      <div class="panel-title"><h2>📋 一個完整讀取範例（讀一顆暫存器）</h2><small>可複製</small></div>
+      <div class="prose"><p>大多數 SPI 裝置的讀取都是這個節奏：<strong>拉低 CS → 送命令/位址 → 送 dummy 收資料 → 拉高 CS</strong>。下面三種平台寫法不同，節奏一樣。</p></div>
+      <div class="codeblock-group" style="margin-top:12px">
+        <div class="codetabs">
+          <button class="codetab active" data-i="0">Arduino</button>
+          <button class="codetab" data-i="1">STM32 HAL</button>
+          <button class="codetab" data-i="2">C2000</button>
+        </div>
+        <pre class="code" data-i="0"><span class="c">// 讀暫存器 reg：送 (reg | 0x80) 代表讀，再送 dummy 收回</span>
+<span class="kw">uint8_t</span> <span class="fn">spiReadReg</span>(<span class="kw">uint8_t</span> reg) {
+  SPI.<span class="fn">beginTransaction</span>(SPISettings(<span class="kw">8000000</span>, MSBFIRST, SPI_MODE0));
+  <span class="fn">digitalWrite</span>(CS, LOW);              <span class="c">// 選中</span>
+  SPI.<span class="fn">transfer</span>(reg | <span class="kw">0x80</span>);          <span class="c">// 命令：bit7=1 讀</span>
+  <span class="kw">uint8_t</span> v = SPI.<span class="fn">transfer</span>(<span class="kw">0x00</span>);  <span class="c">// dummy，收回資料</span>
+  <span class="fn">digitalWrite</span>(CS, HIGH);             <span class="c">// 結束</span>
+  SPI.<span class="fn">endTransaction</span>();
+  <span class="kw">return</span> v;
+}</pre>
+        <pre class="code" data-i="1" hidden><span class="kw">uint8_t</span> <span class="fn">spiReadReg</span>(<span class="kw">uint8_t</span> reg) {
+  <span class="kw">uint8_t</span> tx[<span class="kw">2</span>] = { reg | <span class="kw">0x80</span>, <span class="kw">0x00</span> };
+  <span class="kw">uint8_t</span> rx[<span class="kw">2</span>] = { <span class="kw">0</span> };
+  <span class="fn">HAL_GPIO_WritePin</span>(CS_GPIO, CS_PIN, GPIO_PIN_RESET);     <span class="c">// CS 低</span>
+  <span class="fn">HAL_SPI_TransmitReceive</span>(&amp;hspi1, tx, rx, <span class="kw">2</span>, HAL_MAX_DELAY);
+  <span class="fn">HAL_GPIO_WritePin</span>(CS_GPIO, CS_PIN, GPIO_PIN_SET);       <span class="c">// CS 高</span>
+  <span class="kw">return</span> rx[<span class="kw">1</span>];                                          <span class="c">// 第 2 byte 才是資料</span>
+}</pre>
+        <pre class="code" data-i="2" hidden><span class="c">// C2000：寫 SPITXBUF 觸發傳輸，等 RX 完成再讀 SPIRXBUF</span>
+<span class="kw">Uint16</span> <span class="fn">spiReadReg</span>(<span class="kw">Uint16</span> reg) {
+  GpioDataRegs.GPACLEAR.bit.GPIOxx = <span class="kw">1</span>;        <span class="c">// CS 低</span>
+  SpiaRegs.SPITXBUF = (reg | <span class="kw">0x80</span>) &lt;&lt; <span class="kw">8</span>;     <span class="c">// 命令（依字長對齊）</span>
+  <span class="kw">while</span> (SpiaRegs.SPIFFRX.bit.RXFFST == <span class="kw">0</span>) {}
+  (<span class="kw">void</span>)SpiaRegs.SPIRXBUF;                    <span class="c">// 丟掉命令期間收到的</span>
+  SpiaRegs.SPITXBUF = <span class="kw">0x0000</span>;                 <span class="c">// dummy</span>
+  <span class="kw">while</span> (SpiaRegs.SPIFFRX.bit.RXFFST == <span class="kw">0</span>) {}
+  GpioDataRegs.GPASET.bit.GPIOxx = <span class="kw">1</span>;          <span class="c">// CS 高</span>
+  <span class="kw">return</span> SpiaRegs.SPIRXBUF &amp; <span class="kw">0xFF</span>;
+}</pre>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title"><h2>✅ 自我檢查</h2><small></small></div>
+      <div class="quiz" data-answer="1">
+        <div class="q">低速接好好的，一拉高 SCLK 就偶發錯，最可能是？</div>
+        <div class="opts">
+          <button class="opt" data-i="0"><span class="mk">A</span><span>程式 bug</span></button>
+          <button class="opt" data-i="1"><span class="mk">B</span><span>線太長、訊號完整性與 setup 餘裕不足</span></button>
+          <button class="opt" data-i="2"><span class="mk">C</span><span>CS 極性錯</span></button>
+          <button class="opt" data-i="3"><span class="mk">D</span><span>MOSI/MISO 接反</span></button>
+        </div>
+        <div class="explain">「低速正常、高速才錯」是典型的訊號完整性 / 時序餘裕問題：縮短線、加地線、串聯小電阻或降速。接反或極性錯會「整個都不對」，不會只在高速錯。</div>
+      </div>
+    </section>
+
+    <div class="pager" id="pager"></div>
+  </main>
+
+  <footer>下一課：把所有現象整理成 <a href="lesson_08_debug.html">症狀 → 原因除錯表</a>。</footer>
+
+  <script src="assets/spi-lesson.js"></script>
+  <script>
+    var $ = function (id) { return document.getElementById(id); };
+    var FAULTS = {
+      ok: { lvl: "tip", tag: "沒有故障", k: "看起來都對", sym: "同名對接、共地、線短。先確認這些都做到，再去懷疑程式。", detail: "" },
+      cs: { lvl: "danger", tag: "CS 極性 / 選中", k: "讀值一直是 0xFF 或 0x00", sym: "Slave 整段沒被選中，根本不輸出資料。",
+        detail: "<h3>怎麼確認</h3><ul><li>用邏輯分析儀看 transaction 期間 CS 是否真的拉到有效電平（多數是低）。</li><li>確認晶片要的是 active-low 還是 active-high。</li></ul><h3>怎麼修</h3><ul><li>改正 CS 接線或軟體極性設定。</li><li>確認沒有把 CS 一直綁在某個固定電平。</li></ul>" },
+      swap: { lvl: "danger", tag: "資料線交叉", k: "完全讀不到 / 寫了沒反應", sym: "SPI 不像 UART 要交叉。MOSI 要接對方 MOSI、MISO 接 MISO。接反後 Master 的輸出送進自己該收的腳，當然不通。",
+        detail: "<h3>怎麼確認</h3><ul><li>對照雙方 datasheet 腳位（DI/DO、SIMO/SOMI 等別名）。</li><li>量 Master MOSI 是否有波形、且進到 Slave 的資料輸入腳。</li></ul><h3>怎麼修</h3><ul><li>同名對接：MOSI→MOSI、MISO→MISO。</li></ul>" },
+      gnd: { lvl: "danger", tag: "沒共地", k: "波形漂移、亂碼、時好時壞", sym: "兩端電壓參考不同，邏輯準位判斷整個跑掉，最難查也最常見。",
+        detail: "<h3>怎麼確認</h3><ul><li>量兩邊 GND 之間是否有電位差。</li><li>示波器看 SCLK 是否乾淨方波還是浮動。</li></ul><h3>怎麼修</h3><ul><li>兩端 GND 接在一起，並提供良好的地回流路徑。</li></ul>" },
+      float: { lvl: "warn", tag: "MISO 浮接", k: "讀到 0xFF 或隨機雜訊", sym: "沒有人 drive MISO 時，線上只剩雜訊或上拉，讀回來沒有意義。",
+        detail: "<h3>怎麼確認</h3><ul><li>CS 未選時 MISO 應為高阻抗；選中後 Slave 才會 drive。</li><li>示波器看 MISO 是真的在切換，還是一直高/亂跳。</li></ul><h3>怎麼修</h3><ul><li>確認 Slave 確實被選中且有輸出；必要時加適當上拉。</li></ul>" },
+      long: { lvl: "warn", tag: "訊號完整性", k: "低速正常、高速偶發錯", sym: "杜邦線太長會有 ringing 與反射，資料來不及在取樣邊緣前穩定。",
+        detail: "<h3>怎麼確認</h3><ul><li>把 SCLK 降一半，若錯誤消失，幾乎可確定是速度/訊號品質。</li><li>示波器看 SCLK / MISO 邊緣有沒有過衝、振鈴。</li></ul><h3>怎麼修</h3><ul><li>縮短線、加地線參考、串聯 22~50Ω 阻尼電阻，或降速。</li></ul>" },
+      decouple: { lvl: "warn", tag: "電源", k: "負載變動或高速時當機/錯", sym: "去耦不足時，切換瞬間 VCC 掉壓，邏輯誤判。",
+        detail: "<h3>怎麼確認</h3><ul><li>示波器看 VCC 在傳輸時的 ripple。</li></ul><h3>怎麼修</h3><ul><li>每顆 IC 的電源腳就近放 0.1µF，再加一顆較大電容做整體儲能。</li></ul>" },
+      multi: { lvl: "danger", tag: "匯流排衝突", k: "多裝置時資料全錯", sym: "兩顆 Slave 同時 drive 共用的 MISO，互相打架。",
+        detail: "<h3>怎麼確認</h3><ul><li>邏輯分析儀看是否多顆同時在 MISO 輸出。</li><li>只接一顆時正常、多顆才錯，幾乎可確定。</li></ul><h3>怎麼修</h3><ul><li>每顆獨立 CS，同一時間只拉低一條；確保未選中者 MISO 為高阻抗。</li></ul>" }
+    };
+    function render() {
+      var f = FAULTS[$("fault").value];
+      $("fTitle").textContent = $("fault").value === "ok" ? "正確接線" : "故障：" + $("fault").selectedOptions[0].text;
+      $("fTag").textContent = f.tag;
+      $("fState").className = "callout " + f.lvl;
+      $("fSymK").textContent = f.k;
+      $("fSym").textContent = f.sym;
+      $("fDetail").innerHTML = f.detail;
+    }
+    $("fault").addEventListener("change", render);
+    render();
+  </script>
+</body>
+</html>

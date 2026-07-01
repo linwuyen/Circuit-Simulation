@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>06 回報 · CAN/UDS | F28388D BMS 教學模擬器</title>
+  <link rel="stylesheet" href="assets/bms-tutorial.css">
+</head>
+<body data-page="uds" data-chapter="6">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="brand-title">F28388D BMS 教學模擬器</span><span class="brand-subtitle">06 回報 · CAN/UDS</span></div>
+      <nav class="nav" aria-label="章節導覽">
+        <a href="index.html">首頁</a><a href="01_overview.html">總覽</a><a href="02_sense.html">量測</a><a href="03_compare.html">比較</a><a href="04_decide.html">決定</a><a href="05_actuate.html">致動</a><a href="06_report.html" aria-current="page">回報</a><a href="07_coordinate.html">協同</a><a href="08_failsafe.html">失效</a><a href="09_integrate.html">整合</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="hero">
+      <div>
+        <span class="eyebrow">Lesson 06 · 鏈的第⑤環</span>
+        <h1>回報就是一問一答:Tester 發 Request,ECU 回 Response。</h1>
+        <p class="lead">鏈的最後一環:把狀態與故障對外講清楚,並接受外界的查詢與指令。這頁只模擬常見服務,先看懂 `10 03`、`22 01`、`7F` 這些 log 的基本意思,不必背完整 ISO 14229。</p>
+      </div>
+      <div class="panel">
+        <h2>CM4 狀態</h2>
+        <div style="display:grid;gap:10px;margin-top:12px;">
+          <div id="uds-cm4-state" class="state-pill green"><span class="led"></span>CM4 ONLINE</div>
+          <div class="metric"><span>UDS_Session</span><strong id="uds-session">0x01</strong></div>
+          <div class="metric"><span>IPC_Rx_V</span><strong id="uds-cm4-voltage">0x0FA0</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="lesson-layout">
+      <aside>
+        <div class="panel">
+          <div class="panel-title"><h2>常用指令</h2></div>
+          <div class="button-row">
+            <button class="btn" data-uds="10 03">10 03 Extended</button>
+            <button class="btn" data-uds="22 01">22 01 讀電壓</button>
+            <button class="btn" data-uds="22 F1 90">22 F1 90 讀 VIN</button>
+            <button class="btn" data-uds="3E 00">3E 00 TesterPresent</button>
+            <button class="btn" data-uds="27 01">27 01 要 Seed</button>
+            <button class="btn" data-uds="27 02 C3 D4 E5 F6">27 02 送 Key</button>
+            <button class="btn" data-uds="31 01">31 01 跑 Routine</button>
+            <button class="btn" data-uds="11 01">11 01 ECU Reset</button>
+            <button class="btn" data-uds="10 01">10 01 Default</button>
+            <button class="btn" data-uds="99 99">99 99 Negative</button>
+          </div>
+          <div class="callout" style="margin-top:12px;">安全存取練習順序:先 <strong>10 03</strong> 進 extended → <strong>27 01</strong> 取得 seed → <strong>27 02 C3 D4 E5 F6</strong> 送 key 解鎖 → <strong>31 01</strong> 才能跑 routine。順序錯會收到對應的 7F 負回應。</div>
+        </div>
+        <div class="panel">
+          <div class="panel-title"><h2>怎麼讀 log</h2></div>
+          <table class="mini-table">
+            <tr><th>Log</th><th>意思</th></tr>
+            <tr><td>50 03 …</td><td>對 10 03 的正回應(進 extended)。</td></tr>
+            <tr><td>62 01 xxxx</td><td>對 22 01 的資料回應(電壓)。</td></tr>
+            <tr><td>67 01 …</td><td>對 27 01 回的 seed。</td></tr>
+            <tr><td>67 02</td><td>對 27 02 的 key 驗證通過,已解鎖。</td></tr>
+            <tr><td>7F SID NRC</td><td>負回應,SID 後面那碼就是原因。</td></tr>
+          </table>
+          <div class="reg-note">SID:<code>10</code> SessionControl、<code>11</code> ECUReset、<code>22</code> ReadDataById、<code>27</code> SecurityAccess、<code>31</code> RoutineControl。正回應 = 請求 SID + <code>0x40</code>(22→62、27→67);負回應固定 <code>7F</code> + SID + NRC。</div>
+        </div>
+        <div class="panel">
+          <div class="panel-title"><h2>NRC 速查</h2><small>負回應第三碼</small></div>
+          <table class="mini-table">
+            <tr><th>NRC</th><th>意思</th></tr>
+            <tr><td>11</td><td>serviceNotSupported:這個服務不支援。</td></tr>
+            <tr><td>12</td><td>subFunctionNotSupported:子功能不支援。</td></tr>
+            <tr><td>22</td><td>conditionsNotCorrect:條件不對(例如還沒進 extended)。</td></tr>
+            <tr><td>31</td><td>requestOutOfRange:參數/DID 超出範圍。</td></tr>
+            <tr><td>33</td><td>securityAccessDenied:還沒解鎖就要做受保護操作。</td></tr>
+            <tr><td>35</td><td>invalidKey:送的 key 不對。</td></tr>
+          </table>
+        </div>
+      </aside>
+
+      <section>
+        <div class="panel">
+          <div class="panel-title"><h2>CAN FD / UDS Terminal</h2><small>ISO 14229 簡化版</small></div>
+          <label class="range-row">
+            <span class="range-label"><span>CM4 目前可讀電壓</span><strong id="uds-voltage-value">4000 mV / 0x0FA0</strong></span>
+            <input id="uds-voltage-slider" type="range" min="3000" max="4300" value="4000">
+          </label>
+          <div id="uds-term" class="terminal" style="margin-top:14px;">
+            <div>&gt;&gt; Vector CANoe style terminal initialized.</div>
+            <div>&gt;&gt; Try: 10 03 → 27 01 → 27 02 C3 D4 E5 F6 → 31 01,或輸入 HELP。</div>
+          </div>
+          <div class="terminal-input">
+            <input id="uds-input" type="text" placeholder="例如:22 01">
+            <button id="uds-send" class="btn primary">Send</button>
+          </div>
+          <div class="button-row" style="margin-top:12px;">
+            <button id="uds-cm4-off" class="btn danger">模擬 CM4 掛起</button>
+          </div>
+          <div class="callout warning" style="margin-top:12px;">如果這是你的車:進保養廠時,技師的診斷儀就是這樣對你的 ECU 一問一答;讀到 7F 負回應,代表這個操作被條件或權限擋下來了。</div>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" style="margin-top:20px;">
+      <div class="panel-title"><h2>帶走這三句</h2></div>
+      <ul class="checklist">
+        <li>UDS 是一問一答:正回應 = SID + 0x40,負回應固定 7F + SID + NRC。</li>
+        <li>受保護操作要先 10 03 進 extended、再 27 走完安全存取才能做。</li>
+        <li>讀懂 7F 後面那個 NRC,就知道為什麼被拒絕。</li>
+      </ul>
+    </section>
+
+    <nav class="footer-nav">
+      <a href="05_actuate.html">上一章:致動 · 接觸器與預充</a>
+      <a href="07_coordinate.html">下一章:協同 · 多核與 IPC</a>
+    </nav>
+  </main>
+  <script src="assets/bms-sim.js"></script>
+  <script src="assets/bms-learn.js"></script>
+</body>
+</html>

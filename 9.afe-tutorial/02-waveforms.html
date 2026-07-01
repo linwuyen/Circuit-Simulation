@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AFE 波形判讀</title>
+    <link rel="stylesheet" href="assets/app.css">
+    <script src="../assets/vendor/lucide.min.js"></script>
+    <script src="assets/app.js" defer></script>
+    <style>
+        .ps-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,330px);gap:18px;align-items:start;margin-top:14px}
+        .ps-stage{border:1px solid var(--line);border-radius:var(--radius);background:#0f172a;padding:12px}
+        .ps-stage canvas{display:block;width:100%;height:320px}
+        .ps-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;color:#cbd5e1;font-size:13px;font-weight:700}
+        .ps-legend span{display:inline-flex;align-items:center;gap:6px}
+        .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+        .ps-side{display:grid;gap:12px}
+        .slider-head{display:flex;justify-content:space-between;font-weight:800;color:var(--ink)}
+        .reading{display:grid;gap:4px;text-align:center;padding:14px;border-radius:var(--radius);background:var(--surface-strong)}
+        .reading .big{font-size:38px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+        .verdict{padding:12px 14px;border-radius:var(--radius);border-left:4px solid var(--teal);background:#e9f8f7;font-weight:700;font-size:14px}
+        .verdict.send{border-left-color:var(--rose);background:#ffe9ee}
+        .verdict.reactive{border-left-color:var(--amber);background:#fff4dc}
+        .preset-row{display:flex;flex-wrap:wrap;gap:8px}
+        input[type=range]{width:100%;min-height:auto;padding:0;accent-color:var(--teal)}
+        @media(max-width:760px){.ps-grid{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="index.html">
+            <span class="brand-mark"><i data-lucide="activity"></i></span>
+            <span><span class="brand-title">AFE Tutorial</span><span class="brand-subtitle">波形判讀</span></span>
+        </a>
+        <nav class="nav">
+            <a data-nav href="index.html"><i data-lucide="map"></i>總覽</a>
+            <a data-nav href="01-concepts.html"><i data-lucide="blocks"></i>觀念</a>
+            <a data-nav href="02-waveforms.html"><i data-lucide="waves"></i>波形</a>
+            <a data-nav href="03-control-loop.html"><i data-lucide="route"></i>控制</a>
+            <a data-nav href="04-lab.html"><i data-lucide="clipboard-list"></i>實驗</a>
+            <a data-nav href="simulator.html"><i data-lucide="monitor-play"></i>模擬器</a>
+        </nav>
+    </header>
+
+    <main class="page">
+        <section class="intro">
+            <div class="eyebrow">Waveforms</div>
+            <h1>示波器不要一次全看，先用固定順序判斷系統是否健康。</h1>
+            <p class="lead">原始模擬器有 5 條關鍵訊號。對初學者來說，最實用的順序是先看 DC 母線，再看電壓與電流是否對齊，最後才看 PLL 角度與控制指令。</p>
+        </section>
+
+        <section class="panel">
+            <h2>建議觀察順序</h2>
+            <div class="flow" style="margin-top: 14px;">
+                <div class="flow-node">
+                    <span class="tag blue">1</span>
+                    <h3>V_bus</h3>
+                    <p class="muted">母線是否朝 400 V 收斂。它是整個 AFE 的主要任務。</p>
+                </div>
+                <div class="flow-arrow">-&gt;</div>
+                <div class="flow-node">
+                    <span class="tag amber">2</span>
+                    <h3>V_grid vs I_grid</h3>
+                    <p class="muted">兩者同相代表吸電，反相代表送電。</p>
+                </div>
+                <div class="flow-arrow">-&gt;</div>
+                <div class="flow-node">
+                    <span class="tag teal">3</span>
+                    <h3>I_ref vs I_grid</h3>
+                    <p class="muted">實際電流能否跟上參考電流，用來判斷電流內環。</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel" style="margin-top: 22px;" id="phase-play">
+            <h2>動手玩：相位一動，方向與功率因數就變</h2>
+            <p class="muted">這是 02 的核心觀念。只拖一個滑桿，看綠色電流相對黃色電壓是同相還是反相，再對照 PF 數字與白話結論。</p>
+            <div class="ps-grid">
+                <div>
+                    <div class="ps-stage"><canvas id="ps-canvas"></canvas></div>
+                    <div class="ps-legend">
+                        <span><i class="dot" style="background:#f59e0b"></i>電壓 V_grid</span>
+                        <span><i class="dot" style="background:#10b981"></i>電流 I_grid</span>
+                        <span><i class="dot" style="background:rgba(99,102,241,.55)"></i>瞬時功率 v×i（往上＝吸電）</span>
+                    </div>
+                </div>
+                <div class="ps-side">
+                    <div>
+                        <div class="slider-head"><span>電流相位 φ</span><span id="ps-phase-v" style="color:var(--teal)">0°</span></div>
+                        <input id="ps-phase" type="range" min="-180" max="180" value="0" step="1">
+                        <p class="muted" style="font-size:13px;margin-top:6px">往右拖：電流落後電壓；±180° 代表完全反相。</p>
+                    </div>
+                    <div class="reading">
+                        <span class="muted" style="font-weight:800">功率因數 PF = cos φ</span>
+                        <span class="big" id="ps-pf">1.000</span>
+                    </div>
+                    <div id="ps-verdict" class="verdict"></div>
+                    <div>
+                        <span class="muted" style="font-weight:800;font-size:13px">一鍵情境</span>
+                        <div class="preset-row" style="margin-top:8px">
+                            <button class="button" type="button" data-ps="0"><i data-lucide="arrow-down-to-dot"></i>同相吸電</button>
+                            <button class="button" type="button" data-ps="90"><i data-lucide="rotate-cw"></i>純無功</button>
+                            <button class="button" type="button" data-ps="180"><i data-lucide="arrow-up-from-dot"></i>反相送電</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="grid grid-2" style="margin-top: 22px;">
+            <div class="panel">
+                <h2>每條線代表什麼</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>訊號</th><th>看什麼</th><th>健康狀態</th><th>異常提示</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>V_grid</strong></td>
+                                <td>電網電壓波形</td>
+                                <td>乾淨正弦，幅值穩定。</td>
+                                <td>THD 拉高時會出現變形。</td>
+                            </tr>
+                            <tr>
+                                <td><strong>I_grid</strong></td>
+                                <td>實際電網電流</td>
+                                <td>在 PFC 時與 V_grid 同相。</td>
+                                <td>落後、超前、尖峰通常代表控制或濾波問題。</td>
+                            </tr>
+                            <tr>
+                                <td><strong>I_ref</strong></td>
+                                <td>DDS 產生的參考電流</td>
+                                <td>I_grid 能貼近 I_ref。</td>
+                                <td>兩者差距大時，先檢查內環 Kp/Ki。</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Theta</strong></td>
+                                <td>PLL 估計的相位角</td>
+                                <td>鋸齒狀連續爬升，週期穩定。</td>
+                                <td>抖動明顯時，代表鎖相受到干擾。</td>
+                            </tr>
+                            <tr>
+                                <td><strong>V_bus</strong></td>
+                                <td>直流母線電壓</td>
+                                <td>受擾後回到目標附近。</td>
+                                <td>長時間飄離或震盪，通常看外環 PI。</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>小練習</h2>
+                <div class="checklist" data-checklist="waveforms">
+                    <label class="check-row"><input type="checkbox"> 在模擬器把負載調到 3.0 kW，觀察 V_bus 是否先下降再回復。</label>
+                    <label class="check-row"><input type="checkbox"> 把負載調到 -2.0 kW，確認能量流向標籤是否變成逆變送電。</label>
+                    <label class="check-row"><input type="checkbox"> 把 THD 調到 30%，比較 V_grid 和 I_grid 的平滑程度。</label>
+                    <label class="check-row"><input type="checkbox"> 拉高電流 Kp，觀察 I_grid 是否更快追 I_ref，或開始震盪。</label>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel" style="margin-top: 22px;">
+            <h2>常見現象速查</h2>
+            <div class="grid grid-3" style="margin-top: 14px;">
+                <article class="term">
+                    <span class="tag teal">正常</span>
+                    <h3>電流貼著參考走</h3>
+                    <p class="muted">I_grid 和 I_ref 形狀接近，代表電流內環有能力追蹤命令。</p>
+                </article>
+                <article class="term">
+                    <span class="tag amber">需觀察</span>
+                    <h3>V_bus 緩慢回復</h3>
+                    <p class="muted">外環可能太保守，反應慢但不一定危險。可以小幅提高外環 Kp。</p>
+                </article>
+                <article class="term">
+                    <span class="tag rose">不穩定</span>
+                    <h3>電流高頻抖動</h3>
+                    <p class="muted">常見原因是內環 Kp 過高或 Ki 累積太強，先回到默認值再逐步調整。</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="callout" style="margin-top: 22px;">
+            <strong>教學表達建議：</strong>講解時不要直接說「SOGI-PLL、DDS、雙環 PI」。先問學生「DC 母線掉下去時，系統要從哪裡補能量？」等他回答 AC 端，再引出為什麼需要同相電流與 PLL。
+        </section>
+    </main>
+
+    <footer class="footer">
+        <a class="button" href="simulator.html"><i data-lucide="monitor-play"></i>開啟教練版模擬器</a>
+        <a class="button primary" href="03-control-loop.html"><i data-lucide="arrow-right"></i>下一站：控制迴路</a>
+    </footer>
+
+    <script>
+        (function () {
+            const canvas = document.getElementById('ps-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const slider = document.getElementById('ps-phase');
+            const pvEl = document.getElementById('ps-phase-v');
+            const pfEl = document.getElementById('ps-pf');
+            const verdict = document.getElementById('ps-verdict');
+            let phaseDeg = 0;
+            function ensureSize() {
+                const dpr = window.devicePixelRatio || 1;
+                const w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
+                if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+            }
+            function wave(fn, color, lw, w, mid, amp) {
+                ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.beginPath();
+                for (let px = 0; px <= w; px++) { const t = px / w * 4 * Math.PI; const y = mid - fn(t) * amp; px ? ctx.lineTo(px, y) : ctx.moveTo(px, y); }
+                ctx.stroke();
+            }
+            function draw() {
+                ensureSize();
+                const w = canvas.clientWidth, h = canvas.clientHeight, mid = h / 2, amp = h * 0.32;
+                const phi = phaseDeg * Math.PI / 180;
+                ctx.clearRect(0, 0, w, h);
+                ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
+                for (let i = 0; i <= 10; i++) { const x = w / 10 * i; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+                for (let i = 0; i <= 8; i++) { const y = h / 8 * i; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+                ctx.strokeStyle = '#334155'; ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(w, mid); ctx.stroke();
+                const v = t => Math.sin(t), cur = t => Math.sin(t - phi);
+                ctx.beginPath(); ctx.moveTo(0, mid);
+                for (let px = 0; px <= w; px++) { const t = px / w * 4 * Math.PI; ctx.lineTo(px, mid - v(t) * cur(t) * amp * 0.9); }
+                ctx.lineTo(w, mid); ctx.closePath(); ctx.fillStyle = 'rgba(99,102,241,0.18)'; ctx.fill();
+                wave(v, '#f59e0b', 2.5, w, mid, amp);
+                wave(cur, '#10b981', 2.5, w, mid, amp);
+            }
+            function update() {
+                const phi = phaseDeg * Math.PI / 180, pf = Math.cos(phi), a = Math.abs(phaseDeg);
+                pvEl.textContent = phaseDeg + '°';
+                pfEl.textContent = pf.toFixed(3);
+                verdict.className = 'verdict';
+                if (a <= 30) verdict.innerHTML = '🔋 <strong>PFC 吸電</strong>：電流幾乎與電壓同相，能量從電網流向 DC 母線，這是整流最理想的狀態。';
+                else if (a >= 150) { verdict.classList.add('send'); verdict.innerHTML = '⚡ <strong>Inverter 送電</strong>：電流幾乎反相，能量從 DC 送回電網。再生煞車、太陽能併網。'; }
+                else if (a > 60 && a < 120) { verdict.classList.add('reactive'); verdict.innerHTML = '🌀 <strong>幾乎純無功</strong>：PF 接近 0，電流只在借還能量、沒真正搬功率，效率最差。'; }
+                else { verdict.classList.add('reactive'); verdict.innerHTML = '↔️ <strong>夾在中間</strong>：有功也有無功，PF 介於 0 與 1。回到 0° 才是高效吸電。'; }
+                draw();
+            }
+            slider.addEventListener('input', e => { phaseDeg = parseInt(e.target.value); update(); });
+            document.querySelectorAll('[data-ps]').forEach(b => b.addEventListener('click', () => { phaseDeg = parseInt(b.dataset.ps); slider.value = phaseDeg; update(); }));
+            update();
+            requestAnimationFrame(function r() { draw(); requestAnimationFrame(r); });
+        })();
+    </script>
+</body>
+</html>

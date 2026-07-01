@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L8 · 過調變與 SVPWM</title>
+<link rel="stylesheet" href="foc-style.css">
+</head>
+<body>
+<header class="top">
+  <div>
+    <div class="crumb">FOC 教學課程 · 階段 ③ 硬體非理想</div>
+    <h1>L8 · 過調變與 SVPWM (圓 → 六邊形)</h1>
+    <div class="sub">電壓指令超過母線線性極限，向量被裁切到六邊形邊界</div>
+  </div>
+  <div class="prog">第 8 / 9 課</div>
+</header>
+
+<main class="stage">
+  <div class="scopes two">
+    <div class="scope sq">
+      <canvas id="cv-xy"></canvas>
+      <span class="lab">αβ 軌跡 + SVPWM 六邊形</span>
+      <span class="lab tr" id="shape">線性圓</span>
+    </div>
+    <div class="scope sq">
+      <canvas id="cv-yt"></canvas>
+      <span class="lab">三相時域（看削頂）</span>
+      <span class="lab tr"><span style="color:#34d399">●</span>Va <span style="color:#22d3ee">●</span>Vb <span style="color:#a78bfa">●</span>Vc</span>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <h2>電壓指令</h2>
+    <div class="ctrl">
+      <div class="row"><span>向量長度 |V|</span><span class="v" id="v-m">0.70</span></div>
+      <input type="range" id="p-m" min="0.3" max="1.3" step="0.02" value="0.7">
+    </div>
+    <div class="ctrl">
+      <div class="row"><span>轉速 ω</span><span class="v" id="v-w">60 Hz</span></div>
+      <input type="range" id="p-w" min="20" max="300" value="60">
+    </div>
+    <div class="readout">
+      <div class="cell"><span>線性極限</span><span>1.000</span></div>
+      <div class="cell"><span>六邊形頂點</span><span>1.155</span></div>
+      <div class="cell"><span>利用率</span><span id="r-u">70%</span></div>
+      <div class="cell"><span>狀態</span><span id="r-s">線性</span></div>
+    </div>
+    <div class="note">紅色虛線六邊形 = 母線能給的最大電壓邊界；六個頂點 = 六個基本向量 <code>V1–V6</code>。內切綠圈 = 可用正弦的線性極限。</div>
+    <div class="task"><b>🎯 動手試</b>
+      把 <code>|V|</code> 從 0.7 一路拉到 1.3：超過 <strong>1.0</strong>（綠圈）後，圓開始貼上六邊形變平；右圖三相正弦開始<strong>削頂</strong>。這就是「過調變」。</div>
+    <div class="aha"><b>💡 你學到了</b>
+      SVPWM 的線性區是六邊形內切圓（|V|≤1.0，比 SPWM 多 ~15%）。再大只能沿六邊形邊走 → 進入過調變，產生低次諧波與電流失真；推到極限就是「六步方波」。</div>
+  </aside>
+</main>
+
+<nav class="foot">
+  <a href="L7-deadtime.html">← L7</a>
+  <a href="index.html">課程地圖</a>
+  <a class="next" href="L9-capstone.html">完課：L9 完整診斷示波器 →</a>
+</nav>
+
+<script src="foc-core.js"></script>
+<script>
+const cvXY=document.getElementById('cv-xy'),ctxXY=cvXY.getContext('2d');
+const cvYT=document.getElementById('cv-yt'),ctxYT=cvYT.getContext('2d');
+const pM=document.getElementById('p-m'),pW=document.getElementById('p-w');
+let mag=0.7,w=60,theta=0,last=performance.now();
+
+function ui(){mag=+pM.value;w=+pW.value;
+  document.getElementById('v-m').textContent=mag.toFixed(2);
+  document.getElementById('v-w').textContent=w+' Hz';}
+[pM,pW].forEach(p=>p.addEventListener('input',ui));
+function comp(a){return FOC.clipToHexagon(mag*Math.cos(a),mag*Math.sin(a));}
+function resize(){FOC.fit(cvXY);FOC.fit(cvYT);}
+window.addEventListener('resize',resize);
+
+function loop(now){
+  const dt=Math.min(.016,(now-last)/1000);last=now;
+  theta=(theta+FOC.TAU*w*dt)%FOC.TAU;
+  const W=cvXY.width,H=cvXY.height,cx=W/2,cy=H/2,s=Math.min(W,H)*0.40;
+  FOC.plane(ctxXY,W,H,cx,cy,s,{unitCircle:true,hexagon:true});
+  // V1-V6 標籤
+  const rv=(2/FOC.SQ3)*s;ctxXY.fillStyle='rgba(239,68,68,.6)';ctxXY.font='10px monospace';
+  for(let i=0;i<6;i++){const a=i*Math.PI/3;ctxXY.fillText('V'+(i+1),cx+(rv+11)*Math.cos(a)-7,cy-(rv+11)*Math.sin(a)+3);}
+  const pts=[];for(let i=0;i<=360;i++){const v=comp(i/360*FOC.TAU);pts.push({x:cx+v.alpha*s,y:cy-v.beta*s});}
+  FOC.poly(ctxXY,pts,'rgba(0,240,150,.5)',1.5);
+  const c=comp(theta);FOC.vector(ctxXY,cx,cy,c.alpha,c.beta,s,'#34d399');
+
+  const W2=cvYT.width,H2=cvYT.height,c2=H2/2,sy=H2*0.34;
+  ctxYT.clearRect(0,0,W2,H2);
+  ctxYT.strokeStyle='rgba(99,102,241,.15)';ctxYT.beginPath();ctxYT.moveTo(0,c2);ctxYT.lineTo(W2,c2);ctxYT.stroke();
+  const cols=['#34d399','#22d3ee','#a78bfa'];const ph=[];for(let k=0;k<3;k++)ph.push([]);
+  for(let x=0;x<W2;x++){const ang=theta-(x/W2)*FOC.TAU*1.5;const v=comp(ang);const t=FOC.invClarke(v.alpha,v.beta);
+    ph[0].push({x:W2-x,y:c2-t.a*sy});ph[1].push({x:W2-x,y:c2-t.b*sy});ph[2].push({x:W2-x,y:c2-t.c*sy});}
+  for(let k=0;k<3;k++)FOC.poly(ctxYT,ph[k],cols[k]);
+
+  const util=Math.min(100,mag*100);
+  document.getElementById('r-u').textContent=util.toFixed(0)+'%';
+  const st=mag<=1.001?'線性':(mag<1.15?'過調變':'近六步方波');
+  document.getElementById('r-s').textContent=st;
+  document.getElementById('shape').textContent=mag<=1.001?'線性圓':'六邊形';
+  requestAnimationFrame(loop);
+}
+resize();ui();requestAnimationFrame(loop);
+</script>
+<script src="foc-quiz.js"></script>
+<script>FOCQuiz.mount('L8')</script>
+<script src="foc-lab.js"></script>
+<script>FOCLab.mount('L8')</script>
+</body>
+</html>

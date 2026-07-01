@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>第4課 TIA + RFB — AD5543 教學</title>
+<link rel="stylesheet" href="assets/common.css" />
+</head>
+<body>
+<div class="wrap">
+  <div id="nav-top"></div>
+
+  <div class="lesson-head">
+    <span class="lesson-num">第 4 課</span>
+    <h1>把電流變電壓:TIA 運放 + 內建 RFB</h1>
+    <p class="goal">這一課你會懂:用<b>轉阻放大器 (TIA)</b>把 IOUT 轉成電壓,而且<b>為什麼把 RFB 做在晶片裡,輸出就會準</b>。</p>
+  </div>
+
+  <div class="teach">
+    <div class="analogy">
+      <span class="emoji">🔁</span>
+      <div>上一課的 IOUT 是電流,不好直接用。我們接一顆運放當 <b>TIA(轉阻放大器)</b>:它讓 IOUT 流過回授電阻 <b>RFB</b>,
+      產生電壓 <b>VOUT = −IOUT × RFB</b>。<br><br>
+      <b style="color:#fcd34d">關鍵在這裡:</b>RFB 和內部 R-2R 階梯<b>做在同一塊晶片上、用同一種製程</b>。溫度變化時兩者一起漂移,
+      但公式裡它們<b>相除</b>,比值幾乎不變 → 最後輸出只跟 <b>VREF 和 D</b> 有關,跟電阻的「絕對值」無關。這就是它準的祕密(稱為 ratiometric)。</div>
+    </div>
+  </div>
+
+  <div class="trythis">
+    <div class="sec-label">🧪 動手試試</div>
+    <ol>
+      <li>看右圖:IOUT 流進三角形運放(TIA),經過頂上的 <span class="k">RFB</span> 後變成 <span class="k">VOUT</span> 電壓。</li>
+      <li>調 VREF 與數位碼,對照下方數學模型 ② 那一步:<span class="k">V1 = −VREF × (D/2¹⁶)</span> —— R 已經被約掉了,所以你看不到電阻值。</li>
+      <li>想一想:如果 RFB 用「外接」電阻,它跟內部階梯不會一起漂移,輸出就會隨溫度跑掉。內建才穩。</li>
+    </ol>
+  </div>
+
+  <div class="panel sim">
+    <div class="viz-top">
+      <button id="animBtn" class="animbtn" onclick="toggleAnim()"></button>
+      <span class="topo">標準 TIA 拓樸</span>
+    </div>
+    <div class="viz"><div id="schematic"></div>
+      <div class="flowrow">
+        <span class="chip" style="background:#fee2e2">IOUT 電流</span> ➜
+        <span class="chip" style="background:#fef3c7">TIA + RFB 轉電壓</span> ➜
+        <span class="chip" style="background:#fef9c3">VOUT</span>
+      </div>
+    </div>
+    <div class="ctrl">
+      <label class="row"><span>VREF (V)</span><span id="vrefVal" style="color:var(--blue-400)"></span></label>
+      <input id="vref" type="range" min="-10" max="10" step="0.1" oninput="setVref(this.value)" style="accent-color:#60a5fa" />
+      <label class="row" style="margin-top:8px"><span>數位碼 D</span><span id="codeVal" style="color:var(--green-400)"></span></label>
+      <input id="code" type="range" min="0" max="65535" step="1" oninput="setCodeRaw(this.value)" style="accent-color:#4ade80" />
+      <div id="presets" class="presets"></div>
+    </div>
+    <div id="mathModel" class="mathbox"></div>
+  </div>
+
+  <div class="takeaways">
+    <div class="sec-label">📌 重點整理</div>
+    <ul>
+      <li><b>TIA(轉阻放大器)</b>把電流轉成電壓:VOUT = −IOUT × RFB。</li>
+      <li>RFB <b>內建、與階梯同晶片</b> → 兩者一起漂移、比值穩定 → 輸出與電阻絕對值無關(ratiometric)。</li>
+      <li>化簡後輸出只剩 <b>VOUT = −VREF × (D/2¹⁶)</b> —— 跟第 1 課那條式子完全一致。整條鏈路到這裡接起來了。</li>
+    </ul>
+  </div>
+
+  <div class="eng">
+    <b>工程師補充:</b>TIA 用的運放(U1)要選低 <b>輸入偏置電流</b>與低 <b>失調電壓</b>(如 ADA4077 / AD8676 等級),
+    否則運放本身的誤差會直接疊加到 VOUT。回授路徑常並聯一顆小電容(幾 pF)穩定相位、避免振盪。
+  </div>
+
+  <div class="quiz" id="quiz"></div>
+  <div id="refs"></div>
+  <div id="nav-bottom"></div>
+</div>
+
+<script src="assets/common.js"></script>
+<script>
+const state = { vref: 10, code: 32768, mode: 'standard' };
+let animate = true;
+function setVref(v){ state.vref = parseFloat(v); render(); }
+function setCodeRaw(v){ state.code = parseInt(v,10); render(); }
+function setCode(v){ state.code = v; render(); }
+function toggleAnim(){ animate = !animate; render(); }
+
+function render(){
+  const c = DAC.compute(state);
+  document.getElementById('vref').value = state.vref;
+  document.getElementById('code').value = state.code;
+  document.getElementById('vrefVal').textContent = Number(state.vref).toFixed(1)+' V';
+  document.getElementById('codeVal').textContent = state.code+'  (0x'+state.code.toString(16).toUpperCase().padStart(4,'0')+')';
+  document.getElementById('presets').innerHTML = DAC.buildPresets(state.code);
+  document.getElementById('schematic').innerHTML = DAC.buildSchematic(state, c, animate);
+  document.getElementById('mathModel').innerHTML = DAC.buildMath(state, c);
+  document.getElementById('animBtn').innerHTML = (animate ? DAC.ico('pause',12)+' 暫停動畫' : DAC.ico('play',12)+' 播放動畫');
+}
+
+DAC.renderNav('04-tia-rfb.html');
+render();
+document.getElementById('refs').innerHTML = DAC.readMore([
+  { term: 'RFB (Feedback Resistor)', desc: '晶片內建回授電阻,與 R-2R 階梯同製程匹配 → VOUT = −IOUT × RFB,輸出與電阻絕對值無關。' },
+  { term: 'Ratiometric Operation', desc: '輸出取決於 RFB 與階梯的「比值」而非絕對值,溫漂大幅抵銷,這是精度來源。' },
+  { term: 'Op-Amp Selection', desc: '選 TIA 運放看低輸入偏置電流(IB)、低失調電壓(VOS)。如 ADA4077 / AD8676 等精密運放。' },
+  { term: 'Compensation Cap', desc: '回授並聯數 pF 小電容,搭配 IOUT 寄生電容穩定相位、避免振盪。' },
+]);
+DAC.quiz('quiz', [
+  { q: 'TIA(轉阻放大器)在電路裡的工作是?',
+    options: ['把電壓變電流','把電流 IOUT 變成電壓 VOUT','放大數位訊號','產生 VREF'],
+    answer: 1,
+    explain: 'TIA 讓 IOUT 流過 RFB,輸出 VOUT = −IOUT × RFB,完成電流→電壓轉換。' },
+  { q: '為什麼 RFB 要做在 DAC 晶片內部?',
+    options: ['省一顆電阻的錢','讓它與內部階梯一起溫漂、比值穩定,輸出更準','讓電路比較好看','可以調整解析度'],
+    answer: 1,
+    explain: '同晶片同製程 → 一起漂移、比值不變 → 輸出與電阻絕對值無關,這就是 ratiometric 準確的原因。' },
+  { q: '化簡後的理想輸出公式是?',
+    options: ['VOUT = VREF + D','VOUT = −VREF × (D/2¹⁶)','VOUT = IOUT × VREF','VOUT = D / RFB'],
+    answer: 1,
+    explain: 'R 被約掉後,輸出只跟 VREF 與比例 D/2¹⁶ 有關,與第 1 課一致。' },
+  { q: '選 TIA 運放時,哪個參數會直接在 VOUT 造成偏移?',
+    options: ['封裝顏色','輸入失調電壓 VOS 與偏置電流 IB','SPI 速度','晶片重量'],
+    answer: 1,
+    explain: '運放本身的 VOS / IB 會疊加到輸出,所以 TIA 要選低 VOS、低 IB 的精密運放。' },
+  { q: '回授路徑常並聯一顆小電容(幾 pF)的目的?',
+    options: ['增加增益','穩定相位、避免振盪','提高解析度','降低成本'],
+    answer: 1,
+    explain: 'IOUT 腳寄生電容會讓 TIA 不穩,並聯補償電容可穩定相位、抑制振盪。' },
+], '04-tia-rfb.html', { pick: 3 });
+</script>
+</body>
+</html>

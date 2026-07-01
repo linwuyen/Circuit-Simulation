@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>電路模擬說明 · 教材總入口</title>
+<style>
+:root {
+  --bg: #f6f8fb;
+  --panel: #ffffff;
+  --ink: #172026;
+  --muted: #667085;
+  --line: #d9e1ec;
+  --teal: #0f8f83;
+  --blue: #2f63d8;
+  --amber: #b7791f;
+  --rose: #c2415b;
+  --slate: #243241;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+}
+.shell {
+  width: min(1180px, calc(100% - 36px));
+  margin: 0 auto;
+  padding: 34px 0 48px;
+}
+.top {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.eyebrow {
+  color: var(--teal);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+h1 {
+  margin: 0;
+  max-width: 840px;
+  font-size: clamp(30px, 4vw, 48px);
+  line-height: 1.15;
+}
+.lead {
+  max-width: 900px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.75;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 14px;
+}
+.card {
+  display: grid;
+  gap: 10px;
+  min-height: 190px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 8px 24px rgba(23, 32, 38, 0.06);
+}
+.card:hover {
+  border-color: #b7c2d2;
+  transform: translateY(-1px);
+}
+.meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.num {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 8px;
+  background: #edf2f7;
+  color: var(--slate);
+  font-weight: 900;
+}
+.tag {
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: #e8f4f2;
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 800;
+}
+.card h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.25;
+}
+.card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.65;
+  font-size: 14px;
+}
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+}
+.links span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.notice {
+  margin-top: 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--blue);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--muted);
+  line-height: 1.7;
+}
+.notice a { color: var(--blue); font-weight: 800; }
+@media (max-width: 640px) {
+  .shell { width: min(100% - 24px, 1180px); padding-top: 24px; }
+}
+</style>
+</head>
+<body>
+<main class="shell">
+  <section class="top">
+    <div class="eyebrow">Circuit Simulation Learning Pack</div>
+    <h1>電路模擬說明教材總入口</h1>
+    <p class="lead">這裡集中管理電源、ADC、FOC、SPI、BMS、DAC 與 AFE 的互動式教學頁。每個卡片都連到可直接開啟的本地入口頁。</p>
+  </section>
+
+  <section class="grid" aria-label="教材清單">
+    <a class="card" href="0_buck_converter_/index.html">
+      <div class="meta"><span class="num">0</span><span class="tag">Buck</span></div>
+      <h2>降壓轉換器 Buck</h2>
+      <p>從切換、電感三角波、電容電壓漣波一路到 CCM/DCM 與反向設計工具。</p>
+      <div class="links"><span>index.html</span><span>設計小幫手</span></div>
+    </a>
+    <a class="card" href="1_c2000_adc_calculator/index.html">
+      <div class="meta"><span class="num">1</span><span class="tag">ADC</span></div>
+      <h2>C2000 ADC 參數計算</h2>
+      <p>把電流、母線電壓、Offset、分壓與韌體縮放拆成循序教學與完整計算器。</p>
+      <div class="links"><span>標準入口</span><span>0_index.html</span></div>
+    </a>
+    <a class="card" href="2_code_artifact/index.html">
+      <div class="meta"><span class="num">2</span><span class="tag">Inverter</span></div>
+      <h2>電力電子拓撲</h2>
+      <p>逆變器、半橋、PWM、SPWM、全橋、LC 濾波、三相 SVPWM 與 THD 量測。</p>
+      <div class="links"><span>課程</span><span>完整工具</span></div>
+    </a>
+    <a class="card" href="3_foc_course/index.html">
+      <div class="meta"><span class="num">3</span><span class="tag">FOC</span></div>
+      <h2>FOC 從零到診斷</h2>
+      <p>Clarke、Park、dq 控制、解耦、ADC 增益、死區、過調變與 L9 結業診斷頁。</p>
+      <div class="links"><span>課程地圖</span><span>故障字典</span></div>
+    </a>
+    <a class="card" href="4_PI/index.html">
+      <div class="meta"><span class="num">4</span><span class="tag">PI</span></div>
+      <h2>PI 控制器波德圖</h2>
+      <p>從 Bode 圖、積分器與 PI 控制器，走到 LC Plant、開迴路穩定度與挑戰任務。</p>
+      <div class="links"><span>Chart.js 本地化</span><span>挑戰任務</span></div>
+    </a>
+    <a class="card" href="5_spi/index.html">
+      <div class="meta"><span class="num">5</span><span class="tag">SPI</span></div>
+      <h2>SPI 初學者課程</h2>
+      <p>線路、全雙工、Clock、CPOL/CPHA、FIFO、Overrun、接線與實機除錯。</p>
+      <div class="links"><span>新版課程</span><span>舊版封存</span></div>
+    </a>
+    <a class="card" href="6.10μs 高頻控制迴路模擬器/index.html">
+      <div class="meta"><span class="num">6</span><span class="tag">10μs</span></div>
+      <h2>高頻控制迴路</h2>
+      <p>把 10μs 控制週期拆成 EPWM、ADC、CPU1、FSI、DAC 與完整時序模擬。</p>
+      <div class="links"><span>教學版</span><span>完整模擬器</span></div>
+    </a>
+    <a class="card" href="7.28388d_bms_tutorial/START_HERE.html">
+      <div class="meta"><span class="num">7</span><span class="tag">BMS</span></div>
+      <h2>F28388D BMS 教學</h2>
+      <p>量測、比較、決定、致動、回報、多核協同、失效安全與整合實驗。</p>
+      <div class="links"><span>START_HERE</span><span>legacy 封存</span></div>
+    </a>
+    <a class="card" href="8.ad5543_simulator/index.html">
+      <div class="meta"><span class="num">8</span><span class="tag">AD5543</span></div>
+      <h2>AD5543 DAC 教學</h2>
+      <p>比例旋鈕、二進位碼、R-2R、TIA/RFB、輸出極性、轉移函數與 SPI 設計。</p>
+      <div class="links"><span>9 課</span><span>設計計算機</span></div>
+    </a>
+    <a class="card" href="9.afe-tutorial/START_HERE.html">
+      <div class="meta"><span class="num">9</span><span class="tag">AFE</span></div>
+      <h2>AFE 入門拆解</h2>
+      <p>觀念地圖、波形判讀、控制迴路、實驗工作台與教練版模擬器。</p>
+      <div class="links"><span>START_HERE</span><span>文件已補齊</span></div>
+    </a>
+  </section>
+
+  <section class="notice">
+    建議從這個頁面分流到各教材。正式入口都已整理成本地相對連結；封存檔位於各子資料夾的 <code>legacy</code> 或 <code>originals</code>。專案說明請看 <a href="README.md">README.md</a>。
+  </section>
+</main>
+</body>
+</html>

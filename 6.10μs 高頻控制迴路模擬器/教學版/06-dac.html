@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>第 6 課 · DAC 輸出波形</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="step">第 6 課 / 7</div>
+    <h1>〰️ DAC 輸出:一格一格拼出波形</h1>
+    <p class="lead">整個 10μs 迴路的「成果」就在這裡。每跑完一輪,DAC 就更新一次,輸出一個點。</p>
+  </div>
+
+  <div class="goal">
+    <span class="ic">🎯</span>
+    <div>這頁只教一件事:<span class="term">DAC</span> 把數字變回電壓。<b>每一輪迴路只輸出一個取樣點(階梯的一格)</b>;許多輪串起來,就成為平滑的波形(例如馬達的電流命令)。</div>
+  </div>
+
+  <div class="analogy">
+    <span class="tag">生活比喻</span>
+    像看影片:每一格畫面都是靜止的,但每秒換 60 格,看起來就連續流暢。
+    DAC 輸出也是——每一格是一個「定住的電壓」(取樣保持),一秒換 10 萬格,看起來就是一條滑順的正弦波。<b>更新越密(頻率越高)、階梯越細,波形越平滑。</b>
+  </div>
+
+  <!-- 互動 -->
+  <div class="card">
+    <h2>🕹️ 動手玩:改變每週期的取樣點數,並切換「迴路是否出錯」</h2>
+
+    <div class="controls">
+      <div class="ctl">
+        <label><span>每個正弦週期的取樣點數</span><span class="val v-emerald" id="nVal">24 點</span></label>
+        <input type="range" id="n" min="6" max="64" step="1" value="24" />
+        <div class="hint">點越多,藍色虛線(目標)和綠色階梯(實際輸出)越貼合。</div>
+      </div>
+    </div>
+
+    <div class="btn-row" style="margin-top:14px">
+      <button class="btn btn-ghost" id="errBtn">😈 模擬迴路出錯</button>
+      <span class="muted small" id="errLabel">目前:迴路正常,輸出乾淨。</span>
+    </div>
+
+    <div class="svg-box" style="margin-top:14px">
+      <svg viewBox="0 0 600 200" style="width:100%">
+        <line x1="0" y1="100" x2="600" y2="100" stroke="#475569" stroke-width="1" stroke-dasharray="4 4"/>
+        <polyline id="target" fill="none" stroke="#64748b" stroke-width="1.5" stroke-dasharray="2 3" opacity="0.7"/>
+        <polyline id="stair" fill="none" stroke="#34d399" stroke-width="2.5"/>
+      </svg>
+    </div>
+    <div class="legend">
+      <span><span class="sw" style="background:#64748b"></span>目標波形(理想)</span>
+      <span><span class="sw" id="swStair" style="background:#34d399"></span>DAC 實際輸出(取樣保持階梯)</span>
+      <span style="margin-left:auto" class="muted">每格階梯 = 一次 10μs 迴路的輸出</span>
+    </div>
+
+    <div id="statusBox" style="margin-top:14px"></div>
+  </div>
+
+  <div class="observe">
+    <span class="tag">👀 觀察提示</span>
+    <span>把點數降到 6:階梯變粗,和理想正弦差很多(失真),馬達會抖動不順。拉到 64:階梯細到幾乎貼合曲線。再按「模擬迴路出錯」:前幾課任何一步壞掉(ADC 讀錯、運算逾時…),輸出就會跳動失真 → 馬達抖動甚至失控。<b>前面五課的每一個環節,最後都反映在這條波形上。</b></span>
+  </div>
+
+  <div class="keypoints">
+    <h3>📌 重點整理</h3>
+    <ul>
+      <li><span class="term">DAC</span>(數位類比轉換器)是迴路的出口,把運算結果變成真正的電壓/電流命令給馬達或電源。</li>
+      <li><b>取樣保持(階梯)</b>:每輪輸出一格、定住到下一輪。更新頻率越高(這裡 100kHz),階梯越細、波形越平滑。</li>
+      <li>輸出品質 = 前面所有環節的總和。任何一課的錯誤(壞 ADC 值、逾時、通訊塞車)都會讓這條波形失真。所以高頻控制是「環環相扣」的工程。</li>
+    </ul>
+  </div>
+
+  <div class="code">
+    <div class="head">💻 對應到真實韌體:每輪把控制量寫進 DAC</div>
+    <pre><span class="cm">// 在控制 ISR 的最後,把這一輪算好的 u 寫進 DAC</span>
+<span class="kw">uint16_t</span> code = (<span class="kw">uint16_t</span>)((u + 1.0f) * <span class="num">2048</span>);  <span class="cm">// 轉成 0~4095 的數位碼</span>
+DacaRegs.DACVALS.bit.<span class="nm">DACVALS</span> = code;          <span class="cm">// 輸出一個取樣點</span>
+<span class="cm">// 下一個 10μs 中斷再更新一次 → 一格一格拼出波形</span></pre>
+  </div>
+
+  <!-- 小測驗 -->
+  <div class="quiz" id="quiz">
+    <h3>✅ 隨堂小測驗</h3>
+    <div class="q">DAC 輸出的正弦波看起來像「階梯」,把控制頻率從 100kHz 提高(每週期取樣更多),階梯會怎樣?</div>
+    <button class="opt" data-c="1">A. 階梯變細、更貼近理想正弦,輸出更平滑,馬達更順</button>
+    <button class="opt" data-c="0">B. 階梯變粗,輸出更失真</button>
+    <button class="opt" data-c="0">C. 不影響,DAC 永遠輸出完美正弦</button>
+    <div class="explain" id="exp">✔️ 正解 A。更新越頻繁,每格階梯越短,越逼近連續曲線。代價是每輪的時間預算更緊(回到第 1 課的截止線問題)——這就是高頻控制要在「平滑」與「來得及算」之間取捨。</div>
+  </div>
+
+</div>
+
+<script>window.PAGE = '06';</script>
+<script src="nav.js"></script>
+<script>
+var W = 600, H = 200, mid = 100, amp = 70;
+var nSlider = document.getElementById('n');
+var phase = 0, bad = false;
+var seed = 7;
+function rnd() { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
+
+function build() {
+  var N = +nSlider.value;
+  document.getElementById('nVal').textContent = N + ' 點';
+  var cycles = 2;                       // 畫面顯示 2 個週期
+  var omega = 2 * Math.PI * cycles;
+
+  // 目標平滑曲線
+  var tgt = [];
+  for (var x = 0; x <= W; x += 5) {
+    var v = Math.sin(phase + (x / W) * omega);
+    tgt.push(x + ',' + (mid - amp * v).toFixed(1));
+  }
+  document.getElementById('target').setAttribute('points', tgt.join(' '));
+
+  // 階梯
+  seed = 7;
+  var step = W / N, stair = [];
+  for (var i = 0; i < N; i++) {
+    var v2 = Math.sin(phase + (i / N) * omega);
+    if (bad) v2 += (rnd() - 0.5) * 1.5;
+    v2 = Math.max(-1.15, Math.min(1.15, v2));
+    var y = (mid - amp * v2).toFixed(1);
+    stair.push((i * step).toFixed(1) + ',' + y);
+    stair.push(((i + 1) * step).toFixed(1) + ',' + y);
+  }
+  var stairEl = document.getElementById('stair');
+  stairEl.setAttribute('points', stair.join(' '));
+  stairEl.setAttribute('stroke', bad ? '#f87171' : '#34d399');
+  document.getElementById('swStair').style.background = bad ? '#f87171' : '#34d399';
+
+  document.getElementById('statusBox').innerHTML = bad
+    ? '<div class="observe" style="border-color:rgba(248,113,113,.6);background:rgba(248,113,113,.08)"><span class="tag" style="color:var(--red)">⚠️ 輸出失真</span><span>迴路某一步出錯,輸出跳動 → 馬達會抖動。</span></div>'
+    : '<div class="observe" style="border-color:rgba(52,211,153,.5);background:rgba(52,211,153,.07)"><span class="tag" style="color:var(--emerald)">✓ 輸出正常</span><span>階梯穩定貼合目標,馬達運轉平順。</span></div>';
+}
+
+// 緩慢移動相位讓波形流動
+var t0 = performance.now();
+function loop(now) { phase = (now - t0) * 0.0009; build(); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+
+nSlider.oninput = build;
+document.getElementById('errBtn').onclick = function () {
+  bad = !bad;
+  this.textContent = bad ? '😇 恢復正常' : '😈 模擬迴路出錯';
+  document.getElementById('errLabel').textContent = bad ? '目前:迴路出錯,輸出失真!' : '目前:迴路正常,輸出乾淨。';
+};
+
+document.querySelectorAll('#quiz .opt').forEach(function (b) {
+  b.onclick = function () {
+    document.querySelectorAll('#quiz .opt').forEach(function (x) { x.classList.remove('correct','wrong'); });
+    b.classList.add(b.dataset.c === '1' ? 'correct' : 'wrong');
+    document.getElementById('exp').classList.add('show');
+  };
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TMS320F28388D BMS 教學模擬器</title>
+  <link rel="stylesheet" href="../assets/bms-tutorial.css">
+  <script defer src="../assets/bms-sim.js"></script>
+</head>
+<body data-page="index">
+  <header class="app-header">
+    <a class="brand" href="../index.html">
+      <span class="brand-mark">BMS</span>
+      <span class="brand-title">
+        <strong>TMS320F28388D BMS 教學模擬器</strong>
+        <span>從電芯採樣、保護邏輯到三核心通訊的漸進式課程</span>
+      </span>
+    </a>
+    <span class="status-pill"><span class="status-dot"></span>本地 HTML，可離線閱讀與互動</span>
+  </header>
+
+  <div class="app-layout">
+    <aside class="course-nav" id="course-nav"></aside>
+    <main class="page">
+      <section class="page-head">
+        <div class="intro">
+          <h1>把一個大型 BMS 儀表板拆成可以學會的 8 個步驟</h1>
+          <p>這份資料夾把原本所有資訊都擠在一起的模擬器，拆成初學者能逐步吸收的課程。每一頁都用同一個 BMS 模型，但只開放當頁需要理解的元件、互動與程式邏輯。</p>
+        </div>
+        <div class="lesson-goal">
+          <h2>建議學習方式</h2>
+          <p>照左側順序閱讀。先理解 BMS 要保護什麼，再看 AFE 怎麼量測，最後才看 TMS320F28388D 的 CPU1、CPU2、CM 如何分工。</p>
+        </div>
+      </section>
+
+      <section class="surface">
+        <div class="surface-head">
+          <div>
+            <h2>系統地圖</h2>
+            <p>這四個模組是後續所有頁面的共同基礎。</p>
+          </div>
+        </div>
+        <div class="mini-map" id="mini-map"></div>
+      </section>
+
+      <section class="surface">
+        <div class="surface-head">
+          <div>
+            <h2>目前模型快照</h2>
+            <p>所有分頁都使用同一套簡化 BMS 模型，數值會依照互動情境更新。</p>
+          </div>
+        </div>
+        <div class="grid-4">
+          <div class="metric"><span>Pack Voltage</span><strong id="metric-pack-v">--</strong></div>
+          <div class="metric"><span>State of Charge</span><strong id="metric-soc">--</strong></div>
+          <div class="metric"><span>BMS State</span><strong id="metric-state">--</strong></div>
+          <div class="metric"><span>Active Fault</span><strong id="metric-fault">--</strong></div>
+        </div>
+      </section>
+
+      <section class="surface">
+        <div class="lesson-strip">
+          <div class="explain">
+            <h3>你現在看到什麼？</h3>
+            <p>這不是投影片，而是一組可以直接打開的 HTML 教學頁。每頁都保留互動模擬。</p>
+          </div>
+          <div class="explain">
+            <h3>真實 BMS 代表什麼？</h3>
+            <p>BMS 是把量測、判斷、保護、通訊串在一起的安全控制系統。</p>
+          </div>
+          <div class="explain">
+            <h3>程式怎麼模擬？</h3>
+            <p>共用邏輯放在 assets/bms-sim.js，各頁只顯示自己的教學重點。</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

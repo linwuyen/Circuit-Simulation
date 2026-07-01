@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AFE 教材整合包入口</title>
+    <link rel="stylesheet" href="assets/app.css">
+    <script src="../assets/vendor/lucide.min.js"></script>
+    <script src="assets/app.js" defer></script>
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="START_HERE.html">
+            <span class="brand-mark"><i data-lucide="folder-open"></i></span>
+            <span>
+                <span class="brand-title">AFE 教材整合包</span>
+                <span class="brand-subtitle">唯一建議入口</span>
+            </span>
+        </a>
+        <nav class="nav">
+            <a href="index.html"><i data-lucide="map"></i>教材總覽</a>
+            <a href="simulator.html"><i data-lucide="monitor-play"></i>教練版模擬器</a>
+            <a href="04-lab.html"><i data-lucide="clipboard-list"></i>實驗工作台</a>
+        </nav>
+    </header>
+
+    <main class="page">
+        <section class="intro">
+            <div class="eyebrow">Integrated package</div>
+            <h1>從這裡開始：先看教材總覽，再進模擬器，最後做實驗紀錄。</h1>
+            <p class="lead">
+                這個資料夾已整理成完整教學包。一般學習者開 `index.html`；上課示範開 `simulator.html`；要做參數測試與紀錄開 `04-lab.html`。
+            </p>
+        </section>
+
+        <section class="grid grid-3">
+            <a class="route-card" href="index.html">
+                <div class="card-head">
+                    <span class="icon-box"><i data-lucide="map"></i></span>
+                    <span class="tag teal">建議先開</span>
+                </div>
+                <h2>教材總覽</h2>
+                <p class="muted">按照觀念、波形、控制、實驗的順序學習。</p>
+            </a>
+            <a class="route-card" href="simulator.html">
+                <div class="card-head">
+                    <span class="icon-box"><i data-lucide="monitor-play"></i></span>
+                    <span class="tag blue">示範用</span>
+                </div>
+                <h2>教練版模擬器</h2>
+                <p class="muted">左側有觀察腳本，右側嵌入完整 AFE 模擬器。</p>
+            </a>
+            <a class="route-card" href="04-lab.html">
+                <div class="card-head">
+                    <span class="icon-box"><i data-lucide="clipboard-list"></i></span>
+                    <span class="tag amber">實作</span>
+                </div>
+                <h2>實驗工作台</h2>
+                <p class="muted">做負載、諧波、相位、PI 參數測試，並匯出紀錄。</p>
+            </a>
+        </section>
+
+        <section class="panel" style="margin-top: 22px;">
+            <h2>資料夾角色</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>位置</th><th>用途</th><th>是否建議直接修改</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>START_HERE.html</td><td>整合包入口與路線說明。</td><td>否</td></tr>
+                        <tr><td>index.html, 01-04 HTML</td><td>分頁教材。</td><td>可修改文字內容</td></tr>
+                        <tr><td>simulator.html</td><td>教練版外框，嵌入模擬核心。</td><td>可修改講解腳本</td></tr>
+                        <tr><td>simulator-core.html</td><td>原始模擬器的執行副本。</td><td>謹慎修改</td></tr>
+                        <tr><td>assets/</td><td>共用 CSS 與互動 JS。</td><td>可修改樣式與紀錄功能</td></tr>
+                        <tr><td>originals/afe.html</td><td>原始 HTML 備份。</td><td>不要改</td></tr>
+                        <tr><td>docs/</td><td>教學流程與整合說明。</td><td>可補充</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="grid grid-2" style="margin-top: 22px;">
+            <div class="panel">
+                <h2>第一次教學順序</h2>
+                <div class="checklist" data-checklist="start-package">
+                    <label class="check-row"><input type="checkbox"> 開 `index.html`，先讓學生知道整體路線。</label>
+                    <label class="check-row"><input type="checkbox"> 開 `01-concepts.html`，只講能量方向與三個硬體區塊。</label>
+                    <label class="check-row"><input type="checkbox"> 開 `02-waveforms.html`，用固定順序判讀示波器。</label>
+                    <label class="check-row"><input type="checkbox"> 開 `simulator.html`，做一次示範。</label>
+                    <label class="check-row"><input type="checkbox"> 開 `04-lab.html`，讓學生填一次實驗紀錄。</label>
+                </div>
+            </div>
+            <div class="panel">
+                <h2>文件</h2>
+                <div class="actions">
+                    <a class="button" href="README.md"><i data-lucide="file-text"></i>README</a>
+                    <a class="button" href="docs/TEACHING_FLOW.md"><i data-lucide="presentation"></i>教學流程</a>
+                    <a class="button" href="docs/FOLDER_MAP.md"><i data-lucide="folder-tree"></i>資料夾地圖</a>
+                </div>
+                <p class="muted">Markdown 文件可用瀏覽器、VS Code、記事本或任何 Markdown 編輯器開啟。</p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">整合包位置：D:\Downloads\afe-tutorial</footer>
+</body>
+</html>

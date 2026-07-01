@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L4 · 為什麼用 dq</title>
+<link rel="stylesheet" href="foc-style.css">
+</head>
+<body>
+<header class="top">
+  <div>
+    <div class="crumb">FOC 教學課程 · 階段 ② 控制</div>
+    <h1>L4 · 為什麼用 dq？(PI 愛直流)</h1>
+    <div class="sub">同一個 PI 控制器：控直流零誤差，控交流卻落後又衰減</div>
+  </div>
+  <div class="prog">第 4 / 9 課</div>
+</header>
+
+<main class="stage">
+  <div class="scopes">
+    <div class="scope wide">
+      <canvas id="cv-dq"></canvas>
+      <span class="lab">dq 控制：目標是直流（階躍）</span>
+      <span class="lab tr"><span style="color:#64748b">●</span>目標 <span style="color:#34d399">●</span>實際</span>
+    </div>
+    <div class="scope wide">
+      <canvas id="cv-ab"></canvas>
+      <span class="lab">αβ 控制：目標是交流（正弦）</span>
+      <span class="lab tr"><span style="color:#64748b">●</span>目標 <span style="color:#f59e0b">●</span>實際</span>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <h2>PI 控制器增益</h2>
+    <div class="ctrl">
+      <div class="row"><span>比例 Kp</span><span class="v" id="v-kp">8.0</span></div>
+      <input type="range" id="p-kp" min="0" max="30" step="0.5" value="8">
+    </div>
+    <div class="ctrl">
+      <div class="row"><span>積分 Ki</span><span class="v" id="v-ki">120</span></div>
+      <input type="range" id="p-ki" min="0" max="400" step="10" value="120">
+    </div>
+    <div class="ctrl">
+      <div class="row"><span>αβ 目標頻率 f</span><span class="v" id="v-f">3.0 Hz</span></div>
+      <input type="range" id="p-f" min="0.5" max="10" step="0.5" value="3">
+    </div>
+    <button class="primary" onclick="doStep()">⚡ 觸發階躍 (改變目標)</button>
+    <div class="readout">
+      <div class="cell"><span>dq 穩態誤差</span><span id="r-edq">0.000</span></div>
+      <div class="cell"><span>αβ 追蹤誤差</span><span id="r-eab">0.000</span></div>
+    </div>
+    <div class="task"><b>🎯 動手試</b>
+      按「觸發階躍」：上圖（dq）很快貼上目標、誤差趨近 0。下圖（αβ）用<strong>一模一樣</strong>的 Kp/Ki 去追正弦，卻永遠慢半拍、振幅還變小。把 f 調高，落後更明顯。</div>
+    <div class="aha"><b>💡 你學到了</b>
+      PI 控制器對「直流目標」能做到零穩態誤差，但對「交流目標」必有相位落後與幅值衰減。所以 FOC 先把電流變到 dq（直流）再用 PI 控制，效果好太多。</div>
+  </aside>
+</main>
+
+<nav class="foot">
+  <a href="L3-park.html">← L3</a>
+  <a href="index.html">課程地圖</a>
+  <a class="next" href="L5-coupling.html">下一課：L5 交叉耦合與解耦 →</a>
+</nav>
+
+<script src="foc-core.js"></script>
+<script>
+const cvDQ=document.getElementById('cv-dq'),ctxDQ=cvDQ.getContext('2d');
+const cvAB=document.getElementById('cv-ab'),ctxAB=cvAB.getContext('2d');
+const pKp=document.getElementById('p-kp'),pKi=document.getElementById('p-ki'),pF=document.getElementById('p-f');
+let Kp=8,Ki=120,f=3,last=performance.now();
+const R=1.0,L=0.05,N=320;
+let t=0, stepVal=0.6;
+let iDQ=0,intDQ=0, iAB=0,intAB=0;
+let bDQr=[],bDQy=[],bABr=[],bABy=[];
+
+function ui(){Kp=+pKp.value;Ki=+pKi.value;f=+pF.value;
+  document.getElementById('v-kp').textContent=Kp.toFixed(1);
+  document.getElementById('v-ki').textContent=Ki;
+  document.getElementById('v-f').textContent=f.toFixed(1)+' Hz';}
+[pKp,pKi,pF].forEach(p=>p.addEventListener('input',ui));
+function doStep(){ stepVal = (stepVal<0.5)?0.8:0.25; }
+function resize(){FOC.fit(cvDQ);FOC.fit(cvAB);}
+window.addEventListener('resize',resize);
+
+function step(h){
+  // dq：目標為直流 stepVal
+  let e=stepVal-iDQ; intDQ+=e*h; intDQ=Math.max(-5,Math.min(5,intDQ));
+  let u=Kp*e+Ki*intDQ; iDQ+=((u-R*iDQ)/L)*h;
+  // αβ：目標為正弦
+  const ref=stepVal*Math.sin(FOC.TAU*f*t);
+  let e2=ref-iAB; intAB+=e2*h; intAB=Math.max(-5,Math.min(5,intAB));
+  let u2=Kp*e2+Ki*intAB; iAB+=((u2-R*iAB)/L)*h;
+  t+=h;
+  bDQr.push(stepVal);bDQy.push(iDQ);bABr.push(ref);bABy.push(iAB);
+  if(bDQr.length>N){bDQr.shift();bDQy.shift();bABr.shift();bABy.shift();}
+}
+function drawScope(ctx,cv,refB,yB,refC,yC){
+  const W=cv.width,H=cv.height,c=H/2,sy=H*0.36;
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle='rgba(99,102,241,.15)';ctx.beginPath();ctx.moveTo(0,c);ctx.lineTo(W,c);
+  for(let i=1;i<8;i++){ctx.moveTo(W/8*i,0);ctx.lineTo(W/8*i,H);}ctx.stroke();
+  const map=(arr)=>arr.map((v,i)=>({x:i/(N-1)*W,y:c-v*sy}));
+  FOC.poly(ctx,map(refB),refC,1.4);
+  FOC.poly(ctx,map(yB),yC,2);
+}
+function loop(now){
+  const dt=Math.min(.05,(now-last)/1000); last=now;
+  const h=0.002, steps=Math.max(1,Math.round(dt/h));
+  for(let i=0;i<steps;i++) step(h);
+  drawScope(ctxDQ,cvDQ,bDQr,bDQy,'#64748b','#34d399');
+  drawScope(ctxAB,cvAB,bABr,bABy,'#64748b','#f59e0b');
+  document.getElementById('r-edq').textContent=Math.abs(stepVal-iDQ).toFixed(3);
+  document.getElementById('r-eab').textContent=Math.abs(bABr[bABr.length-1]-iAB).toFixed(3);
+  requestAnimationFrame(loop);
+}
+resize();ui();requestAnimationFrame(loop);
+</script>
+<script src="foc-quiz.js"></script>
+<script>FOCQuiz.mount('L4')</script>
+<script src="foc-lab.js"></script>
+<script>FOCLab.mount('L4')</script>
+</body>
+</html>

@@ -1,0 +1,1630 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高精度電力電子拓撲互動模擬器</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="../assets/vendor/tailwindcss-cdn.js"></script>
+    <style>        body {
+            font-family: 'Noto Sans TC', 'JetBrains Mono', sans-serif;
+            background-color: #0b0f19;
+        }
+        .oscilloscope-screen {
+            background-color: #02050c;
+            background-image: 
+                radial-gradient(circle, rgba(16, 185, 129, 0.04) 1px, transparent 1px),
+                linear-gradient(to right, rgba(16, 185, 129, 0.06) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(16, 185, 129, 0.06) 1px, transparent 1px);
+            background-size: 100% 100%, 32px 32px, 32px 32px;
+            background-position: center;
+        }
+        .glowing-path {
+            stroke-dasharray: 6;
+            animation: dash 0.8s linear infinite;
+        }
+        .glowing-path-diode {
+            stroke-dasharray: 6;
+            animation: dash-reverse 0.8s linear infinite;
+        }
+        @keyframes dash {
+            to { stroke-dashoffset: -12; }
+        }
+        @keyframes dash-reverse {
+            to { stroke-dashoffset: 12; }
+        }
+        .glow-green { filter: drop-shadow(0 0 3px #10b981); }
+        .glow-amber { filter: drop-shadow(0 0 4px #f59e0b); }
+        .glow-blue { filter: drop-shadow(0 0 3px #3b82f6); }
+        .glow-red { filter: drop-shadow(0 0 5px #ef4444); }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur px-6 py-3.5 flex flex-col xl:flex-row justify-between items-center gap-4">
+        <div class="flex items-center gap-3">
+            <div class="bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 p-2 rounded-xl font-black shadow-lg shadow-emerald-500/20">
+                ⚡ HIL
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-teal-200 bg-clip-text text-transparent">高精度電力電子拓撲實時虛擬半實物模擬器</h1>
+                <p class="text-xs text-slate-400">自適應示波器刻度、動態觸發同步與物理續流模型</p>
+            </div>
+        </div>
+        
+        <!-- Topology Selectors -->
+        <div class="flex bg-slate-950 p-1.5 rounded-xl border border-slate-800 gap-1">
+            <button onclick="setTopology('half')" id="btn-half" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all">
+                半橋臂 (Half-Bridge)
+            </button>
+            <button onclick="setTopology('full')" id="btn-full" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all">
+                單相 H 橋 (Full-Bridge)
+            </button>
+            <button onclick="setTopology('three')" id="btn-three" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all">
+                三相逆變橋 (3-Phase)
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 p-5">
+        
+        <!-- Left Side: Interactive Circuit Canvas (7 cols) -->
+        <section class="lg:col-span-7 bg-slate-900/30 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden">
+            
+            <!-- Corner badge to show topology info -->
+            <div class="absolute top-4 left-4 z-10 flex gap-2">
+                <span id="topology-badge" class="px-2.5 py-1 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-wider">
+                    半橋模式
+                </span>
+                <span id="mode-status-badge" class="px-2.5 py-1 rounded-md text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 uppercase tracking-wider">
+                    阻性負載 (R)
+                </span>
+                <span class="px-2.5 py-1 rounded-md text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20 uppercase tracking-wider flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span> 觸控鎖定
+                </span>
+            </div>
+
+            <!-- Shoot-through warning overlay -->
+            <div id="short-circuit-warning" class="hidden absolute inset-0 bg-red-950/90 backdrop-blur-sm z-30 flex flex-col items-center justify-center gap-4 transition-all duration-300">
+                <div class="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center text-3xl animate-bounce shadow-lg shadow-red-500/50">⚠️</div>
+                <h3 class="text-2xl font-bold text-red-400">直通短路警告 (Shoot-through!)</h3>
+                <p class="text-sm text-slate-300 max-w-md text-center px-4 leading-relaxed">
+                    檢測到同一個半橋臂的<span class="text-red-400 font-bold">上管與下管同時導通</span>！直流正負母線直接發生金屬性短路。在實際電路中，這將引發數千安培的浪湧電流，導致開關器件瞬時發生熱擊穿而炸毀！
+                </p>
+                <button onclick="resetSwitches()" class="mt-2 px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-semibold transition shadow-md shadow-red-900/40">
+                    立即清除直通狀態
+                </button>
+            </div>
+
+            <!-- SVG Circuit Container -->
+            <div class="flex-1 flex items-center justify-center min-h-[360px] py-4">
+                <svg id="circuit-svg" viewBox="0 0 800 450" class="w-full max-w-3xl h-auto">
+                    <!-- Definitions for markers and filters -->
+                    <defs>
+                        <filter id="glow-heavy" x="-30%" y="-30%" width="160%" height="160%">
+                            <feGaussianBlur stdDeviation="5" result="blur" />
+                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                        </filter>
+                    </defs>
+
+                    <!-- DC Voltage Source -->
+                    <circle cx="80" cy="225" r="22" fill="none" stroke="#475569" stroke-width="2.5" />
+                    <text x="80" y="219" fill="#94a3b8" font-size="14" font-weight="bold" text-anchor="middle">+</text>
+                    <text x="80" y="237" fill="#94a3b8" font-size="14" font-weight="bold" text-anchor="middle">-</text>
+                    <text x="80" y="185" fill="#38bdf8" font-size="12" font-weight="bold" text-anchor="middle">Vdc</text>
+
+                    <!-- Ground node -->
+                    <path d="M 80 380 L 80 400 M 65 400 L 95 400 M 72 405 L 88 405 M 77 410 L 83 410" stroke="#475569" stroke-width="2" />
+
+                    <!-- DC Bus Lines -->
+                    <path id="pos-bus" d="M 80 203 L 80 70 L 650 70" fill="none" stroke="#475569" stroke-width="2.5" />
+                    <path id="neg-bus" d="M 80 247 L 80 380 L 650 380" fill="none" stroke="#475569" stroke-width="2.5" />
+
+                    <!-- Active current overlays -->
+                    <path id="active-pos-bus" d="" fill="none" stroke="#10b981" stroke-width="3.5" class="glowing-path glow-green hidden" />
+                    <path id="active-neg-bus" d="" fill="none" stroke="#10b981" stroke-width="3.5" class="glowing-path glow-green hidden" />
+
+                    <!-- ========================================== -->
+                    <!-- HALF BRIDGE SPECIFIC COMPONENTS (Capacitor Division) -->
+                    <!-- ========================================== -->
+                    <g id="half-cap-group">
+                        <path d="M 200 70 L 200 130 M 180 130 L 220 130 M 180 140 L 220 140 M 200 140 L 200 225" stroke="#475569" stroke-width="2.5" fill="none"/>
+                        <text x="165" y="140" fill="#64748b" font-size="11">C1</text>
+                        <path d="M 200 225 L 200 310 M 180 310 L 220 310 M 180 320 L 220 320 M 200 320 L 200 380" stroke="#475569" stroke-width="2.5" fill="none"/>
+                        <text x="165" y="320" fill="#64748b" font-size="11">C2</text>
+                        <circle cx="200" cy="225" r="4" fill="#64748b" />
+                        <text x="212" y="218" fill="#38bdf8" font-size="11" font-weight="bold">N (中性點)</text>
+                    </g>
+
+                    <!-- ========================================== -->
+                    <!-- PHASE A LEG -->
+                    <!-- ========================================== -->
+                    <g id="leg-a-label">
+                        <rect x="305" y="25" width="90" height="22" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1" />
+                        <text x="350" y="40" fill="#94a3b8" font-size="10" font-weight="bold" text-anchor="middle">A相橋臂 (左)</text>
+                    </g>
+                    <path d="M 350 70 L 350 110 M 350 170 L 350 280 M 350 340 L 350 380" stroke="#475569" stroke-width="2.5" fill="none" />
+                    <circle cx="350" cy="70" r="4" fill="#475569" />
+                    <circle cx="350" cy="225" r="5" fill="#475569" id="node-a" />
+                    <text x="330" y="221" fill="#f8fafc" font-size="13" font-weight="bold">A</text>
+                    <circle cx="350" cy="380" r="4" fill="#475569" />
+
+                    <!-- Switch Q1 -->
+                    <g id="sw-q1" class="cursor-pointer" onclick="toggleSwitch(0)">
+                        <rect x="325" y="110" width="50" height="60" rx="4" fill="#1e293b" stroke="#475569" stroke-width="2" id="box-q1" />
+                        <text x="350" y="132" fill="#f1f5f9" font-size="11" font-weight="bold" text-anchor="middle">Q1</text>
+                        <text x="350" y="152" fill="#ef4444" font-size="10" font-weight="bold" text-anchor="middle" id="status-q1">OFF</text>
+                        <line x1="350" y1="120" x2="335" y2="150" stroke="#ef4444" stroke-width="2.5" id="line-q1" />
+                    </g>
+                    <!-- Diode D1 (Antiparallel to Q1) -->
+                    <g id="diode-d1-group">
+                        <path d="M 350 90 L 385 90 L 385 118" stroke="#475569" stroke-width="1.5" fill="none" />
+                        <path d="M 350 190 L 385 190 L 385 162" stroke="#475569" stroke-width="1.5" fill="none" />
+                        <!-- Diode Symbol (Triangle pointing up + Bar on top) -->
+                        <path d="M 385 130 L 377 145 L 393 145 Z" fill="#1e293b" stroke="#475569" stroke-width="1.5" id="tri-d1" />
+                        <line x1="375" y1="130" x2="395" y2="130" stroke="#475569" stroke-width="2" id="bar-d1" />
+                        <text x="403" y="142" fill="#64748b" font-size="10">D1</text>
+                    </g>
+
+                    <!-- Switch Q2 -->
+                    <g id="sw-q2" class="cursor-pointer" onclick="toggleSwitch(1)">
+                        <rect x="325" y="280" width="50" height="60" rx="4" fill="#1e293b" stroke="#475569" stroke-width="2" id="box-q2" />
+                        <text x="350" y="302" fill="#f1f5f9" font-size="11" font-weight="bold" text-anchor="middle">Q2</text>
+                        <text x="350" y="322" fill="#ef4444" font-size="10" font-weight="bold" text-anchor="middle" id="status-q2">OFF</text>
+                        <line x1="350" y1="290" x2="335" y2="320" stroke="#ef4444" stroke-width="2.5" id="line-q2" />
+                    </g>
+                    <!-- Diode D2 -->
+                    <g id="diode-d2-group">
+                        <path d="M 350 260 L 385 260 L 385 288" stroke="#475569" stroke-width="1.5" fill="none" />
+                        <path d="M 350 360 L 385 360 L 385 332" stroke="#475569" stroke-width="1.5" fill="none" />
+                        <path d="M 385 300 L 377 315 L 393 315 Z" fill="#1e293b" stroke="#475569" stroke-width="1.5" id="tri-d2" />
+                        <line x1="375" y1="300" x2="395" y2="300" stroke="#475569" stroke-width="2" id="bar-d2" />
+                        <text x="403" y="312" fill="#64748b" font-size="10">D2</text>
+                    </g>
+
+
+                    <!-- ========================================== -->
+                    <!-- PHASE B LEG -->
+                    <!-- ========================================== -->
+                    <g id="leg-b-label" class="hidden">
+                        <rect x="455" y="25" width="90" height="22" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1" />
+                        <text x="500" y="40" fill="#94a3b8" font-size="10" font-weight="bold" text-anchor="middle">B相橋臂 (右)</text>
+                    </g>
+                    <path id="line-leg-b" d="M 500 70 L 500 110 M 500 170 L 500 280 M 500 340 L 500 380" stroke="#475569" stroke-width="2.5" fill="none" class="hidden" />
+                    <circle cx="500" cy="70" r="4" fill="#475569" id="node-b-top" class="hidden" />
+                    <circle cx="500" cy="225" r="5" fill="#475569" id="node-b" class="hidden" />
+                    <text x="515" y="221" fill="#f8fafc" font-size="13" font-weight="bold" id="lbl-b-node" class="hidden">B</text>
+                    <circle cx="500" cy="380" r="4" fill="#475569" id="node-b-bot" class="hidden" />
+
+                    <!-- Switch Q3 -->
+                    <g id="sw-q3" class="cursor-pointer hidden" onclick="toggleSwitch(2)">
+                        <rect x="475" y="110" width="50" height="60" rx="4" fill="#1e293b" stroke="#475569" stroke-width="2" id="box-q3" />
+                        <text x="500" y="132" fill="#f1f5f9" font-size="11" font-weight="bold" text-anchor="middle">Q3</text>
+                        <text x="500" y="152" fill="#ef4444" font-size="10" font-weight="bold" text-anchor="middle" id="status-q3">OFF</text>
+                        <line x1="500" y1="120" x2="485" y2="150" stroke="#ef4444" stroke-width="2.5" id="line-q3" />
+                    </g>
+                    <!-- Diode D3 -->
+                    <g id="diode-d3-group" class="hidden">
+                        <path d="M 500 90 L 535 90 L 535 118" stroke="#475569" stroke-width="1.5" fill="none" />
+                        <path d="M 500 190 L 535 190 L 535 162" stroke="#475569" stroke-width="1.5" fill="none" />
+                        <path d="M 535 130 L 527 145 L 543 145 Z" fill="#1e293b" stroke="#475569" stroke-width="1.5" id="tri-d3" />
+                        <line x1="525" y1="130" x2="545" y2="130" stroke="#475569" stroke-width="2" id="bar-d3" />
+                        <text x="553" y="142" fill="#64748b" font-size="10">D3</text>
+                    </g>
+
+                    <!-- Switch Q4 -->
+                    <g id="sw-q4" class="cursor-pointer hidden" onclick="toggleSwitch(3)">
+                        <rect x="475" y="280" width="50" height="60" rx="4" fill="#1e293b" stroke="#475569" stroke-width="2" id="box-q4" />
+                        <text x="500" y="302" fill="#f1f5f9" font-size="11" font-weight="bold" text-anchor="middle">Q4</text>
+                        <text x="500" y="322" fill="#ef4444" font-size="10" font-weight="bold" text-anchor="middle" id="status-q4">OFF</text>
+                        <line x1="500" y1="290" x2="485" y2="320" stroke="#ef4444" stroke-width="2.5" id="line-q4" />
+                    </g>
+                    <!-- Diode D4 -->
+                    <g id="diode-d4-group" class="hidden">
+                        <path d="M 500 260 L 535 260 L 535 288" stroke="#475569" stroke-width="1.5" fill="none" />
+                        <path d="M 500 360 L 535 360 L 535 332" stroke="#475569" stroke-width="1.5" fill="none" />
+                        <path d="M 535 300 L 527 315 L 543 315 Z" fill="#1e293b" stroke="#475569" stroke-width="1.5" id="tri-d4" />
+                        <line x1="525" y1="300" x2="545" y2="300" stroke="#475569" stroke-width="2" id="bar-d4" />
+                        <text x="553" y="312" fill="#64748b" font-size="10">D4</text>
+                    </g>
+
+
+                    <!-- ========================================== -->
+                    <!-- PHASE C LEG -->
+                    <!-- ========================================== -->
+                    <g id="leg-c-label" class="hidden">
+                        <rect x="605" y="25" width="90" height="22" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1" />
+                        <text x="650" y="40" fill="#94a3b8" font-size="10" font-weight="bold" text-anchor="middle">C相橋臂 (右)</text>
+                    </g>
+                    <path id="line-leg-c" d="M 650 70 L 650 110 M 650 170 L 650 280 M 650 340 L 650 380" stroke="#475569" stroke-width="2.5" fill="none" class="hidden" />
+                    <circle cx="650" cy="70" r="4" fill="#475569" id="node-c-top" class="hidden" />
+                    <circle cx="650" cy="225" r="5" fill="#475569" id="node-c" class="hidden" />
+                    <text x="665" y="221" fill="#f8fafc" font-size="13" font-weight="bold" id="lbl-c-node" class="hidden">C</text>
+                    <circle cx="650" cy="380" r="4" fill="#475569" id="node-c-bot" class="hidden" />
+
+                    <!-- Switch Q5 -->
+                    <g id="sw-q5" class="cursor-pointer hidden" onclick="toggleSwitch(4)">
+                        <rect x="625" y="110" width="50" height="60" rx="4" fill="#1e293b" stroke="#475569" stroke-width="2" id="box-q5" />
+                        <text x="650" y="132" fill="#f1f5f9" font-size="11" font-weight="bold" text-anchor="middle">Q5</text>
+                        <text x="650" y="152" fill="#ef4444" font-size="10" font-weight="bold" text-anchor="middle" id="status-q5">OFF</text>
+                        <line x1="650" y1="120" x2="635" y2="150" stroke="#ef4444" stroke-width="2.5" id="line-q5" />
+                    </g>
+                    <!-- Diode D5 -->
+                    <g id="diode-d5-group" class="hidden">
+                        <path d="M 650 90 L 685 90 L 685 118" stroke="#475569" stroke-width="1.5" fill="none" />
+                        <path d="M 650 190 L 685 190 L 685 162" stroke="#475569" stroke-width="1.5" fill="none" />
+                        <path d="M 685 130 L 677 145 L 693 145 Z" fill="#1e293b" stroke="#475569" stroke-width="1.5" id="tri-d5" />
+                        <line x1="675" y1="130" x2="695" y2="130" stroke="#475569" stroke-width="2" id="bar-d5" />
+                        <text x="703" y="142" fill="#64748b" font-size="10">D5</text>
+                    </g>
+
+                    <!-- Switch Q6 -->
+                    <g id="sw-q6" class="cursor-pointer hidden" onclick="toggleSwitch(5)">
+                        <rect x="625" y="280" width="50" height="60" rx="4" fill="#1e293b" stroke="#475569" stroke-width="2" id="box-q6" />
+                        <text x="650" y="302" fill="#f1f5f9" font-size="11" font-weight="bold" text-anchor="middle">Q6</text>
+                        <text x="650" y="322" fill="#ef4444" font-size="10" font-weight="bold" text-anchor="middle" id="status-q6">OFF</text>
+                        <line x1="650" y1="290" x2="635" y2="320" stroke="#ef4444" stroke-width="2.5" id="line-q6" />
+                    </g>
+                    <!-- Diode D6 -->
+                    <g id="diode-d6-group" class="hidden">
+                        <path d="M 650 260 L 685 260 L 685 288" stroke="#475569" stroke-width="1.5" fill="none" />
+                        <path d="M 650 360 L 685 360 L 685 332" stroke="#475569" stroke-width="1.5" fill="none" />
+                        <path d="M 685 300 L 677 315 L 693 315 Z" fill="#1e293b" stroke="#475569" stroke-width="1.5" id="tri-d6" />
+                        <line x1="675" y1="300" x2="695" y2="300" stroke="#475569" stroke-width="2" id="bar-d6" />
+                        <text x="703" y="312" fill="#64748b" font-size="10">D6</text>
+                    </g>
+
+
+                    <!-- ========================================== -->
+                    <!-- LOADS (DYNAMIC BASED ON TOPOLOGY) -->
+                    <!-- ========================================== -->
+                    
+                    <!-- 1. Half Bridge Load: Node A to Neutral N -->
+                    <g id="load-half-group">
+                        <path d="M 350 225 L 290 225 M 200 225 L 210 225" stroke="#475569" stroke-width="2.5" fill="none" />
+                        <rect x="210" y="210" width="80" height="30" rx="3" fill="#1a2238" stroke="#38bdf8" stroke-width="2" />
+                        <text x="250" y="229" fill="#38bdf8" font-size="11" font-weight="bold" text-anchor="middle" id="lbl-load-half">負載 (R-L)</text>
+                    </g>
+
+                    <!-- 2. Full Bridge Load: Node A to Node B -->
+                    <g id="load-full-group" class="hidden">
+                        <path d="M 350 225 L 400 225 M 450 225 L 500 225" stroke="#475569" stroke-width="2.5" fill="none" />
+                        <rect x="390" y="210" width="70" height="30" rx="3" fill="#1a2238" stroke="#38bdf8" stroke-width="2" />
+                        <text x="425" y="229" fill="#38bdf8" font-size="11" font-weight="bold" text-anchor="middle" id="lbl-load-full">負載 (R-L)</text>
+                    </g>
+
+                    <!-- 3. Three Phase Load (Y-Connection / Star) -->
+                    <g id="load-three-group" class="hidden">
+                        <!-- Connecting Wires -->
+                        <path d="M 350 225 L 350 205 L 460 205" stroke="#475569" stroke-width="2" fill="none" />
+                        <path d="M 500 225 L 500 205" stroke="#475569" stroke-width="2" fill="none" />
+                        <path d="M 650 225 L 650 205 L 540 205" stroke="#475569" stroke-width="2" fill="none" />
+                        
+                        <!-- Load Star Box -->
+                        <rect x="460" y="185" width="80" height="40" rx="4" fill="#1a2238" stroke="#38bdf8" stroke-width="2" />
+                        <text x="500" y="202" fill="#38bdf8" font-size="10" font-weight="bold" text-anchor="middle">平衡三相</text>
+                        <text x="500" y="216" fill="#38bdf8" font-size="9" text-anchor="middle">負載 (Y)</text>
+                    </g>
+
+                    <!-- Dynamic glowing active flow paths -->
+                    <path id="active-flow-line" d="" fill="none" stroke="#10b981" stroke-width="3.5" class="glowing-path glow-green hidden" />
+                    <path id="active-return-line" d="" fill="none" stroke="#60a5fa" stroke-width="3.5" class="glowing-path glowing-path-diode glow-blue hidden" />
+                    <!-- Diode active glowing flow path -->
+                    <path id="active-diode-flow" d="" fill="none" stroke="#f59e0b" stroke-width="3.5" class="glowing-path glow-amber hidden" />
+
+                </svg>
+            </div>
+
+            <!-- Switch Control Panel & Presets -->
+            <div class="mt-2 p-3 bg-slate-950/90 rounded-xl border border-slate-800">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-300">🎮 手動柵極控制（直接點擊電路圖開關亦可）</h4>
+                        <p class="text-[10px] text-slate-500 mt-0.5">自動模式關閉時有效。注意避免同臂直通短路！</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <!-- Auto cycle controls -->
+                        <button onclick="toggleAutoMode()" id="btn-auto" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 transition flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-slate-500" id="led-auto"></span>
+                            主動閉環控制 PWM
+                        </button>
+                        <button onclick="resetSwitches()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+                            柵極全關 (OFF)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Shortcuts based on topology -->
+                <div class="mt-2 pt-2 border-t border-slate-800/60 flex flex-wrap gap-1.5" id="shortcut-group"></div>
+            </div>
+
+        </section>
+
+        <!-- Right Side: Real-time Analysis, Settings & Theory (5 cols) -->
+        <section class="lg:col-span-5 flex flex-col gap-4 overflow-y-auto max-h-[85vh] pr-1">
+            
+            <!-- Scope Panel with Channel Checkboxes -->
+            <div class="bg-slate-900/30 border border-slate-800 rounded-2xl p-4 flex flex-col">
+                <div class="flex justify-between items-center mb-2.5">
+                    <span class="text-xs font-bold text-emerald-400 tracking-wider flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                        高精準度自適應多通道示波器
+                    </span>
+                    <span id="scope-voltage-text" class="font-mono text-xs text-slate-400">Vout = 0.0 V | Iout = 0.00 A</span>
+                </div>
+                
+                <!-- Screen Canvas -->
+                <div class="oscilloscope-screen h-48 rounded-xl border border-emerald-950/80 flex items-center justify-center overflow-hidden relative">
+                    <canvas id="scope-canvas" class="w-full h-full"></canvas>
+                    <div class="absolute inset-y-0 h-[1px] bg-emerald-500/10 pointer-events-none w-full"></div>
+                </div>
+
+                <!-- Harmonic / RMS metrics on the bridge output voltage -->
+                <div id="scope-metrics" class="flex justify-around items-center mt-2 pt-2 border-t border-slate-800/40 font-mono text-[10px] text-slate-400">
+                    <span title="輸出電壓的有效值（含所有成分）">橋臂輸出 V<sub>rms</sub>: <span id="m-vrms" class="text-emerald-400">0.0</span> V</span>
+                    <span title="其中有用的基波（你設定的 50/60Hz 正弦）有效值">基波 V<sub>1,rms</sub>: <span id="m-v1" class="text-cyan-400">0.0</span> V</span>
+                    <span title="總諧波失真：基波以外雜質佔基波的比例，越低越乾淨">電壓 THD: <span id="m-thd" class="text-amber-400">0.0</span> %</span>
+                </div>
+                <details class="mt-1 text-[10px] text-slate-400">
+                    <summary class="cursor-pointer hover:text-slate-200 select-none">📊 這三個數字代表什麼？（新手點我）</summary>
+                    <div class="mt-1.5 pl-2 space-y-1 border-l-2 border-slate-700">
+                        <p><span class="text-emerald-400 font-bold">V<sub>rms</sub></span>：輸出電壓的「有效值」，代表整體電壓大小（含所有成分）。</p>
+                        <p><span class="text-cyan-400 font-bold">V<sub>1,rms</sub></span>：其中真正有用的<b>基波</b>（你設定的那個 50/60Hz 正弦）的有效值。</p>
+                        <p><span class="text-amber-400 font-bold">THD</span>：總諧波失真——基波以外的「雜質」佔基波的比例，<b>越低代表波形越乾淨</b>。</p>
+                        <p class="text-slate-500">💡 重點是「比較」：固定其他設定、只切換調變策略，看數字怎麼變。這是<b>濾波前</b>的橋臂電壓，數值偏高很正常；接上 LC 濾波器後負載端會乾淨許多。</p>
+                    </div>
+                </details>
+
+                <!-- Channel Toggles -->
+                <div class="grid grid-cols-4 gap-2 mt-2 pt-2 border-t border-slate-800/40 text-[10px]">
+                    <label class="flex items-center gap-1.5 cursor-pointer text-emerald-400">
+                        <input type="checkbox" id="chk-ch1" checked class="rounded accent-emerald-500 bg-slate-950 border-slate-800">
+                        CH1: 輸出電壓 (PWM)
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer text-cyan-400">
+                        <input type="checkbox" id="chk-ch2" checked class="rounded accent-cyan-500 bg-slate-950 border-slate-800">
+                        CH2: 濾波電壓 (LC)
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer text-amber-500">
+                        <input type="checkbox" id="chk-ch3" checked class="rounded accent-amber-500 bg-slate-950 border-slate-800">
+                        CH3: 負載電流
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer text-red-400">
+                        <input type="checkbox" id="chk-ch4" class="rounded accent-red-500 bg-slate-950 border-slate-800">
+                        CH4: 調變對照波
+                    </label>
+                </div>
+            </div>
+
+            <!-- Parameters Adjustments & Options Selection -->
+            <div class="bg-slate-900/30 border border-slate-800 rounded-2xl p-4 flex flex-col gap-3">
+                <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-1.5 flex items-center gap-1.5">
+                    ⚙️ 物理模擬參數與拓撲選項
+                </h3>
+
+                <!-- Drodown Selectors -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] text-slate-400 font-medium mb-1">負載物理類型</label>
+                        <select id="sel-load-type" onchange="changeLoadType()" class="w-full text-xs bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-slate-200 outline-none focus:border-emerald-500">
+                            <option value="R">阻性負載 (Pure R)</option>
+                            <option value="RL">感性負載 (RL Load) - 支援二極體續流</option>
+                            <option value="LC">帶 LC 濾波器 - 正弦波平滑</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-400 font-medium mb-1">調變策略控制</label>
+                        <select id="sel-modulation" onchange="changeModulation()" class="w-full text-xs bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-slate-200 outline-none focus:border-emerald-500">
+                            <!-- Populated Dynamically -->
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Sliders Panel -->
+                <div class="space-y-2.5 pt-1.5">
+                    <div>
+                        <div class="flex justify-between text-[10px] mb-1">
+                            <span class="text-slate-400">調變比 / 占空比 (Modulation Index / Duty, $m_a$)</span>
+                            <span class="text-emerald-400 font-mono" id="val-ma">0.8</span>
+                        </div>
+                        <input type="range" id="sld-ma" min="0" max="1.1" step="0.05" value="0.8" oninput="updateParameters()" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-[10px] mb-1">
+                            <span class="text-slate-400">交流基波頻率 (Fundamental Freq, $f$)</span>
+                            <span class="text-emerald-400 font-mono" id="val-freq">50 Hz</span>
+                        </div>
+                        <input type="range" id="sld-freq" min="10" max="100" step="1" value="50" oninput="updateParameters()" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-[10px] mb-1">
+                            <span class="text-slate-400">開關載波頻率 (Switching Freq, $f_c$)</span>
+                            <span class="text-emerald-400 font-mono" id="val-fc">1000 Hz</span>
+                        </div>
+                        <input type="range" id="sld-fc" min="200" max="3000" step="50" value="1000" oninput="updateParameters()" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic Explanatory Text -->
+            <div class="bg-slate-900/30 border border-slate-800 rounded-2xl p-5 flex-1 flex flex-col justify-between">
+                <div>
+                    <h3 class="text-xs font-bold text-slate-200 border-b border-slate-800 pb-2 flex items-center gap-1.5">
+                        📖 <span id="theory-title">電力電子暫態物理分析</span>
+                    </h3>
+                    
+                    <div id="theory-content" class="text-xs text-slate-300 leading-relaxed mt-2.5 space-y-3">
+                        <!-- Dynamic Content -->
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 bg-slate-950/80 backdrop-blur px-6 py-3 text-center text-xs text-slate-500">
+        高精度數值實時仿真平台 | HIL 級過採樣 $20\mu s$ | 支援自適應示波器與上升沿軟體觸發器鎖定
+    </footer>
+
+    <!-- ============================================== -->
+    <!-- BEGINNER GUIDED TOUR (新手導覽) -->
+    <!-- ============================================== -->
+    <button id="tour-btn" onclick="startTour()" class="fixed bottom-5 left-5 z-40 px-4 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 shadow-lg shadow-emerald-500/20 hover:scale-105 transition">
+        🎓 新手導覽
+    </button>
+
+    <div id="tour-card" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-lg bg-slate-900/95 backdrop-blur border border-emerald-500/30 rounded-2xl p-4 shadow-2xl shadow-emerald-900/50">
+        <div class="flex justify-between items-center mb-1.5">
+            <span id="tour-label" class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">導覽</span>
+            <button onclick="endTour()" class="text-slate-400 hover:text-white text-xl leading-none px-1">&times;</button>
+        </div>
+        <h4 id="tour-title" class="text-base font-bold text-slate-100 mb-1.5"></h4>
+        <p id="tour-desc" class="text-xs text-slate-300 leading-relaxed mb-3"></p>
+        <div class="flex items-center justify-between">
+            <div id="tour-dots" class="flex gap-1.5"></div>
+            <div class="flex gap-2">
+                <button id="tour-prev" onclick="tourPrev()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 transition">上一步</button>
+                <button id="tour-next" onclick="tourNext()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition">下一步 →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Simulation Code -->
+    <script>
+        // State Variables
+        let currentTopology = 'half'; 
+        let loadType = 'R'; // 'R', 'RL', 'LC' — matches the <select> default applied at init
+        let modulationScheme = 'spwm'; // Depends on topology
+        let switchStates = [false, false, false, false, false, false]; // Q1-Q6
+        let diodeStates = [false, false, false, false, false, false]; // D1-D6 (true = conducting)
+        let autoMode = true;
+
+        // Interactive control parameters
+        let param_ma = 0.8;
+        let param_freq = 50;
+        let param_fc = 1000;
+
+        // Physics solver parameters
+        let t_time = 0;
+        const dt = 0.00002; // 20 microseconds high-precision steps (HIL-grade solver)
+        const steps_per_frame = 40; // Solve 40 times per frame step to advance 800µs
+        const decimation = 4; // Sample every 4 solver steps to avoid high-frequency aliasing on screen
+        
+        let current_L = 0;   // Simulated inductor current
+        let current_L_b = 0; // For full bridge / multi-phase current
+        let current_L_c = 0;
+        let vc_filter = 0;   // Filter capacitor voltage (phase A / single)
+        let il_filter = 0;   // Filter inductor current (phase A / single)
+        let vc_filter_b = 0, il_filter_b = 0; // Phase B LC filter state (3-phase)
+        let vc_filter_c = 0, il_filter_c = 0; // Phase C LC filter state (3-phase)
+
+        // Circuit physical values
+        const R_val = 10;   // 10 Ohms
+        const L_val = 0.04; // 40mH
+        const L_f = 0.012;  // 12mH filter L
+        const C_f = 0.000033; // 33uF filter C
+
+        // Canvas Setup for Oscilloscope
+        const canvas = document.getElementById('scope-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Circular Buffers for Triggering. Sized to hold ~2 fundamental cycles PLUS
+        // one extra cycle of trigger-search headroom, even at 10 Hz (3 × 1250 ≈ 3750 samples).
+        const bufLen = 4096;
+        const sampleInterval = dt * decimation; // seconds between recorded scope samples (80µs)
+        let bufHead = 0; // ring-buffer write head: buf[bufHead] is the oldest sample
+        // Adaptive vertical auto-range state (smoothed peak tracking across frames)
+        let voltRange = 100; // current full-scale for voltage channels (V)
+        let currRange = 10;  // current full-scale for current channels (A)
+
+        // Harmonic-metrics state (computed once per fundamental period at full resolution)
+        let acc_n = 0, acc_v2 = 0, acc_a1 = 0, acc_b1 = 0;
+        let metricVrms = 0, metricV1rms = 0, metricThd = 0;
+
+        // Cached DOM references for per-frame hot paths (avoids getElementById churn)
+        const dom = { chk: [], box: [], status: [], line: [], tri: [], bar: [] };
+        function cacheDom() {
+            for (let i = 1; i <= 4; i++) dom.chk[i-1] = document.getElementById(`chk-ch${i}`);
+            for (let i = 1; i <= 6; i++) {
+                dom.box[i-1]    = document.getElementById(`box-q${i}`);
+                dom.status[i-1] = document.getElementById(`status-q${i}`);
+                dom.line[i-1]   = document.getElementById(`line-q${i}`);
+                dom.tri[i-1]    = document.getElementById(`tri-d${i}`);
+                dom.bar[i-1]    = document.getElementById(`bar-d${i}`);
+            }
+            dom.scopeText = document.getElementById('scope-voltage-text');
+            dom.actPos  = document.getElementById('active-pos-bus');
+            dom.actNeg  = document.getElementById('active-neg-bus');
+            dom.actFlow = document.getElementById('active-flow-line');
+            dom.actRet  = document.getElementById('active-return-line');
+            dom.actDio  = document.getElementById('active-diode-flow');
+            dom.mVrms = document.getElementById('m-vrms');
+            dom.mV1   = document.getElementById('m-v1');
+            dom.mThd  = document.getElementById('m-thd');
+        }
+        
+        let ch1_buf = new Array(bufLen).fill(0); // Bridge Vout
+        let ch2_buf = new Array(bufLen).fill(0); // LC Filter Vout
+        let ch3_buf = new Array(bufLen).fill(0); // Load Iout
+        let ch4_buf = new Array(bufLen).fill(0); // Reference Sin / Saddle Wave
+        let carrier_buf = new Array(bufLen).fill(0); // High-frequency triangular carrier
+        
+        // Multi-phase buffers for 3-Phase topology
+        let ch1_b_buf = new Array(bufLen).fill(0);
+        let ch1_c_buf = new Array(bufLen).fill(0);
+        let ch3_b_buf = new Array(bufLen).fill(0);
+        let ch3_c_buf = new Array(bufLen).fill(0);
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Control parameters GUI binder
+        function updateParameters() {
+            param_ma = parseFloat(document.getElementById('sld-ma').value);
+            param_freq = parseInt(document.getElementById('sld-freq').value);
+            param_fc = parseInt(document.getElementById('sld-fc').value);
+
+            document.getElementById('val-ma').innerText = param_ma.toFixed(2);
+            document.getElementById('val-freq').innerText = param_freq + " Hz";
+            document.getElementById('val-fc').innerText = param_fc + " Hz";
+        }
+
+        // Change Load Type selection
+        function changeLoadType() {
+            loadType = document.getElementById('sel-load-type').value;
+            document.getElementById('mode-status-badge').innerText = 
+                loadType === 'R' ? '阻性負載 (R)' : (loadType === 'RL' ? '阻感負載 (RL)' : 'LC 濾波模式');
+            
+            // Label updates on schematic
+            const labels = ['lbl-load-half', 'lbl-load-full'];
+            labels.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = loadType === 'R' ? '負載 (R)' : (loadType === 'RL' ? '負載 (R-L)' : 'LC 濾波器');
+            });
+
+            // Reset physical state to prevent transient explosions
+            current_L = 0; current_L_b = 0; current_L_c = 0;
+            vc_filter = 0; il_filter = 0;
+            vc_filter_b = 0; il_filter_b = 0;
+            vc_filter_c = 0; il_filter_c = 0;
+            checkSafetyAndFlow();
+        }
+
+        // Modulation logic choices
+        const modulationOptions = {
+            half: [
+                { val: 'spwm', text: '正弦波 SPWM 控制' },
+                { val: 'square', text: '對稱方波調變 (Square Wave)' }
+            ],
+            full: [
+                { val: 'spwm_uni', text: '單極性正弦 SPWM (推薦-3電平)' },
+                { val: 'spwm_bi', text: '雙極性正弦 SPWM (Bipolar)' },
+                { val: 'square', text: '全橋對稱方波' }
+            ],
+            three: [
+                { val: 'svpwm', text: '三相空間向量 SVPWM (注入馬鞍波)' },
+                { val: 'spwm', text: '三相標準正弦 SPWM' },
+                { val: 'sixstep', text: '六步 180度導通方波' }
+            ]
+        };
+
+        function changeModulation() {
+            modulationScheme = document.getElementById('sel-modulation').value;
+            checkSafetyAndFlow();
+        }
+
+        // Build presets dropdown
+        function updateModulationDropdown() {
+            const sel = document.getElementById('sel-modulation');
+            sel.innerHTML = '';
+            modulationOptions[currentTopology].forEach(opt => {
+                const el = document.createElement('option');
+                el.value = opt.val;
+                el.innerText = opt.text;
+                sel.appendChild(el);
+            });
+            modulationScheme = sel.value;
+        }
+
+        const topologies = {
+            half: {
+                badge: "半橋臂 (Half-Bridge)",
+                title: "半橋臂：物理二極體與多電壓分析",
+                content: `
+                    <p class="text-[11px] bg-emerald-500/5 border-l-2 border-emerald-500/40 pl-2 py-1 rounded"><b>💡 一句話：</b> 最小的逆變積木——一個上管、一個下管，輪流把輸出點接到正母線或負母線。</p>
+                    <p class="mt-2">在<b>半橋臂 (Half-Bridge)</b> 中，僅由一個上管 Q1、一個下管 Q2 及它們的反並聯二極體 D1, D2 組成。</p>
+                    <p class="mt-2"><b>1. 阻感續流原理：</b> 當下管 Q2 導通時，電感儲存磁能。若此時突然關斷 Q2 (所有開關全關)，電感電流 $I_{load}$ 為了保持連續性，將被迫強行向上沖擊。由於 Q1 關斷，電流只能穿過<b>上管反並聯二極體 D1</b> 流入正極母線，並將輸出 A 點電壓鉗制在 $+V_{dc}/2$。此過程稱為「反向續流」。</p>
+                    <p class="mt-2"><b>2. 雙向電能轉換：</b> 半橋臂能讓電能雙向流動，所以廣泛應用於降壓型 (Buck)、升壓型 (Boost) 以及對稱型半橋逆變器中。</p>
+                    <div class="mt-3 p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-lg">
+                        <p class="text-amber-400 font-bold text-[11px]">🔬 動手試試：親眼看「續流」</p>
+                        <p class="mt-1">① 把上方<b>負載物理類型</b>改成「感性負載 RL」 ② 關掉「主動閉環控制 PWM」 ③ 點下方<b>「全關斷」</b>捷徑。<br>電流不會立刻歸零，而是經<b>反並聯二極體</b>續流（D1 或 D2 會發亮）。這就是電感「抗拒電流突變」的物理本質。</p>
+                    </div>
+                `,
+                shortcuts: [
+                    { name: "上管 Q1 導通 (+Vdc/2)", state: [true, false, false, false, false, false] },
+                    { name: "下管 Q2 導通 (-Vdc/2)", state: [false, true, false, false, false, false] },
+                    { name: "全關斷 (電感強迫 D1 續流)", state: [false, false, false, false, false, false] }
+                ]
+            },
+            full: {
+                badge: "單相 H 橋 (Full-Bridge)",
+                title: "單相全橋 (H-Bridge) 與單/雙極性調變差別",
+                content: `
+                    <p class="text-[11px] bg-emerald-500/5 border-l-2 border-emerald-500/40 pl-2 py-1 rounded"><b>💡 一句話：</b> 兩個半橋夾住負載，可組合出 +Vdc、0、−Vdc 三種電壓。</p>
+                    <p class="mt-2">單相 H 橋整合了兩個半橋，命名為<b>左橋臂 (Left Leg)</b> 與<b>右橋臂 (Right Leg)</b>。負載跨接於其兩中點 A、B 之間，輸出電壓 $V_{out} = V_A - V_B$。</p>
+                    <p class="mt-2"><b>● 雙極性 SPWM (Bipolar)：</b> A、B 兩臂開關互補動作。輸出只有 $+V_{dc}$ 與 $-V_{dc}$ 兩種電平。開關電壓脈動極大。</p>
+                    <p class="mt-2"><b>● 單極性 SPWM (Unipolar)：</b> 兩臂獨立與相位相差 180° 的三角波（或互補正弦波）比較。這可產生 <b>$+V_{dc}$、0V、$-V_{dc}$ 三種電平</b>。電壓脈動減半，能極大減小諧波干擾並縮小輸出濾波器體積！</p>
+                    <p class="mt-2"><b>● 反並聯二極體角色：</b> 當兩臂全部關斷（例如死區），電感電流會根據方向在對角二極體對（D1,D4 或 D2,D3）之間尋找迴路，強行鉗位電壓。</p>
+                    <div class="mt-3 p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-lg">
+                        <p class="text-amber-400 font-bold text-[11px]">🔬 動手比一比：單極性為何更好？</p>
+                        <p class="mt-1">固定 ma=0.8，把<b>調變策略</b>在「雙極性」↔「單極性」之間切換，盯著示波器下方的 <span class="text-amber-400 font-bold">THD</span>：基波 V₁ 幾乎不變，但 THD <b>約砍掉一半</b>（約 145% → 77%）。單極性多了 0V 電平，諧波被推到更高頻、更容易濾掉——這就是它能用更小濾波器的原因。</p>
+                    </div>
+                `,
+                shortcuts: [
+                    { name: "對角導通 +Vdc (Q1, Q4)", state: [true, false, false, true, false, false] },
+                    { name: "對角導通 -Vdc (Q2, Q3)", state: [false, true, true, false, false, false] },
+                    { name: "同側導通 0V 自由續流 (Q1, Q3)", state: [true, false, true, false, false, false] },
+                    { name: "全關斷狀態", state: [false, false, false, false, false, false] }
+                ]
+            },
+            three: {
+                badge: "三相逆變橋 (3-Phase)",
+                title: "三相全橋：從正弦 SPWM 到先進 SVPWM 調變",
+                content: `
+                    <p class="text-[11px] bg-emerald-500/5 border-l-2 border-emerald-500/40 pl-2 py-1 rounded"><b>💡 一句話：</b> 三個半橋彼此相位差 120°，是馬達驅動與新能源併網的標準架構。</p>
+                    <p class="mt-2">三相全橋由<b>三個半橋臂 (A, B, C)</b> 並聯。常用於工業變頻器、伺服驅動器及新能源併網中。</p>
+                    <p class="mt-2"><b>● 三相 SPWM：</b> 三個相差 120° 的弦波基準直接與高頻三角載波比對，簡單直觀。</p>
+                    <p class="mt-2"><b>● 空間向量 SVPWM 注入：</b> 這是近代電力電子的精髓。在 SPWM 的基準波中，注入特定的 <b>3 倍諧波</b>（調變波頂點變凹，形成「馬鞍波」）。它能把<b>可用的線性調變範圍提高約 15.4%</b>——也就是在「不失真」前提下能輸出更大的基波（注意：在<b>相同 ma</b> 且尚未飽和時，兩者的線電壓基波其實相同，差別要在高 ma 進入過調變區才看得出來）。</p>
+                    <p class="mt-2">你可以開關「CH4 調變對照波」與示波器的「SVPWM 模式」來動態觀察其與標準三角波、馬鞍調變波相切的過程。</p>
+                    <div class="mt-3 p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-lg">
+                        <p class="text-amber-400 font-bold text-[11px]">🔬 動手試試：看見「馬鞍波」</p>
+                        <p class="mt-1">打開 <b>CH4 調變對照波</b>，把<b>調變策略</b>在「標準 SPWM」↔「SVPWM」之間切換：紅色基準波的頂部會被壓凹成<b>馬鞍形</b>。再把 <b>ma 拉到最大</b>，盯著 <span class="text-cyan-400 font-bold">V₁,rms</span> 與 <span class="text-amber-400 font-bold">THD</span>——SVPWM 在高調變區能擠出略高的基波、且 THD 略低，代表母線電壓被用得更充分。</p>
+                    </div>
+                `,
+                shortcuts: [
+                    { name: "狀態向量 V1 (100)", state: [true, false, false, true, false, true] },
+                    { name: "狀態向量 V2 (110)", state: [true, false, true, false, false, true] },
+                    { name: "狀態向量 V3 (010)", state: [false, true, true, false, false, true] },
+                    { name: "零電平向量 V7 (111)", state: [true, false, true, false, true, false] }
+                ]
+            }
+        };
+
+        function setTopology(topo) {
+            currentTopology = topo;
+            
+            // Auto Mode switch configurations
+            ['half', 'full', 'three'].forEach(t => {
+                const btn = document.getElementById(`btn-${t}`);
+                if (t === topo) {
+                    btn.classList.remove('bg-slate-800', 'text-slate-300', 'hover:bg-slate-700');
+                    btn.classList.add('bg-gradient-to-tr', 'from-emerald-500', 'to-teal-400', 'text-slate-950', 'font-black', 'shadow-md', 'shadow-emerald-500/10');
+                } else {
+                    btn.classList.add('bg-slate-800', 'text-slate-300', 'hover:bg-slate-700');
+                    btn.classList.remove('bg-gradient-to-tr', 'from-emerald-500', 'to-teal-400', 'text-slate-950', 'font-black', 'shadow-md', 'shadow-emerald-500/10');
+                }
+            });
+
+            // Update panel textuals
+            const config = topologies[topo];
+            document.getElementById('topology-badge').innerText = config.badge;
+            document.getElementById('theory-title').innerText = config.title;
+            document.getElementById('theory-content').innerHTML = config.content;
+
+            // Sync dropdown
+            updateModulationDropdown();
+            resetSwitches();
+            updateSVGLayout();
+            buildShortcuts();
+        }
+
+        // SVG Nodes dynamic renderer based on topology
+        function updateSVGLayout() {
+            const show = (el) => { if (el) el.classList.remove('hidden'); };
+            const hide = (el) => { if (el) el.classList.add('hidden'); };
+
+            const halfCaps = document.getElementById('half-cap-group');
+            const legB = document.getElementById('leg-b-label');
+            const legC = document.getElementById('leg-c-label');
+            const swQ3 = document.getElementById('sw-q3');
+            const swQ4 = document.getElementById('sw-q4');
+            const swQ5 = document.getElementById('sw-q5');
+            const swQ6 = document.getElementById('sw-q6');
+            const lineLegB = document.getElementById('line-leg-b');
+            const lineLegC = document.getElementById('line-leg-c');
+            const nodeBTop = document.getElementById('node-b-top');
+            const nodeBBot = document.getElementById('node-b-bot');
+            const nodeB = document.getElementById('node-b');
+            const lblB = document.getElementById('lbl-b-node');
+            const nodeCTop = document.getElementById('node-c-top');
+            const nodeCBot = document.getElementById('node-c-bot');
+            const nodeC = document.getElementById('node-c');
+            const lblC = document.getElementById('lbl-c-node');
+
+            const d3G = document.getElementById('diode-d3-group');
+            const d4G = document.getElementById('diode-d4-group');
+            const d5G = document.getElementById('diode-d5-group');
+            const d6G = document.getElementById('diode-d6-group');
+
+            const loadHalf = document.getElementById('load-half-group');
+            const loadFull = document.getElementById('load-full-group');
+            const loadThree = document.getElementById('load-three-group');
+
+            // Hide all first
+            hide(halfCaps); hide(legB); hide(legC); hide(swQ3); hide(swQ4); hide(swQ5); hide(swQ6);
+            hide(lineLegB); hide(lineLegC); hide(nodeBTop); hide(nodeBBot); hide(nodeB); hide(lblB);
+            hide(nodeCTop); hide(nodeCBot); hide(nodeC); hide(lblC);
+            hide(d3G); hide(d4G); hide(d5G); hide(d6G);
+            hide(loadHalf); hide(loadFull); hide(loadThree);
+
+            if (currentTopology === 'half') {
+                show(halfCaps);
+                show(loadHalf);
+            } else if (currentTopology === 'full') {
+                show(legB); show(lineLegB); show(nodeBTop); show(nodeBBot); show(nodeB); show(lblB);
+                show(swQ3); show(swQ4); show(d3G); show(d4G);
+                show(loadFull);
+            } else if (currentTopology === 'three') {
+                show(legB); show(lineLegB); show(nodeBTop); show(nodeBBot); show(nodeB); show(lblB);
+                show(swQ3); show(swQ4); show(d3G); show(d4G);
+                show(legC); show(lineLegC); show(nodeCTop); show(nodeCBot); show(nodeC); show(lblC);
+                show(swQ5); show(swQ6); show(d5G); show(d6G);
+                show(loadThree);
+            }
+
+            // Adjust Bus
+            const posBus = document.getElementById('pos-bus');
+            const negBus = document.getElementById('neg-bus');
+            if (currentTopology === 'half') {
+                posBus.setAttribute('d', 'M 80 70 L 350 70');
+                negBus.setAttribute('d', 'M 80 380 L 350 380');
+            } else if (currentTopology === 'full') {
+                posBus.setAttribute('d', 'M 80 70 L 500 70');
+                negBus.setAttribute('d', 'M 80 380 L 500 380');
+            } else if (currentTopology === 'three') {
+                posBus.setAttribute('d', 'M 80 70 L 650 70');
+                negBus.setAttribute('d', 'M 80 380 L 650 380');
+            }
+        }
+
+        // Build shortcut presets
+        function buildShortcuts() {
+            const container = document.getElementById('shortcut-group');
+            container.innerHTML = '';
+            
+            topologies[currentTopology].shortcuts.forEach(sc => {
+                const btn = document.createElement('button');
+                btn.className = "px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 text-[10px] font-bold rounded-lg transition-all";
+                btn.innerText = sc.name;
+                btn.onclick = () => {
+                    if (autoMode) toggleAutoMode(); // Disable auto first
+                    setPresetSwitches(sc.state);
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function toggleSwitch(index) {
+            if (autoMode) return; 
+            switchStates[index] = !switchStates[index];
+            checkSafetyAndFlow();
+        }
+
+        function setPresetSwitches(states) {
+            switchStates = [...states];
+            checkSafetyAndFlow();
+        }
+
+        function resetSwitches() {
+            switchStates = [false, false, false, false, false, false];
+            diodeStates = [false, false, false, false, false, false];
+            document.getElementById('short-circuit-warning').classList.add('hidden');
+            checkSafetyAndFlow();
+        }
+
+        function toggleAutoMode() {
+            autoMode = !autoMode;
+            const led = document.getElementById('led-auto');
+            const btn = document.getElementById('btn-auto');
+            
+            if (autoMode) {
+                led.classList.remove('bg-slate-500');
+                led.classList.add('bg-emerald-500', 'animate-pulse');
+                btn.classList.add('border-emerald-500/50', 'text-emerald-400');
+            } else {
+                led.classList.remove('bg-emerald-500', 'animate-pulse');
+                led.classList.add('bg-slate-500');
+                btn.classList.remove('border-emerald-500/50', 'text-emerald-400');
+                resetSwitches();
+            }
+        }
+
+        // Main electric logic and safety checker
+        function checkSafetyAndFlow() {
+            let shootThrough = false;
+
+            if (switchStates[0] && switchStates[1]) shootThrough = true;
+            if (currentTopology !== 'half' && switchStates[2] && switchStates[3]) shootThrough = true;
+            if (currentTopology === 'three' && switchStates[4] && switchStates[5]) shootThrough = true;
+
+            const warning = document.getElementById('short-circuit-warning');
+            if (shootThrough) {
+                warning.classList.remove('hidden');
+                autoMode = false;
+                document.getElementById('led-auto').classList.remove('bg-emerald-500', 'animate-pulse');
+                document.getElementById('led-auto').classList.add('bg-slate-500');
+            } else {
+                warning.classList.add('hidden');
+            }
+
+            renderSwitchesUI();
+            renderDiodesUI();
+        }
+
+        function renderSwitchesUI() {
+            for (let i = 0; i < 6; i++) {
+                const box = dom.box[i];
+                const statusText = dom.status[i];
+                const line = dom.line[i];
+
+                if (!box) continue;
+
+                let legX = i < 2 ? 350 : (i < 4 ? 500 : 650);
+
+                if (switchStates[i]) {
+                    box.setAttribute('stroke', '#10b981');
+                    box.setAttribute('fill', '#064e3b');
+                    statusText.innerText = "ON";
+                    statusText.setAttribute('fill', '#10b981');
+                    
+                    line.setAttribute('x1', legX);
+                    line.setAttribute('x2', legX);
+                    if (i % 2 === 0) { // Top Q1, Q3, Q5
+                        line.setAttribute('y1', '110');
+                        line.setAttribute('y2', '170');
+                    } else { // Bottom Q2, Q4, Q6
+                        line.setAttribute('y1', '280');
+                        line.setAttribute('y2', '340');
+                    }
+                    line.setAttribute('stroke', '#10b981');
+                } else {
+                    box.setAttribute('stroke', '#475569');
+                    box.setAttribute('fill', '#111827');
+                    statusText.innerText = "OFF";
+                    statusText.setAttribute('fill', '#ef4444');
+                    
+                    line.setAttribute('x1', legX);
+                    line.setAttribute('x2', legX - 12);
+                    if (i % 2 === 0) {
+                        line.setAttribute('y1', '120');
+                        line.setAttribute('y2', '150');
+                    } else {
+                        line.setAttribute('y1', '290');
+                        line.setAttribute('y2', '320');
+                    }
+                    line.setAttribute('stroke', '#ef4444');
+                }
+            }
+        }
+
+        function renderDiodesUI() {
+            for (let i = 0; i < 6; i++) {
+                const tri = dom.tri[i];
+                const bar = dom.bar[i];
+                if (!tri) continue;
+
+                if (diodeStates[i]) {
+                    tri.setAttribute('stroke', '#f59e0b');
+                    tri.setAttribute('fill', '#78350f');
+                    tri.setAttribute('filter', 'url(#glow-heavy)');
+                    bar.setAttribute('stroke', '#f59e0b');
+                    bar.setAttribute('filter', 'url(#glow-heavy)');
+                } else {
+                    tri.setAttribute('stroke', '#475569');
+                    tri.setAttribute('fill', '#1e293b');
+                    tri.removeAttribute('filter');
+                    bar.setAttribute('stroke', '#475569');
+                    bar.removeAttribute('filter');
+                }
+            }
+        }
+
+        // Real-time transient step-by-step physical calculations
+        function stepPhysicsNumerical() {
+            let v_applied = 0; 
+            let v_applied_b = 0;
+            let v_applied_c = 0;
+
+            const Vdc = 100.0; //母線 100V
+            const V_half = Vdc / 2.0;
+
+            // Generate Modulating Carrier & Sine Wave references
+            const v_ref = param_ma * Math.sin(2 * Math.PI * param_freq * t_time);
+            const v_ref_b = param_ma * Math.sin(2 * Math.PI * param_freq * t_time - 2 * Math.PI / 3);
+            const v_ref_c = param_ma * Math.sin(2 * Math.PI * param_freq * t_time + 2 * Math.PI / 3);
+
+            // Carrier triangular wave (varies between -1.0 and 1.0)
+            const tri_p = (t_time * param_fc) % 1.0;
+            const v_tri = tri_p < 0.5 ? (tri_p * 4.0 - 1.0) : (3.0 - tri_p * 4.0);
+
+            let active_ref_for_ch4 = v_ref; // To draw on O-Scope dynamic reference
+
+            // Automatic Controller Output gating logic
+            if (autoMode) {
+                if (currentTopology === 'half') {
+                    if (modulationScheme === 'square') {
+                        switchStates[0] = v_ref > 0;
+                        switchStates[1] = !switchStates[0];
+                    } else { // SPWM
+                        switchStates[0] = v_ref > v_tri;
+                        switchStates[1] = !switchStates[0];
+                    }
+                } 
+                else if (currentTopology === 'full') {
+                    if (modulationScheme === 'square') {
+                        switchStates[0] = v_ref > 0;
+                        switchStates[1] = !switchStates[0];
+                        switchStates[2] = !switchStates[0];
+                        switchStates[3] = switchStates[0];
+                    } 
+                    else if (modulationScheme === 'spwm_bi') { // Bipolar
+                        switchStates[0] = v_ref > v_tri;
+                        switchStates[1] = !switchStates[0];
+                        switchStates[2] = !switchStates[0]; 
+                        switchStates[3] = switchStates[0];  
+                    } 
+                    else if (modulationScheme === 'spwm_uni') { // Unipolar SPWM
+                        switchStates[0] = v_ref > v_tri;
+                        switchStates[1] = !switchStates[0];
+                        switchStates[2] = (-v_ref) > v_tri;
+                        switchStates[3] = !switchStates[2];
+                    }
+                }
+                else if (currentTopology === 'three') {
+                    if (modulationScheme === 'sixstep') {
+                        let sector = Math.floor((t_time * param_freq * 360) % 360 / 60);
+                        const steps = [
+                            [true, false, false, true, true, false], 
+                            [true, false, false, true, false, true], 
+                            [true, false, true, false, false, true], 
+                            [false, true, true, false, false, true], 
+                            [false, true, true, false, true, false], 
+                            [false, true, false, true, true, false]  
+                        ];
+                        switchStates = [...steps[sector]];
+                    } 
+                    else if (modulationScheme === 'spwm') {
+                        switchStates[0] = v_ref > v_tri;  switchStates[1] = !switchStates[0];
+                        switchStates[2] = v_ref_b > v_tri; switchStates[3] = !switchStates[2];
+                        switchStates[4] = v_ref_c > v_tri; switchStates[5] = !switchStates[4];
+                    }
+                    else if (modulationScheme === 'svpwm') {
+                        // Standard min-max third harmonic injection (saddle wave)
+                        let max_v = Math.max(v_ref, v_ref_b, v_ref_c);
+                        let min_v = Math.min(v_ref, v_ref_b, v_ref_c);
+                        let v_offset = -0.5 * (max_v + min_v);
+
+                        let v_svpwm_a = v_ref + v_offset;
+                        let v_svpwm_b = v_ref_b + v_offset;
+                        let v_svpwm_c = v_ref_c + v_offset;
+
+                        switchStates[0] = v_svpwm_a > v_tri; switchStates[1] = !switchStates[0];
+                        switchStates[2] = v_svpwm_b > v_tri; switchStates[3] = !switchStates[2];
+                        switchStates[4] = v_svpwm_c > v_tri; switchStates[5] = !switchStates[4];
+
+                        active_ref_for_ch4 = v_svpwm_a; // Display the beautiful saddle wave instead
+                    }
+                }
+            }
+
+            // Determine electrical outputs of physical nodes
+            diodeStates = [false, false, false, false, false, false];
+
+            if (currentTopology === 'half') {
+                // HALF BRIDGE CORE PHYSICS
+                let q1 = switchStates[0];
+                let q2 = switchStates[1];
+
+                if (q1) {
+                    v_applied = V_half;
+                } else if (q2) {
+                    v_applied = -V_half;
+                } else {
+                    // Freewheeling
+                    if (loadType === 'RL') {
+                        if (current_L > 0.05) {
+                            diodeStates[1] = true; 
+                            v_applied = -V_half;
+                        } else if (current_L < -0.05) {
+                            diodeStates[0] = true; 
+                            v_applied = V_half;
+                        } else {
+                            v_applied = 0;
+                        }
+                    } else {
+                        v_applied = 0;
+                    }
+                }
+
+                // Transient Solver
+                if (loadType === 'R') {
+                    current_L = v_applied / R_val;
+                    vc_filter = 0;
+                } 
+                else if (loadType === 'RL') {
+                    let di = ((v_applied - current_L * R_val) / L_val) * dt;
+                    current_L += di;
+                }
+                else if (loadType === 'LC') {
+                    let di_f = ((v_applied - vc_filter) / L_f) * dt;
+                    il_filter += di_f;
+                    let dvc = ((il_filter - vc_filter / R_val) / C_f) * dt;
+                    vc_filter += dvc;
+                    current_L = vc_filter / R_val; 
+                }
+            } 
+            else if (currentTopology === 'full') {
+                // FULL BRIDGE CORE PHYSICS
+                let q1 = switchStates[0];
+                let q2 = switchStates[1];
+                let q3 = switchStates[2];
+                let q4 = switchStates[3];
+
+                let va_leg = q1 ? V_half : (q2 ? -V_half : 0);
+                let vb_leg = q3 ? V_half : (q4 ? -V_half : 0);
+
+                if (!q1 && !q2) { 
+                    if (current_L > 0.05) { diodeStates[1] = true; va_leg = -V_half; }
+                    else if (current_L < -0.05) { diodeStates[0] = true; va_leg = V_half; }
+                }
+                if (!q3 && !q4) { 
+                    if (current_L > 0.05) { diodeStates[2] = true; vb_leg = V_half; }
+                    else if (current_L < -0.05) { diodeStates[3] = true; vb_leg = -V_half; }
+                }
+
+                v_applied = va_leg - vb_leg;
+
+                if (loadType === 'R') {
+                    current_L = v_applied / R_val;
+                } 
+                else if (loadType === 'RL') {
+                    let di = ((v_applied - current_L * R_val) / L_val) * dt;
+                    current_L += di;
+                }
+                else if (loadType === 'LC') {
+                    let di_f = ((v_applied - vc_filter) / L_f) * dt;
+                    il_filter += di_f;
+                    let dvc = ((il_filter - vc_filter / R_val) / C_f) * dt;
+                    vc_filter += dvc;
+                    current_L = vc_filter / R_val;
+                }
+            }
+            else if (currentTopology === 'three') {
+                // THREE-PHASE BALANCED LOAD
+                // Each leg honours BOTH switches: upper on → +V_half, lower on → −V_half,
+                // both off → antiparallel diode freewheel based on that phase's current sign.
+                const legVoltage = (qUp, qLow, iPhase, dUp, dLow) => {
+                    if (qUp) return V_half;
+                    if (qLow) return -V_half;
+                    if (iPhase > 0.05) { diodeStates[dLow] = true; return -V_half; }
+                    if (iPhase < -0.05) { diodeStates[dUp] = true; return V_half; }
+                    return 0;
+                };
+                let va_leg = legVoltage(switchStates[0], switchStates[1], current_L,   0, 1);
+                let vb_leg = legVoltage(switchStates[2], switchStates[3], current_L_b, 2, 3);
+                let vc_leg = legVoltage(switchStates[4], switchStates[5], current_L_c, 4, 5);
+
+                let vn_load = (va_leg + vb_leg + vc_leg) / 3.0;
+
+                let van = va_leg - vn_load;
+                let vbn = vb_leg - vn_load;
+                let vcn = vc_leg - vn_load;
+
+                v_applied = va_leg - vb_leg; 
+                v_applied_b = vb_leg - vc_leg;
+                v_applied_c = vc_leg - va_leg;
+
+                if (loadType === 'R') {
+                    current_L = van / R_val;
+                    current_L_b = vbn / R_val;
+                    current_L_c = vcn / R_val;
+                }
+                else if (loadType === 'RL') {
+                    let dia = ((van - current_L * R_val) / L_val) * dt;
+                    current_L += dia;
+                    let dib = ((vbn - current_L_b * R_val) / L_val) * dt;
+                    current_L_b += dib;
+                    let dic = ((vcn - current_L_c * R_val) / L_val) * dt;
+                    current_L_c += dic;
+                }
+                else if (loadType === 'LC') {
+                    // Independent LC filter per phase (previously B/C were a static
+                    // −0.5× copy of A, which made them identical and non-shifted).
+                    il_filter   += ((van - vc_filter)   / L_f) * dt;
+                    vc_filter   += ((il_filter   - vc_filter   / R_val) / C_f) * dt;
+                    il_filter_b += ((vbn - vc_filter_b) / L_f) * dt;
+                    vc_filter_b += ((il_filter_b - vc_filter_b / R_val) / C_f) * dt;
+                    il_filter_c += ((vcn - vc_filter_c) / L_f) * dt;
+                    vc_filter_c += ((il_filter_c - vc_filter_c / R_val) / C_f) * dt;
+
+                    current_L   = vc_filter   / R_val;
+                    current_L_b = vc_filter_b / R_val;
+                    current_L_c = vc_filter_c / R_val;
+                }
+            }
+
+            // Accumulate harmonic metrics on the bridge output over one fundamental period
+            // (full 20µs resolution → THD unaffected by display decimation / min-max hold).
+            const w1 = 2 * Math.PI * param_freq;
+            acc_n++;
+            acc_v2 += v_applied * v_applied;
+            acc_a1 += v_applied * Math.cos(w1 * t_time);
+            acc_b1 += v_applied * Math.sin(w1 * t_time);
+
+            // Sync visual rendering on frame tick (≈ every 1 ms of sim time)
+            if (t_time % 0.001 < dt) {
+                updateVisualFlowPaths(v_applied);
+                renderSwitchesUI();   // keep gate boxes live during automatic PWM
+                renderDiodesUI();     // keep freewheel-diode glow live
+            }
+
+            t_time += dt;
+            // Wrap time once per fundamental period to preserve float precision over long runs.
+            // sin() is exactly periodic in T_fund, so the sine references see no discontinuity;
+            // the carrier also stays continuous whenever f_c is an integer multiple of f
+            // (true for the default 1000 / 50 = 20).
+            const T_fund = 1.0 / param_freq;
+            if (t_time >= T_fund) {
+                t_time -= T_fund;
+                if (acc_n > 0) {
+                    metricVrms = Math.sqrt(acc_v2 / acc_n);
+                    const a1 = (2 / acc_n) * acc_a1;   // fundamental cosine component
+                    const b1 = (2 / acc_n) * acc_b1;   // fundamental sine component
+                    metricV1rms = Math.sqrt(a1*a1 + b1*b1) / Math.SQRT2;
+                    const harmSq = Math.max(0, metricVrms*metricVrms - metricV1rms*metricV1rms);
+                    metricThd = metricV1rms > 1e-6 ? Math.sqrt(harmSq) / metricV1rms * 100 : 0;
+                }
+                acc_n = 0; acc_v2 = 0; acc_a1 = 0; acc_b1 = 0;
+            }
+
+            return {
+                v1: v_applied,
+                v2: vc_filter,
+                i1: current_L,
+                ref: active_ref_for_ch4,
+                tri: v_tri,
+                v1_b: v_applied_b,
+                v1_c: v_applied_c,
+                i1_b: current_L_b,
+                i1_c: current_L_c
+            };
+        }
+
+        // SVG path highlighters
+        function updateVisualFlowPaths(v) {
+            const actPos = dom.actPos;
+            const actNeg = dom.actNeg;
+            const actFlow = dom.actFlow;
+            const actRet = dom.actRet;
+            const actDio = dom.actDio;
+
+            actPos.classList.add('hidden');
+            actNeg.classList.add('hidden');
+            actFlow.classList.add('hidden');
+            actRet.classList.add('hidden');
+            actDio.classList.add('hidden');
+
+            if (currentTopology === 'half') {
+                if (switchStates[0]) { 
+                    actPos.setAttribute('d', 'M 80 200 L 80 70 L 350 70');
+                    actPos.classList.remove('hidden');
+                    actFlow.setAttribute('d', 'M 350 70 L 350 225 L 200 225');
+                    actFlow.classList.remove('hidden');
+                } else if (switchStates[1]) { 
+                    actNeg.setAttribute('d', 'M 350 380 L 80 380 L 80 250');
+                    actNeg.classList.remove('hidden');
+                    actFlow.setAttribute('d', 'M 200 225 L 350 225 L 350 380');
+                    actFlow.classList.remove('hidden');
+                } else if (diodeStates[1]) { 
+                    actNeg.setAttribute('d', 'M 350 380 L 80 380 L 80 250');
+                    actNeg.classList.remove('hidden');
+                    actDio.setAttribute('d', 'M 200 225 L 350 225 L 350 360 L 385 360 L 385 300 L 350 260');
+                    actDio.classList.remove('hidden');
+                } else if (diodeStates[0]) { 
+                    actPos.setAttribute('d', 'M 80 200 L 80 70 L 350 70');
+                    actPos.classList.remove('hidden');
+                    actDio.setAttribute('d', 'M 350 190 L 385 190 L 385 130 L 350 90 M 350 225 L 200 225');
+                    actDio.classList.remove('hidden');
+                }
+            } 
+            else if (currentTopology === 'full') {
+                if (switchStates[0] && switchStates[3]) { 
+                    actPos.setAttribute('d', 'M 80 70 L 350 70'); actPos.classList.remove('hidden');
+                    actFlow.setAttribute('d', 'M 350 70 L 350 225 L 500 225 L 500 380'); actFlow.classList.remove('hidden');
+                    actNeg.setAttribute('d', 'M 500 380 L 80 380'); actNeg.classList.remove('hidden');
+                } else if (switchStates[1] && switchStates[2]) { 
+                    actPos.setAttribute('d', 'M 80 70 L 500 70'); actPos.classList.remove('hidden');
+                    actFlow.setAttribute('d', 'M 500 70 L 500 225 L 350 225 L 350 380'); actFlow.classList.remove('hidden');
+                    actNeg.setAttribute('d', 'M 350 380 L 80 380'); actNeg.classList.remove('hidden');
+                } else if (diodeStates[1] && diodeStates[2]) { 
+                    actDio.setAttribute('d', 'M 385 300 L 350 260 M 350 225 L 500 225 M 500 190 L 535 190 L 535 130');
+                    actDio.classList.remove('hidden');
+                } else if (diodeStates[0] && diodeStates[3]) {
+                    // Negative-current freewheel: D1 (A-high) + D4 (B-low)
+                    actDio.setAttribute('d', 'M 385 130 L 350 90 M 350 225 L 500 225 M 500 260 L 535 260 L 535 300');
+                    actDio.classList.remove('hidden');
+                }
+            }
+            else if (currentTopology === 'three') {
+                // Highlight each leg's rail connection: upper-on legs tie their node to the
+                // +bus (green), lower-on legs tie it to the −bus, and the Y-load wires carry current.
+                const legX = [350, 500, 650];
+                let posD = '', negD = '';
+                for (let leg = 0; leg < 3; leg++) {
+                    const x = legX[leg];
+                    if (switchStates[leg*2]) {          // upper switch on
+                        posD += `M 80 70 L ${x} 70 L ${x} 225 `;
+                    } else if (switchStates[leg*2+1]) { // lower switch on
+                        negD += `M ${x} 225 L ${x} 380 L 80 380 `;
+                    }
+                }
+                if (posD) { actPos.setAttribute('d', posD); actPos.classList.remove('hidden'); }
+                if (negD) { actNeg.setAttribute('d', negD); actNeg.classList.remove('hidden'); }
+                if (posD || negD) { // only show the Y-load wires when a leg is actually driven
+                    actFlow.setAttribute('d', 'M 350 225 L 350 205 L 460 205 M 500 225 L 500 205 M 650 225 L 650 205 L 540 205');
+                    actFlow.classList.remove('hidden');
+                }
+            }
+        }
+
+        // Draw Multi-Channel Oscilloscope Curves
+        function drawOscilloscope() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const gridColor = 'rgba(16, 185, 129, 0.08)';
+            
+            // Draw grid lines
+            ctx.strokeStyle = gridColor;
+            ctx.lineWidth = 1;
+            for (let i = 1; i < 10; i++) {
+                let x = (canvas.width / 10) * i;
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+            for (let i = 1; i < 6; i++) {
+                let y = (canvas.height / 6) * i;
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+
+            // Zero line
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.22)';
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+
+            const centerY = canvas.height / 2;
+            const maxAmplitudeY = canvas.height * 0.42; // Leave 8% top and bottom margins
+
+            // ==========================================
+            // ADAPTIVE HORIZONTAL TIME BASE
+            // Show ~2 fundamental cycles regardless of frequency, while always leaving
+            // at least one cycle of buffer ahead of the window for the trigger to search.
+            // ==========================================
+            const periodSamples = (1.0 / param_freq) / sampleInterval; // samples per fundamental cycle
+            let dispLen = Math.round(2.0 * periodSamples);
+            dispLen = Math.max(120, Math.min(dispLen, bufLen - Math.ceil(periodSamples) - 64));
+
+            // Ordered access into the ring buffer: ord(p) maps logical position p
+            // (0 = oldest, bufLen-1 = newest) to the physical array index.
+            const ord = (buf, p) => buf[(bufHead + p) % bufLen];
+
+            // Software Sweep Trigger Logic.
+            // Search BACKWARD from the newest end for the most recent rising zero-crossing on
+            // the reference channel, so the window ends near "now". (Searching forward from the
+            // oldest end would lock onto stale data and make the scope feel laggy on slider moves.)
+            let triggerIdx = bufLen - dispLen; // fallback: most recent full window
+            for (let i = bufLen - dispLen - 1; i >= 1; i--) {
+                if (ord(ch4_buf, i) < 0 && ord(ch4_buf, i+1) >= 0) {
+                    triggerIdx = i; // most recent rising edge with a full window ahead of it
+                    break;
+                }
+            }
+
+            // Extract the locked display window from the ring buffer (logical → contiguous)
+            const sliceData = (buf) => {
+                const out = new Array(dispLen);
+                let idx = (bufHead + triggerIdx) % bufLen;
+                for (let i = 0; i < dispLen; i++) {
+                    out[i] = buf[idx];
+                    if (++idx === bufLen) idx = 0;
+                }
+                return out;
+            };
+
+            const ch1_disp = sliceData(ch1_buf);
+            const ch2_disp = sliceData(ch2_buf);
+            const ch3_disp = sliceData(ch3_buf);
+            const ch4_disp = sliceData(ch4_buf);
+            const carr_disp = sliceData(carrier_buf);
+
+            // Three-phase specific extraction
+            const ch1_b_disp = sliceData(ch1_b_buf);
+            const ch1_c_disp = sliceData(ch1_c_buf);
+            const ch3_b_disp = sliceData(ch3_b_buf);
+            const ch3_c_disp = sliceData(ch3_c_buf);
+
+            // ==========================================
+            // ADAPTIVE VERTICAL AUTO-RANGE (smoothed peak tracking)
+            // Voltage/current full-scale follow the actual displayed peaks, so small
+            // modulation indices no longer render as a flat line near the centre.
+            // ==========================================
+            const peakOf = (arrs) => {
+                let p = 0;
+                for (const a of arrs) for (let i = 0; i < a.length; i++) {
+                    const v = Math.abs(a[i]);
+                    if (v > p) p = v;
+                }
+                return p;
+            };
+            const is3phase = currentTopology === 'three';
+            const vChans = [ch1_disp];
+            if (loadType === 'LC') vChans.push(ch2_disp);
+            if (is3phase) vChans.push(ch1_b_disp, ch1_c_disp);
+            const iChans = is3phase ? [ch3_disp, ch3_b_disp, ch3_c_disp] : [ch3_disp];
+
+            const vTarget = Math.max(10, peakOf(vChans) * 1.18); // 18% headroom, floor 10 V
+            const iTarget = Math.max(1, peakOf(iChans) * 1.18);  // floor 1 A
+            voltRange += (vTarget - voltRange) * 0.05;           // exponential smoothing (~0.3 s)
+            currRange += (iTarget - currRange) * 0.05;
+
+            const voltScale = maxAmplitudeY / voltRange;
+            const currScale = maxAmplitudeY / currRange;
+            const refScale  = maxAmplitudeY / 1.0; // reference/carrier stay normalized to ±1
+
+            // Drawing helper
+            const drawChannel = (data, color, scale, isGlowing = false, lineWidth = 2) => {
+                ctx.strokeStyle = color;
+                if (isGlowing) {
+                    ctx.shadowColor = color;
+                    ctx.shadowBlur = 6;
+                } else {
+                    ctx.shadowBlur = 0;
+                }
+                ctx.lineWidth = lineWidth;
+                ctx.beginPath();
+
+                const step = canvas.width / dispLen;
+                for (let i = 0; i < dispLen; i++) {
+                    let y = centerY - (data[i] * scale);
+                    if (i === 0) ctx.moveTo(0, y);
+                    else ctx.lineTo(i * step, y);
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0; // reset
+            };
+
+            // Read checkbox states (cached references)
+            const ch1_active = dom.chk[0].checked;
+            const ch2_active = dom.chk[1].checked;
+            const ch3_active = dom.chk[2].checked;
+            const ch4_active = dom.chk[3].checked;
+
+            // Draw reference modulating wave & triangular carrier (CH4)
+            if (ch4_active) {
+                drawChannel(carr_disp, '#334155', refScale, false, 1.5); // Carrier (Dull grey)
+                drawChannel(ch4_disp, '#ef4444', refScale, true, 2);     // Ref wave (Bright red)
+            }
+
+            // Draw Bridge Output PWM (CH1)
+            if (ch1_active) {
+                drawChannel(ch1_disp, '#10b981', voltScale, true, 2); // A-B Diff (Green glow)
+                if (currentTopology === 'three') {
+                    drawChannel(ch1_b_disp, '#eab308', voltScale, false, 1.5); // Phase B Line-Line
+                    drawChannel(ch1_c_disp, '#06b6d4', voltScale, false, 1.5); // Phase C Line-Line
+                }
+            }
+
+            // Draw Filtered Output (CH2)
+            if (ch2_active && loadType === 'LC') {
+                drawChannel(ch2_disp, '#22d3ee', voltScale, true, 2.5); // Clean cyan filtered sine
+            }
+
+            // Draw Load Current (CH3)
+            if (ch3_active) {
+                drawChannel(ch3_disp, '#f59e0b', currScale, true, 2); // Active Inductor Current (Gold)
+                if (currentTopology === 'three') {
+                    drawChannel(ch3_b_disp, '#e2e8f0', currScale, false, 1.5);
+                    drawChannel(ch3_c_disp, '#ec4899', currScale, false, 1.5);
+                }
+            }
+        }
+
+        // Fast physical simulation loop (HIL grade)
+        function simulationLoop() {
+            // Min/max peak-detect of the hard-switched bridge voltages within each
+            // decimation bucket, so fast PWM edges are not lost at high carrier frequency.
+            let mnA, mxA, mnB, mxB, mnC, mxC;
+            for (let i = 0; i < steps_per_frame; i++) {
+                let state = stepPhysicsNumerical();
+
+                if (i % decimation === 0) {
+                    mnA = mxA = state.v1;  mnB = mxB = state.v1_b;  mnC = mxC = state.v1_c;
+                } else {
+                    if (state.v1   < mnA) mnA = state.v1;   if (state.v1   > mxA) mxA = state.v1;
+                    if (state.v1_b < mnB) mnB = state.v1_b; if (state.v1_b > mxB) mxB = state.v1_b;
+                    if (state.v1_c < mnC) mnC = state.v1_c; if (state.v1_c > mxC) mxC = state.v1_c;
+                }
+
+                // End of bucket: write one peak-detected sample per channel into the ring buffer.
+                if (i % decimation === decimation - 1) {
+                    // Alternate the stored extreme so the plotted line spans the full
+                    // switching envelope (classic min/max scope rendering).
+                    const useMax = (bufHead & 1) === 0;
+                    ch1_buf[bufHead]   = useMax ? mxA : mnA;
+                    ch1_b_buf[bufHead] = useMax ? mxB : mnB;
+                    ch1_c_buf[bufHead] = useMax ? mxC : mnC;
+                    // Smooth channels (currents, filtered V, references): latest value is fine.
+                    ch2_buf[bufHead] = state.v2;
+                    ch3_buf[bufHead] = state.i1;
+                    ch4_buf[bufHead] = state.ref;
+                    carrier_buf[bufHead] = state.tri;
+                    ch3_b_buf[bufHead] = state.i1_b;
+                    ch3_c_buf[bufHead] = state.i1_c;
+                    bufHead = (bufHead + 1) % bufLen;
+                }
+            }
+
+            // Update numerical readings below scope.
+            // In LC mode the meaningful output is the filtered capacitor voltage (CH2).
+            const newest = (bufHead - 1 + bufLen) % bufLen;
+            const currentVout = (loadType === 'LC') ? ch2_buf[newest] : ch1_buf[newest];
+            const currentIout = ch3_buf[newest];
+            dom.scopeText.innerText =
+                `Vout = ${currentVout.toFixed(1)} V | Iout = ${currentIout.toFixed(2)} A | 標度 ±${voltRange.toFixed(0)}V / ±${currRange.toFixed(1)}A`;
+
+            // Harmonic metrics (refreshed once per fundamental period by the solver).
+            dom.mVrms.innerText = metricVrms.toFixed(1);
+            dom.mV1.innerText   = metricV1rms.toFixed(1);
+            dom.mThd.innerText  = metricThd.toFixed(1);
+
+            drawOscilloscope();
+            requestAnimationFrame(simulationLoop);
+        }
+
+        // ==========================================
+        // BEGINNER GUIDED TOUR LOGIC
+        // ==========================================
+        // Small helpers that drive the existing controls programmatically.
+        function tourSetSelect(id, val, cb) { const el = document.getElementById(id); el.value = val; cb(); }
+        function tourSetSliders(ma, f, fc) {
+            document.getElementById('sld-ma').value = ma;
+            document.getElementById('sld-freq').value = f;
+            document.getElementById('sld-fc').value = fc;
+            updateParameters();
+        }
+        function tourSetChannels(map) { for (const k in map) document.getElementById('chk-ch' + k).checked = map[k]; }
+        function tourEnsureAuto() { if (!autoMode) toggleAutoMode(); }
+
+        const tourSteps = [
+            {
+                title: "① PWM 是怎麼來的?",
+                desc: `打開了 <b class="text-red-400">CH4</b>:紅色是正弦基準波、灰色是高頻三角載波。當<b>正弦 &gt; 三角波</b>時上管導通 → 綠色 <b class="text-emerald-400">CH1</b> 就是被「切」出來的輸出電壓。這就是 SPWM 的核心。`,
+                setup() {
+                    setTopology('half');
+                    tourSetSelect('sel-modulation', 'spwm', changeModulation);
+                    tourSetSelect('sel-load-type', 'R', changeLoadType);
+                    tourSetSliders(0.8, 50, 1000);
+                    tourSetChannels({ 1: true, 2: true, 3: true, 4: true });
+                    tourEnsureAuto();
+                }
+            },
+            {
+                title: "② 電感的脾氣:電流不能突變",
+                desc: `負載換成 <b>RL(阻感)</b>。看金色 <b class="text-amber-500">CH3</b>(電流)變得平滑、而且「落後」電壓 —— 電感儲能、抗拒電流瞬間改變。這是馬達與電感最核心的直覺。`,
+                setup() {
+                    setTopology('half');
+                    tourSetSelect('sel-modulation', 'spwm', changeModulation);
+                    tourSetSelect('sel-load-type', 'RL', changeLoadType);
+                    tourSetSliders(0.8, 50, 1000);
+                    tourSetChannels({ 1: true, 2: true, 3: true, 4: false });
+                    tourEnsureAuto();
+                }
+            },
+            {
+                title: "③ 濾波:把 PWM 變乾淨正弦",
+                desc: `負載換成 <b>LC 濾波器</b>。看青色 <b class="text-cyan-400">CH2</b> —— 原本方方的 PWM 被濾成平滑正弦。這就是逆變器能輸出乾淨交流電的關鍵。`,
+                setup() {
+                    setTopology('half');
+                    tourSetSelect('sel-modulation', 'spwm', changeModulation);
+                    tourSetSelect('sel-load-type', 'LC', changeLoadType);
+                    tourSetSliders(0.8, 50, 1000);
+                    tourSetChannels({ 1: true, 2: true, 3: true, 4: false });
+                    tourEnsureAuto();
+                }
+            },
+            {
+                title: "④ 全橋:單極性為何更好?",
+                desc: `現在是<b>雙極性</b>全橋。請把上方「調變策略」改成<b>單極性 SPWM</b>,同時盯著:① 下方 <b class="text-amber-400">THD</b> 會從約 145% 掉到約 77%;② 綠色 CH1 從「兩電平」變成「三電平」(多了 0V)。`,
+                setup() {
+                    setTopology('full');
+                    tourSetSelect('sel-modulation', 'spwm_bi', changeModulation);
+                    tourSetSelect('sel-load-type', 'R', changeLoadType);
+                    tourSetSliders(0.8, 50, 1000);
+                    tourSetChannels({ 1: true, 2: true, 3: true, 4: false });
+                    tourEnsureAuto();
+                }
+            },
+            {
+                title: "⑤ 三相 + SVPWM 馬鞍波",
+                desc: `三相逆變橋 + <b>SVPWM</b>。打開的 <b class="text-red-400">CH4</b> 紅色基準波頂部被壓凹成「<b>馬鞍形</b>」;金色 CH3 是三條相差 120° 的相電流。🎉 恭喜,你已走完「拓撲 → 調變 → 負載 → 量測」整條鏈!`,
+                setup() {
+                    setTopology('three');
+                    tourSetSelect('sel-modulation', 'svpwm', changeModulation);
+                    tourSetSelect('sel-load-type', 'RL', changeLoadType);
+                    tourSetSliders(1.0, 50, 1000);
+                    tourSetChannels({ 1: true, 2: true, 3: true, 4: true });
+                    tourEnsureAuto();
+                }
+            }
+        ];
+
+        let tourIndex = 0;
+        function startTour() { tourIndex = 0; document.getElementById('tour-card').classList.remove('hidden'); renderTour(); }
+        function endTour() { document.getElementById('tour-card').classList.add('hidden'); }
+        function tourNext() { if (tourIndex < tourSteps.length - 1) { tourIndex++; renderTour(); } else { endTour(); } }
+        function tourPrev() { if (tourIndex > 0) { tourIndex--; renderTour(); } }
+        function renderTour() {
+            const s = tourSteps[tourIndex];
+            s.setup(); // reconfigure the simulator for this step
+            document.getElementById('tour-label').innerText = `導覽 ${tourIndex + 1} / ${tourSteps.length}`;
+            document.getElementById('tour-title').innerText = s.title;
+            document.getElementById('tour-desc').innerHTML = s.desc;
+            const prev = document.getElementById('tour-prev');
+            prev.disabled = tourIndex === 0;
+            prev.classList.toggle('opacity-40', tourIndex === 0);
+            prev.classList.toggle('pointer-events-none', tourIndex === 0);
+            document.getElementById('tour-next').innerText = tourIndex === tourSteps.length - 1 ? '完成 ✓' : '下一步 →';
+            document.getElementById('tour-dots').innerHTML = tourSteps
+                .map((_, i) => `<span class="w-1.5 h-1.5 rounded-full ${i === tourIndex ? 'bg-emerald-400' : 'bg-slate-600'}"></span>`)
+                .join('');
+        }
+
+        // Initial setup
+        cacheDom(); // populate cached DOM references before any render call
+        setTopology('half');
+        updateParameters();
+        changeLoadType();
+        simulationLoop();
+    </script>
+</body>
+</html>

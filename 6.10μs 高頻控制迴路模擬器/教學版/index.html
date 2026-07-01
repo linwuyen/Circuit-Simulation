@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>10μs 高頻控制迴路 · 互動教學課程</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="wrap wrap-wide">
+
+  <div class="hero">
+    <div class="step">TI C2000 F2838x · 互動教學</div>
+    <h1>⚡ 10μs 高頻控制迴路 · 一步一步學</h1>
+    <p class="lead">原本一個畫面塞滿七八個概念,很難消化。這裡把它拆成 <b>7 堂小課</b>,每堂只教一件事,先比喻、再動手玩、最後才講術語。看完再回到「完整模擬器」就會豁然開朗。</p>
+  </div>
+
+  <!-- 最簡單的單迴圈動畫:讀 → 算 → 輸出 -->
+  <div class="card">
+    <h2>🔁 先看懂一件事:什麼是「控制迴路」</h2>
+    <div class="analogy">
+      <span class="tag">生活比喻</span>
+      開車時你不斷重複:<b>看路(讀)→ 判斷(算)→ 動方向盤(輸出)</b>。
+      馬達/電源控制也一樣,只是它每 <b>10μs(百萬分之 10 秒)</b> 就要把這三步跑完一輪,一秒鐘做 <b>10 萬次</b>。
+    </div>
+
+    <div class="svg-box" style="text-align:center; padding:18px;">
+      <svg viewBox="0 0 640 150" style="width:100%; max-width:640px;">
+        <!-- 三個方塊 -->
+        <g id="loopStages"></g>
+        <!-- 迴圈箭頭 -->
+        <path d="M 540 75 q 50 0 50 -45 q 0 -30 -270 -30 q -270 0 -270 30 q 0 45 50 45"
+              fill="none" stroke="#475569" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#ah)"/>
+        <defs><marker id="ah" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#475569"/></marker></defs>
+        <text x="320" y="22" text-anchor="middle" fill="#64748b" font-size="12">回到開頭,下一個 10μs 再來一輪</text>
+      </svg>
+      <div class="btn-row" style="justify-content:center; margin-top:6px;">
+        <button class="btn btn-primary" id="play">▶ 播放一輪</button>
+        <span class="muted small" id="loopLabel">點「播放」看資料怎麼在迴路裡跑</span>
+      </div>
+    </div>
+
+    <div class="keypoints">
+      <h3>📌 一句話</h3>
+      <ul><li>一個控制迴路 = <b>讀感測 → 運算 → 輸出</b> 不停重複。本課程教的,就是怎麼讓這三步穩穩塞進每一個 <span class="term">10μs</span>。</li></ul>
+    </div>
+  </div>
+
+  <!-- 課程地圖 -->
+  <div class="card">
+    <h2>🗺️ 課程地圖 · 由淺入深</h2>
+    <p class="muted small" style="margin-top:-4px">建議照順序看。看過的會打 <span style="color:var(--emerald)">✓</span>(記在你的瀏覽器)。</p>
+    <div class="map-grid" id="mapGrid"></div>
+  </div>
+
+  <div class="disclaimer">
+    <span>ℹ️</span>
+    <span>教學示意:部分數值(以 ≈ 標示)為簡化估算,用來說明概念。實際專案請以 datasheet 與實測為準。原始完整模擬器仍保留在上層資料夾。</span>
+  </div>
+
+</div>
+
+<script>window.PAGE = 'index';</script>
+<script src="nav.js"></script>
+<script>
+/* ---- 單迴圈動畫 ---- */
+var STAGES = [
+  { x: 40,  label: '① 讀感測', sub: 'ADC', color: '#2563eb' },
+  { x: 250, label: '② 運算',   sub: 'CPU1 / PID', color: '#7c3aed' },
+  { x: 460, label: '③ 輸出',   sub: 'DAC', color: '#059669' }
+];
+var g = document.getElementById('loopStages');
+g.innerHTML = STAGES.map(function (s, i) {
+  return '<g id="st' + i + '">' +
+    '<rect x="' + s.x + '" y="50" width="140" height="50" rx="10" fill="#1e293b" stroke="' + s.color + '" stroke-width="2"/>' +
+    '<text x="' + (s.x + 70) + '" y="74" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="700">' + s.label + '</text>' +
+    '<text x="' + (s.x + 70) + '" y="90" text-anchor="middle" fill="#94a3b8" font-size="11">' + s.sub + '</text>' +
+    '</g>';
+}).join('');
+
+var playing = false, t0 = 0;
+var btn = document.getElementById('play');
+var label = document.getElementById('loopLabel');
+btn.onclick = function () { playing = true; t0 = performance.now(); btn.textContent = '▶ 再播一次'; requestAnimationFrame(tick); };
+
+function tick(now) {
+  if (!playing) return;
+  var p = (now - t0) / 2200;            // 一輪 2.2 秒
+  if (p >= 1) { playing = false; resetGlow(); label.textContent = '✓ 一輪完成!真實世界這只花 10μs,一秒會跑 10 萬輪。'; return; }
+  var active = Math.min(2, Math.floor(p * 3));
+  STAGES.forEach(function (s, i) {
+    var rect = document.querySelector('#st' + i + ' rect');
+    if (i === active) { rect.setAttribute('fill', s.color); rect.setAttribute('opacity', '0.35'); }
+    else { rect.setAttribute('fill', '#1e293b'); rect.setAttribute('opacity', '1'); }
+  });
+  var names = ['讀取感測值…', '計算 PID 控制量…', '輸出到 DAC…'];
+  label.textContent = names[active];
+  requestAnimationFrame(tick);
+}
+function resetGlow() { STAGES.forEach(function (s, i) { var r = document.querySelector('#st' + i + ' rect'); r.setAttribute('fill', '#1e293b'); r.setAttribute('opacity', '1'); }); }
+
+/* ---- 課程地圖卡片 ---- */
+var DESC = {
+  '01': '工作塞不進 10μs 會怎樣?認識截止線與餘裕。',
+  '02': '為什麼用硬體「鬧鐘」觸發,而不是叫 CPU 一直問?',
+  '03': 'ACQPS 是什麼?為什麼讀太早會抓到壞值?',
+  '04': 'CPU1 算 PID 要多久?算太久就撞線。',
+  '05': 'FSI 菊鏈傳資料,Payload 越大佔用越久。',
+  '06': '一個個取樣點,怎麼拼成平滑的正弦波?',
+  '07': '把全部組合起來——你原本的完整模擬器。'
+};
+var done = window.getDone();
+document.getElementById('mapGrid').innerHTML = window.LESSONS.filter(function (l) { return l.id !== 'index'; }).map(function (l, i) {
+  var isDone = done.indexOf(l.id) !== -1;
+  return '<a class="map-card" href="' + l.file + '">' +
+    '<div class="ic">' + l.icon + '</div>' +
+    (isDone ? '<div class="check">✓ 看過</div>' : '<div class="n">第 ' + (i + 1) + ' 課</div>') +
+    '<h3>' + l.title + '</h3>' +
+    '<p>' + (DESC[l.id] || '') + '</p>' +
+    '</a>';
+}).join('');
+</script>
+</body>
+</html>

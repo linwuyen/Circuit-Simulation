@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>降壓轉換器 電感漣波互動教學 (Buck Ripple Simulator)</title>
+<style>
+  :root{
+    --bg:#f1f5f9; --card:#ffffff; --ink:#1e293b; --muted:#64748b; --hint:#94a3b8;
+    --line:#e2e8f0; --blue:#2563eb; --red:#dc2626; --purple:#7c3aed; --green:#059669;
+    --amber:#b45309; --amberbg:#fef3c7; --greenbg:#dcfce7; --infobg:#eff6ff; --radius:12px;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:system-ui,"Noto Sans TC","Microsoft JhengHei",sans-serif; line-height:1.7;}
+  .wrap{max-width:980px; margin:0 auto; padding:28px 20px 56px;}
+  h1{font-size:24px; font-weight:600; margin:0 0 4px;}
+  h2{font-size:18px; font-weight:600; margin:34px 0 12px;}
+  .sub{color:var(--muted); margin:0 0 20px; font-size:15px;}
+  .bar{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:16px;}
+  .bar .lbl{font-size:13px; color:var(--hint); margin-right:2px;}
+  button{font:inherit; font-size:13px; padding:6px 14px; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:8px; cursor:pointer;}
+  button:hover{background:#f8fafc; border-color:#cbd5e1;}
+  button:active{transform:scale(0.98);}
+  #tourBtn{margin-left:auto; border-color:#93c5fd; color:#1d4ed8;}
+  #guide{display:none; background:var(--infobg); border:1px solid #bfdbfe; border-radius:10px; padding:12px 14px; margin-bottom:16px;}
+  #guideCap{font-size:14px; color:#1e40af; line-height:1.6; margin-bottom:10px;}
+  .gnav{display:flex; gap:8px; align-items:center;}
+  #gStep{font-size:12px; color:var(--muted);}
+  #gEnd{margin-left:auto;}
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:18px; align-items:start;}
+  .panel{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:20px 22px;}
+  .head{display:flex; align-items:center; gap:8px; padding-bottom:12px; border-bottom:1px solid var(--line); margin-bottom:16px; font-size:16px; font-weight:600;}
+  .head svg{width:20px; height:20px;}
+  .ctrl{margin-bottom:14px;}
+  .row{display:flex; justify-content:space-between; margin-bottom:5px;}
+  label{font-size:13px; color:var(--muted);}
+  .val{font-family:var(--mono); font-weight:600;}
+  input[type=range]{width:100%;}
+  .hint{font-size:11.5px; color:var(--hint); margin-top:4px;}
+  .keybox{border-top:1px dashed var(--line); padding-top:14px; margin-top:4px;}
+  .keytitle{font-size:12px; font-weight:600; color:var(--hint); letter-spacing:.05em; margin-bottom:10px;}
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(100px,1fr)); gap:10px; margin-bottom:14px;}
+  .metric{background:#f8fafc; border-radius:8px; padding:12px 14px;}
+  .metric .t{font-size:11.5px; color:var(--muted); margin-bottom:3px;}
+  .metric .n{font-size:21px; font-weight:600; font-family:var(--mono);}
+  .metric .s{font-size:11.5px; font-weight:600; margin-top:2px;}
+  #modeLine{font-size:13px; padding:9px 12px; border-radius:8px; margin-bottom:14px;}
+  .lossrow{display:flex; align-items:center; gap:10px; margin-bottom:14px;}
+  .lossrow span{font-size:12px; color:var(--muted); white-space:nowrap;}
+  .lossbar{flex:1; height:7px; background:#e2e8f0; border-radius:99px; overflow:hidden;}
+  .lossbar > div{height:100%; width:53%; background:#b45309; border-radius:99px;}
+  .scope{background:#0f172a; border-radius:var(--radius); padding:14px 16px; margin-bottom:14px;}
+  .scope.vout{padding:12px 16px;}
+  .scope .stitle{color:#cbd5e1; font-size:13px; font-family:var(--mono); display:flex; align-items:center; gap:6px;}
+  .scope .row2{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;}
+  #dcmBadge{display:none; align-items:center; gap:4px; color:#facc15; font-size:11px; font-weight:600; background:rgba(250,204,21,.18); padding:3px 8px; border-radius:6px;}
+  .legend{display:flex; flex-wrap:wrap; gap:11px; margin-top:8px; font-size:10.5px; color:#94a3b8; font-family:var(--mono);}
+  .legend .sw{display:inline-block; width:10px; height:10px; vertical-align:middle; margin-right:4px;}
+  .formula{background:#f8fafc; border-radius:8px; padding:12px 14px; font-family:var(--mono); font-size:12px; line-height:1.8; color:var(--muted);}
+  #fNote{color:var(--amber); font-family:inherit; margin-top:4px;}
+  .teach p{margin:0 0 12px; font-size:15px;}
+  .teach ul{margin:0 0 12px; padding-left:22px;}
+  .teach li{margin-bottom:7px; font-size:15px;}
+  .fw{background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:16px 18px;}
+  .fw h3{margin:0 0 10px; font-size:15px; font-weight:600; color:#1e40af;}
+  .fw li{color:#1e3a8a;}
+  .glos{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px;}
+  .term{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px;}
+  .term b{display:block; font-size:14px; margin-bottom:3px;}
+  .term span{font-size:13px; color:var(--muted);}
+  code{background:#eef2f7; padding:1px 5px; border-radius:4px; font-family:var(--mono); font-size:13px;}
+  .foot{margin-top:34px; font-size:12px; color:var(--hint); text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>降壓轉換器：電感漣波互動教學</h1>
+  <p class="sub">拖動滑桿觀察電感電流 (I_L) 與輸出電壓漣波 (ΔVout)；負載夠輕時自動切換 DCM。第一次看建議先按「逐步導覽」。</p>
+
+  <div class="bar">
+    <span class="lbl">情境：</span>
+    <button id="psA">典型 CCM</button>
+    <button id="psB">大漣波 CCM</button>
+    <button id="psC">進入 DCM</button>
+    <button id="psD">極輕載 DCM</button>
+    <button id="tourBtn">▶ 逐步導覽</button>
+  </div>
+
+  <div id="guide">
+    <div id="guideCap"></div>
+    <div class="gnav">
+      <button id="gPrev">← 上一步</button>
+      <button id="gNext">下一步 →</button>
+      <span id="gStep"></span>
+      <button id="gEnd">結束</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="head">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></svg>
+        Power stage 參數設定
+      </div>
+      <div class="ctrl">
+        <div class="row"><label for="vin">輸入電壓 Vin (V)</label><span class="val" id="vinOut" style="color:#1d4ed8">30 V</span></div>
+        <input id="vin" type="range" min="5" max="60" step="0.5" value="30" style="accent-color:#2563eb">
+      </div>
+      <div class="ctrl">
+        <div class="row"><label for="vout">輸出電壓 Vout (V)</label><span class="val" id="voutOut" style="color:#1d4ed8">3.3 V</span></div>
+        <input id="vout" type="range" min="0.8" max="24" step="0.1" value="3.3" style="accent-color:#2563eb">
+      </div>
+      <div class="ctrl">
+        <div class="row"><label for="iout">負載電流 Iout (A)</label><span class="val" id="ioutOut" style="color:#1d4ed8">2.0 A</span></div>
+        <input id="iout" type="range" min="0.1" max="10" step="0.1" value="2.0" style="accent-color:#2563eb">
+        <div class="hint">↓ 負載太輕 → 電流觸底 → DCM</div>
+      </div>
+      <div class="keybox">
+        <div class="keytitle">關鍵元件 (KEY COMPONENTS)</div>
+        <div class="ctrl">
+          <div class="row"><label for="ind">電感值 L (μH)</label><span class="val" id="indOut" style="color:#dc2626">2.2 μH</span></div>
+          <input id="ind" type="range" min="0.5" max="20" step="0.1" value="2.2" style="accent-color:#dc2626">
+          <div class="hint">↑ L 越大 → 電流漣波 ΔI 越小</div>
+        </div>
+        <div class="ctrl">
+          <div class="row"><label for="fsw">開關頻率 Fsw (kHz)</label><span class="val" id="fswOut" style="color:#7c3aed">1600 kHz</span></div>
+          <input id="fsw" type="range" min="100" max="3000" step="50" value="1600" style="accent-color:#7c3aed">
+          <div class="hint">↑ Fsw 越高 → ΔI、ΔVout 越小（但開關損耗↑）</div>
+        </div>
+        <div class="ctrl" style="margin-bottom:0">
+          <div class="row"><label for="cap">輸出電容 Cout (μF)</label><span class="val" id="capOut" style="color:#059669">22 μF</span></div>
+          <input id="cap" type="range" min="1" max="220" step="1" value="22" style="accent-color:#059669">
+          <div class="hint">↑ C 越大 → 輸出電壓漣波 ΔVout 越小</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="cards">
+        <div class="metric"><div class="t">電流漣波 ΔI</div><div class="n" id="rippleVal">0.99 A</div><div class="s" id="ripplePct" style="color:#059669">49%</div></div>
+        <div class="metric"><div class="t">輸出漣波 ΔVout</div><div class="n" id="voutVal">3.5 mV</div><div class="s" id="voutPct" style="color:#94a3b8; font-weight:400">of Vout</div></div>
+        <div class="metric"><div class="t">佔空比 duty</div><div class="n" id="dutyVal">13.0%</div><div class="s" id="tonVal" style="color:#94a3b8; font-weight:400">Ton 0.08μs</div></div>
+      </div>
+
+      <div id="modeLine" style="background:var(--greenbg); color:#065f46;">連續導通 CCM：電感電流全程 &gt; 0，不歸零。</div>
+
+      <div class="lossrow">
+        <span>開關損耗趨勢</span>
+        <div class="lossbar"><div id="lossBar"></div></div>
+        <span id="lossTag" style="color:#b45309; font-weight:600">中</span>
+      </div>
+
+      <div class="scope">
+        <div class="row2">
+          <span class="stitle"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#cbd5e1" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg> Inductor current (I_L)</span>
+          <span id="dcmBadge">▲ DCM</span>
+        </div>
+        <svg id="scopeSvg" width="100%" viewBox="0 0 440 210" style="display:block"></svg>
+        <div class="legend">
+          <span><span class="sw" style="background:rgba(59,130,246,.45)"></span>ON</span>
+          <span><span class="sw" style="background:rgba(148,163,184,.25)"></span>續流</span>
+          <span id="legDead" style="display:none"><span class="sw" style="background:rgba(100,116,139,.55)"></span>斷流</span>
+          <span style="color:#ef4444">● ADC(ON中點=平均)</span>
+          <span style="color:#f59e0b">○ 邊界採樣(=谷值)</span>
+        </div>
+      </div>
+
+      <div class="scope vout" id="voutScope">
+        <div class="stitle">Output voltage ripple (ΔVout)</div>
+        <svg id="voutSvg" width="100%" viewBox="0 0 440 90" style="display:block; margin-top:2px"></svg>
+      </div>
+
+      <div class="formula">
+        <div id="fD"></div><div id="fI"></div><div id="fSlope"></div><div id="fV"></div><div id="fNote"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="teach">
+    <h2>怎麼看懂這張圖（從頭講起）</h2>
+    <p>降壓轉換器（buck）把高電壓「切碎」再用電感+電容平滑成低電壓。開關不停 ON / OFF，<b>電感是主角</b>：它把「電壓」累積成「電流」。</p>
+    <ul>
+      <li><b>為什麼電流是三角波？</b> 電感鐵律 <code>V = L·(dI/dt)</code>：電感兩端有多少電壓，電流就以固定斜率爬。ON 時承受 <code>(Vin−Vout)</code>，以 <code>m₁ = +(Vin−Vout)/L</code> 上升；OFF 時二極體續流、承受 <code>−(Vout+Vd)</code>，以 <code>m₂ = −(Vout+Vd)/L</code> 下降。一上一下＝三角波（單位上 V/µH 剛好＝ A/µs）。</li>
+      <li><b>漣波 ΔI</b> 就是三角波峰−谷高度（圖左標尺）。<code>ΔI = (Vin−Vout)·D/(Fsw·L)</code>：<b>L 越大、Fsw 越高 → ΔI 越小</b>。</li>
+      <li><b>綠線＝平均電流＝Iout。</b> CCM 時剛好把三角形對半切。</li>
+      <li><b>ADC 採樣（紅點 vs 橘圈）：</b>紅點採在 ON 中點，CCM 剛好＝平均、又離切換邊緣最遠（避雜訊）；橘圈採在週期邊界，只採到谷值。一進 DCM，紅點掉到 <code>I_pk/2</code>、橘圈在 0，兩者都離開綠線 → <b>固定採樣時間在 DCM 會失準</b>。</li>
+      <li><b>輸出電壓漣波 ΔVout（下方綠波）：</b>電感漣波電流灌進電容變成電壓抖動，<code>ΔVout = ΔI/(8·Fsw·C)</code>。<b>C 越大 → ΔVout 越小</b>。</li>
+      <li><b>CCM vs DCM：</b>Iout 拉低使谷值要低於 0 時，二極體擋反向電流，電流停在 0（斷流死區，灰色）。此時責任週期縮短、峰值改變、三角形不再被平均線對半切。</li>
+    </ul>
+
+    <div class="fw">
+      <h3>韌體觀點 (Firmware Insight)</h3>
+      <ul>
+        <li><b>Ripple 太大：</b>ADC 採到的電流抖動變大（SNR 變差），電流環看到的訊號變髒。</li>
+        <li><b>DCM 模式：</b>波形觸底使系統轉移函數改變（pole 移動），<b>同一組 PID 在 CCM 穩、在 DCM 不一定穩</b>，可能震盪。</li>
+        <li><b>採樣點：</b>放在 ON 中點，CCM 採到平均又避開 switching noise；但 DCM 下 ON 中點＝<code>I_pk/2</code>≠平均（紅點離開綠線）——固定採樣在 DCM 失準，這是電流偵測常見的坑。</li>
+        <li><b>提高 Fsw 的代價：</b>ΔI、ΔVout 變小、可用更小的 L/C，但<b>開關損耗隨 Fsw 上升</b>（上方趨勢條），是效率與體積的取捨。</li>
+      </ul>
+    </div>
+
+    <h2>名詞速查</h2>
+    <div class="glos">
+      <div class="term"><b>Duty / 佔空比 D</b><span>一週期裡開關 ON 的時間比例。CCM 約 <code>Vout/Vin</code>。</span></div>
+      <div class="term"><b>Ripple / 漣波 ΔI</b><span>電感電流的峰−谷抖動量；越小越乾淨。</span></div>
+      <div class="term"><b>ΔVout</b><span>輸出電壓的抖動量＝ΔI/(8·Fsw·C)。</span></div>
+      <div class="term"><b>CCM 連續導通</b><span>電感電流整週期 &gt; 0，不歸零。</span></div>
+      <div class="term"><b>DCM 斷續導通</b><span>輕載時電流每週期觸底到 0 並停留死區。</span></div>
+      <div class="term"><b>m₁ / m₂ 斜率</b><span>上升 +(Vin−Vout)/L、下降 −(Vout+Vd)/L，單位 A/µs。</span></div>
+    </div>
+  </div>
+
+  <p class="foot">純前端、無外部相依，可離線開啟。物理為工程簡化模型，用於教學概念，非設計驗證工具。</p>
+</div>
+
+<script>
+(function(){
+  var Vd=0.7, W=440,H=210,pL=40,pR=14,pT=16,pB=28;
+  var plotW=W-pL-pR, periodW=plotW/2, y0px=H-pB;
+  var VW=440,VH=90,vpL=40,vpR=14,vpT=12,vpB=14, vPlotW=VW-vpL-vpR, vPeriodW=vPlotW/2;
+  var ids=["vin","vout","iout","ind","fsw","cap"], el={};
+  ids.forEach(function(k){el[k]=document.getElementById(k);});
+  function $(i){return document.getElementById(i);}
+  var out={vin:$("vinOut"),vout:$("voutOut"),iout:$("ioutOut"),ind:$("indOut"),fsw:$("fswOut"),cap:$("capOut")};
+  var focus=null;
+  function eng(v){ if(v>=1e6)return (v/1e6).toFixed(2)+"M"; if(v>=1e3)return (v/1e3).toFixed(0)+"k"; return v.toFixed(0); }
+
+  function render(){
+    var vin=+el.vin.value,vout=+el.vout.value,iout=+el.iout.value,L=+el.ind.value,fsw=+el.fsw.value,C=+el.cap.value;
+    out.vin.textContent=vin+" V"; out.vout.textContent=vout+" V"; out.iout.textContent=iout+" A";
+    out.ind.textContent=L+" μH"; out.fsw.textContent=fsw+" kHz"; out.cap.textContent=C+" μF";
+
+    var lH=L/1e6,fH=fsw*1e3,T=1/fH,Cf=C/1e6;
+    var D=(vout+Vd)/(vin+Vd); if(D>0.95)D=0.95; if(D<0)D=0;
+    var m1s=(vin-vout)/lH, m2s=(vout+Vd)/lH, m1A=(vin-vout)/L, m2A=(vout+Vd)/L;
+    var rCCM=Math.abs(m1s)*D*T, valleyCCM=iout-rCCM/2, isDCM=(valleyCCM<0)&&(m1s>0);
+
+    var peak,valley,t1,t2,t3,dispDuty;
+    if(isDCM){ t1=Math.sqrt(2*iout*T*m2s/(m1s*(m1s+m2s))); if(t1>T)t1=T; peak=m1s*t1; valley=0; t2=peak/m2s; if(t1+t2>T){t2=T-t1; if(t2<0)t2=0;} t3=T-t1-t2; if(t3<0)t3=0; dispDuty=t1/T; }
+    else{ peak=iout+rCCM/2; valley=iout-rCCM/2; if(valley<0)valley=0; t1=D*T; t2=T-t1; t3=0; dispDuty=D; }
+
+    function iAt(t){ if(isDCM){ if(t<t1)return m1s*t; if(t<t1+t2)return peak-m2s*(t-t1); return 0; } if(t<t1)return valley+m1s*t; return peak-m2s*(t-t1); }
+    var N=160, dt=T/N, v=0, vArr=[0], vmin=0,vmax=0;
+    for(var k=1;k<=N;k++){ var tt=(k-0.5)*dt; v+=(iAt(tt)-iout)*dt/Cf; vArr.push(v); if(v<vmin)vmin=v; if(v>vmax)vmax=v; }
+    var dVout=vmax-vmin;
+
+    var dPP=peak-valley, pct=iout>0?dPP/iout*100:0;
+    $("rippleVal").textContent=dPP.toFixed(2)+" A";
+    $("ripplePct").textContent=Math.round(pct)+"%"; $("ripplePct").style.color=pct>40?"#b45309":"#059669";
+    var mv=dVout*1000;
+    $("voutVal").textContent=(mv<10?mv.toFixed(2):mv.toFixed(1))+" mV";
+    $("voutPct").textContent=(dVout/vout*100).toFixed(2)+"% of Vout";
+    $("dutyVal").textContent=(dispDuty*100).toFixed(1)+"%";
+    $("tonVal").textContent="Ton "+(t1*1e6).toFixed(2)+"μs"+(isDCM?"(有效)":"");
+
+    $("dcmBadge").style.display=isDCM?"inline-flex":"none"; $("legDead").style.display=isDCM?"inline":"none";
+    var ml=$("modeLine");
+    if(isDCM){ ml.style.background="#fef3c7"; ml.style.color="#92400e"; ml.innerHTML="斷續導通 DCM：負載太輕，電流每週期觸底歸零並停留死區。轉移函數改變，PID 易震盪。"; }
+    else{ ml.style.background="#dcfce7"; ml.style.color="#065f46"; ml.innerHTML="連續導通 CCM：電感電流全程 &gt; 0，不歸零。"; }
+
+    var lr=fsw/3000, lt=lr<0.34?"低":(lr<0.67?"中":"高"), lc=lr<0.34?"#059669":(lr<0.67?"#b45309":"#dc2626");
+    $("lossBar").style.width=Math.round(lr*100)+"%"; $("lossBar").style.background=lc; $("lossTag").textContent=lt; $("lossTag").style.color=lc;
+
+    var maxY=Math.max(peak*1.4,iout*2,0.001);
+    function sY(x){return y0px-(x/maxY)*(y0px-pT);}
+    function cyc(xs){ var vv,b;
+      if(isDCM){ var f1=t1/T,f2=t2/T,xA=xs+f1*periodW,xB=xs+(f1+f2)*periodW,xE=xs+periodW; vv=[[xs,sY(0)],[xA,sY(peak)],[xB,sY(0)],[xE,sY(0)]]; b=[{a:xs,z:xA,k:"on"},{a:xA,z:xB,k:"off"},{a:xB,z:xE,k:"dead"}]; }
+      else{ var xOn=xs+D*periodW,xE2=xs+periodW; vv=[[xs,sY(valley)],[xOn,sY(peak)],[xE2,sY(valley)]]; b=[{a:xs,z:xOn,k:"on"},{a:xOn,z:xE2,k:"off"}]; }
+      return {v:vv,b:b}; }
+    var c1=cyc(pL),c2=cyc(pL+periodW),verts=c1.v.concat(c2.v),bands=c1.b.concat(c2.b);
+    var s="";
+    bands.forEach(function(bd){ var fill=bd.k==="on"?"rgba(59,130,246,0.13)":(bd.k==="dead"?"rgba(100,116,139,0.22)":"rgba(148,163,184,0.05)"); s+='<rect x="'+bd.a+'" y="'+pT+'" width="'+(bd.z-bd.a)+'" height="'+(y0px-pT)+'" fill="'+fill+'"/>'; });
+    if(focus){ c1.b.forEach(function(bd){ if((focus==="on"&&bd.k==="on")||(focus==="off"&&bd.k==="off")||(focus==="dcm"&&bd.k==="dead")) s+='<rect x="'+bd.a+'" y="'+pT+'" width="'+(bd.z-bd.a)+'" height="'+(y0px-pT)+'" fill="none" stroke="#facc15" stroke-width="2"/>'; }); }
+    s+='<line x1="'+pL+'" y1="'+sY(0)+'" x2="'+(W-pR)+'" y2="'+sY(0)+'" stroke="#334155" stroke-width="1" stroke-dasharray="4"/><text x="4" y="'+(sY(0)+3)+'" fill="#64748b" font-size="10">0A</text>';
+    s+='<line x1="'+pL+'" y1="'+sY(iout)+'" x2="'+(W-pR)+'" y2="'+sY(iout)+'" stroke="#10b981" stroke-width="2" stroke-dasharray="5" opacity="0.6"/><text x="'+(W-pR-2)+'" y="'+(sY(iout)-4)+'" text-anchor="end" fill="#10b981" font-size="10">Avg '+iout+'A</text>';
+    var yPk=sY(peak),yVl=sY(valley);
+    s+='<line x1="26" y1="'+yPk+'" x2="26" y2="'+yVl+'" stroke="#93c5fd" stroke-width="'+(focus==="ripple"?2:1)+'"/><line x1="22" y1="'+yPk+'" x2="30" y2="'+yPk+'" stroke="#93c5fd"/><line x1="22" y1="'+yVl+'" x2="30" y2="'+yVl+'" stroke="#93c5fd"/><text x="6" y="'+((yPk+yVl)/2+3)+'" fill="#93c5fd" font-size="9">ΔI</text>';
+    var pts=verts.map(function(p){return p[0].toFixed(1)+","+p[1].toFixed(1);}).join(" ");
+    s+='<polyline points="'+pts+'" fill="none" stroke="#3b82f6" stroke-width="3" stroke-linejoin="round"/>';
+    var xOn1=pL+(isDCM?t1/T:D)*periodW;
+    s+='<text x="'+(xOn1+3)+'" y="'+(sY(peak*0.5))+'" fill="#93c5fd" font-size="9">m₁↑</text>';
+    var fmx= isDCM ? (pL+(t1/T)*periodW+(t2/T)*periodW*0.5) : (xOn1+(pL+periodW-xOn1)*0.5);
+    s+='<text x="'+fmx+'" y="'+(sY(peak*0.5))+'" text-anchor="middle" fill="#fcd34d" font-size="9">m₂↓</text>';
+    var onW=(isDCM?t1/T:D)*periodW, ax1=pL+onW/2, ax2=pL+periodW+onW/2, ay=isDCM?sY(peak/2):sY(iout), ev=isDCM?0:valley, ey=sY(ev);
+    s+='<circle cx="'+pL+'" cy="'+ey+'" r="4" fill="none" stroke="#f59e0b" stroke-width="2"/><circle cx="'+(pL+periodW)+'" cy="'+ey+'" r="4" fill="none" stroke="#f59e0b" stroke-width="2"/>';
+    s+='<circle cx="'+ax1+'" cy="'+ay+'" r="4" fill="#ef4444"/><circle cx="'+ax2+'" cy="'+ay+'" r="4" fill="#ef4444"/>';
+    if(focus==="adc"){ s+='<circle cx="'+ax1+'" cy="'+ay+'" r="8" fill="none" stroke="#facc15" stroke-width="2"/><circle cx="'+pL+'" cy="'+ey+'" r="8" fill="none" stroke="#facc15" stroke-width="2"/>'; }
+    s+='<text x="'+xOn1+'" y="'+(yPk-5)+'" text-anchor="middle" fill="#bfdbfe" font-size="10">'+peak.toFixed(2)+'A</text>';
+    s+='<text x="'+(pL+periodW)+'" y="'+(yVl+13)+'" text-anchor="middle" fill="#bfdbfe" font-size="10">'+(isDCM?"0A":valley.toFixed(2)+"A")+'</text>';
+    c1.b.forEach(function(bd){ var lbl=bd.k==="on"?"ON":(bd.k==="dead"?"斷流":"續流"); s+='<text x="'+((bd.a+bd.z)/2)+'" y="'+(y0px+13)+'" text-anchor="middle" fill="#94a3b8" font-size="9">'+lbl+'</text>'; });
+    $("scopeSvg").innerHTML=s;
+
+    var vmid=(vmax+vmin)/2, amp=dVout||1, vy0=VH-vpB;
+    function vY(val){ return (vpT+vy0)/2 - ((val-vmid)/amp)*(vy0-vpT)*0.8; }
+    var vs="";
+    vs+='<rect x="'+vpL+'" y="'+vpT+'" width="'+vPlotW+'" height="'+(vy0-vpT)+'" fill="rgba(29,158,117,0.07)"/>';
+    vs+='<line x1="'+vpL+'" y1="'+vY(vmid)+'" x2="'+(VW-vpR)+'" y2="'+vY(vmid)+'" stroke="#10b981" stroke-width="1" stroke-dasharray="4" opacity="0.5"/><text x="4" y="'+(vY(vmid)+3)+'" fill="#10b981" font-size="9">'+vout+'V</text>';
+    var vpts=[]; for(var cc=0;cc<2;cc++){ for(var j=0;j<=N;j++){ vpts.push((vpL+(cc+j/N)*vPeriodW).toFixed(1)+","+vY(vArr[j]).toFixed(1)); } }
+    vs+='<polyline points="'+vpts.join(" ")+'" fill="none" stroke="#34d399" stroke-width="2" stroke-linejoin="round"/>';
+    var yTop=vY(vmid+amp/2), yBot=vY(vmid-amp/2);
+    vs+='<line x1="26" y1="'+yTop+'" x2="26" y2="'+yBot+'" stroke="#6ee7b7" stroke-width="'+(focus==="vout"?2:1)+'"/><line x1="22" y1="'+yTop+'" x2="30" y2="'+yTop+'" stroke="#6ee7b7"/><line x1="22" y1="'+yBot+'" x2="30" y2="'+yBot+'" stroke="#6ee7b7"/>';
+    vs+='<text x="'+(VW-vpR-2)+'" y="'+(vpT+8)+'" text-anchor="end" fill="#6ee7b7" font-size="9">ΔVout '+(mv<10?mv.toFixed(2):mv.toFixed(1))+'mV</text>';
+    $("voutSvg").innerHTML=vs;
+    $("voutScope").style.outline = focus==="vout" ? "2px solid #facc15" : "none";
+
+    $("fD").textContent="D = (Vout+Vd)/(Vin+Vd) = ("+vout+"+0.7)/("+vin+"+0.7) = "+D.toFixed(3);
+    $("fI").textContent="ΔI = (Vin−Vout)·D/(Fsw·L) = "+(vin-vout).toFixed(1)+"×"+D.toFixed(3)+"/("+eng(fH)+"×"+L+"µ) = "+rCCM.toFixed(2)+" A";
+    $("fSlope").textContent="斜率 m₁ = (Vin−Vout)/L = "+m1A.toFixed(1)+" A/µs（上升）； m₂ = (Vout+Vd)/L = "+m2A.toFixed(1)+" A/µs（下降）";
+    $("fV").textContent="ΔVout = ΔI/(8·Fsw·C) = "+rCCM.toFixed(2)+"/(8×"+eng(fH)+"×"+C+"µ) = "+(rCCM/(8*fH*Cf)*1000).toFixed(2)+" mV";
+    $("fNote").textContent= isDCM ? "⚠ DCM：ΔI、ΔVout 上式為 CCM 估算；實際電流每週期歸零，真實峰值 I_pk ≈ "+peak.toFixed(2)+" A，有效 duty ≈ "+(dispDuty*100).toFixed(1)+"%，圖中 ΔVout 為實際積分值。" : "";
+  }
+
+  ids.forEach(function(k){el[k].addEventListener("input",function(){ focus=null; setGuide(false); render(); });});
+  function setVals(a){ el.vin.value=a[0];el.vout.value=a[1];el.iout.value=a[2];el.ind.value=a[3];el.fsw.value=a[4];el.cap.value=a[5]; }
+  var P={A:[12,3.3,3,4.7,1000,47],B:[20,5,5,1,1000,22],C:[20,5,1.5,1,1000,22],D:[30,3.3,0.3,2.2,1600,10]};
+  $("psA").onclick=function(){focus=null;setGuide(false);setVals(P.A);render();};
+  $("psB").onclick=function(){focus=null;setGuide(false);setVals(P.B);render();};
+  $("psC").onclick=function(){focus=null;setGuide(false);setVals(P.C);render();};
+  $("psD").onclick=function(){focus=null;setGuide(false);setVals(P.D);render();};
+
+  var steps=[
+    {f:"on", p:"A", c:"① 開關 ON：電感承受 (Vin−Vout)，電流以斜率 m₁ = +(Vin−Vout)/L 直線上升（藍色高亮區）。"},
+    {f:"off", c:"② 開關 OFF：改由二極體續流，電感承受 −(Vout+Vd)，電流以 m₂ = −(Vout+Vd)/L 下降（灰色高亮區）。"},
+    {f:"ripple", c:"③ 漣波 ΔI ＝ 峰−谷（左側標尺）。把 L 或 Fsw 調大，ΔI 變小、波形變平。"},
+    {f:"adc", c:"④ 綠線＝平均電流。紅點採在 ON 中點 → ＝平均、又避開切換噪聲；橘圈採在週期邊界 → 只採到谷值（錯）。"},
+    {f:"vout", c:"⑤ 電感漣波灌進輸出電容 → 輸出電壓漣波 ΔVout ＝ ΔI/(8·Fsw·C)。電容 C 越大，下方綠波 ΔVout 越小。"},
+    {f:"dcm", p:"D", c:"⑥ 負載 Iout 調到很輕 → 電流觸底歸零、停在斷流死區 → DCM。轉移函數改變，原 PID 可能震盪。"}
+  ];
+  var si=0;
+  function setGuide(on){ $("guide").style.display=on?"block":"none"; if(!on)focus=null; }
+  function showStep(){ var st=steps[si]; if(st.p) setVals(P[st.p]); focus=st.f; $("guideCap").textContent=st.c; $("gStep").textContent=(si+1)+" / "+steps.length; render(); }
+  $("tourBtn").onclick=function(){ si=0; setGuide(true); showStep(); };
+  $("gNext").onclick=function(){ if(si<steps.length-1){si++;showStep();} };
+  $("gPrev").onclick=function(){ if(si>0){si--;showStep();} };
+  $("gEnd").onclick=function(){ setGuide(false); render(); };
+
+  render();
+})();
+</script>
+</body>
+</html>

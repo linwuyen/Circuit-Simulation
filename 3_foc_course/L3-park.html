@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L3 · Park 變換（交流變直流）</title>
+<link rel="stylesheet" href="foc-style.css">
+</head>
+<body>
+<header class="top">
+  <div>
+    <div class="crumb">FOC 教學課程 · 階段 ① 基礎直覺 · ★ 核心</div>
+    <h1>L3 · Park 變換 (交流 → 直流)</h1>
+    <div class="sub">把視角綁在轉子上一起轉，旋轉向量就「定住」變成直流點</div>
+  </div>
+  <div class="prog">第 3 / 9 課</div>
+</header>
+
+<main class="stage">
+  <div class="scopes two">
+    <div class="scope sq">
+      <canvas id="cv-ab"></canvas>
+      <span class="lab">靜止 αβ 視角（交流）</span>
+      <span class="lab tr">向量一直轉</span>
+    </div>
+    <div class="scope sq">
+      <canvas id="cv-dq"></canvas>
+      <span class="lab">dq 視角</span>
+      <span class="lab tr" id="dq-tag">鎖定轉子 → 定住</span>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <h2>視角模式</h2>
+    <div class="toggle">
+      <button id="b-lock" class="on" onclick="setLock(true)">🔒 跟著轉子轉</button>
+      <button id="b-free" onclick="setLock(false)">靜止不轉</button>
+    </div>
+    <h2>參數</h2>
+    <div class="ctrl">
+      <div class="row"><span>轉子轉速 ω</span><span class="v" id="v-w">40 Hz</span></div>
+      <input type="range" id="p-w" min="5" max="150" value="40">
+    </div>
+    <div class="ctrl">
+      <div class="row"><span>負載角 δ（d/q 分配）</span><span class="v" id="v-d">15°</span></div>
+      <input type="range" id="p-d" min="-60" max="60" value="15">
+    </div>
+    <div class="readout">
+      <div class="cell"><span>θ 轉子角</span><span id="r-th">0°</span></div>
+      <div class="cell"><span>視角角</span><span id="r-fp">θ</span></div>
+      <div class="cell"><span>Vd</span><span id="r-vd">0.000</span></div>
+      <div class="cell"><span>Vq</span><span id="r-vq">0.000</span></div>
+    </div>
+    <div class="task"><b>🎯 動手試</b>
+      先用「🔒 跟著轉子轉」：右圖只有一個<strong>不動的點</strong>。再按「靜止不轉」：同一個向量在右圖又開始<strong>轉圈</strong>。差別只在「你站在哪個視角看」。</div>
+    <div class="aha"><b>💡 你學到了</b>
+      Park 變換不是改變向量，而是改變<strong>觀測者的座標系</strong>。站到跟轉子一起轉的 dq 座標上，交流瞬間變直流 —— 直流量用 PI 控制超簡單，這就是 FOC 的精髓。負載角 δ 決定這個直流點落在 d 軸還是 q 軸。</div>
+  </aside>
+</main>
+
+<nav class="foot">
+  <a href="L2-clarke.html">← L2</a>
+  <a href="index.html">課程地圖</a>
+  <a class="next" href="L4-why-dq.html">下一課：L4 為什麼用 dq →</a>
+</nav>
+
+<script src="foc-core.js"></script>
+<script>
+const cvAB=document.getElementById('cv-ab'),ctxAB=cvAB.getContext('2d');
+const cvDQ=document.getElementById('cv-dq'),ctxDQ=cvDQ.getContext('2d');
+const pW=document.getElementById('p-w'),pD=document.getElementById('p-d');
+let theta=0,w=40,delta=15,lock=true,last=performance.now();
+const MAG=0.8; let dqTrail=[];
+
+function ui(){ w=+pW.value; delta=+pD.value;
+  document.getElementById('v-w').textContent=w+' Hz';
+  document.getElementById('v-d').textContent=delta+'°';}
+[pW,pD].forEach(p=>p.addEventListener('input',ui));
+function setLock(v){lock=v;dqTrail=[];
+  document.getElementById('b-lock').classList.toggle('on',v);
+  document.getElementById('b-free').classList.toggle('on',!v);
+  document.getElementById('dq-tag').textContent=v?'鎖定轉子 → 定住':'靜止視角 → 轉圈';
+  document.getElementById('r-fp').textContent=v?'θ':'0';}
+function resize(){FOC.fit(cvAB);FOC.fit(cvDQ);}
+window.addEventListener('resize',resize);
+
+function loop(now){
+  const dt=Math.min(.016,(now-last)/1000); last=now;
+  theta=(theta+FOC.TAU*w*dt)%FOC.TAU;
+  // 操作點（dq 真值）：負載角決定 d/q 分配
+  const dr=delta*Math.PI/180, Vd0=MAG*Math.sin(dr), Vq0=MAG*Math.cos(dr);
+  // αβ 向量（永遠在轉）
+  const {alpha,beta}=FOC.invPark(Vd0,Vq0,theta);
+  // 視角：鎖定→framePhi=theta；靜止→0
+  const framePhi=lock?theta:0;
+  const dq=FOC.park(alpha,beta,framePhi);
+
+  // 左 αβ
+  const W=cvAB.width,H=cvAB.height,cx=W/2,cy=H/2,s=Math.min(W,H)*0.4;
+  FOC.plane(ctxAB,W,H,cx,cy,s,{unitCircle:true});
+  FOC.vector(ctxAB,cx,cy,alpha,beta,s,'#34d399');
+
+  // 右 dq
+  const W2=cvDQ.width,H2=cvDQ.height,c2x=W2/2,c2y=H2/2,s2=Math.min(W2,H2)*0.4;
+  FOC.plane(ctxDQ,W2,H2,c2x,c2y,s2,{unitCircle:true});
+  ctxDQ.fillStyle='rgba(148,163,184,.8)';ctxDQ.font='11px monospace';
+  ctxDQ.fillText('+d',c2x+s2*1.05-4,c2y+4);
+  ctxDQ.fillText('+q',c2x+4,c2y-s2*1.05+8);
+  dqTrail.push({d:dq.d,q:dq.q}); if(dqTrail.length>120)dqTrail.shift();
+  if(dqTrail.length>1){
+    for(let i=0;i<dqTrail.length-1;i++){const r=i/dqTrail.length;
+      ctxDQ.strokeStyle='rgba(34,211,238,'+(r*0.8)+')';ctxDQ.lineWidth=r*2+0.4;
+      ctxDQ.beginPath();
+      ctxDQ.moveTo(c2x+dqTrail[i].d*s2,c2y-dqTrail[i].q*s2);
+      ctxDQ.lineTo(c2x+dqTrail[i+1].d*s2,c2y-dqTrail[i+1].q*s2);ctxDQ.stroke();}
+  }
+  FOC.vector(ctxDQ,c2x,c2y,dq.d,dq.q,s2,'#22d3ee');
+
+  document.getElementById('r-th').textContent=(theta*180/Math.PI).toFixed(0)+'°';
+  document.getElementById('r-vd').textContent=dq.d.toFixed(3);
+  document.getElementById('r-vq').textContent=dq.q.toFixed(3);
+  requestAnimationFrame(loop);
+}
+resize();ui();setLock(true);requestAnimationFrame(loop);
+</script>
+<script src="foc-quiz.js"></script>
+<script>FOCQuiz.mount('L3')</script>
+<script src="foc-lab.js"></script>
+<script>FOCLab.mount('L3')</script>
+</body>
+</html>

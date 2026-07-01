@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第 1 課 · 電感與續流二極體</title>
+  <script src="../../assets/vendor/tailwindcss-cdn.js"></script>
+  <link rel="stylesheet" href="shared/theme.css">
+</head>
+<body class="min-h-screen">
+  <div class="max-w-6xl mx-auto px-4 py-6">
+
+    <!-- 頁首 -->
+    <header class="flex items-center justify-between mb-5">
+      <div class="flex items-center gap-3">
+        <span class="tag text-emerald-400">第 1 課 / 8</span>
+        <h1 class="text-lg md:text-xl font-bold text-slate-100">🌀 電感與續流二極體</h1>
+      </div>
+      <a href="index.html" class="text-xs text-slate-400 hover:text-emerald-400">📍 課程地圖</a>
+    </header>
+
+    <!-- 目標 -->
+    <div class="edu-card edu-goal mb-4">
+      <h3 class="text-emerald-400">🎯 本課目標</h3>
+      <p>上完這一課，你能用一句話解釋：<b>為什麼任何含電感（馬達、變壓器、濾波電感）的開關電路，都一定要替電流準備一條「逃生路徑」——也就是續流二極體。</b>這是整個電力電子最核心的物理直覺，先建立它，後面所有拓撲都好懂。</p>
+    </div>
+
+    <!-- 模擬器 -->
+    <div id="sim" class="mb-5"></div>
+
+    <!-- 教學區 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+      <div class="edu-card edu-try">
+        <h3 class="text-amber-400">🔬 動手做（照順序點）</h3>
+        <ol>
+          <li>確認左下角是<b>手動模式</b>（自動 PWM 的燈是暗的）。負載已固定為<b>感性 RL</b>。</li>
+          <li>點捷徑 <b>「上管 Q1 導通」</b> → 盯著示波器金色 <b>CH3（電流）</b>：它<b>線性往上爬</b>，這是電感正在儲存磁能。</li>
+          <li>電流爬到一半時，點 <b>「全關斷」</b>。</li>
+          <li>關鍵時刻：電流<b>不會瞬間掉到 0</b>，而是改走 <b>D2</b> 繼續流、慢慢衰減 —— 電路圖上 <b>D2 會亮起琥珀色光</b>。</li>
+        </ol>
+      </div>
+      <div class="edu-card edu-expect">
+        <h3 class="text-cyan-400">✅ 你應該看到 / 為什麼</h3>
+        <p>電流曲線是<b>連續、平滑</b>的，開關一斷它只是改變斜率、而不是垂直跳到 0。</p>
+        <p>因為電感的物理定律是 <b style="font-family:monospace">V = L·(di/dt)</b>：要讓電流瞬間歸零，di/dt 會趨近無限大，於是電感兩端會爆出一個<span class="gloss" title="電感為了維持電流而產生的反向高電壓，可達數百甚至數千伏">巨大的反電動勢</span>。<b>續流二極體</b>給了電流一條路，把這個電壓鉗在安全範圍 —— 否則開關會被瞬間過壓擊穿。</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="edu-card edu-apply">
+        <h3 class="text-blue-400">🌍 這在真實世界用在哪</h3>
+        <ul>
+          <li>每顆 <b>MOSFET / IGBT</b> 都內建（或外接）反並聯二極體，就是為了續流。</li>
+          <li><b>繼電器、馬達線圈</b>旁邊並一顆二極體（飛輪二極體），保護驅動電晶體。</li>
+          <li><b>Buck / Boost 轉換器</b>的續流二極體 —— 可直接接著看隔壁的 <span class="text-slate-300 font-semibold">0_buck_converter</span> 教材。</li>
+        </ul>
+      </div>
+      <div class="edu-card edu-tradeoff">
+        <h3 class="text-purple-300">⚖️ 工程取捨（進階一點）</h3>
+        <p>續流二極體導通時會有<b>順向壓降</b>（約 0.7~2V）造成損耗；切換瞬間還有<b>反向恢復</b>損耗。這就是為什麼高頻、高效率的設計會選 <b>SiC 蕭特基二極體</b> 或乾脆用 MOSFET 同步整流。「省損耗 vs 成本」就是真實的設計決策。</p>
+      </div>
+    </div>
+
+    <!-- 考考你 -->
+    <div class="edu-card quiz mt-4">
+      <h3 class="text-slate-200">❓ 考考你（點開看答案）</h3>
+      <details>
+        <summary>關斷瞬間，電感電流為什麼不會立刻變成 0？</summary>
+        <div class="ans">因為電感儲存了磁能，電流是它的「慣性」。要維持電流連續，它會自己產生反向電壓去推動電流，直到能量耗盡才慢慢降為 0。</div>
+      </details>
+      <details>
+        <summary>如果這條電路完全沒有續流二極體，會發生什麼事？</summary>
+        <div class="ans">di/dt 極大 → V = L·(di/dt) 產生極高電壓尖峰 → 開關（MOSFET/IGBT）瞬間過壓崩潰、燒毀。這也是為什麼直接拔插電感性負載會打火花。</div>
+      </details>
+      <details>
+        <summary>把上管 Q1 改成下管 Q2 先導通，續流時換成哪顆二極體發亮？為什麼？</summary>
+        <div class="ans">換成 D1。因為 Q2 導通時電流方向相反（往負向建立），關斷後電流為負，會去找上管的反並聯二極體 D1 形成迴路。<b>續流二極體的選擇，永遠由「電流方向」決定。</b></div>
+      </details>
+    </div>
+
+    <!-- 導航 -->
+    <nav id="lesson-nav" class="lesson-nav"></nav>
+  </div>
+
+  <script src="shared/widget.js"></script>
+  <script src="shared/ui.js"></script>
+  <script>
+    PE.mount('#sim', {
+      topology: 'half',
+      allowTopology: false,
+      loads: ['RL'],
+      modulations: ['spwm'],
+      controls: { ma: false, freq: false, fc: false, manual: true },
+      channels: { ch1: true, ch3: true },
+      defaults: { load: 'RL', autoMode: false },
+      metrics: false
+    });
+    EDU.renderNav(1);
+  </script>
+</body>
+</html>

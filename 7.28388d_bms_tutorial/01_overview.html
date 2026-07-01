@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>01 系統總覽 | F28388D BMS 教學模擬器</title>
+  <link rel="stylesheet" href="assets/bms-tutorial.css">
+</head>
+<body data-chapter="1">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="brand-title">F28388D BMS 教學模擬器</span><span class="brand-subtitle">01 系統總覽</span></div>
+      <nav class="nav" aria-label="章節導覽">
+        <a href="index.html">首頁</a><a href="01_overview.html" aria-current="page">總覽</a><a href="02_sense.html">量測</a><a href="03_compare.html">比較</a><a href="04_decide.html">決定</a><a href="05_actuate.html">致動</a><a href="06_report.html">回報</a><a href="07_coordinate.html">協同</a><a href="08_failsafe.html">失效</a><a href="09_integrate.html">整合</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="hero">
+      <div>
+        <span class="eyebrow">Lesson 01</span>
+        <h1>先不要背晶片規格,先記住一條鏈:量測 → 比較 → 決定 → 致動 → 回報。</h1>
+        <p class="lead">BMS 在做的事,就是讓一顆量測值走完這條鏈。每一頁教材對應鏈上一個環節;硬體(CPU1/CPU2/CM4)只是每環「實際由誰執行」的標籤,不是學習的主軸。</p>
+      </div>
+      <div class="panel">
+        <h2>本章目標</h2>
+        <ul class="checklist" style="margin-top:12px;">
+          <li>記住因果鏈的五個環節與順序。</li>
+          <li>知道每個環節對應到後面哪一章。</li>
+          <li>知道「協同」是墊在底下的基礎層。</li>
+          <li>知道任一步危險就會進 FAULT_LOCK。</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="lesson-layout">
+      <aside>
+        <div class="panel">
+          <div class="panel-title"><h2>鏈怎麼讀</h2></div>
+          <ol class="guide-list">
+            <li><span>1</span><div><strong>量測(AFE)</strong><em>電壓、電流、溫度、通訊品質都是原始輸入。</em></div></li>
+            <li><span>2</span><div><strong>比較(門檻)</strong><em>把數值拿去和保護門檻比,產生判定。</em></div></li>
+            <li><span>3</span><div><strong>決定(狀態機)</strong><em>根據判定切換 STANDBY / DISCHARGE / FAULT。</em></div></li>
+            <li><span>4</span><div><strong>致動(接觸器)</strong><em>預充、閉合或斷開高壓迴路。</em></div></li>
+            <li><span>5</span><div><strong>回報(CAN/UDS)</strong><em>把狀態與故障上報,接受診斷與指令。</em></div></li>
+          </ol>
+        </div>
+        <div class="panel">
+          <div class="callout">實車上這些不會只靠一個 while loop。會有週期任務、中斷、硬體保護(Trip-Zone)、診斷服務與跨核看門狗一起工作。</div>
+        </div>
+      </aside>
+
+      <section class="panel">
+        <div class="panel-title">
+          <h2>一顆量測值走過的因果鏈</h2>
+          <small>由上而下,對應第 02–06 章</small>
+        </div>
+        <div class="architecture">
+          <div class="core-row">
+            <div class="core green">
+              <h3>① 量測 · AFE</h3>
+              <p>最高單體電壓、Pack 電流、SPI CRC/timeout。只給數字,不做安全決策。</p>
+            </div>
+            <div class="bus"><div class="wire active"></div><h3>ADC / SPI</h3><p>原始訊號進 MCU</p></div>
+            <div class="core green">
+              <h3>② 比較 · 門檻</h3>
+              <p>和 OVP 4250、放電上限 4150、OCP 150 比,產生 PASS/HOLD/FAULT 判定。</p>
+            </div>
+          </div>
+          <div class="core-row">
+            <div class="core purple">
+              <h3>③ 決定 · 狀態機</h3>
+              <p>CPU2 的 FSM 依判定切換 STANDBY、DISCHARGE、FAULT_LOCK。</p>
+            </div>
+            <div class="bus"><div class="wire active"></div><h3>Contactor</h3><p>控制高壓迴路</p></div>
+            <div class="contactor">
+              <h3>④ 致動 · 接觸器</h3>
+              <p>先預充限流,電容達 95% 才閉合主正;危險時立刻斷開。</p>
+            </div>
+          </div>
+          <div class="core-row">
+            <div class="core blue">
+              <h3>⑤ 回報 · CM4</h3>
+              <p>CAN FD、UDS 診斷會話、讀資料與安全存取。</p>
+            </div>
+            <div class="bus"><div class="wire active"></div><h3>IPC / GSRAM</h3><p>跨核資料交換(基礎層)</p></div>
+            <div class="core green">
+              <h3>⓪ 協同 · CPU1</h3>
+              <p>讀感測、寫 GSRAM、跨核看門狗。墊在整條鏈底下(第 07 章)。</p>
+            </div>
+          </div>
+        </div>
+        <div class="callout warning" style="margin-top:16px;">鏈上任何一步判定危險(過壓、過流、失聯、預充逾時),都會把系統推進 FAULT_LOCK,而且不會自動恢復。這是第 08 章的主題。</div>
+      </section>
+    </section>
+
+    <section class="panel" style="margin-top:20px;">
+      <div class="panel-title"><h2>帶走這三句</h2></div>
+      <ul class="checklist">
+        <li>BMS = 讓量測值走完「量測→比較→決定→致動→回報」這條鏈。</li>
+        <li>硬體核心只是每環的執行者標籤,不是學習主軸。</li>
+        <li>任一環喊危險,系統就鎖定;安全永遠優先於功能。</li>
+      </ul>
+    </section>
+
+    <nav class="footer-nav">
+      <a href="index.html">回首頁</a>
+      <a href="02_sense.html">下一章:量測 · AFE 感測</a>
+    </nav>
+  </main>
+  <script src="assets/bms-learn.js"></script>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>04 LC 受控體 P(s) 的諧振</title>
+    <script src="../assets/vendor/tailwindcss-cdn.js"></script>
+    <script src="../assets/vendor/chart.umd.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
+        .nav a { padding:.25rem .6rem; border-radius:.4rem; font-size:.85rem; white-space:nowrap; }
+        .nav a:hover { background:#fff7ed; }
+        .nav a.active { background:#f59e0b; color:#fff; font-weight:700; }
+        .chart-container { position: relative; height: 32vh; min-height: 240px; background:#fff; border-radius:.5rem; padding:1rem; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+        input[type=range]{ width:100%; }
+        .card { background:#fff; border-radius:.5rem; padding:1rem; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+    </style>
+</head>
+<body class="p-4 md:p-6">
+<div class="max-w-6xl mx-auto">
+
+    <nav class="nav bg-white rounded-lg shadow-sm px-3 py-2 mb-5 flex flex-wrap items-center gap-1 text-gray-600">
+        <a href="index.html" class="font-bold text-gray-700">📚 地圖</a><span class="text-gray-300">|</span>
+        <a href="01_what_is_bode.html" title="波德圖的一個點">01</a>
+        <a href="02_integrator.html" title="積分器">02</a>
+        <a href="03_pi_controller.html" title="PI 控制器">03</a>
+        <a href="04_lc_plant.html" class="active" title="LC 受控體">04</a>
+        <a href="05_add_in_db.html" title="相乘變相加">05</a>
+        <a href="06_stability.html" title="穩定度+時域">06</a>
+        <a href="pi.html" class="ml-auto" title="設計沙盒">★ 沙盒</a>
+        <a href="07_challenge.html" title="挑戰任務">🏆 挑戰</a>
+    </nav>
+
+    <div class="mb-5">
+        <p class="text-sm font-semibold text-amber-600">關卡 04</p>
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-800 mb-2">受控體 <span class="font-mono">P(s)</span>：LC 濾波器會「諧振」</h1>
+        <p class="text-gray-600">前面三關都在做<b>控制器</b>(你能設計的部分)。這一關看<b>硬體本身</b>(你只能接受的部分):逆變器輸出的 LC 濾波器。它在某個頻率會自己放大訊號——這就是危險的來源。</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div class="space-y-4">
+            <div class="card">
+                <label class="block text-sm font-bold text-gray-700 mb-1">諧振頻率 fn：<span id="fn-val" class="text-amber-600">1.59 kHz</span></label>
+                <p class="text-xs text-gray-500 mb-2">由 L、C 決定 (fn = 1/2π√LC)。峰的「位置」。</p>
+                <input type="range" id="fn-slider" min="500" max="5000" step="10" value="1592">
+            </div>
+            <div class="card">
+                <label class="block text-sm font-bold text-gray-700 mb-1">阻尼比 ζ：<span id="zeta-val" class="text-amber-600">0.20</span></label>
+                <p class="text-xs text-gray-500 mb-2">阻尼越小,峰越尖越高越危險(峰高 ≈ 1/2ζ)。</p>
+                <input type="range" id="zeta-slider" min="0.03" max="1.0" step="0.01" value="0.20">
+            </div>
+
+            <div class="card">
+                <h3 class="font-bold text-gray-800 border-b pb-2 mb-3 text-sm">諧振峰有多危險</h3>
+                <div class="mb-2">
+                    <span class="text-xs text-gray-500 block">峰值放大量 ≈ 1/2ζ</span>
+                    <span id="peak-val" class="text-xl font-bold text-amber-600">-- dB</span>
+                </div>
+                <div>
+                    <span class="text-xs text-gray-500 block">fn 處的相位</span>
+                    <span class="text-xl font-bold text-orange-500">−90°（正在摔向 −180°）</span>
+                </div>
+            </div>
+
+            <div class="bg-emerald-50 p-4 rounded-lg border border-emerald-100 text-sm">
+                <h4 class="font-bold text-emerald-800 mb-1">🗣️ 白話結論</h4>
+                <p id="narrative" class="text-xs text-emerald-900 leading-relaxed">--</p>
+            </div>
+
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-100 text-sm">
+                <h4 class="font-bold text-blue-800 mb-1">💡 觀察重點</h4>
+                <ul class="text-xs text-blue-700 space-y-1 list-disc pl-4">
+                    <li>低頻：增益 ≈ 0dB(原樣通過)、相位 ≈ 0°。</li>
+                    <li>到了 <b>fn</b>:冒出一個<b>放大峰</b>(紫線位置),相位剛好 −90°。</li>
+                    <li>高頻:增益以 <b>−40dB/decade</b> 急墜,相位摔到 <b>−180°</b>。</li>
+                    <li>把 ζ 調到很小(例如 0.05):峰又尖又高 → 之後只要控制器把這裡推到 0dB,系統就會在這個頻率<b>自己振起來</b>。這就是 06 關要避開的事。</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2 space-y-4">
+            <div class="chart-container"><canvas id="magChart"></canvas></div>
+            <div class="chart-container"><canvas id="phaseChart"></canvas></div>
+        </div>
+    </div>
+
+    <div class="flex justify-between items-center mt-6 text-sm">
+        <a href="03_pi_controller.html" class="px-4 py-2 rounded-lg bg-white shadow-sm text-gray-600 hover:bg-gray-50">← 上一關：PI 控制器</a>
+        <a href="05_add_in_db.html" class="px-4 py-2 rounded-lg bg-amber-500 text-white shadow-sm hover:bg-amber-600 font-semibold">下一關：相乘變相加 →</a>
+    </div>
+</div>
+
+<script>
+const F_MIN = 10, F_MAX = 100000, N = 300;
+const freqs = [];
+for (let i = 0; i < N; i++) freqs.push(F_MIN * Math.pow(F_MAX / F_MIN, i / (N - 1)));
+
+let magChart, phaseChart;
+function fmtHz(f){ return f >= 1000 ? (f/1000).toFixed(2)+' kHz' : f.toFixed(0)+' Hz'; }
+
+// P(s)=Wn^2/(s^2+2ζWn s+Wn^2)
+function pPoint(f, Wn, zeta){
+    const w = 2 * Math.PI * f;
+    const WnSq = Wn * Wn;
+    const re = WnSq - w * w, im = w * 2 * zeta * Wn; // 分母
+    const den = re*re + im*im;
+    // 分子 WnSq(實數) / 分母 → 共軛
+    const Pre = WnSq * re / den, Pim = -WnSq * im / den;
+    return { mag: 20 * Math.log10(Math.sqrt(Pre*Pre + Pim*Pim)), ph: Math.atan2(Pim, Pre) * 180 / Math.PI };
+}
+
+function update() {
+    const fn = parseFloat(document.getElementById('fn-slider').value);
+    const zeta = parseFloat(document.getElementById('zeta-slider').value);
+    const Wn = 2 * Math.PI * fn;
+    document.getElementById('fn-val').textContent = fmtHz(fn);
+    document.getElementById('zeta-val').textContent = zeta.toFixed(2);
+
+    const mag = [], phRaw = [];
+    for (const f of freqs){ const p = pPoint(f, Wn, zeta); mag.push({x:f,y:p.mag}); phRaw.push(p.ph); }
+    // 相位展開
+    let off = 0; const ph = [];
+    for (let i=0;i<phRaw.length;i++){ if(i>0){ const d=phRaw[i]-phRaw[i-1]; if(d>180)off-=360; else if(d<-180)off+=360;} ph.push({x:freqs[i], y:phRaw[i]+off}); }
+
+    const peakDb = 20 * Math.log10(1 / (2 * zeta));
+    document.getElementById('peak-val').textContent = '+' + peakDb.toFixed(1) + ' dB';
+
+    magChart.data.datasets[0].data = mag;
+    magChart.data.datasets[1].data = [{x:fn,y:-60},{x:fn,y:40}];
+    magChart.update();
+    phaseChart.data.datasets[0].data = ph;
+    phaseChart.data.datasets[1].data = [{x:fn,y:-185},{x:fn,y:5}];
+    phaseChart.update();
+
+    document.getElementById('narrative').textContent =
+        `這個 LC 在 ${fmtHz(fn)} 有一個 +${peakDb.toFixed(1)} dB 的諧振峰(阻尼 ζ=${zeta.toFixed(2)})。${zeta < 0.15 ? '阻尼很小,峰又尖又高——非常危險,稍微被控制器推一下就會振盪。' : zeta < 0.4 ? '阻尼偏低,峰還算明顯,設計時要留意。' : '阻尼夠大,峰被壓得很平,相對安全。'} 注意峰右邊增益用 −40dB/decade 急墜、相位摔到 −180°。`;
+}
+
+function init() {
+    const common = {
+        responsive: true, maintainAspectRatio: false, parsing: false, animation: { duration: 80 },
+        elements: { point: { radius: 0 }, line: { tension: 0 } },
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: { x: { type: 'logarithmic', min: F_MIN, max: F_MAX, title: { display: true, text: '頻率 (Hz, log)' }, grid: { color: 'rgba(0,0,0,.05)' } } }
+    };
+
+    function hLine(y, color, dash){ return { data:[{x:F_MIN,y},{x:F_MAX,y}], borderColor:color, borderWidth:1.5, borderDash:dash, pointRadius:0, fill:false }; }
+
+    magChart = new Chart(document.getElementById('magChart').getContext('2d'), { type:'line',
+        data:{ datasets:[
+            { data:[], borderColor:'#f59e0b', borderWidth:2.5, fill:false },
+            { data:[], borderColor:'rgba(168,85,247,0.6)', borderWidth:1.5, borderDash:[3,3], pointRadius:0, fill:false }, // fn
+            hLine(0, 'rgba(239,68,68,0.5)', [6,4])
+        ]},
+        options:{ ...common, plugins:{ ...common.plugins, title:{ display:true, text:'P(s) 增益：fn(紫線) 處冒出諧振峰', align:'start' } },
+            scales:{ ...common.scales, y:{ min:-60, max:40, title:{ display:true, text:'Magnitude (dB)' }, grid:{ color:'rgba(0,0,0,.05)' } } } }
+    });
+
+    phaseChart = new Chart(document.getElementById('phaseChart').getContext('2d'), { type:'line',
+        data:{ datasets:[
+            { data:[], borderColor:'#f59e0b', borderWidth:2.5, fill:false },
+            { data:[], borderColor:'rgba(168,85,247,0.6)', borderWidth:1.5, borderDash:[3,3], pointRadius:0, fill:false },
+            hLine(-180, 'rgba(239,68,68,0.6)', [6,4])
+        ]},
+        options:{ ...common, plugins:{ ...common.plugins, title:{ display:true, text:'P(s) 相位：0° → −180°（在 fn 處過 −90°）', align:'start' } },
+            scales:{ ...common.scales, y:{ min:-190, max:10, title:{ display:true, text:'Phase (deg)' }, grid:{ color:'rgba(0,0,0,.05)' } } } }
+    });
+}
+
+['fn-slider','zeta-slider'].forEach(id => document.getElementById(id).addEventListener('input', update));
+init();
+update();
+</script>
+</body>
+</html>

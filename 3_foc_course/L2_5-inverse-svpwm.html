@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L2½ · 反 Clarke 與 SVPWM</title>
+<link rel="stylesheet" href="foc-style.css">
+</head>
+<body>
+<header class="top">
+  <div>
+    <div class="crumb">FOC 教學課程 · 補充課（輸出端）</div>
+    <h1>L2½ · 反 Clarke 與 SVPWM (αβ → 三相 PWM)</h1>
+    <div class="sub">控制器算完 αβ 後，怎麼變回三相、再變成開關占空比</div>
+  </div>
+  <div class="prog">補充 · 2½</div>
+</header>
+
+<main class="stage">
+  <div class="scopes two">
+    <div class="scope sq">
+      <canvas id="cv-xy"></canvas>
+      <span class="lab">αβ + 六邊形 + 扇區</span>
+      <span class="lab tr" id="sec">扇區 1</span>
+    </div>
+    <div class="scope sq">
+      <canvas id="cv-yt"></canvas>
+      <span class="lab">三相占空比 Da/Db/Dc（馬鞍波）</span>
+      <span class="lab tr"><span style="color:#34d399">●</span>Da <span style="color:#22d3ee">●</span>Db <span style="color:#a78bfa">●</span>Dc</span>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <h2>電壓指令</h2>
+    <div class="ctrl">
+      <div class="row"><span>向量長度 |V|</span><span class="v" id="v-m">0.80</span></div>
+      <input type="range" id="p-m" min="0.3" max="1.15" step="0.02" value="0.8">
+    </div>
+    <div class="ctrl">
+      <div class="row"><span>轉速 ω</span><span class="v" id="v-w">50 Hz</span></div>
+      <input type="range" id="p-w" min="10" max="200" value="50">
+    </div>
+    <label class="row" style="font-size:12px;display:flex;gap:8px;align-items:center">
+      <input type="checkbox" id="p-cm" checked> 加入共模注入（SVPWM）
+    </label>
+    <div class="readout">
+      <div class="cell"><span>所在扇區</span><span id="r-sec">1</span></div>
+      <div class="cell"><span>共模量</span><span id="r-cm">0.000</span></div>
+      <div class="cell"><span>Da</span><span id="r-da">0.50</span></div>
+      <div class="cell"><span>Db</span><span id="r-db">0.50</span></div>
+      <div class="cell"><span>Dc</span><span id="r-dc">0.50</span></div>
+      <div class="cell"><span>線性極限</span><span id="r-lim">0.577</span></div>
+    </div>
+    <div class="note">占空比 <code>D = 0.5 + (相電壓 + 共模)/2</code>，必須落在 0~1 之間。<br>
+      取消勾選共模 → 退回純正弦 SPWM，極限只到 <code>0.5</code>。</div>
+    <div class="task"><b>🎯 動手試</b>
+      看右圖三條占空比：勾選共模時是中間凹的<strong>馬鞍波</strong>；取消勾選變回純正弦。把 <code>|V|</code> 拉到 <code>0.5</code> 以上，純正弦會頂到 1（飽和），但馬鞍波還撐得住 —— 這就是 SVPWM 多出來的約 15% 電壓。</div>
+    <div class="aha"><b>💡 你學到了</b>
+      反 Clarke 把 αβ 拆回三相 <code>Va/Vb/Vc</code>；SVPWM 再疊一個共模（≈3 次諧波，三相同步加減、不影響線電壓），把每相壓低，於是線性區從 SPWM 的 0.5 撐到 0.577（內切圓 1.0）。左圖扇區告訴你此刻該用哪兩個基本向量 V1–V6 合成。</div>
+  </aside>
+</main>
+
+<nav class="foot">
+  <a href="L2-clarke.html">← L2</a>
+  <a href="index.html">課程地圖</a>
+  <a class="next" href="L3-park.html">回主線：L3 Park 變換 →</a>
+</nav>
+
+<script src="foc-core.js"></script>
+<script>
+const cvXY=document.getElementById('cv-xy'),ctxXY=cvXY.getContext('2d');
+const cvYT=document.getElementById('cv-yt'),ctxYT=cvYT.getContext('2d');
+const pM=document.getElementById('p-m'),pW=document.getElementById('p-w'),pCM=document.getElementById('p-cm');
+let mag=0.8,w=50,useCM=true,theta=0,last=performance.now();
+
+function ui(){mag=+pM.value;w=+pW.value;useCM=pCM.checked;
+  document.getElementById('v-m').textContent=mag.toFixed(2);
+  document.getElementById('v-w').textContent=w+' Hz';
+  document.getElementById('r-lim').textContent=useCM?'0.577':'0.500';}
+[pM,pW].forEach(p=>p.addEventListener('input',ui));
+pCM.addEventListener('change',ui);
+function duties(a){
+  const al=mag*Math.cos(a),be=mag*Math.sin(a);
+  const t=FOC.invClarke(al,be);
+  let cm=0;
+  if(useCM){const mx=Math.max(t.a,t.b,t.c),mn=Math.min(t.a,t.b,t.c);cm=-(mx+mn)/2;}
+  return {da:0.5+(t.a+cm)*0.5, db:0.5+(t.b+cm)*0.5, dc:0.5+(t.c+cm)*0.5, cm};
+}
+function resize(){FOC.fit(cvXY);FOC.fit(cvYT);}
+window.addEventListener('resize',resize);
+
+function loop(now){
+  const dt=Math.min(.016,(now-last)/1000);last=now;
+  theta=(theta+FOC.TAU*w*dt)%FOC.TAU;
+  const al=mag*Math.cos(theta),be=mag*Math.sin(theta);
+  let phi=Math.atan2(be,al);if(phi<0)phi+=FOC.TAU;
+  const sector=Math.floor(phi/(Math.PI/3))%6;
+
+  // 左：αβ 六邊形 + 扇區高亮
+  const W=cvXY.width,H=cvXY.height,cx=W/2,cy=H/2,s=Math.min(W,H)*0.40;
+  FOC.plane(ctxXY,W,H,cx,cy,s,{unitCircle:true,hexagon:true});
+  const rv=(2/FOC.SQ3)*s;
+  ctxXY.fillStyle='rgba(16,185,129,.12)';
+  ctxXY.beginPath();ctxXY.moveTo(cx,cy);
+  ctxXY.lineTo(cx+rv*Math.cos(sector*Math.PI/3),cy-rv*Math.sin(sector*Math.PI/3));
+  ctxXY.lineTo(cx+rv*Math.cos((sector+1)*Math.PI/3),cy-rv*Math.sin((sector+1)*Math.PI/3));
+  ctxXY.closePath();ctxXY.fill();
+  ctxXY.fillStyle='rgba(239,68,68,.6)';ctxXY.font='10px monospace';
+  for(let i=0;i<6;i++){const a=i*Math.PI/3;ctxXY.fillText('V'+(i+1),cx+(rv+11)*Math.cos(a)-7,cy-(rv+11)*Math.sin(a)+3);}
+  FOC.vector(ctxXY,cx,cy,al,be,s,'#34d399');
+
+  // 右：三相占空比（0..1，畫在下半，0.5 為中線）
+  const W2=cvYT.width,H2=cvYT.height,mid=H2/2,sy=H2*0.42;
+  ctxYT.clearRect(0,0,W2,H2);
+  ctxYT.strokeStyle='rgba(99,102,241,.15)';ctxYT.beginPath();
+  ctxYT.moveTo(0,mid);ctxYT.lineTo(W2,mid);
+  ctxYT.moveTo(0,mid-sy);ctxYT.lineTo(W2,mid-sy);ctxYT.moveTo(0,mid+sy);ctxYT.lineTo(W2,mid+sy);
+  ctxYT.stroke();
+  ctxYT.fillStyle='rgba(148,163,184,.6)';ctxYT.font='10px monospace';
+  ctxYT.fillText('1.0',4,mid-sy+10);ctxYT.fillText('0.5',4,mid+3);ctxYT.fillText('0.0',4,mid+sy-2);
+  const A=[],B=[],C=[];
+  for(let x=0;x<W2;x++){const ang=theta-(x/W2)*FOC.TAU*1.5;const d=duties(ang);
+    A.push({x:W2-x,y:mid-(d.da-0.5)*2*sy});
+    B.push({x:W2-x,y:mid-(d.db-0.5)*2*sy});
+    C.push({x:W2-x,y:mid-(d.dc-0.5)*2*sy});}
+  FOC.poly(ctxYT,A,'#34d399');FOC.poly(ctxYT,B,'#22d3ee');FOC.poly(ctxYT,C,'#a78bfa');
+
+  const d=duties(theta);
+  document.getElementById('sec').textContent='扇區 '+(sector+1);
+  document.getElementById('r-sec').textContent=(sector+1);
+  document.getElementById('r-cm').textContent=d.cm.toFixed(3);
+  document.getElementById('r-da').textContent=d.da.toFixed(2);
+  document.getElementById('r-db').textContent=d.db.toFixed(2);
+  document.getElementById('r-dc').textContent=d.dc.toFixed(2);
+  requestAnimationFrame(loop);
+}
+resize();ui();requestAnimationFrame(loop);
+</script>
+<script src="foc-quiz.js"></script>
+<script>FOCQuiz.mount('L2_5')</script>
+<script src="foc-lab.js"></script>
+<script>FOCLab.mount('L2_5')</script>
+</body>
+</html>

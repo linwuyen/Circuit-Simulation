@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第 2 課 · 半橋臂與直通短路</title>
+  <script src="../../assets/vendor/tailwindcss-cdn.js"></script>
+  <link rel="stylesheet" href="shared/theme.css">
+</head>
+<body class="min-h-screen">
+  <div class="max-w-6xl mx-auto px-4 py-6">
+    <header class="flex items-center justify-between mb-5">
+      <div class="flex items-center gap-3">
+        <span class="tag text-emerald-400">第 2 課 / 8</span>
+        <h1 class="text-lg md:text-xl font-bold text-slate-100">🪜 半橋臂與直通短路</h1>
+      </div>
+      <a href="index.html" class="text-xs text-slate-400 hover:text-emerald-400">📍 課程地圖</a>
+    </header>
+
+    <div class="edu-card edu-goal mb-4">
+      <h3 class="text-emerald-400">🎯 本課目標</h3>
+      <p>認識電力電子最基本的積木——<b>半橋臂 (Half-Bridge / 一條 leg)</b>：一個上管、一個下管，輪流把輸出點接到正母線或負母線，產生 <b>+Vdc/2</b> 或 <b>−Vdc/2</b>。同時親手「製造」一次最致命的錯誤：<span class="gloss" title="上下管同時導通，母線被直接短路">直通短路 (Shoot-through)</span>，理解為什麼真實電路一定要留<b>死區時間</b>。</p>
+    </div>
+
+    <div id="sim" class="mb-5"></div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+      <div class="edu-card edu-try">
+        <h3 class="text-amber-400">🔬 動手做</h3>
+        <ol>
+          <li><b>手動模式</b>下，點 <b>Q1</b>（或捷徑「上管 Q1」）→ 輸出 CH1 跳到 <b>+50V</b>（接上正母線）。</li>
+          <li>點「柵極全關」，再點 <b>Q2</b> → 輸出跳到 <b>−50V</b>。這就是一條 leg 的兩種狀態。</li>
+          <li><b>製造災難：</b>同時把 <b>Q1 和 Q2 都點亮</b>（直接點電路圖兩個開關）→ 紅色<b>直通短路警告</b>會跳出來！</li>
+          <li>清除後，按 <b>「自動 PWM 控制」</b>，把調變策略切到「方波」→ 看 leg 自動上下交替。</li>
+        </ol>
+      </div>
+      <div class="edu-card edu-expect">
+        <h3 class="text-cyan-400">✅ 你應該看到 / 為什麼</h3>
+        <p>一條 leg 的輸出永遠是 <b>+Vdc/2</b> 或 <b>−Vdc/2</b> 二選一，參考點是電容分壓的<b>中性點 N</b>。</p>
+        <p>當上下管同時導通，正負母線之間只剩開關的微小內阻，電流瞬間衝到數千安培 → 開關熱擊穿炸毀。所以真實的閘極驅動一定會插入 <b>死區時間 (dead-time)</b>：先確定一管完全關閉，才允許另一管開啟。</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="edu-card edu-apply">
+        <h3 class="text-blue-400">🌍 這在真實世界用在哪</h3>
+        <ul>
+          <li>幾乎所有逆變器、變頻器、馬達驅動，每一相都是一條這樣的 leg。</li>
+          <li>TI C2000 的 <b>ePWM 模組</b>有專門的「<b>Dead-Band (DB)</b>」子模組，硬體自動插入死區。</li>
+          <li>同步降壓 (Buck) 的上下管也是一條 leg，差別只在控制策略。</li>
+        </ul>
+      </div>
+      <div class="edu-card edu-tradeoff">
+        <h3 class="text-purple-300">⚖️ 工程取捨</h3>
+        <p>死區時間<b>太短</b> → 可能直通短路、燒管；<b>太長</b> → 輸出電壓被「吃掉」一小塊，造成<b>死區失真 (dead-time distortion)</b>，低速時馬達會抖動、電流出現尖角。實務上要依開關的關斷時間，取「夠安全又夠小」的值（常見 0.5~3µs）。</p>
+      </div>
+    </div>
+
+    <div class="edu-card quiz mt-4">
+      <h3 class="text-slate-200">❓ 考考你</h3>
+      <details><summary>半橋輸出的「0V」參考點實際上在哪裡？</summary><div class="ans">在兩顆分壓電容 C1、C2 的中點，也就是中性點 N。所以輸出在 +Vdc/2 與 −Vdc/2 之間擺動，而不是 +Vdc 與 0。</div></details>
+      <details><summary>為什麼上下管「同時導通」是致命的，而「同時關斷」卻安全？</summary><div class="ans">同時導通 = 母線被金屬性短路 → 數千安培 → 炸毀。同時關斷時電流沒有短路路徑，電感電流會改走反並聯二極體續流（第 1 課學過），是安全的。</div></details>
+      <details><summary>死區時間設太大，會在輸出波形上看到什麼？</summary><div class="ans">輸出基波被削弱、波形在過零點附近出現「平台或尖角」——死區失真。需要靠軟體補償（dead-time compensation）。</div></details>
+    </div>
+
+    <nav id="lesson-nav" class="lesson-nav"></nav>
+  </div>
+
+  <script src="shared/widget.js"></script>
+  <script src="shared/ui.js"></script>
+  <script>
+    PE.mount('#sim', {
+      topology: 'half',
+      allowTopology: false,
+      loads: ['R', 'RL'],
+      modulations: ['square', 'spwm'],
+      controls: { ma: true, freq: true, fc: true, manual: true },
+      channels: { ch1: true, ch3: true, ch4: false },
+      defaults: { load: 'R', modulation: 'square', autoMode: false, ma: 0.9 },
+      metrics: false
+    });
+    EDU.renderNav(2);
+  </script>
+</body>
+</html>

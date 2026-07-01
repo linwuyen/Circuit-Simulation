@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>第8課 SPI 與設計計算機 — AD5543 教學</title>
+<link rel="stylesheet" href="assets/common.css" />
+</head>
+<body>
+<div class="wrap">
+  <div id="nav-top"></div>
+
+  <div class="lesson-head">
+    <span class="lesson-num">第 8 課 · 綜合實戰</span>
+    <h1>SPI 怎麼送資料 + 反向設計計算機</h1>
+    <p class="goal">這一課你會懂:那 16 個 bit 是怎麼透過 <b>SPI</b> 送進晶片的;並學會反過來算「<b>我要輸出某個電壓,該寫什麼 hex 碼</b>」,還能直接產生 MCU 程式碼。</p>
+  </div>
+
+  <div class="teach">
+    <div class="analogy">
+      <span class="emoji">🔌</span>
+      <div>SPI 是一條「一個一個 bit 排隊送」的序列介面。流程:<b>CS 拉低</b>開始 → 沿著 <b>CLK</b> 邊緣,把 bit15…bit0(<b>MSB 先送</b>)推進晶片裡的移位暫存器 → <b>CS 拉高</b>鎖存,DAC 同時更新輸出。
+      下面波形的 SDI 線,高低起伏就是你目前數位碼的每一個 bit。</div>
+    </div>
+  </div>
+
+  <div class="panel sim">
+    <div class="sec-label" style="margin:0">SPI 序列時序</div>
+    <p id="spiCaption" class="hint" style="margin-top:0"></p>
+    <div class="viz"><div id="spi"></div></div>
+    <div class="row-between">
+      <div class="sec-label" style="margin:0">16-bit 暫存器(點一下翻位元)</div>
+      <span class="hint" style="margin:0">左 MSB → 右 LSB</span>
+    </div>
+    <div id="bitReg" class="bitreg"></div>
+  </div>
+
+  <div class="panel">
+    <div class="sec-label">🎯 反向設計計算機(最實用)</div>
+    <p class="hint" style="margin-top:0">輸入你想要的輸出電壓,選好 VREF 與拓樸,它會算出該寫進晶片的數位碼與 hex,並提示誤差。</p>
+    <div class="calc-grid">
+      <div class="field"><label>想要的 VOUT (V)</label><input id="want" type="number" value="-3.5" step="0.001" oninput="calc()" /></div>
+      <div class="field"><label>VREF (V)</label><input id="cvref" type="number" value="10" step="0.1" oninput="calc()" /></div>
+      <div class="field"><label>輸出拓樸</label>
+        <select id="cmode" onchange="calc()">
+          <option value="standard">單級(負輸出,標準)</option>
+          <option value="positive">雙級(正輸出)</option>
+        </select>
+      </div>
+      <div class="field"><label>　</label><button class="btn accent" onclick="syncToSim()">↑ 把結果送到上方波形</button></div>
+    </div>
+    <div class="result-card" id="calcOut" style="margin-top:14px"></div>
+  </div>
+
+  <div class="panel">
+    <div class="sec-label">💻 自動產生的 MCU 程式碼(Arduino / SPI)</div>
+    <pre class="code" id="codeOut"></pre>
+    <p class="hint">這是把上面算出的 16-bit 碼透過硬體 SPI 一次送出的雛形。實際接腳與 SPI 模式(CPOL/CPHA)請對照你 MCU 與 AD5543 的 datasheet。</p>
+  </div>
+
+  <div class="takeaways">
+    <div class="sec-label">📌 重點整理 + 全課總結</div>
+    <ul>
+      <li>SPI 送碼三步:<b>CS↓ → 沿 CLK 推 16 bit(MSB 先) → CS↑ 鎖存更新</b>。</li>
+      <li>正向:VOUT = ±VREF × (D/2¹⁶);<b>反向</b>:D = round(目標比例 × 2¹⁶),再轉成 hex 送出。</li>
+      <li>整門課串起來:<b>數位碼 → R-2R → IOUT → TIA/RFB → VOUT</b>,再加上極性選擇、線性、誤差校正與 SPI 通訊,就是一條完整可用的訊號鏈。🎉</li>
+    </ul>
+  </div>
+
+  <div class="quiz" id="quiz"></div>
+  <div id="refs"></div>
+  <div id="nav-bottom"></div>
+</div>
+
+<script src="assets/common.js"></script>
+<script>
+const state = { vref: 10, code: 14336, mode: 'standard' };
+function toggleBit(i){ const w = Math.pow(2,15-i); const b = (state.code >> (15-i)) & 1; state.code = b ? state.code - w : state.code + w; renderSim(); }
+
+function renderSim(){
+  const c = DAC.compute(state);
+  document.getElementById('spi').innerHTML = DAC.buildSpi(c);
+  document.getElementById('bitReg').innerHTML = DAC.buildBitReg(c);
+  document.getElementById('spiCaption').innerHTML =
+    'CS 拉低 → 沿 CLK 邊緣把 bit15…bit0(<b>MSB 先進</b>)推入移位暫存器 → CS 拉高鎖存更新 DAC。'
+    + '下面 SDI 波形 = 目前數位碼 <span style="color:var(--green-400)">0x'+state.code.toString(16).toUpperCase().padStart(4,'0')+'</span>。';
+}
+
+function calc(){
+  const want = parseFloat(document.getElementById('want').value);
+  const vref = parseFloat(document.getElementById('cvref').value);
+  const mode = document.getElementById('cmode').value;
+  const out = document.getElementById('calcOut');
+  if (isNaN(want) || isNaN(vref)){ out.innerHTML = '<span class="hint">請輸入數值。</span>'; updateCode(null); return; }
+  const r = DAC.solveCode(want, vref, mode);
+  if (!r){ out.innerHTML = '<span class="hint">VREF 不能為 0。</span>'; updateCode(null); return; }
+  const hex = '0x'+r.code.toString(16).toUpperCase().padStart(4,'0');
+  out.innerHTML =
+      '<div style="font-size:.85rem;color:var(--slate-400)">要寫入的數位碼</div>'
+    + '<div class="big">'+hex+'</div>'
+    + '<p style="margin:4px 0 0;font-family:var(--mono);color:var(--slate-200)">十進位 D = '+r.code+'　|　比例 = '+(r.code/DAC.MAX*100).toFixed(2)+'%</p>'
+    + '<p style="margin:8px 0 0;font-family:var(--mono);font-size:.88rem">實際可達 VOUT = <span style="color:var(--green-400)">'+r.achieved.toFixed(4)+' V</span>'
+    + '　(誤差 '+(r.error*1000).toFixed(2)+' mV)</p>'
+    + (r.reachable ? '' : '<p style="margin:8px 0 0;color:var(--orange-400);font-size:.85rem">⚠ 這個目標超出此 VREF 能達到的範圍,已取最接近的端點。試著加大 |VREF|,或改用另一種拓樸/VREF 極性。</p>');
+  updateCode(r.code, vref, mode);
+}
+
+let lastCalc = { code: 14336, vref: 10, mode: 'standard' };
+function updateCode(code, vref, mode){
+  if (code === null){ document.getElementById('codeOut').textContent = '// 請先在上方輸入有效數值'; return; }
+  lastCalc = { code, vref, mode };
+  const hex = '0x'+code.toString(16).toUpperCase().padStart(4,'0');
+  document.getElementById('codeOut').innerHTML =
+      '<span class="cmt">// AD5543 — 透過 SPI 寫入 16-bit 數位碼</span>\n'
+    + '<span class="cmt">// 目標 VOUT '+(mode==='positive'?'(雙級正輸出)':'(單級負輸出)')+',VREF = '+vref+' V</span>\n'
+    + '<span class="kw">#include</span> &lt;SPI.h&gt;\n'
+    + '<span class="kw">const int</span> CS_PIN = <span class="num">10</span>;\n\n'
+    + '<span class="kw">void</span> setup() {\n'
+    + '  pinMode(CS_PIN, OUTPUT);\n'
+    + '  digitalWrite(CS_PIN, HIGH);\n'
+    + '  SPI.begin();\n'
+    + '  SPI.beginTransaction(SPISettings(<span class="num">10000000</span>, MSBFIRST, SPI_MODE0));\n'
+    + '  writeDAC(<span class="num">'+hex+'</span>);  <span class="cmt">// D = '+code+'</span>\n'
+    + '}\n\n'
+    + '<span class="kw">void</span> writeDAC(uint16_t code) {\n'
+    + '  digitalWrite(CS_PIN, LOW);      <span class="cmt">// CS↓ 開始</span>\n'
+    + '  SPI.transfer16(code);           <span class="cmt">// MSB 先,送 16 bit</span>\n'
+    + '  digitalWrite(CS_PIN, HIGH);     <span class="cmt">// CS↑ 鎖存更新輸出</span>\n'
+    + '}\n\n'
+    + '<span class="kw">void</span> loop() {}';
+}
+
+function syncToSim(){
+  state.code = lastCalc.code; state.vref = lastCalc.vref; state.mode = lastCalc.mode;
+  renderSim();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+DAC.renderNav('08-spi-design.html');
+renderSim();
+calc();
+document.getElementById('refs').innerHTML = DAC.readMore([
+  { term: 'Serial Interface (3-wire)', desc: 'CS / SCLK / SDIN 三線 SPI,相容標準 SPI(MSB first)。' },
+  { term: 'SCLK Max Frequency', desc: 'datasheet 的最高時脈與建立/保持時間(setup/hold),決定更新速率。' },
+  { term: 'SPI Mode (CPOL/CPHA)', desc: '依資料在 SCLK 哪個邊緣被取樣,選對應的 SPI 模式;程式碼裡的 SPI_MODE0 需對照確認。' },
+  { term: 'Load / Latch', desc: 'CS 上升緣鎖存移位暫存器內容並更新 DAC 輸出。' },
+]);
+DAC.quiz('quiz', [
+  { q: 'SPI 送資料時,哪個 bit 通常最先送進去?',
+    options: ['LSB(bit0)','MSB(bit15)','中間那個','隨機'],
+    answer: 1,
+    explain: 'AD5543 是 MSB first:先送最高位 bit15,最後送 bit0。' },
+  { q: 'CS(片選)在一次寫入中的作用?',
+    options: ['提供電源','拉低開始傳輸、拉高鎖存更新 DAC','當作時脈','輸出電壓'],
+    answer: 1,
+    explain: 'CS↓ 框出一次傳輸,16 bit 推完後 CS↑ 鎖存,DAC 才更新輸出。' },
+  { q: '想輸出 −2.5 V、VREF = 10 V、單級拓樸,數位碼大約?',
+    options: ['0x2000','0x4000','0x8000','0xFFFF'],
+    answer: 1,
+    explain: '比例 = 2.5/10 = 0.25 → D = 0.25 × 65536 = 16384 = 0x4000。' },
+  { q: '反向設計時,若目標電壓超出 VREF 能達到的範圍,計算機會?',
+    options: ['當機','夾在最接近的端點並提示你加大 |VREF|','自動改 VREF','輸出隨機碼'],
+    answer: 1,
+    explain: '碼會被夾到 0 或 0xFFFF,並提示超範圍 —— 需加大 |VREF| 或換拓樸/極性。' },
+  { q: '程式碼 SPI.transfer16(code) 一次送出幾個位元?',
+    options: ['8','16','32','視 code 大小而定'],
+    answer: 1,
+    explain: 'transfer16 一次送 16 bit,正好對應這顆 16-bit DAC 的一筆資料。' },
+], '08-spi-design.html', { pick: 3 });
+</script>
+</body>
+</html>

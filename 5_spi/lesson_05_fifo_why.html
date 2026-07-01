@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>05. 為什麼需要 FIFO</title>
+  <link rel="stylesheet" href="assets/spi.css">
+  <style>
+    canvas#tank { height: 340px; }
+  </style>
+</head>
+<body data-lesson="05">
+  <header>
+    <div class="header-inner">
+      <p class="eyebrow">SPI 初學者課程 · 第 6 課 / 共 9 課</p>
+      <h1>05. 為什麼需要 FIFO</h1>
+      <p class="subtitle">時序全對，資料還是會掉？這一課先用「水桶」建立直覺：FIFO 不是加速器，只是一個緩衝水桶。進水比出水快太久，桶子終究會滿、會溢出。</p>
+      <nav class="top-nav" id="lessonNav"></nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="tldr">
+      <span class="k">🎯 一句話先懂</span>
+      <p><span class="term" data-tip="First In First Out：先進先出的硬體小佇列，暫存還沒被讀走的資料">FIFO</span> 是 SPI 與 CPU 之間的一個小佇列。它能<strong>吸收短時間的爆量</strong>，但<strong>不能改變平均速度</strong>——只要「平均讀走速度 < 平均進來速度」，遲早溢位。</p>
+    </section>
+
+    <section class="analogy">
+      <span class="k">🪣 生活比喻</span>
+      <p>水龍頭（SPI 進資料）一直流進水桶（FIFO），你拿杯子（CPU）一杯一杯舀出去。桶子大一點，可以撐過水流突然變大的瞬間；但如果你舀的速度長期跟不上水流，桶子再大也會滿出來——滿出來的水（資料）就<strong>永遠回不來了</strong>。</p>
+    </section>
+
+    <div class="layout-2col">
+      <section class="stack">
+        <div class="panel">
+          <div class="panel-title"><h2>🎮 調速度看水位</h2><small></small></div>
+          <div class="field-grid">
+            <div class="field">
+              <label for="inRate"><span>進水：SPI 收進來</span><small id="inVal">6.0 /單位</small></label>
+              <input id="inRate" type="range" min="0" max="10" step="0.5" value="6">
+              <div class="hint">SCLK 越快、資料越密，進水越大。</div>
+            </div>
+            <div class="field">
+              <label for="outRate"><span>出水：CPU 讀走</span><small id="outVal">5.0 /單位</small></label>
+              <input id="outRate" type="range" min="0" max="10" step="0.5" value="5">
+              <div class="hint">CPU 越閒、ISR 一次讀越多，出水越大。</div>
+            </div>
+            <div class="field">
+              <label for="depth"><span>水桶大小：FIFO 深度</span><small id="depthVal">16 格</small></label>
+              <input id="depth" type="range" min="0" max="16" step="1" value="16">
+              <div class="hint">0＝沒有 FIFO（CPU 慢一拍就掉）。</div>
+            </div>
+            <div class="btn-row">
+              <button class="btn" id="btnRun" type="button">開始</button>
+              <button class="btn warning" id="btnReset" type="button">重設</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><h2>三種狀況</h2><small>調速度比比看</small></div>
+          <div class="prose">
+            <ul>
+              <li><strong>出 ≥ 進</strong>：水位穩定，永遠不會溢。理想狀態。</li>
+              <li><strong>進略大於出</strong>：水位慢慢爬升，FIFO 越大能撐越久，但終會滿。</li>
+              <li><strong>進遠大於出</strong>：很快溢位，FIFO 大小幾乎沒幫助。</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="stack">
+        <div class="metric-grid">
+          <div class="metric"><span>目前水位</span><strong id="mLevel">0</strong></div>
+          <div class="metric"><span>淨流速 (進−出)</span><strong id="mNet">+1.0</strong></div>
+          <div class="metric"><span>已掉資料</span><strong id="mLost">0</strong></div>
+          <div class="metric"><span>狀態</span><strong id="mState">就緒</strong></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><h2>水桶</h2><small id="tankTag">FIFO 深度 16</small></div>
+          <div class="canvas-wrap"><canvas id="tank" width="820" height="340"></canvas></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><h2>結論</h2><small id="verdictTag">—</small></div>
+          <div id="verdict" class="callout info">
+            <span class="k" id="vTitle">先按「開始」</span>
+            <p id="vText">調整左邊三個滑桿，按開始觀察水位變化。</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel">
+      <div class="panel-title"><h2>⚠️ 初學者最常誤會</h2><small></small></div>
+      <div class="prose" style="display:grid;gap:10px">
+        <div class="callout danger">
+          <span class="k">「開了 FIFO 就不會掉資料了」</span>
+          <p>錯。FIFO 只是把「立刻掉」延後成「撐一段時間後掉」。真正的解法是讓<strong>平均出水 ≥ 平均進水</strong>：降 SCLK、ISR 一次多讀幾筆、加 gap，或交給 DMA。下一課就來實測。</p>
+        </div>
+        <div class="callout tip">
+          <span class="k">FIFO 真正的價值</span>
+          <p>讓 CPU 不必每來一筆就被打斷一次——可以累積到半滿才一次處理，大幅降低中斷負擔，也能吸收偶發的爆量。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title"><h2>✅ 自我檢查</h2><small></small></div>
+      <div class="quiz" data-answer="2">
+        <div class="q">進水長期略大於出水，把 FIFO 從 8 格加大到 16 格，會怎樣？</div>
+        <div class="opts">
+          <button class="opt" data-i="0"><span class="mk">A</span><span>永遠不會溢位了</span></button>
+          <button class="opt" data-i="1"><span class="mk">B</span><span>出水速度也會跟著變快</span></button>
+          <button class="opt" data-i="2"><span class="mk">C</span><span>溢位時間往後延，但最終還是會溢</span></button>
+          <button class="opt" data-i="3"><span class="mk">D</span><span>進水會自動變慢</span></button>
+        </div>
+        <div class="explain">加大水桶只是多買了一點時間。只要平均進 > 平均出，水位的趨勢就是往上，桶子再大也救不了根本問題。</div>
+      </div>
+    </section>
+
+    <div class="pager" id="pager"></div>
+  </main>
+
+  <footer>下一課：用真實的 C2000 16-word FIFO 做 <a href="lesson_06_overrun.html">overrun 壓力測試</a>。</footer>
+
+  <script src="assets/spi-lesson.js"></script>
+  <script>
+    var $ = function (id) { return document.getElementById(id); };
+    var inR = $("inRate"), outR = $("outRate"), depthR = $("depth"), canvas = $("tank");
+    var level = 0, lost = 0, t = 0, raf = null, running = false, drops = [];
+
+    function P() {
+      return { inn: parseFloat(inR.value), out: parseFloat(outR.value), depth: parseInt(depthR.value, 10) };
+    }
+    function reset() { stop(); level = 0; lost = 0; t = 0; drops = []; sync(); draw(); }
+    function stop() { running = false; if (raf) cancelAnimationFrame(raf); raf = null; $("btnRun").textContent = "開始"; }
+    function run() {
+      if (running) { stop(); return; }
+      running = true; $("btnRun").textContent = "暫停"; last = performance.now(); loop();
+    }
+    var last = 0;
+    function loop() {
+      if (!running) return;
+      var now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now; t += dt;
+      var p = P();
+      var net = (p.inn - p.out);
+      level += net * dt * 3;          // 放大讓變化看得見
+      if (p.depth === 0) {
+        // 無 FIFO：只要進>出就持續掉，水位維持 0
+        if (p.inn > p.out) lost += (p.inn - p.out) * dt * 3;
+        level = 0;
+      } else {
+        if (level > p.depth) { lost += (level - p.depth); level = p.depth; }
+        if (level < 0) level = 0;
+      }
+      if (p.inn > 0 && Math.random() < p.inn / 16) drops.push({ x: 0.5 + (Math.random() - 0.5) * 0.3, y: 0 });
+      drops.forEach(function (d) { d.y += dt * 1.6; });
+      drops = drops.filter(function (d) { return d.y < 1; });
+      sync(); draw();
+      raf = requestAnimationFrame(loop);
+    }
+    function sync() {
+      var p = P();
+      $("inVal").textContent = p.inn.toFixed(1) + " /單位";
+      $("outVal").textContent = p.out.toFixed(1) + " /單位";
+      $("depthVal").textContent = p.depth === 0 ? "0（無 FIFO）" : p.depth + " 格";
+      $("tankTag").textContent = p.depth === 0 ? "無 FIFO" : "FIFO 深度 " + p.depth;
+      var net = p.inn - p.out;
+      $("mLevel").textContent = p.depth === 0 ? "—" : level.toFixed(1) + " / " + p.depth;
+      $("mNet").textContent = (net >= 0 ? "+" : "") + net.toFixed(1);
+      $("mNet").style.color = net > 0 ? "var(--red)" : net < 0 ? "var(--green)" : "var(--ink)";
+      $("mLost").textContent = Math.floor(lost);
+      var full = p.depth > 0 && level >= p.depth - 0.01;
+      var state, cls, vt, vx, vtag;
+      if (p.depth === 0 && p.inn > p.out) {
+        state = "持續掉資料"; cls = "danger"; vtag = "無緩衝";
+        vt = "沒有 FIFO，CPU 一慢就掉"; vx = "沒有水桶，水龍頭一開大於杯子的速度，多的水當場流掉。這就是為什麼高速連續資料幾乎一定要開 FIFO。";
+      } else if (net <= 0) {
+        state = "穩定"; cls = "tip"; vtag = "安全";
+        vt = "出水 ≥ 進水：永不溢位"; vx = "CPU 讀走的速度跟得上，水位穩定。這是你要追求的狀態：降 SCLK 或加快讀取都能達到。";
+      } else if (full && lost > 0) {
+        state = "溢位中"; cls = "danger"; vtag = "overrun";
+        vt = "水桶滿了，開始掉資料"; vx = "進 > 出 撐到水桶滿，之後每一筆新資料都覆蓋掉舊的 = overrun。已掉 " + Math.floor(lost) + " 筆。要嘛降進水、要嘛加大出水。";
+      } else {
+        state = "水位上升"; cls = "warn"; vtag = "倒數中";
+        var room = p.depth - level, ttf = net > 0 ? (room / (net * 3)) : Infinity;
+        vt = "進 > 出，水位正在爬"; vx = "目前還沒滿，但趨勢往上。以這個淨流速，大約再 " + ttf.toFixed(1) + " 秒就會滿。FIFO 越大撐越久，但治標不治本。";
+      }
+      $("mState").textContent = state;
+      $("verdict").className = "callout " + cls;
+      $("verdictTag").textContent = vtag;
+      $("vTitle").textContent = vt;
+      $("vText").textContent = vx;
+    }
+    function draw() {
+      var p = P(), rect = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(420, Math.round(rect.width * dpr));
+      canvas.height = Math.max(300, Math.round(rect.height * dpr));
+      var ctx = canvas.getContext("2d"); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.scale(dpr, dpr);
+      var w = canvas.width / dpr, h = canvas.height / dpr;
+      ctx.fillStyle = "#0b1220"; ctx.fillRect(0, 0, w, h);
+      var tankW = 150, tankH = 220, tx = w / 2 - tankW / 2, ty = 60;
+
+      // 進水管 + 水滴
+      ctx.fillStyle = "#94a3b8"; ctx.font = "12px Segoe UI, sans-serif";
+      ctx.fillText("SPI 進資料", tx + tankW / 2 - 36, 28);
+      ctx.strokeStyle = "#5eead4"; ctx.lineWidth = 2;
+      drops.forEach(function (d) {
+        ctx.fillStyle = "#5eead4";
+        ctx.beginPath(); ctx.arc(tx + tankW * d.x, ty - 28 + d.y * 28, 3, 0, 7); ctx.fill();
+      });
+
+      // 桶
+      if (p.depth === 0) {
+        ctx.strokeStyle = "#475569"; ctx.setLineDash([6, 5]);
+        ctx.strokeRect(tx, ty, tankW, tankH); ctx.setLineDash([]);
+        ctx.fillStyle = "#64748b"; ctx.fillText("（沒有水桶）", tx + 30, ty + tankH / 2);
+      } else {
+        ctx.strokeStyle = "#64748b"; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx, ty + tankH); ctx.lineTo(tx + tankW, ty + tankH); ctx.lineTo(tx + tankW, ty); ctx.stroke();
+        // 水位
+        var frac = Math.max(0, Math.min(1, level / p.depth));
+        var wh = tankH * frac, wy = ty + tankH - wh;
+        var full = frac >= 0.999;
+        ctx.fillStyle = full ? "rgba(239,68,68,0.55)" : "rgba(45,212,191,0.5)";
+        ctx.fillRect(tx + 2, wy, tankW - 4, wh - 1);
+        // 刻度
+        ctx.strokeStyle = "#1f2a44"; ctx.lineWidth = 1; ctx.fillStyle = "#64748b";
+        for (var g = 1; g < p.depth; g++) {
+          var gy = ty + tankH - tankH * (g / p.depth);
+          ctx.beginPath(); ctx.moveTo(tx, gy); ctx.lineTo(tx + 8, gy); ctx.stroke();
+        }
+        ctx.fillStyle = "#e2e8f0"; ctx.font = "13px Segoe UI, sans-serif";
+        ctx.fillText("水位 " + level.toFixed(1) + " / " + p.depth, tx + tankW + 14, wy + 4 > ty + 10 ? wy + 4 : ty + 14);
+        // 溢出
+        if (full && (p.inn > p.out)) {
+          ctx.fillStyle = "#ef4444";
+          ctx.fillText("溢出！資料遺失", tx - 4, ty - 8);
+          ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx - 16, ty - 16); ctx.stroke();
+        }
+      }
+
+      // 出水（杯子）
+      ctx.fillStyle = "#94a3b8"; ctx.font = "12px Segoe UI, sans-serif";
+      ctx.fillText("CPU 讀走 →", tx + tankW + 14, ty + tankH + 24);
+      ctx.strokeStyle = "#fbbf24"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(tx + tankW, ty + tankH - 14); ctx.lineTo(tx + tankW + 30, ty + tankH - 14); ctx.stroke();
+    }
+
+    [inR, outR, depthR].forEach(function (e) { e.addEventListener("input", function () { sync(); draw(); }); });
+    $("btnRun").addEventListener("click", run);
+    $("btnReset").addEventListener("click", reset);
+    window.addEventListener("resize", draw);
+    reset();
+  </script>
+</body>
+</html>

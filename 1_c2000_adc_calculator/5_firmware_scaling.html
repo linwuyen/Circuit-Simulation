@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第5課 · 韌體還原</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-lesson="5">
+<div class="wrap">
+  <div id="topnav"></div>
+
+  <div class="hero">
+    <div class="badge">5</div>
+    <div>
+      <h1>💻 韌體怎麼把數字還原成電流/電壓？</h1>
+      <p class="sub">ADC 丟給韌體的只是個數字 (count)。把前 4 課的換算「反過來做」就還原了。</p>
+    </div>
+  </div>
+
+  <div class="block goal">
+    <h2><span class="k">這一課</span> 要搞懂的一件事</h2>
+    <p class="big">算出兩個「還原係數」K_I、K_V，讓韌體用一行乘法就把 count 換回安培和伏特。</p>
+  </div>
+
+  <div class="block metaphor">
+    <h2>🌰 生活比喻</h2>
+    <p style="margin:0;color:#475569;">前面硬體做的是「<b>真實值 → 數字</b>」的翻譯；韌體要的是<b>反向字典</b>：「數字 → 真實值」。
+    K 就是這本反向字典裡的「<b>每 1 count 值多少</b>」匯率。電流還要再扣掉墊高對應的那部分 (I_offset)。</p>
+  </div>
+
+  <div class="block">
+    <h2>🔬 動手玩：填硬體規格 → 自動產生韌體參數</h2>
+    <div class="presets">
+      <button onclick="preset('evm')">F28004x EVM 預設</button>
+      <button onclick="preset('ev48')">48V 輕型</button>
+      <button onclick="preset('ev800')">800V 高壓</button>
+    </div>
+    <p class="note" style="margin:-8px 0 12px;">💡 點場景會同時填好上方硬體規格，並幫下方「反推設計」帶入對應的目標電流／電壓。</p>
+    <div class="fieldgrid">
+      <div class="field"><label>R_shunt (Ω)</label><input type="number" id="rsh" value="0.005" step="0.001"></div>
+      <div class="field"><label>Gain (V/V)</label><input type="number" id="gain" value="8.2" step="0.1"></div>
+      <div class="field"><label>Offset (V)</label><input type="number" id="off" value="1.65" step="0.05"></div>
+      <div class="field"><label>R_top (kΩ)</label><input type="number" id="rtop" value="2000" step="10"></div>
+      <div class="field"><label>R_bot (kΩ)</label><input type="number" id="rbot" value="8.25" step="0.05"></div>
+      <div class="field"><label>Vref (V)</label><input type="number" id="vref" value="3.3" step="0.1"></div>
+      <div class="field"><label>解析度</label>
+        <select id="bits"><option value="12" selected>12-bit</option><option value="16">16-bit</option></select>
+      </div>
+    </div>
+
+    <div style="margin-top:8px;">
+      <div class="row hl"><div><span class="lab">Current Scale (K_I)</span><br><span class="sub2">每 1 count 多少安培</span></div><div><span class="v" id="ki">0</span><span class="u">A/cnt</span></div></div>
+      <div class="row"><div><span class="lab">Current Offset</span><br><span class="sub2">墊高對應的電流（要扣掉）</span></div><div><span class="v" id="ioff">0</span><span class="u">A</span></div></div>
+      <div class="row hl"><div><span class="lab">Voltage Scale (K_V)</span><br><span class="sub2">每 1 count 多少伏特</span></div><div><span class="v" id="kv">0</span><span class="u">V/cnt</span></div></div>
+      <div class="row"><div><span class="lab">可量最大正電流</span><br><span class="sub2">ADC = FS 時</span></div><div><span class="v" id="imax">0</span><span class="u">A</span></div></div>
+      <div class="row"><div><span class="lab">可量最大負電流</span><br><span class="sub2">ADC = 0 時</span></div><div><span class="v" id="imin">0</span><span class="u">A</span></div></div>
+      <div class="row"><div><span class="lab">可量最大母線電壓</span><br><span class="sub2">ADC = FS 時</span></div><div><span class="v" id="vmax">0</span><span class="u">V</span></div></div>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin:14px 0 6px;">產生的 C Code（hal.h / user.h）</div>
+    <pre class="code" id="snippet"></pre>
+    <button class="copybtn" id="copybtn">📋 複製程式碼</button>
+
+    <details class="blue" open>
+      <summary>🔁 K_I、K_V 是怎麼「反推」出來的？</summary>
+      <div class="body">
+        <p><b>電流：</b>硬體做的是 <code>V_adc = I×R_shunt×Gain + Offset</code>，ADC 再把 V_adc 換成 count（每 count = LSB 伏特）。
+        反過來：<code>I = (count×LSB − Offset) ÷ (R_shunt×Gain)</code>。整理成 <code>I = count×K_I − I_offset</code>，
+        其中 <b>K_I = LSB ÷ (R_shunt×Gain)</b>、<b>I_offset = Offset ÷ (R_shunt×Gain)</b>。</p>
+        <p><b>電壓：</b><code>V_bus = V_adc ÷ 分壓比 = count×LSB×(R_top+R_bot)/R_bot</code>，
+        所以 <b>K_V = LSB×(R_top+R_bot)/R_bot</b>。</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>⚠️ 「可量最大範圍」為什麼重要？</summary>
+      <div class="body">
+        <p>這是這組硬體的物理極限。設計時要確保<b>實際最大電流/電壓還留餘裕</b>，別剛好頂到，
+        否則一有突波就飽和、讀數失真。一般留 10~20% headroom。</p>
+      </div>
+    </details>
+  </div>
+
+  <!-- 反推設計 -->
+  <div class="block" style="border-left:4px solid #8b5cf6;">
+    <h2><span class="k" style="background:#8b5cf6;">反推</span> 🎯 反推設計：給目標 → 算硬體</h2>
+    <p style="font-size:13px;color:#475569;margin:0 0 10px;">前面是「填硬體 → 檢查」；這裡反過來：填「你要量到多大」，自動反算需要的 <b>Gain</b> 與<b>分壓電阻</b>，並吸附到最接近的 <b>E96 標準電阻</b>值。Vref / 解析度沿用上方設定。</p>
+    <div class="fieldgrid">
+      <div class="field"><label>目標峰值電流 ±I_max (A)</label><input type="number" id="tI" value="50" step="1"></div>
+      <div class="field"><label>目標最大母線電壓 (V)</label><input type="number" id="tV" value="800" step="10"></div>
+      <div class="field"><label>選定 R_shunt (Ω)</label><input type="number" id="tRsh" value="0.001" step="0.0005"></div>
+      <div class="field"><label>選定 R_bot (kΩ)</label><input type="number" id="tRbot" value="8.25" step="0.05"></div>
+      <div class="field"><label>安全餘裕 (%)</label><input type="number" id="tHead" value="10" step="1"></div>
+    </div>
+    <div style="margin-top:8px;">
+      <div class="row hl"><div><span class="lab">需要的 Gain</span><br><span class="sub2">= (Vref/2)(1−餘裕) ÷ (I_max·R_shunt)</span></div><div><span class="v" id="rvGain">0</span><span class="u">V/V</span></div></div>
+      <div class="row"><div><span class="lab">建議 Offset</span><br><span class="sub2">雙向量測 = Vref/2</span></div><div><span class="v" id="rvOff">0</span><span class="u">V</span></div></div>
+      <div class="row"><div><span class="lab">需要分壓比</span><br><span class="sub2">= Vref(1−餘裕) ÷ V_max</span></div><div><span class="v" id="rvRatio">0</span></div></div>
+      <div class="row"><div><span class="lab">理想 R_top</span><br><span class="sub2">= R_bot(1/ratio − 1)</span></div><div><span class="v" id="rvRtopI">0</span><span class="u">kΩ</span></div></div>
+      <div class="row hl"><div><span class="lab">最接近 E96 R_top</span><br><span class="sub2">市售標準電阻值</span></div><div><span class="v" id="rvRtopE">0</span><span class="u">kΩ</span></div></div>
+      <div class="row"><div><span class="lab">用 E96 後實際可量</span><br><span class="sub2">±電流 / 最大電壓 / 餘裕</span></div><div><span class="v" id="rvActual">—</span></div></div>
+    </div>
+    <button class="copybtn" id="applyBtn" style="margin-top:10px;">⬆ 套用到上方計算器</button>
+    <div id="rvNote" style="background:#f5f3ff;color:#5b21b6;border:1px solid #ddd6fe;border-radius:8px;padding:8px 10px;font-size:13px;font-weight:600;margin-top:10px;"></div>
+  </div>
+
+  <div class="block challenge">
+    <h2>✅ 換你試試</h2>
+    <p class="q">載入「800V 高壓」預設後，看「可量最大母線電壓」。如果你的系統母線最高 <b>800V</b>，
+    這組硬體<b>留的餘裕夠嗎（建議 ≥ 10%）？</b></p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="copybtn" onclick="answer(true)">餘裕夠</button>
+      <button class="copybtn" onclick="answer(false)">餘裕不夠</button>
+    </div>
+    <div class="verdict" id="verdict"></div>
+  </div>
+
+  <div class="block recap">
+    <h2>📌 重點回顧</h2>
+    <ul>
+      <li><b>amps = count × K_I − I_offset</b>；<b>volts = count × K_V</b>。韌體 ISR 裡各一行。</li>
+      <li>K 係數就是把前 4 課的硬體換算「反過來」。</li>
+      <li>下一課是<b>把全部整合在一頁的實戰計算器</b>——現在你已經懂每個欄位的意思了。</li>
+    </ul>
+  </div>
+
+  <div id="botnav"></div>
+  <footer>第 5 課 · 韌體還原</footer>
+</div>
+
+<script src="assets/lessons.js"></script>
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  var num=function(id){var v=parseFloat($(id).value);return isNaN(v)?0:v;};
+  function update(){
+    var rsh=num('rsh'),gain=num('gain'),off=num('off'),rtop=num('rtop'),rbot=num('rbot'),vref=num('vref');
+    var bits=parseInt($('bits').value,10), FS=Math.pow(2,bits)-1, lsb=FS?vref/FS:0;
+    var kden=rsh*gain, den=rtop+rbot, ratio=den?rbot/den:0;
+    var kI=kden?lsb/kden:0, iOff=kden?off/kden:0, kV=rbot?lsb*(den/rbot):0;
+    var iMaxP=kden?(vref-off)/kden:0, iMaxN=kden?(0-off)/kden:0, vMax=ratio?vref/ratio:0;
+    $('ki').textContent=kI.toFixed(6); $('ioff').textContent=iOff.toFixed(2);
+    $('kv').textContent=kV.toFixed(4); $('imax').textContent=iMaxP.toFixed(2);
+    $('imin').textContent=iMaxN.toFixed(2); $('vmax').textContent=vMax.toFixed(2);
+    window._vMax=vMax;
+    $('snippet').textContent=
+'// ====== ADC 系統參數 ======\n'+
+'#define ADC_FULL_SCALE      ('+FS+'.0f)        // 2^N - 1\n'+
+'#define ADC_REF_VOLTAGE     ('+vref+'f)\n'+
+'#define ADC_VOLT_PER_COUNT  ('+lsb.toFixed(8)+'f)  // LSB = Vref / FS\n\n'+
+'// ====== 電流還原: amps = count * SCALE - OFFSET ======\n'+
+'#define I_SCALE_A_PER_COUNT ('+kI.toFixed(7)+'f)       // = LSB / (Rshunt * Gain)\n'+
+'#define I_OFFSET_A          ('+iOff.toFixed(3)+'f) // = Voffset / (Rshunt * Gain)\n\n'+
+'// ====== 電壓還原: volts = count * SCALE ======\n'+
+'#define V_SCALE_V_PER_COUNT ('+kV.toFixed(6)+'f)       // = LSB * (Rtop+Rbot)/Rbot\n\n'+
+'// ====== 量測範圍 (設計檢查用) ======\n'+
+'#define MEAS_MAX_CURRENT_A  ('+iMaxP.toFixed(1)+'f)\n'+
+'#define MEAS_MIN_CURRENT_A  ('+iMaxN.toFixed(1)+'f)\n'+
+'#define MEAS_MAX_VOLTAGE_V  ('+vMax.toFixed(1)+'f)\n\n'+
+'// 在 ADC ISR 中使用:\n'+
+'//   float amps  = adc_count * I_SCALE_A_PER_COUNT - I_OFFSET_A;\n'+
+'//   float volts = adc_count * V_SCALE_V_PER_COUNT;';
+  }
+  ['rsh','gain','off','rtop','rbot','vref','bits'].forEach(function(id){
+    $(id).addEventListener('input',update); $(id).addEventListener('change',update);
+  });
+  var PRE={
+    evm:{rsh:0.005,gain:8.2,off:1.65,rtop:2000,rbot:8.25,vref:3.3,bits:'12'},
+    ev48:{rsh:0.001,gain:20,off:1.65,rtop:100,rbot:5.1,vref:3.3,bits:'12'},
+    ev800:{rsh:0.0005,gain:40,off:1.65,rtop:4000,rbot:8.25,vref:3.3,bits:'16'}
+  };
+  // 各場景對應的「反推設計」目標值（你想量到多大）
+  var PRE_T={
+    evm:{tI:30,tV:380,tRsh:0.005,tRbot:8.25,tHead:10},
+    ev48:{tI:60,tV:48,tRsh:0.001,tRbot:5.1,tHead:10},
+    ev800:{tI:50,tV:800,tRsh:0.0005,tRbot:8.25,tHead:15}
+  };
+  window.preset=function(k){
+    var p=PRE[k];
+    for(var f in p){ if(f==='bits') $('bits').value=p[f]; else $(f).value=p[f]; }
+    update();
+    var t=PRE_T[k];
+    if(t){ for(var g in t){ if($(g)) $(g).value=t[g]; } revUpdate(); }
+  };
+  window.answer=function(said){
+    var head=(window._vMax-800)/800*100, enough=head>=10, ok=(said===enough), v=$('verdict');
+    v.className='verdict '+(ok?'ok':'no');
+    v.innerHTML=(ok?'✅ 判斷正確！':'❌ 再看一次數字。')+
+      ' 可量最大 ≈ '+window._vMax.toFixed(0)+'V，相對 800V 餘裕 '+head.toFixed(0)+'%。'+
+      (enough?'（≥10%，OK）':'（<10%，建議加大 R_top 或調 R_bot）');
+    if(ok) window.C2000.markDone();
+  };
+  $('copybtn').addEventListener('click',function(){
+    var t=$('snippet').textContent;
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(t).then(function(){
+        $('copybtn').textContent='✓ 已複製';
+        setTimeout(function(){$('copybtn').textContent='📋 複製程式碼';},1500);
+      });
+    }
+  });
+
+  /* ===== 反推設計 + E96 標準電阻吸附 ===== */
+  var E96=[]; for(var _k=0;_k<96;_k++){ E96.push(Math.round(Math.pow(10,_k/96)*100)/100); }
+  function snapE96(T){
+    if(!(T>0)) return 0;
+    var e=Math.floor(Math.log10(T)), best=T, bd=Infinity;
+    for(var de=-1; de<=1; de++){
+      var dec=Math.pow(10,e+de);
+      E96.forEach(function(m){ var v=m*dec, d=Math.abs(v-T); if(d<bd){ bd=d; best=v; } });
+    }
+    return best;
+  }
+  function sig(x,n){ n=n||3; if(!x) return 0; var p=Math.pow(10, n-1-Math.floor(Math.log10(Math.abs(x)))); return Math.round(x*p)/p; }
+
+  function revUpdate(){
+    var Imax=num('tI'), Vmax=num('tV'), rsh=num('tRsh'), rbot=num('tRbot'), head=num('tHead')/100;
+    var vref=num('vref'), off=vref/2;
+    var gain=(Imax*rsh>0)? (off*(1-head))/(Imax*rsh) : 0;
+    var ratio=(Vmax>0)? vref*(1-head)/Vmax : 0;
+    var rtopI=(ratio>0)? rbot*(1/ratio-1) : 0;
+    var rtopE=sig(snapE96(rtopI),3);
+    var ratioA=(rtopE+rbot>0)? rbot/(rtopE+rbot) : 0;
+    var vmaxA=(ratioA>0)? vref/ratioA : 0;
+    var imaxA=(rsh*gain>0)? off/(rsh*gain) : 0;
+    var vH=(Vmax>0)? (vmaxA-Vmax)/Vmax*100 : 0;
+    var iH=(Imax>0)? (imaxA-Imax)/Imax*100 : 0;
+    $('rvGain').textContent=gain.toFixed(2);
+    $('rvOff').textContent=off.toFixed(2);
+    $('rvRatio').textContent=ratio.toFixed(6);
+    $('rvRtopI').textContent=rtopI.toFixed(1);
+    $('rvRtopE').textContent=rtopE;
+    $('rvActual').textContent='±'+imaxA.toFixed(0)+'A / '+vmaxA.toFixed(0)+'V / 餘裕 '+vH.toFixed(0)+'%';
+    var safe=(vH>=head*100*0.5 && iH>=0);
+    $('rvNote').innerHTML='選 E96 的 R_top='+rtopE+'kΩ 後：電壓可量到 <b>'+vmaxA.toFixed(0)+'V</b>（比目標多 '+vH.toFixed(0)+'%）、電流可量到 <b>±'+imaxA.toFixed(0)+'A</b>（多 '+iH.toFixed(0)+'%）。'+
+      (safe?' ✅ 餘裕充足，可直接用。':' ⚠ 餘裕偏低，建議加大 R_shunt 或選更大的 R_top。');
+    window._rev={ rsh:rsh, gain:sig(gain,3), off:off, rtop:rtopE, rbot:rbot };
+  }
+  ['tI','tV','tRsh','tRbot','tHead'].forEach(function(id){ $(id).addEventListener('input',revUpdate); });
+  $('vref').addEventListener('input',revUpdate);
+  $('bits').addEventListener('change',revUpdate);
+  $('applyBtn').addEventListener('click',function(){
+    var r=window._rev; if(!r) return;
+    $('rsh').value=r.rsh; $('gain').value=r.gain; $('off').value=r.off; $('rtop').value=r.rtop; $('rbot').value=r.rbot;
+    update();
+    window.scrollTo({top:0,behavior:'smooth'});
+    $('applyBtn').textContent='✓ 已套用到上方'; setTimeout(function(){ $('applyBtn').textContent='⬆ 套用到上方計算器'; },1600);
+  });
+  revUpdate();
+
+  update();
+})();
+</script>
+</body>
+</html>

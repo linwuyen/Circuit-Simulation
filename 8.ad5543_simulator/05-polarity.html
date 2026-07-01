@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>第5課 輸出極性與拓樸 — AD5543 教學</title>
+<link rel="stylesheet" href="assets/common.css" />
+</head>
+<body>
+<div class="wrap">
+  <div id="nav-top"></div>
+
+  <div class="lesson-head">
+    <span class="lesson-num">第 5 課</span>
+    <h1>輸出極性與兩種拓樸:要負電壓還是正電壓?</h1>
+    <p class="goal">這一課你會懂:標準接法輸出是<b>負的</b>(單級反相);若需要<b>正電壓</b>,就再串一級<b>增益 −1 的反相器</b>把它翻正。</p>
+  </div>
+
+  <div class="teach">
+    <div class="analogy">
+      <span class="emoji">🔀</span>
+      <div>因為內建 RFB 一定反相,正的數位碼配正的 VREF,輸出會是<b>負電壓</b>。很多場合這樣就夠了(<b>單級</b>,最省、最準)。<br><br>
+      但如果系統需要<b>正電壓</b>,常見做法是再加第二顆運放當<b>反相器(增益 = −1)</b>,把負的翻成正的(<b>雙級</b>)。
+      代價:多一顆運放、多兩顆電阻 → 多一份誤差與成本。<b>用按鈕切換</b>下面兩種拓樸,比較電路圖與輸出正負。</div>
+    </div>
+  </div>
+
+  <div class="trythis">
+    <div class="sec-label">🧪 動手試試</div>
+    <ol>
+      <li>先在 <span class="k">負輸出(單級)</span>模式,VREF=10、中刻度 → VOUT ≈ −5 V。</li>
+      <li>按 <span class="k">切換到正輸出</span>。電路圖多出 R1/R2 與第二顆運放,VOUT 變 ≈ +5 V。</li>
+      <li>想要正電壓但又不想多一級?也可以改餵<b>負的 VREF</b> —— 把 VREF 設 −10,單級輸出就變正的了(這就是乘法 DAC 的彈性)。</li>
+    </ol>
+  </div>
+
+  <div class="panel sim">
+    <div class="row-between">
+      <div class="sec-label" style="margin:0">輸出拓樸</div>
+      <button id="modeBtn" class="btn" onclick="toggleMode()"></button>
+    </div>
+    <div class="viz"><div class="viz-top">
+      <button id="animBtn" class="animbtn" onclick="toggleAnim()"></button>
+      <span id="topoLabel" class="topo"></span></div>
+      <div id="schematic"></div>
+    </div>
+    <div class="ctrl">
+      <label class="row"><span>VREF (V)</span><span id="vrefVal" style="color:var(--blue-400)"></span></label>
+      <input id="vref" type="range" min="-10" max="10" step="0.1" oninput="setVref(this.value)" style="accent-color:#60a5fa" />
+      <label class="row" style="margin-top:8px"><span>數位碼 D</span><span id="codeVal" style="color:var(--green-400)"></span></label>
+      <input id="code" type="range" min="0" max="65535" step="1" oninput="setCodeRaw(this.value)" style="accent-color:#4ade80" />
+      <div id="presets" class="presets"></div>
+    </div>
+    <div id="mathModel" class="mathbox"></div>
+  </div>
+
+  <div class="takeaways">
+    <div class="sec-label">📌 重點整理</div>
+    <ul>
+      <li><b>單級(標準)</b>:VOUT = −VREF × (D/2¹⁶),輸出與 VREF 反號;最省、最準。</li>
+      <li><b>雙級(正輸出)</b>:再串一級增益 −1 反相器把它翻正,代價是多一份運放誤差與成本。</li>
+      <li>四象限:<b>VREF 正負</b> × <b>拓樸正負</b> 任意組合,輸出可正可負 —— 這是乘法 DAC 的彈性。</li>
+    </ul>
+  </div>
+
+  <div class="eng">
+    <b>工程師指南(Op-Amp 選型):</b>若採雙級正輸出,第二級運放(U2)會引入額外失調電壓。建議 U2 用與 U1 同等級的精密運放
+    (例如 AD8676 雙包裝),且 R1 與 R2 採 <b>0.1% 或更佳</b>的精密電阻,以確保增益精準為 −1.000。
+  </div>
+
+  <div class="quiz" id="quiz"></div>
+  <div id="refs"></div>
+  <div id="nav-bottom"></div>
+</div>
+
+<script src="assets/common.js"></script>
+<script>
+const state = { vref: 10, code: 32768, mode: 'standard' };
+let animate = true;
+function setVref(v){ state.vref = parseFloat(v); render(); }
+function setCodeRaw(v){ state.code = parseInt(v,10); render(); }
+function setCode(v){ state.code = v; render(); }
+function toggleAnim(){ animate = !animate; render(); }
+function toggleMode(){ state.mode = state.mode === 'standard' ? 'positive' : 'standard'; render(); }
+
+function render(){
+  const c = DAC.compute(state);
+  document.getElementById('vref').value = state.vref;
+  document.getElementById('code').value = state.code;
+  document.getElementById('vrefVal').textContent = Number(state.vref).toFixed(1)+' V';
+  document.getElementById('codeVal').textContent = state.code+'  (0x'+state.code.toString(16).toUpperCase().padStart(4,'0')+')';
+  document.getElementById('presets').innerHTML = DAC.buildPresets(state.code);
+  document.getElementById('schematic').innerHTML = DAC.buildSchematic(state, c, animate);
+  document.getElementById('mathModel').innerHTML = DAC.buildMath(state, c);
+  const mb = document.getElementById('modeBtn');
+  mb.textContent = state.mode === 'standard' ? '切換到正輸出(雙級) ⇄' : '切換到負輸出(單級) ⇄';
+  mb.className = 'btn' + (state.mode === 'positive' ? ' on' : '');
+  document.getElementById('topoLabel').textContent = state.mode === 'standard' ? '標準 TIA 拓樸(單級)' : '串接反相拓樸(雙級)';
+  document.getElementById('animBtn').innerHTML = (animate ? DAC.ico('pause',12)+' 暫停' : DAC.ico('play',12)+' 播放');
+}
+
+DAC.renderNav('05-polarity.html');
+render();
+document.getElementById('refs').innerHTML = DAC.readMore([
+  { term: 'Unipolar Output', desc: '單級標準接法,輸出單一極性(與 VREF 反號),最省零件、最準。' },
+  { term: 'Bipolar / 4-Quadrant', desc: 'datasheet 的雙極性應用電路:配合第二級或雙極 VREF,輸出可正可負。' },
+  { term: 'Gain = −R2/R1', desc: '第二級反相器增益由 R2/R1 決定;要精準 −1.000 需匹配良好的精密電阻。' },
+  { term: 'Op-Amp Pairing', desc: 'U2 建議與 U1 同等級(如 AD8676 雙包裝),避免第二級引入額外失調。' },
+]);
+DAC.quiz('quiz', [
+  { q: '標準單級接法,正 VREF、正數位碼,VOUT 是?',
+    options: ['正電壓','負電壓','永遠 0','交流'],
+    answer: 1,
+    explain: '內建 RFB 一定反相,所以單級輸出與 VREF 反號 → 負電壓。' },
+  { q: '想得到正電壓,最直接的「雙級」做法是?',
+    options: ['把 VREF 加倍','再串一級增益 −1 的反相器把它翻正','拿掉 RFB','把數位碼取補數'],
+    answer: 1,
+    explain: '第二級反相器(增益 −1)把負輸出翻成正,代價是多一份運放與電阻誤差。' },
+  { q: '雙級正輸出時,為什麼 R1、R2 要用 0.1% 精密電阻?',
+    options: ['比較便宜','確保第二級增益準確為 −1.000,不破壞精度','讓電路發熱','增加解析度到 17 bit'],
+    answer: 1,
+    explain: '增益 = −R2/R1,兩電阻不準會直接造成 Gain 誤差,所以要高精度且互相匹配。' },
+  { q: '不想多加第二級運放,但又要正電壓,有什麼省事的做法?',
+    options: ['沒有辦法','改餵負的 VREF,單級就輸出正電壓','把數位碼設超過 65535','降低 SPI 速度'],
+    answer: 1,
+    explain: '乘法 DAC 的彈性:VREF 取負值時,單級輸出就變正 —— 不必多一級。' },
+  { q: '雙級正輸出相比單級,主要缺點是?',
+    options: ['速度一定變慢','多一顆運放與兩顆電阻 → 多一份誤差與成本','解析度下降','不能用 SPI'],
+    answer: 1,
+    explain: '多一級就多一份失調/增益誤差與零件成本,所以能用單級就用單級。' },
+], '05-polarity.html', { pick: 3 });
+</script>
+</body>
+</html>

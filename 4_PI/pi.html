@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PI 控制器波德圖模擬器（教學版）</title>
+    <script src="../assets/vendor/tailwindcss-cdn.js"></script>
+    <script src="../assets/vendor/chart.umd.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
+        .slider-container { padding: 1rem; background-color: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1rem; }
+        input[type=range] { width: 100%; }
+        .chart-container { position: relative; height: 34vh; min-height: 260px; width: 100%; margin-bottom: 1rem; background-color: white; border-radius: 0.5rem; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .status-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-weight: 600; font-size: 0.875rem; }
+        .status-safe { background-color: #dcfce7; color: #166534; }
+        .status-warn { background-color: #fef08a; color: #854d0e; }
+        .status-danger { background-color: #fee2e2; color: #991b1b; }
+        .legend-dot { display:inline-block; width:0.75rem; height:0.75rem; border-radius:9999px; margin-right:0.35rem; vertical-align:middle; }
+        .preset-btn { font-size: 0.75rem; padding: 0.35rem 0.5rem; border-radius: 0.4rem; border: 1px solid #cbd5e1; background:#fff; cursor:pointer; transition: all .12s; }
+        .preset-btn:hover { background:#eff6ff; border-color:#93c5fd; }
+        .nav a { padding:.25rem .6rem; border-radius:.4rem; font-size:.85rem; white-space:nowrap; color:#4b5563; }
+        .nav a:hover { background:#eff6ff; }
+        .nav a.active { background:#0f172a; color:#fff; font-weight:700; }
+    </style>
+</head>
+<body class="p-4 md:p-8 max-w-6xl mx-auto">
+
+    <nav class="nav bg-white rounded-lg shadow-sm px-3 py-2 mb-5 flex flex-wrap items-center gap-1">
+        <a href="index.html" class="font-bold text-gray-700">📚 地圖</a><span class="text-gray-300">|</span>
+        <a href="01_what_is_bode.html" title="波德圖的一個點">01</a>
+        <a href="02_integrator.html" title="積分器">02</a>
+        <a href="03_pi_controller.html" title="PI 控制器">03</a>
+        <a href="04_lc_plant.html" title="LC 受控體">04</a>
+        <a href="05_add_in_db.html" title="相乘變相加">05</a>
+        <a href="06_stability.html" title="穩定度+時域">06</a>
+        <a href="pi.html" class="active ml-auto" title="設計沙盒">★ 沙盒</a>
+        <a href="07_challenge.html" title="挑戰任務">🏆 挑戰</a>
+    </nav>
+
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">真實 Inverter 開迴路波德圖分析</h1>
+        <p class="text-gray-600">拖動 Kp、Ki，觀察 PI 控制器 <b>C(s)</b> 與 LC 受控體 <b>P(s)</b> 如何「相加」成開迴路 <b>L(s)</b>，進而決定系統的快慢與穩定度。</p>
+    </div>
+
+    <!-- 新手必讀：三步驟讀圖 -->
+    <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 text-sm">
+        <h3 class="font-bold text-amber-900 mb-2">🧭 三步驟讀懂這兩張圖（新手先看這裡）</h3>
+        <ol class="list-decimal pl-5 space-y-1 text-amber-900">
+            <li><b>找交越頻率 f<sub>c</sub></b>：上圖（增益）藍線往下穿過 <b>0 dB 紅虛線</b>的地方。它就是系統「頻寬」＝能跟得上多快的指令。</li>
+            <li><b>量相位裕度 PM</b>：把 f<sub>c</sub> 那條<b>綠色直線</b>往下對到下圖（相位），看藍線離 <b>-180° 死亡線</b>還差幾度，那段距離就是 PM＝離翻車的安全餘量。</li>
+            <li><b>看分解</b>：灰線是 C(s)、橘線是 P(s)，兩者在 dB 上「相加」就是藍線 L(s)。這就是波德圖最好用的地方：<b>相乘變相加</b>。</li>
+        </ol>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- 參數控制區 -->
+        <div class="col-span-1 space-y-4">
+            <div class="slider-container">
+                <label class="block text-sm font-bold text-gray-700 mb-1">比例增益 (Kp): <span id="kp-val" class="text-blue-600">0.39</span></label>
+                <p class="text-xs text-gray-500 mb-2">負責「相位提升」，把曲線整體上移，決定交越頻率(頻寬)落在哪。</p>
+                <input type="range" id="kp-slider" min="0.01" max="2.0" step="0.01" value="0.39">
+            </div>
+
+            <div class="slider-container">
+                <label class="block text-sm font-bold text-gray-700 mb-1">積分增益 (Ki): <span id="ki-val" class="text-blue-600">3400</span></label>
+                <p class="text-xs text-gray-500 mb-2">負責「低頻追隨」，數值越高低頻增益越高（穩態誤差越小），但低頻相位更落後、吃掉裕度。</p>
+                <input type="range" id="ki-slider" min="100" max="50000" step="100" value="3400">
+            </div>
+
+            <!-- 一鍵情境 -->
+            <div class="bg-white p-4 rounded-lg shadow-sm">
+                <h3 class="font-bold text-gray-800 border-b pb-2 mb-3">🎚️ 一鍵情境（先感受差異）</h3>
+                <div class="grid grid-cols-1 gap-2">
+                    <button class="preset-btn" data-kp="0.20" data-ki="1500">① 穩健保守：慢但很穩（PM 大）</button>
+                    <button class="preset-btn" data-kp="0.39" data-ki="3400">② 良好設計：頻寬逼近安全上限</button>
+                    <button class="preset-btn" data-kp="0.80" data-ki="9000">③ 諧振失穩：太貪心，撞上 LC 諧振峰</button>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-lg shadow-sm">
+                <h3 class="font-bold text-gray-800 border-b pb-2 mb-3">系統健康度分析</h3>
+
+                <div class="mb-3">
+                    <span class="text-sm text-gray-600 block mb-1">交越頻率 (系統頻寬):</span>
+                    <div class="flex items-center justify-between">
+                        <span id="bandwidth-val" class="text-xl font-bold text-gray-900">-- Hz</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">目標：約 0.4k ~ 0.8kHz（受 1.59kHz 諧振限制，再高會失穩）</p>
+                </div>
+
+                <div class="mb-3">
+                    <span class="text-sm text-gray-600 block mb-1">相位裕度 PM (離翻車的距離):</span>
+                    <div class="flex items-center justify-between">
+                        <span id="pm-val" class="text-xl font-bold text-gray-900">-- 度</span>
+                        <span id="pm-status" class="status-badge">計算中...</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">目標：45° ~ 60°（太小會震、太大會慢）</p>
+                </div>
+
+                <div class="mb-3">
+                    <span class="text-sm text-gray-600 block mb-1">增益裕度 GM (諧振安全距離):</span>
+                    <div class="flex items-center justify-between">
+                        <span id="gm-val" class="text-xl font-bold text-gray-900">-- dB</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">目標：> 6 dB。代表 LC 諧振峰離 0dB 還有多遠。</p>
+                </div>
+
+                <div>
+                    <span class="text-sm text-gray-600 block mb-1">60Hz 低頻追隨能力:</span>
+                    <div class="flex items-center justify-between">
+                        <span id="low-freq-gain-val" class="text-lg font-bold text-gray-900">-- dB</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">目標：> 15 dB（此低阻尼受控體的安全上限約 19 dB）</p>
+                </div>
+            </div>
+
+            <!-- 動態白話解讀 -->
+            <div class="bg-emerald-50 p-4 rounded-lg border border-emerald-100">
+                <h4 class="font-bold text-emerald-800 text-sm mb-2">🗣️ 現在這組參數代表什麼？</h4>
+                <p id="narrative" class="text-xs text-emerald-900 leading-relaxed">--</p>
+            </div>
+
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                <h4 class="font-bold text-blue-800 text-sm mb-2">💡 觀察重點</h4>
+                <ul class="text-xs text-blue-700 space-y-1 list-disc pl-4">
+                    <li>相位圖最左側從接近 <b>-90°</b> 開始 → 這就是積分器 Ki/s 的指紋。</li>
+                    <li>調大 <b>Kp</b>：藍線整體上移，交越頻率往右（頻寬變大、變快）。</li>
+                    <li>調大 <b>Ki</b>：低頻被拉高（穩態更準），但 ① 低頻更落後、② 容易把交越點推進 <b>橘色 P(s) 的諧振峰</b>，PM/GM 崩潰。</li>
+                    <li>試試情境③：你會看到藍線在諧振峰附近「鑽出 0dB 又鑽回去」，交越頻率被卡在諧振上 → 這正是逆變器最怕的 LC 共振。</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 圖表區 -->
+        <div class="col-span-1 md:col-span-2">
+            <!-- 自訂圖例 + 分解開關 -->
+            <div class="bg-white rounded-lg shadow-sm px-4 py-2 mb-3 text-xs flex flex-wrap items-center gap-x-4 gap-y-1">
+                <span><span class="legend-dot" style="background:#2563eb"></span>L(s) 開迴路（你要看的）</span>
+                <span><span class="legend-dot" style="background:#9ca3af"></span>C(s) PI 控制器</span>
+                <span><span class="legend-dot" style="background:#f59e0b"></span>P(s) LC 受控體</span>
+                <span><span class="legend-dot" style="background:#16a34a"></span>交越點 f<sub>c</sub></span>
+                <span><span class="legend-dot" style="background:#a855f7"></span>LC 諧振 f<sub>n</sub></span>
+                <label class="ml-auto inline-flex items-center gap-1 cursor-pointer select-none">
+                    <input type="checkbox" id="decomp-toggle" checked>
+                    顯示 C(s)、P(s) 分解
+                </label>
+            </div>
+            <div class="chart-container">
+                <canvas id="gainChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="phaseChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== 系統物理常數 (LC 濾波器模型) =====
+        // P(s) = Wn^2 / (s^2 + 2*zeta*Wn*s + Wn^2)
+        // Wn = 10000 rad/s → 諧振頻率 f_n = Wn/(2π) ≈ 1.59 kHz
+        const Wn = 10000;
+        const WnSq = Wn * Wn;
+        const Zeta = 0.2;                 // 低阻尼 → 明顯諧振峰，峰值放大約 1/(2ζ)=2.5 倍(+8dB)
+        const TwoZetaWn = 2 * Zeta * Wn;
+        const F_RES = Wn / (2 * Math.PI); // 諧振頻率 (Hz)，畫在圖上當參考線
+
+        const F_MIN = 10, F_MAX = 100000; // 圖表範圍 10Hz ~ 100kHz
+
+        // 產生「對數均勻」頻率軸（每個 decade 等距取點，曲線才會平滑、相位展開才穩）
+        const freqs = [];
+        const N = 300;
+        for (let i = 0; i < N; i++) {
+            freqs.push(F_MIN * Math.pow(F_MAX / F_MIN, i / (N - 1)));
+        }
+
+        let gainChart, phaseChart;
+
+        // ===== 複數運算輔助函數 =====
+        function complexMult(a_re, a_im, b_re, b_im) {
+            return { re: a_re * b_re - a_im * b_im, im: a_re * b_im + a_im * b_re };
+        }
+        function complexDiv(a_re, a_im, b_re, b_im) {
+            const den = b_re * b_re + b_im * b_im;
+            return { re: (a_re * b_re + a_im * b_im) / den, im: (a_im * b_re - a_re * b_im) / den };
+        }
+        function magnitude(re, im) { return Math.sqrt(re * re + im * im); }
+        function phaseDeg(re, im) { return Math.atan2(im, re) * (180 / Math.PI); }
+
+        // 在單一頻率 f 計算 C、P、L 三者的增益(dB)與相位(度，未展開)
+        function bodePoint(f, kp, ki) {
+            const w = 2 * Math.PI * f;
+            // 控制器 C(s) = Kp + Ki/s = Kp - j*Ki/w
+            const C = { re: kp, im: -ki / w };
+            // 受控體 P(s) = Wn^2 / (Wn^2 - w^2 + j*w*2ζWn)
+            const P = complexDiv(WnSq, 0, WnSq - w * w, w * TwoZetaWn);
+            // 開迴路 L(s) = C(s)·P(s)
+            const L = complexMult(C.re, C.im, P.re, P.im);
+            return {
+                Cg: 20 * Math.log10(magnitude(C.re, C.im)),
+                Pg: 20 * Math.log10(magnitude(P.re, P.im)),
+                Lg: 20 * Math.log10(magnitude(L.re, L.im)),
+                Cp: phaseDeg(C.re, C.im),
+                Pp: phaseDeg(P.re, P.im),
+                Lp: phaseDeg(L.re, L.im)
+            };
+        }
+
+        // 相位展開：把 atan2 的 ±180 跳變補回連續曲線
+        function unwrap(raw) {
+            const out = []; let off = 0;
+            for (let i = 0; i < raw.length; i++) {
+                if (i > 0) {
+                    const d = raw[i] - raw[i - 1];
+                    if (d > 180) off -= 360;
+                    else if (d < -180) off += 360;
+                }
+                out.push(raw[i] + off);
+            }
+            return out;
+        }
+
+        // 數字格式化（頻率）
+        function fmtHz(f) {
+            if (f >= 1000) return (f / 1000).toFixed(2) + ' kHz';
+            return f.toFixed(0) + ' Hz';
+        }
+
+        // ===== 核心：計算整條曲線 + 各項指標 =====
+        function calculateBode(kp, ki) {
+            const Lg = [], Cg = [], Pg = [], LpR = [], CpR = [], PpR = [];
+            for (const f of freqs) {
+                const p = bodePoint(f, kp, ki);
+                Lg.push(p.Lg); Cg.push(p.Cg); Pg.push(p.Pg);
+                LpR.push(p.Lp); CpR.push(p.Cp); PpR.push(p.Pp);
+            }
+            const Lp = unwrap(LpR), Cp = unwrap(CpR), Pp = unwrap(PpR);
+
+            // 60Hz 低頻追隨能力（直接算，不依賴取樣點剛好落在 60Hz）
+            const lowFreqGain = bodePoint(60, kp, ki).Lg;
+
+            // 交越頻率：取「最低頻」那次往下穿越 0dB（諧振峰可能造成多次穿越，主頻寬看第一次）
+            let fc = 0, pm = 0, pcAtFc = null, hasCross = false;
+            for (let i = 1; i < freqs.length; i++) {
+                if (Lg[i - 1] > 0 && Lg[i] <= 0) {
+                    const r = Lg[i - 1] / (Lg[i - 1] - Lg[i]);
+                    // 在「對數頻率」上內插才準（軸是 log 的）
+                    const lf = Math.log10(freqs[i - 1]) + r * (Math.log10(freqs[i]) - Math.log10(freqs[i - 1]));
+                    fc = Math.pow(10, lf);
+                    pcAtFc = Lp[i - 1] + r * (Lp[i] - Lp[i - 1]);
+                    pm = 180 + pcAtFc;
+                    hasCross = true;
+                    break;
+                }
+            }
+
+            // 增益裕度 GM：相位第一次穿越 -180° 處，0dB 還差多少（諧振峰是否安全的量化）
+            let gm = Infinity, fGm = 0, gmFinite = false;
+            for (let i = 1; i < freqs.length; i++) {
+                if (Lp[i - 1] > -180 && Lp[i] <= -180) {
+                    const r = (Lp[i - 1] + 180) / (Lp[i - 1] - Lp[i]);
+                    const lf = Math.log10(freqs[i - 1]) + r * (Math.log10(freqs[i]) - Math.log10(freqs[i - 1]));
+                    fGm = Math.pow(10, lf);
+                    const gAt = Lg[i - 1] + r * (Lg[i] - Lg[i - 1]);
+                    gm = -gAt; gmFinite = true;
+                    break;
+                }
+            }
+
+            return {
+                Lg, Cg, Pg, Lp, Cp, Pp,
+                metrics: { hasCross, fc, pm, pcAtFc, lowFreqGain, gm, fGm, gmFinite }
+            };
+        }
+
+        // ===== 動態白話解讀 =====
+        function buildNarrative(m) {
+            if (!m.hasCross) {
+                return "目前增益曲線整段都在 0dB 以下，等於系統幾乎追不動指令（頻寬≈0）。把 Ki 或 Kp 調大，藍線會上移、開始穿越 0dB。";
+            }
+            let s = `交越頻率約 <b>${fmtHz(m.fc)}</b>，代表系統能跟上這個頻率以下的指令。`;
+            if (m.pm >= 45 && m.pm <= 70) {
+                s += ` 相位裕度 <b>${m.pm.toFixed(0)}°</b> 落在黃金區間，響應快又不太震盪 👍。`;
+            } else if (m.pm > 0) {
+                s += m.pm < 45
+                    ? ` 相位裕度只有 <b>${m.pm.toFixed(0)}°</b>，偏低，階躍響應會明顯過衝、振鈴。`
+                    : ` 相位裕度 <b>${m.pm.toFixed(0)}°</b> 偏高，很穩但反應偏慢、偏保守。`;
+            } else {
+                s += ` 相位裕度為負（<b>${m.pm.toFixed(0)}°</b>）→ 閉迴路會發散，危險！`;
+            }
+            if (m.gmFinite && m.gm < 6) {
+                s += ` ⚠️ 增益裕度只剩 <b>${m.gm.toFixed(1)} dB</b>：LC 諧振峰太靠近 0dB，容易在 ${fmtHz(m.fGm)} 附近震盪 —— 這就是「太貪心」的後果。`;
+            }
+            return s;
+        }
+
+        // ===== 圖表資料組裝 =====
+        function seriesData(arr) { return arr.map((y, i) => ({ x: freqs[i], y })); }
+        function hLine(y, color, width, dash) {
+            return { data: [{ x: F_MIN, y }, { x: F_MAX, y }], borderColor: color, borderWidth: width, borderDash: dash || [], pointRadius: 0, fill: false };
+        }
+        function vLine(x, ymin, ymax, color, width, dash) {
+            return { data: [{ x, y: ymin }, { x, y: ymax }], borderColor: color, borderWidth: width, borderDash: dash || [], pointRadius: 0, fill: false };
+        }
+        function dot(x, y, color) {
+            return { data: [{ x, y }], borderColor: color, backgroundColor: color, pointRadius: 5, pointHoverRadius: 6, showLine: false };
+        }
+
+        function updateCharts() {
+            const kp = parseFloat(document.getElementById('kp-slider').value);
+            const ki = parseFloat(document.getElementById('ki-slider').value);
+            const showDecomp = document.getElementById('decomp-toggle').checked;
+
+            document.getElementById('kp-val').textContent = kp.toFixed(2);
+            document.getElementById('ki-val').textContent = ki;
+
+            const data = calculateBode(kp, ki);
+            const m = data.metrics;
+
+            // ---- 數據面板 ----
+            document.getElementById('bandwidth-val').textContent = m.hasCross ? fmtHz(m.fc) : "未交越";
+            document.getElementById('low-freq-gain-val').textContent = `${m.lowFreqGain.toFixed(1)} dB`;
+            document.getElementById('gm-val').textContent = m.gmFinite ? `${m.gm.toFixed(1)} dB` : "∞ (無 -180° 穿越)";
+            document.getElementById('narrative').innerHTML = buildNarrative(m);
+
+            const pmStatus = document.getElementById('pm-status');
+            if (m.hasCross) {
+                document.getElementById('pm-val').textContent = `${m.pm.toFixed(1)}°`;
+                const gmOk = !m.gmFinite || m.gm > 6;
+                if (m.pm > 45 && m.pm < 70 && gmOk) {
+                    pmStatus.textContent = "最佳"; pmStatus.className = "status-badge status-safe";
+                } else if (m.pm > 0 && (!m.gmFinite || m.gm > 0)) {
+                    pmStatus.textContent = "次佳/欠阻尼"; pmStatus.className = "status-badge status-warn";
+                } else {
+                    pmStatus.textContent = "發散危險"; pmStatus.className = "status-badge status-danger";
+                }
+            } else {
+                document.getElementById('pm-val').textContent = "--";
+                pmStatus.textContent = "未交越"; pmStatus.className = "status-badge status-warn";
+            }
+
+            // ---- 增益圖資料 ----
+            const gainSets = [
+                { label: 'L(s)', data: seriesData(data.Lg), borderColor: '#2563eb', borderWidth: 2.5, fill: false }
+            ];
+            if (showDecomp) {
+                gainSets.push({ label: 'C(s)', data: seriesData(data.Cg), borderColor: '#9ca3af', borderWidth: 1.5, borderDash: [4, 3], fill: false });
+                gainSets.push({ label: 'P(s)', data: seriesData(data.Pg), borderColor: '#f59e0b', borderWidth: 1.5, borderDash: [4, 3], fill: false });
+            }
+            gainSets.push(hLine(0, 'rgba(239,68,68,0.6)', 1.5, [6, 4]));            // 0dB 線
+            gainSets.push(vLine(F_RES, -80, 80, 'rgba(168,85,247,0.5)', 1.5, [3, 3])); // 諧振參考線
+            if (m.hasCross) {
+                gainSets.push(vLine(m.fc, -80, 80, 'rgba(22,163,74,0.7)', 1.5, []));   // 交越直線
+                gainSets.push(dot(m.fc, 0, '#16a34a'));                                // 交越點
+            }
+            gainChart.data.datasets = gainSets;
+
+            // ---- 相位圖資料 ----
+            const phaseSets = [
+                { label: 'L(s)', data: seriesData(data.Lp), borderColor: '#2563eb', borderWidth: 2.5, fill: false }
+            ];
+            if (showDecomp) {
+                phaseSets.push({ label: 'C(s)', data: seriesData(data.Cp), borderColor: '#9ca3af', borderWidth: 1.5, borderDash: [4, 3], fill: false });
+                phaseSets.push({ label: 'P(s)', data: seriesData(data.Pp), borderColor: '#f59e0b', borderWidth: 1.5, borderDash: [4, 3], fill: false });
+            }
+            phaseSets.push(hLine(-180, 'rgba(239,68,68,0.8)', 2, [6, 4]));               // -180° 死亡線
+            phaseSets.push(vLine(F_RES, -270, 0, 'rgba(168,85,247,0.5)', 1.5, [3, 3]));  // 諧振參考線
+            if (m.hasCross) {
+                phaseSets.push(vLine(m.fc, -270, 0, 'rgba(22,163,74,0.7)', 1.5, []));    // 交越直線（用來量 PM）
+                phaseSets.push(dot(m.fc, m.pcAtFc, '#16a34a'));                          // 交越處相位點
+            }
+            phaseChart.data.datasets = phaseSets;
+
+            gainChart.update();
+            phaseChart.update();
+        }
+
+        function initCharts() {
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 120 },
+                parsing: false,
+                scales: {
+                    x: {
+                        type: 'logarithmic',
+                        title: { display: true, text: '頻率 (Hz)' },
+                        min: F_MIN, max: F_MAX,
+                        grid: { color: 'rgba(0,0,0,0.05)' }
+                    }
+                },
+                elements: { point: { radius: 0 }, line: { tension: 0 } },
+                plugins: { legend: { display: false }, tooltip: { enabled: false } }
+            };
+
+            const ctxGain = document.getElementById('gainChart').getContext('2d');
+            gainChart = new Chart(ctxGain, {
+                type: 'line',
+                data: { datasets: [] },
+                options: {
+                    ...commonOptions,
+                    plugins: { ...commonOptions.plugins, title: { display: true, text: '增益圖 Gain — 找藍線穿過 0dB 的點(綠點)', align: 'start' } },
+                    scales: {
+                        ...commonOptions.scales,
+                        y: { title: { display: true, text: 'Magnitude (dB)' }, min: -80, max: 80, grid: { color: 'rgba(0,0,0,0.05)' } }
+                    }
+                }
+            });
+
+            const ctxPhase = document.getElementById('phaseChart').getContext('2d');
+            phaseChart = new Chart(ctxPhase, {
+                type: 'line',
+                data: { datasets: [] },
+                options: {
+                    ...commonOptions,
+                    plugins: { ...commonOptions.plugins, title: { display: true, text: '相位圖 Phase — 綠線處離 -180° 的距離 = 相位裕度', align: 'start' } },
+                    scales: {
+                        ...commonOptions.scales,
+                        y: { title: { display: true, text: 'Phase (deg)' }, min: -270, max: 0, grid: { color: 'rgba(0,0,0,0.05)' } }
+                    }
+                }
+            });
+        }
+
+        // ===== 事件綁定 =====
+        document.getElementById('kp-slider').addEventListener('input', updateCharts);
+        document.getElementById('ki-slider').addEventListener('input', updateCharts);
+        document.getElementById('decomp-toggle').addEventListener('change', updateCharts);
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.getElementById('kp-slider').value = btn.dataset.kp;
+                document.getElementById('ki-slider').value = btn.dataset.ki;
+                updateCharts();
+            });
+        });
+
+        // 初始化
+        initCharts();
+        updateCharts();
+    </script>
+</body>
+</html>

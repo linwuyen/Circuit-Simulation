@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第 8 課 · 諧波與 THD 量測實驗（結業）</title>
+  <script src="../../assets/vendor/tailwindcss-cdn.js"></script>
+  <link rel="stylesheet" href="shared/theme.css">
+</head>
+<body class="min-h-screen">
+  <div class="max-w-6xl mx-auto px-4 py-6">
+    <header class="flex items-center justify-between mb-5">
+      <div class="flex items-center gap-3">
+        <span class="tag text-amber-400">結業 · 第 8 課 / 8</span>
+        <h1 class="text-lg md:text-xl font-bold text-slate-100">📊 諧波與 THD 量測實驗</h1>
+      </div>
+      <a href="index.html" class="text-xs text-slate-400 hover:text-emerald-400">📍 課程地圖</a>
+    </header>
+
+    <div class="edu-card edu-goal mb-4">
+      <h3 class="text-emerald-400">🎯 本課目標</h3>
+      <p>這是<b>結業實驗台</b>——前面所有功能全部解鎖：自由切換拓撲、調變、負載、參數，並用 <b>「凍結快照」</b> 把不同設定的結果並排比較。你的任務是親手量化「<b>什麼設定讓波形最乾淨</b>」，把前 7 課的直覺變成可重複的數據。</p>
+    </div>
+
+    <div class="edu-card mb-4">
+      <h3 class="text-slate-200">📖 先讀懂三個數字</h3>
+      <p><b class="text-emerald-400">V<sub>rms</sub></b>：橋臂輸出電壓的有效值（含所有成分，濾波前）。
+         <b class="text-cyan-400">V<sub>1,rms</sub></b>：其中真正有用的<b>基波</b>有效值。
+         <b class="text-amber-400">THD</b>：總諧波失真 = 基波以外的「雜質」佔基波的比例，<b>越低代表波形越乾淨</b>。公式 <span style="font-family:monospace">THD = √(V<sub>rms</sub>² − V<sub>1</sub>²) / V<sub>1</sub></span>。</p>
+      <p class="text-slate-400 text-xs">💡 這是<b>濾波前</b>的橋臂電壓，數值偏高很正常；接上 LC 濾波器後負載端會乾淨許多。重點永遠是「<b>固定其他條件、只改一個變數</b>」去比較。</p>
+    </div>
+
+    <div id="sim" class="mb-5"></div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+      <div class="edu-card edu-try">
+        <h3 class="text-amber-400">🔬 三個量測實驗（用快照記錄）</h3>
+        <ol>
+          <li><b>單極性的威力：</b>全橋 + R + m<sub>a</sub>=0.8，雙極性 vs 單極性 → THD 約 <b>145% → 77%</b>。</li>
+          <li><b>SVPWM 的天花板：</b>三相 + m<sub>a</sub> 拉到 1.05，比較 SPWM vs SVPWM 的 V<sub>1</sub> 與是否進過調變。</li>
+          <li><b>濾波前 vs 濾波後：</b>任一拓撲改成 <b>LC</b> 負載，打開 CH1 與 CH2，親眼比較「橋臂電壓」與「負載電壓」的乾淨度差距。</li>
+        </ol>
+      </div>
+      <div class="edu-card edu-expect">
+        <h3 class="text-cyan-400">✅ 你應該得到的結論</h3>
+        <ul>
+          <li>多電平（單極性、三電平）<b>降低 THD</b>。</li>
+          <li>SVPWM 在<b>高調變區</b>能擠出更大基波、母線用得更滿。</li>
+          <li>提高 f<sub>c</sub> 把諧波推到更高頻，<b>更好濾</b>（但切換損耗上升）。</li>
+          <li>LC 濾波讓負載端 THD 大幅下降——這才是負載真正承受的品質。</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="edu-card edu-apply">
+        <h3 class="text-blue-400">🌍 為什麼工程上這麼在意 THD</h3>
+        <ul>
+          <li>併網逆變器有法規（如 IEEE 1547）限制注入電網的電流 THD。</li>
+          <li>馬達的諧波 → 額外發熱、轉矩脈動、噪音、效率下降。</li>
+          <li>THD 越低，濾波器越小、EMC 越好過、整機越便宜。量測 THD 是驗證設計的日常工作。</li>
+        </ul>
+      </div>
+      <div class="edu-card edu-tradeoff">
+        <h3 class="text-purple-300">🎓 你已經走完整條鏈</h3>
+        <p>電感的脾氣 → 半橋與死區 → PWM 平均 → SPWM 正弦 → 全橋多電平 → 負載與濾波 → 三相 SVPWM → 諧波量測。<b>恭喜！</b>接下來建議延伸到隔壁的 <b>3_foc_course</b>（馬達磁場導向控制）與 <b>0_buck_converter</b>（DC-DC），把這套直覺用到真實晶片上。</p>
+      </div>
+    </div>
+
+    <div class="edu-card quiz mt-4">
+      <h3 class="text-slate-200">❓ 結業考</h3>
+      <details><summary>兩個設定的 V<sub>1,rms</sub> 一樣、但 THD 一高一低，代表什麼？</summary><div class="ans">基波（有用功率）一樣，但低 THD 的那組「雜質」更少、波形更乾淨，濾波負擔更小。永遠優先選 THD 低的。</div></details>
+      <details><summary>為什麼量 THD 要「固定其他變數、只改一個」？</summary><div class="ans">否則無法歸因。例如同時改 m<sub>a</sub> 和調變策略，THD 變了你也不知道是誰造成的。控制變數法是所有量測的基本功。</div></details>
+      <details><summary>負載端真正在意的是 CH1 還是 CH2 的 THD？為什麼？</summary><div class="ans">CH2（濾波後）。負載承受的是濾波器之後的電壓，CH1 的高 THD 大多是高頻開關紋波，會被 LC 擋掉。</div></details>
+    </div>
+
+    <nav id="lesson-nav" class="lesson-nav"></nav>
+  </div>
+
+  <script src="shared/widget.js"></script>
+  <script src="shared/ui.js"></script>
+  <script>
+    PE.mount('#sim', {
+      topology: 'full',
+      allowTopology: true,
+      loads: ['R', 'RL', 'LC'],
+      modulations: [],
+      controls: { ma: true, freq: true, fc: true, manual: true },
+      channels: { ch1: true, ch2: true, ch3: true, ch4: true },
+      defaults: { load: 'R', modulation: 'spwm_bi', autoMode: true, ma: 0.8, freq: 50, fc: 1000 },
+      metrics: true,
+      snapshot: true
+    });
+    EDU.renderNav(8);
+  </script>
+</body>
+</html>

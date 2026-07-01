@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>第 1 課 · 10μs 截止線</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="step">第 1 課 / 7</div>
+    <h1>⏱️ 10μs 截止線:塞得進嗎?</h1>
+    <p class="lead">整個課程最核心的觀念。先把它弄懂,後面每一課都是在跟這條線賽跑。</p>
+  </div>
+
+  <div class="goal">
+    <span class="ic">🎯</span>
+    <div>這頁只教一件事:<b>每一輪的所有工作,加起來必須塞進 10μs(10000ns)。</b>塞不進,就會出大事。</div>
+  </div>
+
+  <div class="analogy">
+    <span class="tag">生活比喻</span>
+    想像你每天早上有 <b>10 分鐘</b> 出門前準備:刷牙、換衣、吃早餐。只要加起來 ≤ 10 分鐘就能準時出門(還能悠閒)。
+    要是某天拖到 <b>11 分鐘</b>——你遲到了,而且會擠壓到後面的行程。控制迴路的「10μs」就是這個不能遲到的鬧鐘。
+  </div>
+
+  <!-- 互動 -->
+  <div class="card">
+    <h2>🕹️ 動手玩:拖動「一輪要做多少工作」</h2>
+
+    <div class="controls">
+      <div class="ctl">
+        <label><span>一輪的總工作時間</span><span class="val v-blue" id="workVal">7000 ns</span></label>
+        <input type="range" id="work" min="2000" max="13000" step="100" value="7000" />
+        <div class="hint">把它慢慢往右拉,注意越過 <b style="color:var(--red)">10000ns 那條紅線</b> 的瞬間會發生什麼。</div>
+      </div>
+    </div>
+
+    <div style="margin:18px 0 6px;" class="small muted">一輪 10μs 的時間軸(0 → 10000ns):</div>
+    <div class="svg-box">
+      <svg viewBox="0 0 600 130" style="width:100%">
+        <!-- 軸刻度 -->
+        <g id="ticks"></g>
+        <!-- 工作條 -->
+        <rect x="0" y="40" height="34" rx="4" id="workBar" fill="#2563eb" opacity="0.85"/>
+        <text x="6" y="61" id="workText" fill="#fff" font-size="12" font-weight="700"></text>
+        <!-- 餘裕條 -->
+        <rect id="idleBar" y="40" height="34" fill="#10b981" opacity="0.18"/>
+        <!-- 截止線 -->
+        <line x1="500" y1="28" x2="500" y2="86" stroke="#f87171" stroke-width="2"/>
+        <text x="500" y="22" text-anchor="middle" fill="#f87171" font-size="11" font-weight="700">10000ns 截止</text>
+        <text x="500" y="102" text-anchor="middle" fill="#f87171" font-size="10">deadline</text>
+      </svg>
+    </div>
+
+    <div class="stats" style="margin-top:16px">
+      <div class="stat"><div class="k">⏱️ 一輪需要</div><div class="v v-blue" id="needV">7000<span class="small muted"> ns</span></div></div>
+      <div class="stat"><div class="k">🟢 餘裕時間</div><div class="v v-emerald" id="marginV">3000<span class="small muted"> ns</span></div></div>
+      <div class="stat"><div class="k">📊 狀態</div><div class="v" id="statusV" style="font-size:16px"></div></div>
+    </div>
+
+    <div id="dominoBox" style="display:none; margin-top:16px;">
+      <div class="observe" style="border-color:rgba(248,113,113,.6); background:rgba(248,113,113,.08)">
+        <span class="tag" style="color:var(--red)">💥 骨牌效應</span>
+        <span>這一輪沒做完,工作會被推到下一輪;下一輪本來也排滿了,於是越積越多——最後系統崩潰、馬達失控。這就是為什麼<b>絕對不能逾時</b>。</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="observe">
+    <span class="tag">👀 觀察提示</span>
+    <span>1) 拉到 9000ns:綠色餘裕變很薄,代表「剛好做完、沒有安全邊際」。2) 拉到 11000ns:工作條衝出紅線變紅色,出現骨牌警告。<b>工程上通常會刻意留 ≥ 1000ns 餘裕當緩衝。</b></span>
+  </div>
+
+  <div class="keypoints">
+    <h3>📌 重點整理</h3>
+    <ul>
+      <li><b>截止線(deadline)</b>= 10000ns = 10μs。對應 <span class="term">100kHz</span> 的控制頻率(1 秒 ÷ 10μs = 10 萬次)。</li>
+      <li><b>餘裕(margin / idle)</b>= 10000 − 一輪工作時間。餘裕越多越安全;為 0 就是「壓線」;為負就是<b>逾時</b>。</li>
+      <li><b>逾時的後果不是慢一點而已</b>,是骨牌效應累積崩潰。所以高頻控制的設計重點,就是「每一塊工作要多省時間」。</li>
+    </ul>
+  </div>
+
+  <div class="code">
+    <div class="head">💻 對應到真實韌體:這條 10μs 由 EPWM 計時器產生中斷</div>
+    <pre><span class="cm">// 100kHz = 每 10μs 觸發一次中斷,所有控制工作都要在這個 ISR 裡跑完</span>
+<span class="kw">interrupt void</span> <span class="nm">controlLoopISR</span>(<span class="kw">void</span>) {
+    readADC();        <span class="cm">// 讀感測</span>
+    runPID();         <span class="cm">// 運算</span>
+    writeDAC();       <span class="cm">// 輸出</span>
+    <span class="cm">// ↑ 這三步加起來必須 < 10μs,否則下一個中斷會疊上來</span>
+}</pre>
+  </div>
+
+  <!-- 小測驗 -->
+  <div class="quiz" id="quiz">
+    <h3>✅ 隨堂小測驗</h3>
+    <div class="q">如果一輪的工作需要 11000ns,會發生什麼事?</div>
+    <button class="opt" data-c="0">A. 系統會自動把頻率降到剛好做得完,沒事</button>
+    <button class="opt" data-c="1">B. 工作做不完被推到下一輪,逐漸累積形成骨牌效應、最後崩潰</button>
+    <button class="opt" data-c="0">C. 多出來的 1000ns 會在下一輪自動補回來</button>
+    <div class="explain" id="exp">✔️ 正解 B。硬體鬧鐘不會等你——時間到就觸發下一輪。沒做完的工作堆積,延遲越來越大,控制就失穩了。這也是為什麼要留餘裕。</div>
+  </div>
+
+</div>
+
+<script>window.PAGE = '01';</script>
+<script src="nav.js"></script>
+<script>
+var DEADLINE = 10000, SCALE = 500 / DEADLINE;   // 10000ns 對應 svg x=500
+
+// 畫刻度
+var ticks = '';
+[0,2500,5000,7500,10000].forEach(function (t) {
+  var x = t * SCALE;
+  ticks += '<line x1="'+x+'" y1="36" x2="'+x+'" y2="78" stroke="#334155" stroke-width="1"/>';
+  ticks += '<text x="'+x+'" y="96" text-anchor="middle" fill="#64748b" font-size="10">'+t+'</text>';
+});
+document.getElementById('ticks').innerHTML = ticks;
+
+var work = document.getElementById('work');
+function render() {
+  var w = +work.value;
+  document.getElementById('workVal').textContent = w + ' ns';
+  document.getElementById('needV').innerHTML = w + '<span class="small muted"> ns</span>';
+
+  var margin = DEADLINE - w;
+  var over = w > DEADLINE;
+
+  // 工作條寬度(超過就畫到 svg 邊界外一點,並裁切顯示到 580)
+  var barW = Math.min(w * SCALE, 580);
+  var bar = document.getElementById('workBar');
+  bar.setAttribute('width', barW);
+  bar.setAttribute('fill', over ? '#ef4444' : (margin < 1000 ? '#f59e0b' : '#2563eb'));
+  document.getElementById('workText').textContent = w + 'ns 工作';
+
+  // 餘裕條
+  var idle = document.getElementById('idleBar');
+  if (over) { idle.setAttribute('width', 0); }
+  else { idle.setAttribute('x', w * SCALE); idle.setAttribute('width', margin * SCALE); }
+
+  // 餘裕數字
+  var mv = document.getElementById('marginV');
+  mv.innerHTML = margin + '<span class="small muted"> ns</span>';
+  mv.className = 'v ' + (over ? 'v-red' : margin < 1000 ? 'v-amber' : 'v-emerald');
+
+  // 狀態
+  var sv = document.getElementById('statusV');
+  if (over) sv.innerHTML = '<span class="badge badge-bad">💥 逾時!</span>';
+  else if (margin < 1000) sv.innerHTML = '<span class="badge badge-warn">⚠️ 壓線</span>';
+  else sv.innerHTML = '<span class="badge badge-ok">✓ 安全</span>';
+
+  document.getElementById('dominoBox').style.display = over ? 'block' : 'none';
+}
+work.oninput = render;
+render();
+
+// 測驗
+document.querySelectorAll('#quiz .opt').forEach(function (b) {
+  b.onclick = function () {
+    document.querySelectorAll('#quiz .opt').forEach(function (x) { x.classList.remove('correct','wrong'); });
+    b.classList.add(b.dataset.c === '1' ? 'correct' : 'wrong');
+    document.getElementById('exp').classList.add('show');
+  };
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>工具 · Buck 反向設計小幫手</title>
+<style>
+  :root{--bg:#f1f5f9;--card:#fff;--ink:#1e293b;--muted:#64748b;--hint:#94a3b8;--line:#e2e8f0;--blue:#2563eb;--red:#dc2626;--purple:#7c3aed;--green:#059669;--cyan:#0891b2;--amber:#b45309;--mono:ui-monospace,Consolas,Menlo,monospace;--radius:12px;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Noto Sans TC","Microsoft JhengHei",sans-serif;line-height:1.7}
+  .wrap{max-width:940px;margin:0 auto;padding:22px 20px 64px}
+  a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+  .crumb{font-size:13px;color:var(--hint);margin-bottom:8px}
+  h1{font-size:23px;font-weight:600;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:15px;margin:0 0 18px}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
+  .bar .lbl{font-size:13px;color:var(--hint)}
+  button{font:inherit;font-size:13px;padding:6px 13px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;cursor:pointer}
+  button:hover{background:#f8fafc;border-color:#cbd5e1}
+  .stage{display:grid;grid-template-columns:330px 1fr;gap:20px;align-items:start}
+  @media(max-width:780px){.stage{grid-template-columns:1fr}}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+  .panel h2{font-size:14px;font-weight:600;margin:0 0 6px;color:var(--muted)}
+  .ctrl{margin:12px 0 0}
+  .row{display:flex;justify-content:space-between;margin-bottom:4px}
+  label{font-size:13px;color:var(--muted)}
+  .val{font-family:var(--mono);font-weight:600}
+  input[type=range]{width:100%}
+  .hint{font-size:11.5px;color:var(--hint);margin-top:3px}
+  .seg{font-size:12px;color:var(--hint);border-top:1px dashed var(--line);padding-top:10px;margin-top:14px}
+  .res{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+  .big{background:#0f172a;border-radius:var(--radius);padding:16px 18px;color:#e2e8f0}
+  .big .t{font-size:12px;color:#94a3b8;margin-bottom:4px}
+  .big .n{font-size:30px;font-weight:700;font-family:var(--mono);color:#fff;line-height:1.1}
+  .big .req{font-size:11.5px;color:#64748b;margin-top:6px;font-family:var(--mono)}
+  .big.lc{border:1px solid #1e293b}
+  .big .ach{font-size:12px;margin-top:6px;font-family:var(--mono)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
+  .metric{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+  .metric .t{font-size:11.5px;color:var(--muted);margin-bottom:2px}
+  .metric .n{font-size:18px;font-weight:600;font-family:var(--mono)}
+  .scope{background:#0f172a;border-radius:var(--radius);padding:12px 14px;margin-bottom:14px}
+  .scope .stitle{color:#cbd5e1;font-size:12.5px;font-family:var(--mono);margin-bottom:4px}
+  .check{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+  .check h3{margin:0 0 10px;font-size:14px;font-weight:600}
+  .check li{list-style:none;margin:0 0 9px;font-size:13.5px;display:flex;gap:9px;align-items:flex-start}
+  .check ul{margin:0;padding:0}
+  .ic{flex:0 0 auto;font-size:14px;line-height:1.4}
+  .ok{color:var(--green)} .wn{color:var(--amber)} .nt{color:var(--hint)}
+  .bom{background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--radius);padding:14px 16px;margin-top:14px;font-size:13.5px;color:#1e3a8a}
+  .bom b{color:#1e40af} .bom code{background:#dbeafe;padding:1px 6px;border-radius:4px;font-family:var(--mono)}
+  .warnbox{background:#fef3c7;border:1px solid #fcd34d;color:#92400e;border-radius:10px;padding:10px 13px;font-size:13px;margin-bottom:14px;display:none}
+  .nav{display:flex;justify-content:space-between;margin-top:24px;gap:10px}
+  .nav a{font-size:14px;padding:9px 16px;border:1px solid var(--line);border-radius:9px;background:var(--card)}
+  .foot{margin-top:26px;font-size:11.5px;color:var(--hint);text-align:center}
+  code{background:#eef2f7;padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="crumb">實用工具 · <a href="index.html">← 學習地圖</a></div>
+  <h1>Buck 反向設計小幫手</h1>
+  <p class="sub">輸入你的規格與想要的漣波，直接算出需要的 <b>L、C</b>，並對齊到常見料號級距。把前 5 頁的觀念變成能用的選料。</p>
+
+  <div class="bar">
+    <span class="lbl">範例規格：</span>
+    <button data-p="usb">5V→3.3V · 2A</button>
+    <button data-p="v12_5">12V→5V · 3A</button>
+    <button data-p="core">12V→1.2V · 10A（核心電源）</button>
+    <button data-p="ind24">24V→12V · 2A（工業）</button>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <h2>規格輸入</h2>
+      <div class="ctrl"><div class="row"><label for="vin">輸入電壓 Vin</label><span class="val" id="vinO" style="color:#1d4ed8">12 V</span></div><input id="vin" type="range" min="3" max="60" step="0.5" value="12" style="accent-color:#2563eb"></div>
+      <div class="ctrl"><div class="row"><label for="vout">輸出電壓 Vout</label><span class="val" id="voutO" style="color:#1d4ed8">3.3 V</span></div><input id="vout" type="range" min="0.8" max="48" step="0.1" value="3.3" style="accent-color:#2563eb"></div>
+      <div class="ctrl"><div class="row"><label for="iout">最大負載 Iout</label><span class="val" id="ioutO" style="color:#0891b2">2.0 A</span></div><input id="iout" type="range" min="0.1" max="20" step="0.1" value="2.0" style="accent-color:#0891b2"></div>
+      <div class="seg">設計目標</div>
+      <div class="ctrl"><div class="row"><label for="rip">目標電流漣波 ΔI / Iout</label><span class="val" id="ripO" style="color:#7c3aed">30 %</span></div><input id="rip" type="range" min="10" max="60" step="1" value="30" style="accent-color:#7c3aed"><div class="hint">業界常用 20~40%（太小→ L 很大很貴；太大→ DCM 早、雜訊大）</div></div>
+      <div class="ctrl"><div class="row"><label for="dv">目標電壓漣波 ΔVout</label><span class="val" id="dvO" style="color:#059669">30 mV</span></div><input id="dv" type="range" min="5" max="200" step="1" value="30" style="accent-color:#059669"></div>
+      <div class="ctrl"><div class="row"><label for="fsw">開關頻率 Fsw</label><span class="val" id="fswO" style="color:#7c3aed">500 kHz</span></div><input id="fsw" type="range" min="100" max="2000" step="50" value="500" style="accent-color:#7c3aed"><div class="hint">↑ Fsw → L/C 變小（省空間），但開關損耗↑</div></div>
+    </div>
+
+    <div>
+      <div class="warnbox" id="warn"></div>
+      <div class="res">
+        <div class="big lc">
+          <div class="t">需要的電感 L（選標準值）</div>
+          <div class="n" id="lN" style="color:#fca5a5">— μH</div>
+          <div class="req" id="lReq">需求 ≥ — μH</div>
+          <div class="ach" id="lAch"></div>
+        </div>
+        <div class="big lc">
+          <div class="t">需要的電容 C（選標準值）</div>
+          <div class="n" id="cN" style="color:#6ee7b7">— μF</div>
+          <div class="req" id="cReq">需求 ≥ — μF</div>
+          <div class="ach" id="cAch"></div>
+        </div>
+      </div>
+
+      <div class="cards">
+        <div class="metric"><div class="t">佔空比 D</div><div class="n" id="dN">—</div></div>
+        <div class="metric"><div class="t">電感峰值電流</div><div class="n" id="ipkN" style="color:#dc2626">— A</div></div>
+        <div class="metric"><div class="t">建議飽和額定 I_SAT</div><div class="n" id="isatN">— A</div></div>
+        <div class="metric"><div class="t">低於此負載進 DCM</div><div class="n" id="dcmN" style="color:#b45309">— A</div></div>
+      </div>
+
+      <div class="scope">
+        <div class="stitle">用所選標準 L 的實際電感電流（綠＝平均＝Iout）</div>
+        <svg id="sc" width="100%" viewBox="0 0 440 170" style="display:block"></svg>
+      </div>
+
+      <div class="check">
+        <h3>設計檢查清單</h3>
+        <ul id="chk"></ul>
+      </div>
+
+      <div class="bom" id="bom"></div>
+    </div>
+  </div>
+
+  <div class="nav">
+    <a href="4_ccm_vs_dcm.html">← 上一頁</a>
+    <a href="index.html">回學習地圖</a>
+  </div>
+  <p class="foot">理想化估算（D=Vout/Vin，忽略壓降與 ESR），用於初步選料與教學；正式設計請以實際元件規格書與 ESR/溫升驗證為準。</p>
+</div>
+
+<script>
+(function(){
+  var $=function(i){return document.getElementById(i);};
+  var Lstd=[1,1.5,2.2,3.3,4.7,6.8,10,15,22,33,47,68,100,150,220];
+  var Cstd=[1,2.2,4.7,10,22,47,100,150,220,330,470,1000];
+  function snapUp(req,arr){ for(var i=0;i<arr.length;i++){ if(arr[i]>=req) return {v:arr[i],over:false}; } return {v:arr[arr.length-1],over:true}; }
+
+  var W=440,H=170,pL=40,pR=14,pT=14,pB=24,plotW=W-pL-pR,periodW=plotW/2,y0=H-pB;
+  function drawScope(Iout,peak,valley,D,dcm){
+    var maxY=Math.max(peak*1.3,1);
+    function sY(v){return y0-(v/maxY)*(y0-pT);}
+    var s='';
+    for(var p=0;p<2;p++){var xs=pL+p*periodW;s+='<rect x="'+xs+'" y="'+pT+'" width="'+(D*periodW)+'" height="'+(y0-pT)+'" fill="rgba(59,130,246,0.13)"/>';}
+    s+='<line x1="'+pL+'" y1="'+sY(0)+'" x2="'+(W-pR)+'" y2="'+sY(0)+'" stroke="#334155" stroke-width="1" stroke-dasharray="4"/><text x="6" y="'+(sY(0)+3)+'" fill="#64748b" font-size="9">0A</text>';
+    s+='<line x1="'+pL+'" y1="'+sY(Iout)+'" x2="'+(W-pR)+'" y2="'+sY(Iout)+'" stroke="#10b981" stroke-width="2" stroke-dasharray="5" opacity="0.6"/><text x="'+(W-pR-2)+'" y="'+(sY(Iout)-4)+'" text-anchor="end" fill="#34d399" font-size="9">平均 '+Iout.toFixed(2)+'A</text>';
+    var verts=[],vv=valley<0?0:valley;
+    for(var q=0;q<2;q++){var x0=pL+q*periodW,xon=x0+D*periodW;verts.push([x0,sY(vv)],[xon,sY(peak)],[x0+periodW,sY(vv)]);}
+    s+='<polyline points="'+verts.map(function(a){return a[0].toFixed(1)+','+a[1].toFixed(1);}).join(' ')+'" fill="none" stroke="#3b82f6" stroke-width="3" stroke-linejoin="round"/>';
+    var yPk=sY(peak),yVl=sY(vv);
+    s+='<line x1="26" y1="'+yPk+'" x2="26" y2="'+yVl+'" stroke="#93c5fd" stroke-width="1.5"/><line x1="21" y1="'+yPk+'" x2="31" y2="'+yPk+'" stroke="#93c5fd"/><line x1="21" y1="'+yVl+'" x2="31" y2="'+yVl+'" stroke="#93c5fd"/><text x="33" y="'+((yPk+yVl)/2+3)+'" fill="#93c5fd" font-size="10">ΔI</text>';
+    s+='<text x="'+(pL+D*periodW)+'" y="'+(yPk-5)+'" text-anchor="middle" fill="#bfdbfe" font-size="10">峰 '+peak.toFixed(2)+'A</text>';
+    $("sc").innerHTML=s;
+  }
+
+  function li(state,txt){ var cls=state==='ok'?'ok':(state==='wn'?'wn':'nt'); var ic=state==='ok'?'✓':(state==='wn'?'⚠':'•'); return '<li><span class="ic '+cls+'">'+ic+'</span><span>'+txt+'</span></li>'; }
+
+  function render(){
+    var vin=+$("vin").value,vout=+$("vout").value,iout=+$("iout").value,rip=+$("rip").value/100,dvTarget=+$("dv").value,fsw=+$("fsw").value;
+    $("vinO").textContent=vin+" V";$("voutO").textContent=vout+" V";$("ioutO").textContent=iout.toFixed(1)+" A";
+    $("ripO").textContent=Math.round(rip*100)+" %";$("dvO").textContent=dvTarget+" mV";$("fswO").textContent=fsw+" kHz";
+
+    var wb=$("warn");
+    if(vout>=vin){ wb.style.display="block"; wb.innerHTML="⚠ buck 只能降壓：Vout 必須 &lt; Vin。請把 Vout 調低或 Vin 調高。"; return; }
+    else wb.style.display="none";
+
+    var D=vout/vin, fH=fsw*1000;
+    var dITarget=rip*iout;
+    var Lreq_uH=(vin-vout)*D/(fH*dITarget)*1e6;
+    var Ls=snapUp(Lreq_uH,Lstd);
+    var dIact=(vin-vout)*D/(fH*(Ls.v/1e6)); // A with chosen L
+    var ripAct=dIact/iout*100;
+    var Creq_uF=dIact/(8*fH*(dvTarget/1000))*1e6;
+    var Cs=snapUp(Creq_uF,Cstd);
+    var dvAct=dIact/(8*fH*(Cs.v/1e6))*1000; // mV
+    var peak=iout+dIact/2, valley=iout-dIact/2, isat=peak*1.3, iob=dIact/2;
+
+    $("lN").textContent=Ls.v+" μH"; $("lReq").textContent="需求 ≥ "+Lreq_uH.toFixed(2)+" μH";
+    $("lAch").innerHTML="實際漣波 "+ripAct.toFixed(0)+"% of Iout"; $("lAch").style.color=ripAct<=rip*100+0.5?"#6ee7b7":"#fca5a5";
+    $("cN").textContent=Cs.v+" μF"; $("cReq").textContent="需求 ≥ "+Creq_uF.toFixed(1)+" μF";
+    $("cAch").innerHTML="實際 ΔVout "+(dvAct<10?dvAct.toFixed(2):dvAct.toFixed(1))+" mV"; $("cAch").style.color=dvAct<=dvTarget+0.5?"#6ee7b7":"#fca5a5";
+
+    $("dN").textContent=(D*100).toFixed(1)+"%";
+    $("ipkN").textContent=peak.toFixed(2)+" A";
+    $("isatN").textContent="≥ "+isat.toFixed(2)+" A";
+    $("dcmN").textContent=iob.toFixed(2)+" A";
+
+    drawScope(iout,peak,valley,D,false);
+
+    var c='';
+    c+=li(ripAct<=rip*100+0.5?'ok':'wn', "電感 <b>"+Ls.v+" µH</b>（≥需求 "+Lreq_uH.toFixed(2)+" µH）→ 實際電流漣波 <b>"+ripAct.toFixed(0)+"%</b>"+(ripAct<=rip*100+0.5?"，達標":"，略大於目標，可選更大 L"));
+    c+=li(dvAct<=dvTarget+0.5?'ok':'wn', "電容 <b>"+Cs.v+" µF</b>（≥需求 "+Creq_uF.toFixed(1)+" µF）→ 實際 ΔVout <b>"+(dvAct<10?dvAct.toFixed(2):dvAct.toFixed(1))+" mV</b>"+(dvAct<=dvTarget+0.5?"，達標":"，略大於目標，可選更大 C"));
+    c+=li('ok', "選電感時，<b>飽和電流 I_SAT ≥ "+isat.toFixed(2)+" A</b>（峰值 "+peak.toFixed(2)+"A × 1.3 餘裕），否則重載會飽和、電感量驟降。");
+    c+=li(Ls.over||Cs.over?'wn':'nt', (Ls.over||Cs.over)? "需求超出常見料號級距，請改高 Fsw 或放寬漣波目標。" : "負載低於 <b>"+iob.toFixed(2)+" A</b> 會進入 DCM；若你的系統會輕載待機，控制環需另外考慮（見第 5 頁）。");
+    c+=li('nt', "提高 Fsw 可換更小的 L/C（省板面積），代價是開關損耗上升、效率下降 —— 體積與效率的取捨。");
+    $("chk").innerHTML=c;
+
+    $("bom").innerHTML="<b>選料摘要：</b>　Vin <code>"+vin+"V</code> → Vout <code>"+vout+"V</code> @ <code>"+iout.toFixed(1)+"A</code>，Fsw <code>"+fsw+"kHz</code><br>"
+      +"電感 <code>L = "+Ls.v+" µH</code>（I_SAT ≥ "+isat.toFixed(1)+"A）　電容 <code>C = "+Cs.v+" µF</code>（建議低 ESR MLCC）　佔空比 <code>D ≈ "+(D*100).toFixed(0)+"%</code>";
+  }
+
+  ["vin","vout","iout","rip","dv","fsw"].forEach(function(k){$(k).addEventListener("input",render);});
+  var P={usb:[5,3.3,2,30,30,500],v12_5:[12,5,3,30,40,500],core:[12,1.2,10,30,15,1000],ind24:[24,12,2,30,50,300]};
+  document.querySelectorAll(".bar button").forEach(function(b){ b.onclick=function(){ var a=P[b.getAttribute("data-p")]; $("vin").value=a[0];$("vout").value=a[1];$("iout").value=a[2];$("rip").value=a[3];$("dv").value=a[4];$("fsw").value=a[5]; render(); }; });
+  render();
+})();
+</script>
+</body>
+</html>

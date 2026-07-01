@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>03. Clock 怎麼推動資料 + 取樣邊緣</title>
+  <link rel="stylesheet" href="assets/spi.css">
+  <style>
+    canvas#clkCanvas { height: 280px; }
+    .cap-row { display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); gap:6px; margin-top:6px; }
+    .cap { min-height:46px; display:grid; place-items:center; border:1px solid var(--line); border-radius:7px; background:#fff; font-weight:900; color:#cbd5e1; }
+    .cap.got { border-color:var(--teal); background:var(--teal-soft); color:#0f5f58; }
+  </style>
+</head>
+<body data-lesson="03">
+  <header>
+    <div class="header-inner">
+      <p class="eyebrow">SPI 初學者課程 · 第 4 課 / 共 9 課</p>
+      <h1>03. Clock 怎麼推動資料 + 取樣邊緣</h1>
+      <p class="subtitle">為什麼「邊緣」這麼重要？這一課把焦點縮小到一件事：接收端是在 clock 的<strong>哪一個邊緣</strong>把資料線的值「鎖」進去的。看懂這個，下一課 CPOL/CPHA 就秒懂。</p>
+      <nav class="top-nav" id="lessonNav"></nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="tldr">
+      <span class="k">🎯 一句話先懂</span>
+      <p>資料線（DATA）會一直變，但接收端<strong>只在 clock 的某個邊緣那一瞬間「拍照」</strong>。拍到的那一刻 DATA 是 0 就記 0、是 1 就記 1。所以資料必須在那個邊緣<strong>之前就穩定好</strong>。</p>
+    </section>
+
+    <section class="analogy">
+      <span class="k">🪣 生活比喻</span>
+      <p>像紅綠燈路口的測速照相：車（資料）一直在動，但相機只在「閃光那一瞬間」拍下位置。閃光＝取樣邊緣。如果車剛好在閃光時還在移動（資料還沒穩定），那張照片就是模糊的＝讀錯。</p>
+    </section>
+
+    <div class="layout-2col">
+      <section class="stack">
+        <div class="panel">
+          <div class="panel-title"><h2>🎮 控制</h2><small></small></div>
+          <div class="field-grid">
+            <div class="field">
+              <label for="dataHex"><span>要傳的資料</span><small>8-bit hex</small></label>
+              <input id="dataHex" value="B4" maxlength="2" spellcheck="false">
+            </div>
+            <div class="field">
+              <label for="edge"><span>在哪個邊緣取樣</span><small>sample edge</small></label>
+              <select id="edge">
+                <option value="rising" selected>上升邊緣 ↑（low→high）</option>
+                <option value="falling">下降邊緣 ↓（high→low）</option>
+              </select>
+              <div class="hint">這就是 CPHA 在決定的事：第幾個邊緣取樣。</div>
+            </div>
+            <div class="field">
+              <label for="stable"><span>資料準備是否及時</span><small>setup</small></label>
+              <select id="stable">
+                <option value="ok" selected>正常：邊緣前就穩定</option>
+                <option value="late">太慢：邊緣時還在變（看會怎樣）</option>
+              </select>
+            </div>
+            <div class="btn-row">
+              <button class="btn" id="btnStep" type="button">下一個邊緣</button>
+              <button class="btn secondary" id="btnPlay" type="button">連續播放</button>
+              <button class="btn warning" id="btnReset" type="button">重設</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><h2>本課重點</h2><small>三句話</small></div>
+          <div class="prose">
+            <ul>
+              <li><strong>更新邊緣</strong>：發送端在這個邊緣把下一個 bit 推上資料線。</li>
+              <li><strong>取樣邊緣</strong>：接收端在這個邊緣把資料線的值讀進來。</li>
+              <li>兩者是<strong>不同的邊緣</strong>，中間那段時間就是留給資料穩定的 <span class="term" data-tip="setup time：取樣前資料必須已經穩定的最短時間">setup</span>。</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="stack">
+        <div class="metric-grid">
+          <div class="metric"><span>取樣到第幾 bit</span><strong id="mIdx">0 / 8</strong></div>
+          <div class="metric"><span>這次拍到</span><strong id="mBit">-</strong></div>
+          <div class="metric"><span>已收到</span><strong id="mVal">0x00</strong></div>
+          <div class="metric"><span>讀取結果</span><strong id="mOk">—</strong></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><h2>波形與取樣點</h2><small id="edgeTag">上升邊緣取樣</small></div>
+          <div class="canvas-wrap"><canvas id="clkCanvas" width="820" height="280"></canvas></div>
+          <p class="hint" style="margin-top:8px">黃色虛線＝取樣邊緣（接收端拍照的瞬間）。綠色＝目前這一拍。</p>
+          <div class="cap-row" id="capRow"></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel">
+      <div class="panel-title"><h2>⚠️ 為什麼會讀錯</h2><small>把「資料準備」切到「太慢」試試</small></div>
+      <div class="prose" style="display:grid;gap:10px">
+        <div class="callout danger">
+          <span class="k">資料在取樣邊緣時還在變</span>
+          <p>如果 SCLK 太快、線太長、或中間有 level shifter 延遲，資料可能還沒穩定就被拍照，拍到的是中間的模糊值——這就是高速時偶發錯的主因。下一課會教怎麼算還剩多少 setup 餘裕（margin）。</p>
+        </div>
+        <div class="callout warn">
+          <span class="k">取樣邊緣選錯（CPHA 不一致）</span>
+          <p>如果 Master 在上升邊緣送、Slave 卻在上升邊緣讀，等於「邊送邊拍」，會拍到正在切換的值。雙方必須一個負責更新、一個負責取樣，錯開才對。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title"><h2>✅ 自我檢查</h2><small></small></div>
+      <div class="quiz" data-answer="2">
+        <div class="q">「setup time」指的是什麼？</div>
+        <div class="opts">
+          <button class="opt" data-i="0"><span class="mk">A</span><span>SPI 開始前初始化暫存器的時間</span></button>
+          <button class="opt" data-i="1"><span class="mk">B</span><span>CS 拉低到第一個 clock 的延遲</span></button>
+          <button class="opt" data-i="2"><span class="mk">C</span><span>取樣邊緣到來之前，資料必須已經穩定的最短時間</span></button>
+          <button class="opt" data-i="3"><span class="mk">D</span><span>兩個 byte 之間的間隔</span></button>
+        </div>
+        <div class="explain">setup time 是「拍照前資料要先站好不動」的時間。不夠的話就會拍到模糊值。下一課的 margin 計算器就是在算這段夠不夠。</div>
+      </div>
+    </section>
+
+    <div class="pager" id="pager"></div>
+  </main>
+
+  <footer>下一課：把取樣邊緣整理成 <a href="lesson_04_mode.html">CPOL / CPHA 四種模式</a>，並計算最高安全速度。</footer>
+
+  <script src="assets/spi-lesson.js"></script>
+  <script>
+    var $ = function (id) { return document.getElementById(id); };
+    var dataHex = $("dataHex"), edgeSel = $("edge"), stableSel = $("stable"), canvas = $("clkCanvas");
+    var N = 8, step = 0, timer = null;
+
+    function bits() {
+      var c = String(dataHex.value).trim().replace(/^0x/i, "").replace(/[^0-9a-f]/gi, "").slice(0, 2);
+      var v = c ? parseInt(c, 16) : 0xB4;
+      dataHex.value = v.toString(16).toUpperCase().padStart(2, "0");
+      return Array.from({ length: 8 }, function (_, i) { return (v >> (7 - i)) & 1; });
+    }
+    function reset() { step = 0; stop(); render(); }
+    function next() { if (step >= N) return; step++; render(); }
+    function stop() { if (timer) clearInterval(timer); timer = null; $("btnPlay").textContent = "連續播放"; }
+    function play() {
+      if (timer) { stop(); return; }
+      $("btnPlay").textContent = "暫停";
+      timer = setInterval(function () { if (step >= N) { stop(); return; } next(); }, 650);
+    }
+
+    function render() {
+      var b = bits();
+      var late = stableSel.value === "late";
+      $("mIdx").textContent = step + " / 8";
+      $("mBit").textContent = step > 0 ? (late ? "?" : b[step - 1]) : "-";
+      var got = b.slice(0, step);
+      var val = got.reduce(function (a, x) { return (a << 1) | x; }, 0);
+      if (step > 0) val = val << (8 - step);
+      $("mVal").textContent = "0x" + (val & 0xff).toString(16).toUpperCase().padStart(2, "0");
+      $("mOk").textContent = step === 0 ? "—" : late ? "可能讀錯" : "正確";
+      $("mOk").style.color = step === 0 ? "" : late ? "var(--red)" : "var(--green)";
+      $("edgeTag").textContent = (edgeSel.value === "rising" ? "上升" : "下降") + "邊緣取樣";
+      $("capRow").innerHTML = b.map(function (bit, i) {
+        var got = i < step;
+        return '<div class="cap ' + (got ? "got" : "") + '">' + (got ? (late ? "?" : bit) : "·") + '</div>';
+      }).join("");
+      draw(b, late);
+    }
+
+    function draw(b, late) {
+      var rect = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(420, Math.round(rect.width * dpr));
+      canvas.height = Math.max(240, Math.round(rect.height * dpr));
+      var ctx = canvas.getContext("2d");
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.scale(dpr, dpr);
+      var w = canvas.width / dpr, h = canvas.height / dpr;
+      var pad = { left: 64, right: 20, top: 30, bottom: 26 };
+      var pw = (w - pad.left - pad.right) / N;
+      ctx.fillStyle = "#0b1220"; ctx.fillRect(0, 0, w, h);
+
+      var clkTop = pad.top, clkHi = clkTop + 8, clkLo = clkTop + 52;
+      var datTop = pad.top + 110, datHi = datTop + 8, datLo = datTop + 52;
+
+      // 取樣瞬間目前 cycle 高亮
+      if (step > 0 && step <= N) {
+        ctx.fillStyle = "rgba(45,212,191,0.12)";
+        ctx.fillRect(pad.left + (step - 1) * pw, pad.top - 4, pw, h - pad.top - pad.bottom + 4);
+      }
+
+      // SCLK：低半 → 高半
+      ctx.strokeStyle = "#fbbf24"; ctx.lineWidth = 2; ctx.beginPath();
+      ctx.moveTo(pad.left, clkLo);
+      for (var i = 0; i < N; i++) {
+        var x0 = pad.left + i * pw, xm = x0 + pw / 2, x1 = x0 + pw;
+        ctx.lineTo(xm, clkLo); ctx.lineTo(xm, clkHi); ctx.lineTo(x1, clkHi); ctx.lineTo(x1, clkLo);
+      }
+      ctx.stroke();
+      ctx.fillStyle = "#94a3b8"; ctx.font = "12px Segoe UI, sans-serif";
+      ctx.fillText("SCLK", 14, clkTop + 32);
+      ctx.fillText("DATA", 14, datTop + 32);
+
+      // DATA：每 cycle 一個 bit；若「太慢」，在取樣邊緣附近畫斜過渡
+      var rising = edgeSel.value === "rising";
+      ctx.strokeStyle = "#5eead4"; ctx.lineWidth = 2; ctx.beginPath();
+      for (var j = 0; j < N; j++) {
+        var bx0 = pad.left + j * pw, bx1 = bx0 + pw, y = b[j] ? datHi : datLo;
+        if (j === 0) ctx.moveTo(bx0, y); else ctx.lineTo(bx0, b[j - 1] ? datHi : datLo);
+        if (late) {
+          // 邊緣處還在變：在取樣點附近畫一段斜線
+          var sx = rising ? bx0 + pw / 2 : bx1;
+          ctx.lineTo(sx - 8, y === datHi ? datLo : datHi);
+          ctx.lineTo(sx + 4, y);
+        } else {
+          ctx.lineTo(bx0, y);
+        }
+        ctx.lineTo(bx1, y);
+        ctx.fillStyle = "#cbd5e1"; ctx.fillText(String(b[j]), bx0 + pw / 2 - 3, datLo + 22);
+      }
+      ctx.stroke();
+
+      // 取樣邊緣虛線
+      for (var k = 0; k < N; k++) {
+        var ex = pad.left + k * pw + (rising ? pw / 2 : pw);
+        var current = k === step - 1;
+        ctx.strokeStyle = current ? "#34d399" : "rgba(250,204,21,0.7)";
+        ctx.lineWidth = current ? 2.5 : 1.5;
+        ctx.setLineDash(current ? [] : [4, 4]);
+        ctx.beginPath(); ctx.moveTo(ex, pad.top - 4); ctx.lineTo(ex, h - pad.bottom); ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#fde68a"; ctx.fillText("↑ 取樣邊緣", pad.left, h - 8);
+    }
+
+    [dataHex, edgeSel, stableSel].forEach(function (e) { e.addEventListener("input", reset); e.addEventListener("change", reset); });
+    $("btnStep").addEventListener("click", next);
+    $("btnPlay").addEventListener("click", play);
+    $("btnReset").addEventListener("click", reset);
+    window.addEventListener("resize", render);
+    render();
+  </script>
+</body>
+</html>

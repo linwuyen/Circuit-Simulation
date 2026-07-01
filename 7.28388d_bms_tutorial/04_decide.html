@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>04 決定 · BMS 狀態機 | F28388D BMS 教學模擬器</title>
+  <link rel="stylesheet" href="assets/bms-tutorial.css">
+</head>
+<body data-page="fsm" data-chapter="4">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="brand-title">F28388D BMS 教學模擬器</span><span class="brand-subtitle">04 決定 · BMS 狀態機</span></div>
+      <nav class="nav" aria-label="章節導覽">
+        <a href="index.html">首頁</a><a href="01_overview.html">總覽</a><a href="02_sense.html">量測</a><a href="03_compare.html">比較</a><a href="04_decide.html" aria-current="page">決定</a><a href="05_actuate.html">致動</a><a href="06_report.html">回報</a><a href="07_coordinate.html">協同</a><a href="08_failsafe.html">失效</a><a href="09_integrate.html">整合</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="hero">
+      <div>
+        <span class="eyebrow">Lesson 04 · 鏈的第③環</span>
+        <h1>決定這一層用狀態機把判定變成動作:每次轉換都要有條件。</h1>
+        <p class="lead">上一章的「判定」在這裡被接住。你會看到「請求放電」不是按了就放電——必須同時滿足電壓、電流與通訊健康條件,而且進了 FAULT_LOCK 就不會自己回頭。</p>
+      </div>
+      <div class="panel">
+        <h2>目前狀態</h2>
+        <div style="display:grid;gap:10px;margin-top:12px;">
+          <div id="system-state" class="state-pill"><span class="led"></span>INIT</div>
+          <div id="contactor" class="state-pill red"><span class="led"></span>斷開 OPEN</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="lesson-layout">
+      <aside>
+        <div class="panel">
+          <div class="panel-title"><h2>實驗腳本</h2></div>
+          <ol class="guide-list">
+            <li><span>1</span><div><strong>按「請求放電」</strong><em>INIT 會先轉到 STANDBY。</em></div></li>
+            <li><span>2</span><div><strong>再按一次「請求放電」</strong><em>電壓低於 4150mV 時才會進 DISCHARGE。</em></div></li>
+            <li><span>3</span><div><strong>把電流拉到 160A</strong><em>看到 OCP 觸發 FAULT_LOCK。</em></div></li>
+            <li><span>4</span><div><strong>按硬體重置</strong><em>學會 FAULT_LOCK 不是軟體自動解除。</em></div></li>
+          </ol>
+        </div>
+        <div class="panel">
+          <div class="panel-title"><h2>對照程式碼</h2></div>
+          <pre class="code">switch(state) {
+  case STANDBY:
+    if (V &gt; 4250) FAULT;
+    if (cmd_on &amp;&amp; V &lt;= 4150) DISCHARGE;
+    break;
+  case DISCHARGE:
+    if (I &gt; 150) FAULT;
+    if (SPI_Err &gt;= 3) FAULT;
+    break;
+}</pre>
+          <div class="reg-note">真實對應:這些門檻就是韌體裡的 <code>#define</code>(OVP 4250、放電上限 4150、OCP 150)。狀態存成一個 <code>enum</code>,每個 100µs ISR 跑一次這段 <code>switch</code>;進 <code>FAULT</code> 後不會再被其它分支改回去,這就是「鎖定」。</div>
+        </div>
+        <div class="panel">
+          <div class="callout warning">如果這是你的車:你踩了油門(放電請求),但電池剛充飽電壓偏高,BMS 會「先不放」等電壓回落,而不是冒著過充風險硬接負載。</div>
+        </div>
+      </aside>
+
+      <section>
+        <div class="panel">
+          <div class="panel-title"><h2>FSM 操作區</h2><small>CPU2 / BMS protection</small></div>
+          <div class="state-flow">
+            <div class="state-box" data-state="INIT">INIT</div>
+            <div class="state-box" data-state="STANDBY">STANDBY</div>
+            <div class="state-box" data-state="DISCHARGE">DISCHARGE</div>
+            <div class="state-box" data-state="FAULT">FAULT_LOCK</div>
+          </div>
+          <div class="controls" style="margin-top:16px;">
+            <label class="range-row">
+              <span class="range-label"><span>最高單體電壓</span><strong id="fsm-voltage-value">4000 mV</strong></span>
+              <input id="fsm-voltage-slider" type="range" min="3000" max="4300" value="4000">
+            </label>
+            <label class="range-row">
+              <span class="range-label"><span>Pack 總電流</span><strong id="fsm-current-value">0.0 A</strong></span>
+              <input id="fsm-current-slider" type="range" min="0" max="200" value="0">
+            </label>
+            <div class="metric-grid">
+              <div class="metric"><span>SPI_Err_Cnt</span><strong id="fsm-spi-count">0</strong></div>
+              <div class="metric"><span>放電條件</span><strong>V &lt;= 4150</strong></div>
+              <div class="metric"><span>過流條件</span><strong>I &gt; 150</strong></div>
+            </div>
+            <div class="button-row">
+              <button id="fsm-request" class="btn primary">請求放電 / 執行下一步</button>
+              <button id="fsm-spi" class="btn">注入 SPI 錯誤</button>
+              <button id="fsm-reset" class="btn danger">硬體重置</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title"><h2>事件紀錄</h2></div>
+          <div id="fsm-log" class="event-log">
+            <div class="event ok">狀態機等待第一個 tick。</div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" style="margin-top:20px;">
+      <div class="panel-title"><h2>帶走這三句</h2></div>
+      <ul class="checklist">
+        <li>狀態機把「判定」變成「動作」,每次轉換都要有明確條件。</li>
+        <li>放電請求要同時滿足電壓、電流、通訊健康才會成立。</li>
+        <li>FAULT_LOCK 是鎖定狀態,只能靠明確重置離開。</li>
+      </ul>
+    </section>
+
+    <nav class="footer-nav">
+      <a href="03_compare.html">上一章:比較 · 安全門檻</a>
+      <a href="05_actuate.html">下一章:致動 · 接觸器與預充</a>
+    </nav>
+  </main>
+  <script src="assets/bms-sim.js"></script>
+  <script src="assets/bms-learn.js"></script>
+</body>
+</html>

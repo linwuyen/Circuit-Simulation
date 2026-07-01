@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>03 PI 控制器 C(s)=Kp+Ki/s</title>
+    <script src="../assets/vendor/tailwindcss-cdn.js"></script>
+    <script src="../assets/vendor/chart.umd.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
+        .nav a { padding:.25rem .6rem; border-radius:.4rem; font-size:.85rem; white-space:nowrap; }
+        .nav a:hover { background:#eff6ff; }
+        .nav a.active { background:#2563eb; color:#fff; font-weight:700; }
+        .chart-container { position: relative; height: 32vh; min-height: 240px; background:#fff; border-radius:.5rem; padding:1rem; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+        input[type=range]{ width:100%; }
+        .card { background:#fff; border-radius:.5rem; padding:1rem; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+    </style>
+</head>
+<body class="p-4 md:p-6">
+<div class="max-w-6xl mx-auto">
+
+    <nav class="nav bg-white rounded-lg shadow-sm px-3 py-2 mb-5 flex flex-wrap items-center gap-1 text-gray-600">
+        <a href="index.html" class="font-bold text-gray-700">📚 地圖</a><span class="text-gray-300">|</span>
+        <a href="01_what_is_bode.html" title="波德圖的一個點">01</a>
+        <a href="02_integrator.html" title="積分器">02</a>
+        <a href="03_pi_controller.html" class="active" title="PI 控制器">03</a>
+        <a href="04_lc_plant.html" title="LC 受控體">04</a>
+        <a href="05_add_in_db.html" title="相乘變相加">05</a>
+        <a href="06_stability.html" title="穩定度+時域">06</a>
+        <a href="pi.html" class="ml-auto" title="設計沙盒">★ 沙盒</a>
+        <a href="07_challenge.html" title="挑戰任務">🏆 挑戰</a>
+    </nav>
+
+    <div class="mb-5">
+        <p class="text-sm font-semibold text-blue-600">關卡 03</p>
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-800 mb-2">把 Kp 加進去 → 完整 PI 控制器 <span class="font-mono">C(s)=Kp+Ki/s</span></h1>
+        <p class="text-gray-600">積分器(上一關)準但慢、還吃掉 90° 相位。加一個<b>比例 Kp</b>就能補救：低頻交給積分顧準度,高頻交給比例顧速度,中間有一個「交棒點」。</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div class="space-y-4">
+            <div class="card">
+                <label class="block text-sm font-bold text-gray-700 mb-1">比例增益 Kp：<span id="kp-val" class="text-blue-600">0.5</span></label>
+                <p class="text-xs text-gray-500 mb-2">決定高頻段的水平高度(20·log Kp),整體上移/下移。</p>
+                <input type="range" id="kp-slider" min="0.01" max="2.0" step="0.01" value="0.5">
+            </div>
+            <div class="card">
+                <label class="block text-sm font-bold text-gray-700 mb-1">積分增益 Ki：<span id="ki-val" class="text-blue-600">5000</span></label>
+                <p class="text-xs text-gray-500 mb-2">決定低頻有多高,也把「交棒點」往右推。</p>
+                <input type="range" id="ki-slider" min="100" max="50000" step="100" value="5000">
+            </div>
+
+            <div class="card">
+                <h3 class="font-bold text-gray-800 border-b pb-2 mb-3 text-sm">關鍵：交棒頻率（轉折/零點）</h3>
+                <span class="text-xs text-gray-500 block">fz = Ki / (2π·Kp)</span>
+                <span id="fz-val" class="text-2xl font-bold text-green-600">-- Hz</span>
+                <p class="text-xs text-gray-500 mt-2">低於 fz：像積分器(下坡、相位 −90°)。<br>高於 fz：像純比例(水平、相位回到 0°)。</p>
+            </div>
+
+            <div class="bg-emerald-50 p-4 rounded-lg border border-emerald-100 text-sm">
+                <h4 class="font-bold text-emerald-800 mb-1">🗣️ 白話結論</h4>
+                <p id="narrative" class="text-xs text-emerald-900 leading-relaxed">--</p>
+            </div>
+
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-100 text-sm">
+                <h4 class="font-bold text-blue-800 mb-1">💡 觀察重點</h4>
+                <ul class="text-xs text-blue-700 space-y-1 list-disc pl-4">
+                    <li>相位圖最棒：左側從 <b>−90°</b>(積分主導)慢慢爬回 <b>0°</b>(比例主導)。Kp 把被積分吃掉的相位<b>救回來</b>。</li>
+                    <li>調 <b>Kp</b>：高頻水平段整體上下移(灰線平移)。</li>
+                    <li>調 <b>Ki</b>：低頻段高度與交棒點 fz 一起移動。</li>
+                    <li>把交棒點 fz 放在「你想要的交越頻率」附近,相位才會在最關鍵的地方被救起來——這是下一步調控制器的訣竅。</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2 space-y-4">
+            <div class="chart-container"><canvas id="magChart"></canvas></div>
+            <div class="chart-container"><canvas id="phaseChart"></canvas></div>
+        </div>
+    </div>
+
+    <div class="flex justify-between items-center mt-6 text-sm">
+        <a href="02_integrator.html" class="px-4 py-2 rounded-lg bg-white shadow-sm text-gray-600 hover:bg-gray-50">← 上一關：積分器</a>
+        <a href="04_lc_plant.html" class="px-4 py-2 rounded-lg bg-blue-600 text-white shadow-sm hover:bg-blue-700 font-semibold">下一關：LC 受控體 →</a>
+    </div>
+</div>
+
+<script>
+const F_MIN = 10, F_MAX = 100000, N = 300;
+const freqs = [];
+for (let i = 0; i < N; i++) freqs.push(F_MIN * Math.pow(F_MAX / F_MIN, i / (N - 1)));
+
+let magChart, phaseChart;
+function fmtHz(f){ return f >= 1000 ? (f/1000).toFixed(2)+' kHz' : f.toFixed(0)+' Hz'; }
+
+// C(s)=Kp+Ki/s = Kp - j*Ki/w
+function cPoint(f, kp, ki){
+    const w = 2 * Math.PI * f;
+    const re = kp, im = -ki / w;
+    return { mag: 20 * Math.log10(Math.sqrt(re*re + im*im)), ph: Math.atan2(im, re) * 180 / Math.PI };
+}
+
+function update() {
+    const kp = parseFloat(document.getElementById('kp-slider').value);
+    const ki = parseFloat(document.getElementById('ki-slider').value);
+    document.getElementById('kp-val').textContent = kp.toFixed(2);
+    document.getElementById('ki-val').textContent = ki;
+
+    const mag = [], ph = [];
+    for (const f of freqs){ const p = cPoint(f, kp, ki); mag.push({x:f,y:p.mag}); ph.push({x:f,y:p.ph}); }
+    const fz = ki / (2 * Math.PI * kp);
+    document.getElementById('fz-val').textContent = fmtHz(fz);
+
+    magChart.data.datasets[0].data = mag;
+    magChart.data.datasets[1].data = (fz>=F_MIN&&fz<=F_MAX) ? [{x:fz,y:-80},{x:fz,y:80}] : [];
+    magChart.update();
+
+    phaseChart.data.datasets[0].data = ph;
+    phaseChart.data.datasets[1].data = (fz>=F_MIN&&fz<=F_MAX) ? [{x:fz,y:-95},{x:fz,y:5}] : [];
+    phaseChart.update();
+
+    const highLevel = 20*Math.log10(kp);
+    document.getElementById('narrative').textContent =
+        `交棒點在 ${fmtHz(fz)}。低於它,曲線是積分器的下坡、相位壓在 −90°;高於它,曲線壓平在 ${highLevel.toFixed(1)} dB(＝20·log Kp)、相位回到接近 0°。換句話說:Kp 顧高頻的「快」與相位,Ki 顧低頻的「準」。`;
+}
+
+function init() {
+    const common = {
+        responsive: true, maintainAspectRatio: false, parsing: false, animation: { duration: 80 },
+        elements: { point: { radius: 0 }, line: { tension: 0 } },
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: { x: { type: 'logarithmic', min: F_MIN, max: F_MAX, title: { display: true, text: '頻率 (Hz, log)' }, grid: { color: 'rgba(0,0,0,.05)' } } }
+    };
+
+    magChart = new Chart(document.getElementById('magChart').getContext('2d'), { type:'line',
+        data:{ datasets:[
+            { data:[], borderColor:'#9ca3af', borderWidth:2.5, fill:false },
+            { data:[], borderColor:'rgba(22,163,74,0.7)', borderWidth:1.5, pointRadius:0, fill:false } // fz 垂直線
+        ]},
+        options:{ ...common, plugins:{ ...common.plugins, title:{ display:true, text:'C(s) 增益：下坡(積分) → 轉折(綠線) → 水平(比例)', align:'start' } },
+            scales:{ ...common.scales, y:{ min:-40, max:80, title:{ display:true, text:'Magnitude (dB)' }, grid:{ color:'rgba(0,0,0,.05)' } } } }
+    });
+
+    phaseChart = new Chart(document.getElementById('phaseChart').getContext('2d'), { type:'line',
+        data:{ datasets:[
+            { data:[], borderColor:'#9ca3af', borderWidth:2.5, fill:false },
+            { data:[], borderColor:'rgba(22,163,74,0.7)', borderWidth:1.5, pointRadius:0, fill:false }
+        ]},
+        options:{ ...common, plugins:{ ...common.plugins, title:{ display:true, text:'C(s) 相位：從 −90°(積分) 爬回 0°(比例)', align:'start' } },
+            scales:{ ...common.scales, y:{ min:-95, max:5, title:{ display:true, text:'Phase (deg)' }, grid:{ color:'rgba(0,0,0,.05)' } } } }
+    });
+}
+
+['kp-slider','ki-slider'].forEach(id => document.getElementById(id).addEventListener('input', update));
+init();
+update();
+</script>
+</body>
+</html>

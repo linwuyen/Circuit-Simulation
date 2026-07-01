@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L2 · Clarke 變換</title>
+<link rel="stylesheet" href="foc-style.css">
+</head>
+<body>
+<header class="top">
+  <div>
+    <div class="crumb">FOC 教學課程 · 階段 ① 基礎直覺</div>
+    <h1>L2 · Clarke 變換 (3 相 → 2 相)</h1>
+    <div class="sub">三條相差 120° 的正弦波，合成成一個 αβ 向量</div>
+  </div>
+  <div class="prog">第 2 / 9 課</div>
+</header>
+
+<main class="stage">
+  <div class="scopes two">
+    <div class="scope sq">
+      <canvas id="cv-xy"></canvas>
+      <span class="lab">αβ 平面：三相軸 + 合成向量</span>
+    </div>
+    <div class="scope sq">
+      <canvas id="cv-yt"></canvas>
+      <span class="lab">三相時域</span>
+      <span class="lab tr"><span style="color:#34d399">●</span>Va <span style="color:#22d3ee">●</span>Vb <span style="color:#a78bfa">●</span>Vc</span>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <h2>參數</h2>
+    <div class="ctrl">
+      <div class="row"><span>角速度 ω</span><span class="v" id="v-w">45 Hz</span></div>
+      <input type="range" id="p-w" min="0" max="200" value="45">
+    </div>
+    <div class="ctrl">
+      <div class="row"><span>振幅 |V|</span><span class="v" id="v-m">0.85</span></div>
+      <input type="range" id="p-m" min="0.2" max="1" step="0.05" value="0.85">
+    </div>
+    <div class="readout">
+      <div class="cell"><span>Va</span><span id="r-a">0.000</span></div>
+      <div class="cell"><span>Vb</span><span id="r-b">0.000</span></div>
+      <div class="cell"><span>Vc</span><span id="r-c">0.000</span></div>
+      <div class="cell"><span>Va+Vb+Vc</span><span id="r-sum">0.000</span></div>
+      <div class="cell"><span>Vα</span><span id="r-al">0.000</span></div>
+      <div class="cell"><span>Vβ</span><span id="r-be">0.000</span></div>
+    </div>
+    <div class="note">把 ω 拉到 <code>0</code> 可凍結畫面，慢慢看三個點怎麼合成那支綠色向量。
+      公式：<code>Vα = Va</code>，<code>Vβ = (Vb−Vc)/√3</code>。</div>
+    <div class="task"><b>🎯 動手試</b>
+      看右圖三條波此刻的高度（三個圓點），對照左圖三個彩色點落在各自的相軸上；它們的合成永遠是那支綠向量。注意 <code>Va+Vb+Vc</code> 恆為 0。</div>
+    <div class="aha"><b>💡 你學到了</b>
+      三相平衡（總和=0）其實只有「2 個自由度」，所以 3 個數可以無損地壓成 2 個（α、β）。少一個軸要處理，控制就簡單一截。</div>
+  </aside>
+</main>
+
+<nav class="foot">
+  <a href="L1-space-vector.html">← L1</a>
+  <a href="index.html">課程地圖</a>
+  <a href="L2_5-inverse-svpwm.html">🔧 補充：反 Clarke / SVPWM</a>
+  <a class="next" href="L3-park.html">下一課：L3 Park 變換 →</a>
+</nav>
+
+<script src="foc-core.js"></script>
+<script>
+const cvXY=document.getElementById('cv-xy'),ctxXY=cvXY.getContext('2d');
+const cvYT=document.getElementById('cv-yt'),ctxYT=cvYT.getContext('2d');
+const pW=document.getElementById('p-w'),pM=document.getElementById('p-m');
+let theta=0,w=45,mag=0.85,last=performance.now();
+const axes=[{ang:0,c:'#34d399',n:'a'},{ang:120,c:'#22d3ee',n:'b'},{ang:240,c:'#a78bfa',n:'c'}];
+
+function ui(){ w=+pW.value; mag=+pM.value;
+  document.getElementById('v-w').textContent=w+' Hz';
+  document.getElementById('v-m').textContent=mag.toFixed(2);}
+[pW,pM].forEach(p=>p.addEventListener('input',ui));
+function resize(){FOC.fit(cvXY);FOC.fit(cvYT);}
+window.addEventListener('resize',resize);
+
+function phases(th){return axes.map(a=>mag*Math.cos(th-a.ang*Math.PI/180));}
+
+function loop(now){
+  const dt=Math.min(.016,(now-last)/1000); last=now;
+  theta=(theta+FOC.TAU*w*dt)%FOC.TAU;
+  const [Va,Vb,Vc]=phases(theta);
+  const {alpha,beta}=FOC.clarke(Va,Vb,Vc);
+
+  // 左：αβ 平面 + 三相軸
+  const W=cvXY.width,H=cvXY.height,cx=W/2,cy=H/2,s=Math.min(W,H)*0.4;
+  FOC.plane(ctxXY,W,H,cx,cy,s,{unitCircle:true});
+  axes.forEach((ax,i)=>{
+    const ux=Math.cos(ax.ang*Math.PI/180),uy=Math.sin(ax.ang*Math.PI/180);
+    // 相軸（雙向虛線）
+    ctxXY.strokeStyle='rgba(148,163,184,.25)';ctxXY.setLineDash([2,4]);ctxXY.lineWidth=1;
+    ctxXY.beginPath();ctxXY.moveTo(cx-ux*s,cy+uy*s);ctxXY.lineTo(cx+ux*s,cy-uy*s);ctxXY.stroke();
+    ctxXY.setLineDash([]);
+    ctxXY.fillStyle=ax.c;ctxXY.font='11px monospace';
+    ctxXY.fillText(ax.n,cx+ux*s*1.08-3,cy-uy*s*1.08+4);
+    // 此相在其軸上的投影點
+    const v=phases(theta)[i];
+    ctxXY.beginPath();ctxXY.arc(cx+ux*v*s,cy-uy*v*s,4,0,FOC.TAU);ctxXY.fillStyle=ax.c;ctxXY.fill();
+  });
+  FOC.vector(ctxXY,cx,cy,alpha,beta,s,'#10b981');
+
+  // 右：三相時域
+  const W2=cvYT.width,H2=cvYT.height,c2=H2/2,sy=H2*0.34;
+  ctxYT.clearRect(0,0,W2,H2);
+  ctxYT.strokeStyle='rgba(99,102,241,.15)';ctxYT.beginPath();ctxYT.moveTo(0,c2);ctxYT.lineTo(W2,c2);ctxYT.stroke();
+  const cols=['#34d399','#22d3ee','#a78bfa'];
+  for(let k=0;k<3;k++){
+    const pts=[];
+    for(let x=0;x<W2;x++){const ang=theta-(x/W2)*FOC.TAU*1.5;
+      pts.push({x:W2-x,y:c2-mag*Math.cos(ang-axes[k].ang*Math.PI/180)*sy});}
+    FOC.poly(ctxYT,pts,cols[k]);
+    // now 點（最右）
+    ctxYT.beginPath();ctxYT.arc(W2-1,pts[0].y,3.5,0,FOC.TAU);ctxYT.fillStyle=cols[k];ctxYT.fill();
+  }
+
+  document.getElementById('r-a').textContent=Va.toFixed(3);
+  document.getElementById('r-b').textContent=Vb.toFixed(3);
+  document.getElementById('r-c').textContent=Vc.toFixed(3);
+  document.getElementById('r-sum').textContent=(Va+Vb+Vc).toFixed(3);
+  document.getElementById('r-al').textContent=alpha.toFixed(3);
+  document.getElementById('r-be').textContent=beta.toFixed(3);
+  requestAnimationFrame(loop);
+}
+resize();ui();requestAnimationFrame(loop);
+</script>
+<script src="foc-quiz.js"></script>
+<script>FOCQuiz.mount('L2')</script>
+<script src="foc-lab.js"></script>
+<script>FOCLab.mount('L2')</script>
+</body>
+</html>

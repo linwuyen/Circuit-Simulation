@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>2 · 電流漣波 ΔI，怎麼把它變小</title>
+<style>
+  :root{--bg:#f1f5f9;--card:#fff;--ink:#1e293b;--muted:#64748b;--hint:#94a3b8;--line:#e2e8f0;--blue:#2563eb;--red:#dc2626;--purple:#7c3aed;--green:#059669;--cyan:#0891b2;--amber:#b45309;--mono:ui-monospace,Consolas,Menlo,monospace;--radius:12px;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Noto Sans TC","Microsoft JhengHei",sans-serif;line-height:1.7}
+  .wrap{max-width:900px;margin:0 auto;padding:22px 20px 64px}
+  a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+  .crumb{font-size:13px;color:var(--hint);margin-bottom:8px}
+  h1{font-size:23px;font-weight:600;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:15px;margin:0 0 20px}
+  .stage{display:grid;grid-template-columns:340px 1fr;gap:20px;align-items:start}
+  @media(max-width:760px){.stage{grid-template-columns:1fr}}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+  .cap{font-size:12.5px;margin-top:8px;text-align:center;font-weight:600}
+  .fixed{font-size:12px;color:var(--hint);margin-top:14px;border-top:1px dashed var(--line);padding-top:10px}
+  .ctrl{margin:14px 0 0}
+  .row{display:flex;justify-content:space-between;margin-bottom:4px}
+  label{font-size:13px;color:var(--muted)}
+  .val{font-family:var(--mono);font-weight:600}
+  input[type=range]{width:100%}
+  .hint{font-size:11.5px;color:var(--hint);margin-top:3px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:10px;margin-bottom:12px}
+  .metric{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+  .metric .t{font-size:11.5px;color:var(--muted);margin-bottom:2px}
+  .metric .n{font-size:21px;font-weight:600;font-family:var(--mono)}
+  .metric .s{font-size:11.5px;font-weight:600;margin-top:2px}
+  .scope{background:#0f172a;border-radius:var(--radius);padding:12px 14px;margin-bottom:12px}
+  .scope .stitle{color:#cbd5e1;font-size:12.5px;font-family:var(--mono);margin-bottom:4px}
+  .formula{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:10px 13px;font-family:var(--mono);font-size:12.5px;color:var(--muted);line-height:1.8}
+  .try{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:13px 16px;margin:20px 0 0;font-size:14.5px;color:#1e3a8a}
+  .try b{color:#1e40af}
+  .takeaway{background:#dcfce7;border:1px solid #86efac;border-radius:10px;padding:13px 16px;margin:12px 0 0;font-size:15px;color:#065f46}
+  .takeaway code{background:#bbf7d0;padding:1px 6px;border-radius:4px;font-family:var(--mono)}
+  .nav{display:flex;justify-content:space-between;margin-top:26px;gap:10px}
+  .nav a{font-size:14px;padding:9px 16px;border:1px solid var(--line);border-radius:9px;background:var(--card)}
+  .nav a.next{border-color:#93c5fd;color:#1d4ed8;font-weight:600}
+  .foot{margin-top:28px;font-size:11.5px;color:var(--hint);text-align:center}
+  code{background:#eef2f7;padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="crumb">步驟 2 / 5 · <a href="index.html">← 學習地圖</a></div>
+  <h1>電流漣波 ΔI，怎麼把它變小</h1>
+  <p class="sub">一句話：三角波的「峰−谷」高度就是電流漣波 ΔI；把 L 加大或開關加快，它就變小。</p>
+
+  <div class="stage">
+    <div>
+      <div class="panel">
+        <div id="circ"></div>
+        <div class="cap" id="ccap" style="color:var(--red)">🔴 聚焦：L 與開關頻率 Fsw 一起決定 ΔI</div>
+        <div class="ctrl">
+          <div class="row"><label for="ind">電感值 L</label><span class="val" id="indO" style="color:#dc2626">2.2 μH</span></div>
+          <input id="ind" type="range" min="0.5" max="20" step="0.1" value="2.2" style="accent-color:#dc2626">
+          <div class="hint">↑ L 加倍 → ΔI 減半</div>
+        </div>
+        <div class="ctrl">
+          <div class="row"><label for="fsw">開關頻率 Fsw</label><span class="val" id="fswO" style="color:#7c3aed">500 kHz</span></div>
+          <input id="fsw" type="range" min="100" max="2000" step="50" value="500" style="accent-color:#7c3aed">
+          <div class="hint">↑ Fsw 加倍 → 每次切換時間變短 → ΔI 減半（但開關損耗↑）</div>
+        </div>
+        <div class="fixed">本頁固定：Vin = 12 V、Vout = 3.3 V、Iout = 2 A（只看 L 與 Fsw 的影響）</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="cards">
+        <div class="metric"><div class="t">電流漣波 ΔI</div><div class="n" id="dIN" style="color:#3b82f6">— A</div><div class="s" id="pctN">—</div></div>
+        <div class="metric"><div class="t">峰值 / 谷值</div><div class="n" id="pvN" style="font-size:15px">— / —</div><div class="s" style="color:#94a3b8;font-weight:400">A</div></div>
+      </div>
+      <div class="scope">
+        <div class="stitle">電感電流 I_L —— 左側標尺＝ΔI（峰−谷）</div>
+        <svg id="sc" width="100%" viewBox="0 0 440 210" style="display:block"></svg>
+      </div>
+      <div class="formula" id="f"></div>
+    </div>
+  </div>
+
+  <div class="try">🔧 <b>動手試：</b>記住現在的 ΔI 數字。把 <b>L 從 2.2 拉到 4.4 μH</b>（剛好兩倍），ΔI 會掉到一半。放回去，再把 <b>Fsw 從 500 拉到 1000 kHz</b>，ΔI 一樣減半 —— 兩個鈕都能壓漣波。</div>
+  <div class="takeaway">📌 <b>帶走這句：</b><code>ΔI = (Vin−Vout)·D /(Fsw·L)</code>。<b>L 越大、Fsw 越高 → ΔI 越小、波形越平。</b>工程上常把 ΔI 設在 Iout 的 20~40%。下一頁看這個漣波電流怎麼變成輸出電壓抖動。</div>
+
+  <div class="nav">
+    <a href="1_inductor_triangle.html">← 上一頁</a>
+    <a class="next" href="3_cap_voltage_ripple.html">下一頁：電壓漣波 ΔVout →</a>
+  </div>
+  <p class="foot">理想化（忽略二極體壓降）。</p>
+</div>
+
+<script>
+(function(){
+  var $=function(i){return document.getElementById(i);};
+  function circuitSVG(focus){
+    var acc={sw:'#2563eb',L:'#dc2626',D:'#7c3aed',C:'#059669',load:'#0891b2'};
+    function c(id){return focus===id?acc[id]:'#475569';}function w(id){return focus===id?3.4:2;}
+    var s='<svg viewBox="0 0 340 170" width="100%" style="max-width:340px;display:block;margin:0 auto">';
+    s+='<line x1="30" y1="146" x2="312" y2="146" stroke="#94a3b8" stroke-width="2"/>';
+    s+='<circle cx="30" cy="94" r="14" fill="none" stroke="#475569" stroke-width="2"/><text x="30" y="98" text-anchor="middle" font-size="10" fill="#475569">Vin</text>';
+    s+='<line x1="30" y1="48" x2="30" y2="80" stroke="#475569" stroke-width="2"/><line x1="30" y1="108" x2="30" y2="146" stroke="#475569" stroke-width="2"/>';
+    s+='<line x1="30" y1="48" x2="88" y2="48" stroke="#475569" stroke-width="2"/>';
+    s+='<rect x="88" y="36" width="34" height="24" rx="4" fill="#fff" stroke="'+c('sw')+'" stroke-width="'+w('sw')+'"/><text x="105" y="52" text-anchor="middle" font-size="11" fill="'+c('sw')+'">SW</text>';
+    s+='<line x1="122" y1="48" x2="150" y2="48" stroke="#475569" stroke-width="2"/><circle cx="150" cy="48" r="3" fill="#475569"/>';
+    s+='<line x1="150" y1="48" x2="164" y2="48" stroke="#475569" stroke-width="2"/><rect x="164" y="38" width="58" height="20" rx="10" fill="#fff" stroke="'+c('L')+'" stroke-width="'+w('L')+'"/><text x="193" y="52" text-anchor="middle" font-size="11" fill="'+c('L')+'">L</text>';
+    s+='<line x1="222" y1="48" x2="252" y2="48" stroke="#475569" stroke-width="2"/><circle cx="252" cy="48" r="3" fill="#475569"/>';
+    s+='<line x1="150" y1="48" x2="150" y2="84" stroke="#475569" stroke-width="2"/><path d="M138,106 L162,106 L150,88 Z" fill="none" stroke="'+c('D')+'" stroke-width="'+w('D')+'"/><line x1="138" y1="88" x2="162" y2="88" stroke="'+c('D')+'" stroke-width="'+w('D')+'"/><line x1="150" y1="106" x2="150" y2="146" stroke="#475569" stroke-width="2"/><text x="128" y="104" text-anchor="middle" font-size="11" fill="'+c('D')+'">D</text>';
+    s+='<line x1="252" y1="48" x2="252" y2="90" stroke="#475569" stroke-width="2"/><line x1="240" y1="90" x2="264" y2="90" stroke="'+c('C')+'" stroke-width="'+w('C')+'"/><line x1="240" y1="98" x2="264" y2="98" stroke="'+c('C')+'" stroke-width="'+w('C')+'"/><line x1="252" y1="98" x2="252" y2="146" stroke="#475569" stroke-width="2"/><text x="274" y="98" font-size="11" fill="'+c('C')+'">C</text>';
+    s+='<line x1="252" y1="48" x2="300" y2="48" stroke="#475569" stroke-width="2"/><line x1="300" y1="48" x2="300" y2="72" stroke="#475569" stroke-width="2"/><rect x="290" y="72" width="20" height="40" rx="3" fill="#fff" stroke="'+c('load')+'" stroke-width="'+w('load')+'"/><text x="300" y="66" text-anchor="middle" font-size="9" fill="'+c('load')+'">負載</text><line x1="300" y1="112" x2="300" y2="146" stroke="#475569" stroke-width="2"/>';
+    s+='<text x="250" y="32" text-anchor="middle" font-size="10" fill="#1d4ed8">Vout</text></svg>';return s;
+  }
+  $("circ").innerHTML=circuitSVG("L");
+
+  var W=440,H=210,pL=40,pR=14,pT=16,pB=28,plotW=W-pL-pR,periodW=plotW/2,y0=H-pB;
+  var vin=12,vout=3.3,Iout=2;
+  function render(){
+    var L=+$("ind").value, fsw=+$("fsw").value;
+    $("indO").textContent=L+" μH"; $("fswO").textContent=fsw+" kHz";
+    var D=vout/vin, m1=(vin-vout)/L, T=1000/fsw, dI=m1*D*T;
+    var peak=Iout+dI/2, valley=Iout-dI/2;
+    var pct=dI/Iout*100;
+    $("dIN").textContent=dI.toFixed(2)+" A";
+    $("pctN").textContent=Math.round(pct)+"% of Iout"; $("pctN").style.color=pct>40?"#b45309":"#059669";
+    $("pvN").textContent=peak.toFixed(2)+" / "+(valley<0?"<0":valley.toFixed(2));
+    var maxY=Math.max(peak*1.3,1);
+    function sY(v){return y0-(v/maxY)*(y0-pT);}
+    var s='';
+    for(var p=0;p<2;p++){var xs=pL+p*periodW;s+='<rect x="'+xs+'" y="'+pT+'" width="'+(D*periodW)+'" height="'+(y0-pT)+'" fill="rgba(59,130,246,0.14)"/>';}
+    s+='<line x1="'+pL+'" y1="'+sY(0)+'" x2="'+(W-pR)+'" y2="'+sY(0)+'" stroke="#334155" stroke-width="1" stroke-dasharray="4"/><text x="6" y="'+(sY(0)+3)+'" fill="#64748b" font-size="10">0A</text>';
+    s+='<line x1="'+pL+'" y1="'+sY(Iout)+'" x2="'+(W-pR)+'" y2="'+sY(Iout)+'" stroke="#10b981" stroke-width="2" stroke-dasharray="5" opacity="0.6"/><text x="'+(W-pR-2)+'" y="'+(sY(Iout)-4)+'" text-anchor="end" fill="#34d399" font-size="10">平均 '+Iout+'A</text>';
+    var verts=[];
+    for(var q=0;q<2;q++){var x0=pL+q*periodW,xon=x0+D*periodW;verts.push([x0,sY(valley)],[xon,sY(peak)],[x0+periodW,sY(valley)]);}
+    s+='<polyline points="'+verts.map(function(a){return a[0].toFixed(1)+','+a[1].toFixed(1);}).join(' ')+'" fill="none" stroke="#3b82f6" stroke-width="3" stroke-linejoin="round"/>';
+    // ΔI bracket
+    var yPk=sY(peak),yVl=sY(valley);
+    s+='<line x1="26" y1="'+yPk+'" x2="26" y2="'+yVl+'" stroke="#93c5fd" stroke-width="2"/><line x1="21" y1="'+yPk+'" x2="31" y2="'+yPk+'" stroke="#93c5fd" stroke-width="2"/><line x1="21" y1="'+yVl+'" x2="31" y2="'+yVl+'" stroke="#93c5fd" stroke-width="2"/><text x="33" y="'+((yPk+yVl)/2+3)+'" fill="#93c5fd" font-size="11">ΔI</text>';
+    var xon1=pL+D*periodW;
+    s+='<text x="'+xon1+'" y="'+(yPk-5)+'" text-anchor="middle" fill="#bfdbfe" font-size="10">'+peak.toFixed(2)+'A</text>';
+    $("sc").innerHTML=s;
+    $("f").innerHTML="D = Vout/Vin = 3.3/12 = "+D.toFixed(3)+"<br>ΔI = (Vin−Vout)·D /(Fsw·L) = (12−3.3)×"+D.toFixed(3)+" /("+fsw+"k×"+L+"µ) = <b style='color:#3b82f6'>"+dI.toFixed(2)+" A</b>";
+  }
+  ["ind","fsw"].forEach(function(k){$(k).addEventListener("input",render);});
+  render();
+})();
+</script>
+</body>
+</html>

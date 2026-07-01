@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第1課 · ADC 基礎</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-lesson="1">
+<div class="wrap">
+  <div id="topnav"></div>
+
+  <div class="hero">
+    <div class="badge">1</div>
+    <div>
+      <h1>🔢 ADC 基礎：把電壓變成數字</h1>
+      <p class="sub">後面每一課都在「想辦法把訊號塞進 ADC」，所以先搞懂 ADC 本身。</p>
+    </div>
+  </div>
+
+  <!-- 1 目標 -->
+  <div class="block goal">
+    <h2><span class="k">這一課</span> 要搞懂的一件事</h2>
+    <p class="big">ADC 怎麼把一個 0~Vref 的電壓，量化成 0 ~ (2ᴺ−1) 的整數？「解析度」和「飽和」又是什麼？</p>
+  </div>
+
+  <!-- 2 比喻 -->
+  <div class="block metaphor">
+    <h2>🌰 生活比喻</h2>
+    <p style="margin:0;color:#475569;">ADC 像一把<b>有刻度的尺</b>。Vref 是尺的<b>總長度</b>（量到這裡就到頂）；
+    解析度 N-bit 決定尺上有<b>幾格刻度</b>（12-bit＝4096 格）。一格能代表的最小長度就是 <b>LSB</b>。
+    比尺還長的東西量不出來——這就是<b>飽和</b>，超出的部分通通讀成最大值。</p>
+  </div>
+
+  <!-- 3 動手玩 -->
+  <div class="block">
+    <h2>🔬 動手玩</h2>
+    <div class="fieldgrid" style="margin-bottom:6px;">
+      <div class="field"><label>參考電壓 Vref</label><div class="inrow"><input type="number" id="vref" value="3.3" step="0.1"><span class="unit">V</span></div></div>
+      <div class="field"><label>解析度</label>
+        <select id="bits">
+          <option value="12" selected>12-bit (F28004x / F28002x)</option>
+          <option value="16">16-bit (F2837x / F2838x)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="ctrl">
+      <div class="grow">
+        <label class="cap">輸入電壓 V_in（試著超過 Vref 看看）</label>
+        <input type="range" id="vin" min="0" max="4" value="1.65" step="0.01">
+        <div class="ends"><span>0 V</span><span id="vmid">1.65 V</span><span id="vtop">4 V</span></div>
+      </div>
+      <div class="numbox"><label class="cap">V_in</label><div class="inrow"><input type="number" id="vinn" value="1.65" step="0.01"><span class="unit">V</span></div></div>
+    </div>
+
+    <div id="warn"></div>
+
+    <!-- 數位讀數 -->
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin:12px 0;">
+      <div style="flex:1;min-width:130px;background:#1e293b;border-radius:10px;padding:14px;text-align:center;">
+        <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;">ADC 讀到的數字 count</div>
+        <div id="count" style="font-family:var(--mono);font-size:34px;font-weight:800;color:#6ee7b7;">2048</div>
+        <div id="countmax" style="font-size:11px;color:#64748b;">滿刻度 = 4095</div>
+      </div>
+      <div style="flex:1;min-width:130px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;text-align:center;">
+        <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;">一格 = LSB</div>
+        <div id="lsb" style="font-family:var(--mono);font-size:26px;font-weight:800;color:#1d4ed8;">0.806 mV</div>
+        <div style="font-size:11px;color:#64748b;">小於這個的變化分不出來</div>
+      </div>
+    </div>
+
+    <!-- 範圍長條 -->
+    <div class="barwrap">
+      <div class="barcap"><span>0 V</span><span class="mid">ADC 可讀範圍</span><span id="cap-vref">3.3 V</span></div>
+      <div class="bar"><div class="bfill" id="fill"></div><div class="bmark" id="mark"></div></div>
+      <div class="barfoot"><span id="foot">目前訊號：1.650 V</span></div>
+    </div>
+
+    <!-- 逐步 -->
+    <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin:14px 0 2px;">📝 計算過程</div>
+    <div class="walk" id="steps"></div>
+
+    <details class="slate">
+      <summary>📐 為什麼 12-bit 是 4095 不是 4096？</summary>
+      <div class="body">
+        <p>N-bit 能表示 <code>2ᴺ</code> 個數值，但編號從 <b>0</b> 開始，所以最大數字是 <code>2ᴺ − 1</code>。
+        12-bit：0 ~ 4095（共 4096 個）。把它想成「4096 格刻度、編號 0 到 4095」。</p>
+      </div>
+    </details>
+  </div>
+
+  <!-- 4 換你試試 -->
+  <div class="block challenge">
+    <h2>✅ 換你試試</h2>
+    <p class="q">把解析度切到 <b>12-bit</b>、Vref＝3.3V。如果你想分辨「1 mV」的微小變化，這顆 ADC 夠細嗎？把 V_in 慢慢移動，觀察 LSB，然後回答：</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="copybtn" onclick="answer(true)">夠細（LSB &lt; 1mV）</button>
+      <button class="copybtn" onclick="answer(false)">不夠細（LSB &gt; 1mV）</button>
+    </div>
+    <button class="hintbtn" onclick="document.getElementById('hint').style.display='block'">看提示</button>
+    <p id="hint" style="display:none;font-size:13px;color:#6d28d9;margin:6px 0 0;">提示：LSB = Vref ÷ 4095 ≈ 0.806 mV，比 1mV 小。那 16-bit 又會變多少？切過去比比看。</p>
+    <div class="verdict" id="verdict"></div>
+  </div>
+
+  <details style="margin:0 0 16px;">
+    <summary>⚠️ 初學者常踩的雷</summary>
+    <div class="body">
+      <ul>
+        <li><b>把 count 當電壓直接用</b>：count 只是 0~FS 的編號，要乘 LSB 才是電壓，再經還原係數才是真實物理量。</li>
+        <li><b>忘了「−1」</b>：滿刻度是 2ᴺ−1（4095）不是 4096，套錯會整體偏移一格。</li>
+        <li><b>以為位元越多一定越準</b>：若 Vref 本身有雜訊或不穩，再高的解析度也被雜訊蓋過——乾淨穩定的 Vref 同樣重要。</li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- 5 回顧 -->
+  <div class="block recap">
+    <h2>📌 重點回顧</h2>
+    <ul>
+      <li><b>count = V_in ÷ Vref × (2ᴺ−1)</b>，再四捨五入成整數。</li>
+      <li><b>LSB = Vref ÷ (2ᴺ−1)</b>：ADC 能分辨的最小電壓，位元越多越細。</li>
+      <li><b>飽和</b>：V_in 超過 Vref 就全讀成滿刻度，資訊遺失——後面每一課的硬體設計都在避免這件事。</li>
+    </ul>
+  </div>
+
+  <div id="botnav"></div>
+  <footer>第 1 課 · ADC 基礎</footer>
+</div>
+
+<script src="assets/lessons.js"></script>
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  var num=function(id){var v=parseFloat($(id).value);return isNaN(v)?0:v;};
+  var clamp=function(x,a,b){return Math.max(a,Math.min(b,x));};
+
+  function step(n,label,f,c,r){
+    return '<div class="stp"><div class="head"><span class="num">'+n+'</span>'+label+'</div>'+
+           '<div class="f">'+f+'</div><div class="c">'+c+' <b>= '+r+'</b></div></div>';
+  }
+
+  function update(){
+    var vref=num('vref'), bits=parseInt($('bits').value,10), vin=num('vin');
+    var FS=Math.pow(2,bits)-1, lsb=FS?vref/FS:0;
+    var sat = vin>vref;
+    var v = clamp(vin,0,vref);
+    var count = vref?Math.round(v/vref*FS):0;
+    var pct = vref?clamp(vin/vref*100,0,100):0;
+
+    $('count').textContent = count;
+    $('count').style.color = sat?'#fca5a5':'#6ee7b7';
+    $('countmax').textContent = '滿刻度 = '+FS;
+    $('lsb').textContent = (lsb*1000).toFixed(3)+' mV';
+    $('cap-vref').textContent = vref.toFixed(2)+' V';
+    $('vmid').textContent = (vref/2).toFixed(2)+' V';
+
+    $('fill').style.width = pct+'%';
+    $('fill').style.background = sat?'#fecaca':'#bfdbfe';
+    $('mark').style.left = pct+'%';
+    $('mark').style.background = sat?'#ef4444':'#2563eb';
+    $('foot').innerHTML = '目前訊號：<b style="color:'+(sat?'#dc2626':'#1d4ed8')+'">'+vin.toFixed(3)+' V</b>'+
+      (sat?' <span class="sat">⚠ 超過 Vref（飽和，count 卡在 '+FS+'）</span>':'');
+    $('warn').innerHTML = sat?'<div class="alert">⚠ V_in '+vin.toFixed(2)+'V 超過 Vref '+vref.toFixed(2)+'V，ADC 讀數被截在滿刻度</div>':'';
+
+    $('steps').innerHTML =
+      step(1,'先算一格多少電壓 (LSB)','LSB = Vref ÷ (2ᴺ−1)', vref+' ÷ '+FS, (lsb*1000).toFixed(3)+' mV') +
+      step(2,'看訊號是幾格','count = V_in ÷ Vref × FS', v.toFixed(3)+' ÷ '+vref+' × '+FS, count);
+  }
+
+  ['vref','bits','vin'].forEach(function(id){ $(id).addEventListener('input',function(){
+    if(id==='vin') $('vinn').value=$('vin').value; update();
+  });});
+  $('vinn').addEventListener('input',function(){ var v=parseFloat($('vinn').value); if(!isNaN(v))$('vin').value=v; update(); });
+
+  window.answer=function(saidEnough){
+    var vref=num('vref'), FS=Math.pow(2,parseInt($('bits').value,10))-1, lsb=vref/FS*1000;
+    var truthEnough = lsb<1;
+    var ok = (saidEnough===truthEnough);
+    var v=$('verdict');
+    v.className='verdict '+(ok?'ok':'no');
+    v.innerHTML = (ok?'✅ 答對了！':'❌ 再想想。') +
+      ' 目前 LSB = '+lsb.toFixed(3)+' mV，'+(truthEnough?'比 1mV 小 → 分辨得出 1mV。':'比 1mV 大 → 分辨不出 1mV。')+
+      ' 試試切到另一個解析度，LSB 會差 16 倍。';
+    if(ok) window.C2000.markDone();
+  };
+
+  update();
+})();
+</script>
+</body>
+</html>

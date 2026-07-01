@@ -1,0 +1,181 @@
+/* ===========================================================
+   C2000 ADC 教學系列 — 共用樣式
+   每一課 (0~6) 與公式辭典頁都載入這一支。
+   設計語言沿用原本單頁計算器：slate/blue 配色、圓角卡片、
+   accordion 說明框、逐步計算 walk、範圍長條 bar。
+   =========================================================== */
+
+:root{
+  --bg:#f8fafc; --ink:#1e293b; --muted:#64748b; --faint:#94a3b8;
+  --line:#e2e8f0; --line2:#cbd5e1;
+  --blue:#2563eb; --blue2:#3b82f6; --blue-d:#1d4ed8;
+  --green:#22c55e; --red:#ef4444;
+  --card:#fff;
+  --mono: ui-monospace,"Cascadia Code",Consolas,monospace;
+}
+
+*{ box-sizing:border-box; }
+body{
+  font-family: system-ui,"Segoe UI","Microsoft JhengHei","PingFang TC","Noto Sans CJK TC",sans-serif;
+  background:var(--bg); color:var(--ink); margin:0; line-height:1.55;
+}
+.wrap{ max-width:1100px; margin:0 auto; padding:16px 16px 60px; }
+a{ color:var(--blue-d); }
+
+/* ---------- 頂部課程進度列 (lessons.js 注入) ---------- */
+.lpro{ background:#fff; border:1px solid var(--line); border-radius:12px; padding:10px;
+  margin:8px 0 18px; overflow-x:auto; }
+.lpro .track{ display:flex; gap:6px; min-width:max-content; }
+.lpro a.step{ text-decoration:none; display:flex; flex-direction:column; align-items:center;
+  gap:4px; padding:6px 10px; border-radius:10px; min-width:74px; color:var(--muted);
+  border:1px solid transparent; transition:.15s; }
+.lpro a.step:hover{ background:#f1f5f9; }
+.lpro a.step .b{ width:26px; height:26px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; font-weight:700; font-size:13px; background:#e2e8f0; color:#64748b; }
+.lpro a.step .t{ font-size:11px; font-weight:600; white-space:nowrap; }
+.lpro a.step.done .b{ background:var(--green); color:#fff; }
+.lpro a.step.cur{ background:#eff6ff; border-color:#bfdbfe; }
+.lpro a.step.cur .b{ background:var(--blue); color:#fff; box-shadow:0 0 0 3px rgba(37,99,235,.2); }
+.lpro a.step.cur .t{ color:var(--blue-d); }
+
+/* ---------- 課程標題區 ---------- */
+.hero{ display:flex; gap:14px; align-items:flex-start; margin:4px 0 18px; }
+.hero .badge{ flex:none; width:54px; height:54px; border-radius:14px; background:var(--blue);
+  color:#fff; display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:800; }
+.hero h1{ font-size:22px; margin:2px 0 4px; }
+.hero .sub{ color:var(--muted); margin:0; font-size:14px; }
+
+/* ---------- 五段式教學區塊 ---------- */
+.block{ background:var(--card); border:1px solid var(--line); border-radius:12px;
+  padding:16px 18px; margin-bottom:16px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+.block > h2{ display:flex; align-items:center; gap:8px; font-size:16px; margin:0 0 12px;
+  color:#334155; }
+.block > h2 .k{ font-size:11px; font-weight:700; letter-spacing:.05em; color:#fff;
+  background:var(--blue2); padding:2px 8px; border-radius:999px; text-transform:uppercase; }
+
+.goal{ background:#eff6ff; border:1px solid #bfdbfe; }
+.goal .big{ font-size:17px; font-weight:700; color:var(--blue-d); margin:0; }
+.metaphor{ background:#fffbeb; border:1px solid #fde68a; }
+.metaphor h2{ color:#92400e; }
+.recap{ background:#ecfdf5; border:1px solid #a7f3d0; }
+.recap h2{ color:#065f46; }
+.recap ul{ margin:0; padding-left:20px; } .recap li{ margin-bottom:6px; }
+
+/* 換你試試 — 挑戰框 */
+.challenge{ background:#f5f3ff; border:1px solid #ddd6fe; }
+.challenge h2{ color:#6d28d9; }
+.challenge .q{ font-weight:600; color:#4c1d95; margin:0 0 10px; }
+.challenge .verdict{ margin-top:10px; font-weight:700; font-size:14px; padding:8px 10px;
+  border-radius:8px; display:none; }
+.challenge .verdict.ok{ display:block; background:#dcfce7; color:#166534; border:1px solid #86efac; }
+.challenge .verdict.no{ display:block; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
+.challenge .hintbtn{ font-size:12px; color:#6d28d9; background:none; border:0; cursor:pointer;
+  text-decoration:underline; padding:0; margin-top:6px; }
+.stub{ border-style:dashed !important; }
+.stub .tag{ font-size:11px; color:var(--faint); font-weight:700; text-transform:uppercase; }
+
+/* ---------- 表單 / 輸入 ---------- */
+.field{ margin-bottom:12px; }
+.field label{ display:block; font-size:13px; font-weight:500; color:#475569; margin-bottom:4px; }
+.inrow{ display:flex; align-items:center; }
+input[type=number],select{ width:100%; padding:8px; border:1px solid var(--line2);
+  border-radius:6px; background:#f8fafc; font-family:var(--mono); text-align:right; font-size:14px; }
+select{ text-align:left; }
+input[type=number]:focus,select:focus{ outline:none; border-color:var(--blue2);
+  box-shadow:0 0 0 2px rgba(59,130,246,.25); }
+.unit{ margin-left:8px; min-width:42px; font-size:13px; color:var(--muted); }
+.note{ font-size:11px; color:var(--faint); margin:4px 0 0; }
+input[type=range]{ width:100%; accent-color:var(--blue); cursor:pointer; }
+
+.ctrl{ display:flex; align-items:center; gap:14px; background:#f1f5f9; padding:12px;
+  border-radius:8px; margin:12px 0; }
+.ctrl .grow{ flex:1; } .ctrl .numbox{ min-width:110px; }
+.ctrl .ends{ display:flex; justify-content:space-between; font-size:11px; color:var(--faint); margin-top:4px; }
+.ctrl label.cap{ font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; }
+
+.fieldgrid{ display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; }
+@media (max-width:620px){ .fieldgrid{ grid-template-columns:1fr; } }
+
+/* ---------- 結果列 ---------- */
+.row{ display:flex; justify-content:space-between; align-items:center; padding:8px 0;
+  border-bottom:1px solid #f1f5f9; }
+.row:last-child{ border-bottom:0; }
+.row.hl{ background:#eff6ff; margin:0 -8px; padding:8px; border-radius:6px; }
+.row .lab{ font-size:14px; font-weight:500; color:#334155; }
+.row .sub2{ font-size:11px; color:var(--muted); font-family:var(--mono); }
+.row .v{ font-family:var(--mono); font-weight:700; color:var(--ink); }
+.row.hl .v{ color:var(--blue-d); }
+.row .u{ font-size:11px; color:var(--muted); margin-left:4px; }
+
+/* ---------- accordion 說明框 ---------- */
+details{ border:1px solid #fde68a; background:#fffbeb; border-radius:8px; margin:12px 0; }
+details.blue{ border-color:#bfdbfe; background:#eff6ff; }
+details.green{ border-color:#a7f3d0; background:#ecfdf5; }
+details.slate{ border-color:var(--line); background:#f8fafc; }
+summary{ cursor:pointer; padding:10px 12px; font-weight:600; font-size:14px; color:#92400e;
+  list-style:none; display:flex; align-items:center; gap:8px; }
+details.blue summary{ color:#1e40af; } details.green summary{ color:#065f46; } details.slate summary{ color:#475569; }
+summary::-webkit-details-marker{ display:none; }
+summary::before{ content:"▸"; font-size:11px; transition:transform .15s; }
+details[open] summary::before{ transform:rotate(90deg); }
+details .body{ padding:0 14px 12px; font-size:13.5px; line-height:1.7; color:#475569; }
+details .body p{ margin:0 0 8px; } details .body ol,details .body ul{ margin:0 0 8px; padding-left:20px; }
+code,.mono{ font-family:var(--mono); background:#f1f5f9; padding:1px 5px; border-radius:4px; }
+
+/* ---------- 電路圖 ---------- */
+.schematic{ width:100%; background:#fff; border:1px solid var(--line); border-radius:8px;
+  overflow:hidden; margin-bottom:12px; }
+.schematic svg{ display:block; width:100%; height:auto; }
+
+/* ---------- 逐步計算 walk ---------- */
+.walk{ background:#f8fafc; border:1px solid var(--line); border-radius:8px; padding:12px; margin-top:12px; }
+.walk .stp{ margin-bottom:10px; font-size:13px; } .walk .stp:last-child{ margin-bottom:0; }
+.walk .head{ display:flex; align-items:center; gap:8px; color:#475569; }
+.walk .num{ flex:none; width:20px; height:20px; border-radius:50%; background:var(--blue); color:#fff;
+  font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+.walk .f{ margin-left:28px; font-family:var(--mono); font-size:11px; color:var(--faint); }
+.walk .c{ margin-left:28px; font-family:var(--mono); font-size:13px; color:#334155; }
+.walk .c b{ color:var(--blue-d); }
+
+/* ---------- 範圍長條 ---------- */
+.barwrap{ margin-top:12px; }
+.barcap{ display:flex; justify-content:space-between; font-size:11px; color:var(--faint); margin-bottom:4px; }
+.barcap .mid{ font-weight:700; color:var(--muted); }
+.bar{ position:relative; height:30px; background:#e2e8f0; border-radius:6px; overflow:hidden; border:1px solid var(--line2); }
+.bfill{ position:absolute; top:0; bottom:0; left:0; background:#bfdbfe; transition:width .1s; }
+.bzero{ position:absolute; top:0; bottom:0; border-left:2px dashed #64748b; }
+.bmark{ position:absolute; top:0; bottom:0; width:3px; margin-left:-1.5px; background:var(--blue); transition:left .1s; }
+.barfoot{ display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px; font-size:11px; color:var(--muted); margin-top:4px; }
+.barfoot .sat{ color:#dc2626; font-weight:700; }
+
+.alert{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:#dc2626;
+  background:#fef2f2; border:1px solid #fecaca; padding:8px; border-radius:6px; margin-top:8px; }
+.heat{ display:flex; align-items:center; justify-content:space-between; background:#fff7ed;
+  border:1px solid #fed7aa; padding:8px; border-radius:6px; margin:12px 0; }
+.heat .l{ color:#9a3412; font-size:13px; font-weight:700; } .heat .r{ font-family:var(--mono); color:#c2410c; font-weight:700; }
+
+/* ---------- 程式碼 ---------- */
+pre.code{ background:#1e293b; color:#cbd5e1; padding:14px; border-radius:8px; font-family:var(--mono);
+  font-size:12px; overflow-x:auto; margin:0; white-space:pre; }
+.copybtn{ margin-top:8px; font-size:12px; padding:6px 12px; border:1px solid var(--line2);
+  background:#fff; border-radius:6px; cursor:pointer; }
+.copybtn:hover{ background:#f1f5f9; }
+
+/* ---------- 底部上一課/下一課 ---------- */
+.lnav{ display:flex; justify-content:space-between; gap:10px; margin-top:24px; }
+.lnav a{ flex:1; text-decoration:none; border:1px solid var(--line); border-radius:10px; padding:12px 14px;
+  background:#fff; color:#334155; transition:.15s; }
+.lnav a:hover{ border-color:var(--blue2); box-shadow:0 1px 6px rgba(37,99,235,.12); }
+.lnav a.next{ text-align:right; }
+.lnav a .k{ font-size:11px; color:var(--faint); text-transform:uppercase; letter-spacing:.05em; }
+.lnav a .t{ font-weight:700; font-size:15px; margin-top:2px; }
+.lnav a.next .t{ color:var(--blue-d); }
+.lnav a.disabled{ opacity:.4; pointer-events:none; }
+
+footer{ color:var(--faint); font-size:12px; text-align:center; margin:30px 0 8px; }
+
+/* presets 一鍵載入 */
+.presets{ display:flex; flex-wrap:wrap; gap:8px; margin:4px 0 14px; }
+.presets button{ font-size:12px; padding:6px 12px; border:1px solid var(--line2); background:#fff;
+  border-radius:999px; cursor:pointer; color:#334155; }
+.presets button:hover{ background:#eff6ff; border-color:#bfdbfe; }

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>降壓轉換器 Buck｜互動教學地圖</title>
+<style>
+  :root{--bg:#f1f5f9;--card:#fff;--ink:#1e293b;--muted:#64748b;--hint:#94a3b8;--line:#e2e8f0;--blue:#2563eb;--red:#dc2626;--purple:#7c3aed;--green:#059669;--cyan:#0891b2;--amber:#b45309;--mono:ui-monospace,Consolas,Menlo,monospace;--radius:14px;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Noto Sans TC","Microsoft JhengHei",sans-serif;line-height:1.7}
+  .wrap{max-width:860px;margin:0 auto;padding:34px 20px 64px}
+  a{color:inherit;text-decoration:none}
+  h1{font-size:27px;font-weight:700;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:16px;margin:0 0 8px}
+  .note{font-size:13px;color:var(--hint);margin:0 0 26px}
+  .step{display:flex;gap:16px;align-items:stretch;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;transition:.15s;position:relative}
+  .step:hover{border-color:#93c5fd;box-shadow:0 4px 16px rgba(37,99,235,.08);transform:translateY(-1px)}
+  .num{flex:0 0 46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;font-family:var(--mono)}
+  .body{flex:1;min-width:0}
+  .body h3{margin:2px 0 3px;font-size:17px;font-weight:600}
+  .body p{margin:0;font-size:13.5px;color:var(--muted)}
+  .tag{font-size:11px;font-family:var(--mono);color:var(--hint);background:#f1f5f9;border:1px solid var(--line);border-radius:6px;padding:2px 7px;margin-top:7px;display:inline-block}
+  .arrow{align-self:center;color:var(--hint);font-size:20px}
+  .adv{background:#0f172a;border-color:#1e293b}
+  .adv h3,.adv .body p{color:#e2e8f0}
+  .adv .body p{color:#94a3b8}
+  .adv .tag{background:#1e293b;border-color:#334155;color:#94a3b8}
+  .why{background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px 18px;margin:24px 0 0;font-size:13.5px;color:#1e3a8a}
+  .why b{color:#1e40af}
+  .foot{margin-top:28px;font-size:12px;color:var(--hint);text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>降壓轉換器 Buck：互動教學地圖</h1>
+  <p class="sub">把一顆 buck 從「為什麼能降壓」一路拆到「韌體怎麼採樣控制」，一頁只講一件事。</p>
+  <p class="note">建議從第 0 頁照順序往下走。每頁都有電路圖、可拖動的滑桿、和一句帶得走的結論。純前端、可離線開。</p>
+
+  <a class="step" href="0_what_is_buck.html">
+    <div class="num" style="background:var(--blue)">0</div>
+    <div class="body">
+      <h3>Buck 在做什麼？切碎再撫平</h3>
+      <p>開關把高電壓「切」成方波，平均下來就是低電壓。先建立最核心的一條式子。</p>
+      <span class="tag">滑桿：Duty、Vin　→　Vout = D × Vin</span>
+    </div>
+    <div class="arrow">→</div>
+  </a>
+
+  <a class="step" href="1_inductor_triangle.html">
+    <div class="num" style="background:var(--red)">1</div>
+    <div class="body">
+      <h3>電感為什麼吐三角波電流</h3>
+      <p>電感鐵律 V = L·(dI/dt)：電壓決定電流爬升的斜率。一上一下就是三角波。</p>
+      <span class="tag">滑桿：Vin、Vout、L　→　兩段斜率 m₁ / m₂</span>
+    </div>
+    <div class="arrow">→</div>
+  </a>
+
+  <a class="step" href="2_current_ripple.html">
+    <div class="num" style="background:var(--purple)">2</div>
+    <div class="body">
+      <h3>電流漣波 ΔI，怎麼把它變小</h3>
+      <p>三角波的峰−谷高度就是漣波。看 L 變大、開關變快時，它怎麼縮小。</p>
+      <span class="tag">滑桿：L、Fsw　→　ΔI = (Vin−Vout)·D /(Fsw·L)</span>
+    </div>
+    <div class="arrow">→</div>
+  </a>
+
+  <a class="step" href="3_cap_voltage_ripple.html">
+    <div class="num" style="background:var(--green)">3</div>
+    <div class="body">
+      <h3>電容把電流漣波撫成電壓漣波</h3>
+      <p>漣波電流灌進輸出電容，變成輸出電壓的小抖動 ΔVout。電容越大越穩。</p>
+      <span class="tag">滑桿：ΔI、C、Fsw　→　ΔVout = ΔI /(8·Fsw·C)</span>
+    </div>
+    <div class="arrow">→</div>
+  </a>
+
+  <a class="step" href="4_ccm_vs_dcm.html">
+    <div class="num" style="background:var(--cyan)">4</div>
+    <div class="body">
+      <h3>輕載會怎樣：CCM vs DCM</h3>
+      <p>負載太輕時電流會觸底歸零，進入 DCM。二極體擋住反向電流是關鍵。</p>
+      <span class="tag">滑桿：Iout　→　谷值碰到 0 就切換模式</span>
+    </div>
+    <div class="arrow">→</div>
+  </a>
+
+  <a class="step adv" href="buck_converter_ripple_simulator.html">
+    <div class="num" style="background:#475569">5</div>
+    <div class="body">
+      <h3>進階：韌體 / 控制觀點（綜合模擬器）</h3>
+      <p>把前五頁合起來：ADC 採樣點、DCM 下 PID 為何震盪、開關損耗取捨。前面都懂了再來。</p>
+      <span class="tag">全部滑桿 + 逐步導覽</span>
+    </div>
+    <div class="arrow">→</div>
+  </a>
+
+  <a class="step" href="tool_design_helper.html" style="border-color:#bfdbfe;background:#f5f9ff">
+    <div class="num" style="background:linear-gradient(135deg,#2563eb,#7c3aed)">🛠</div>
+    <div class="body">
+      <h3>實用工具：反向設計小幫手</h3>
+      <p>輸入規格與想要的漣波，直接算出該選的 L、C，並對齊常見料號級距。把觀念變成選料。</p>
+      <span class="tag">輸入 Vin/Vout/Iout/漣波 → 建議 L、C、I_SAT</span>
+    </div>
+    <div class="arrow">→</div>
+  </a>
+
+  <div class="why">
+    <b>為什麼這樣排？</b> 原本一頁塞了 8 個觀念，初學者容易被勸退。這裡每頁只留「跟這個概念有關」的滑桿，
+    其它先固定，學完一頁的那句話，再進下一頁。把抽象波形和實體電路圖綁在一起，才接得起來。
+  </div>
+
+  <p class="foot">物理為工程簡化模型，用於教學概念，非設計驗證工具。</p>
+</div>
+</body>
+</html>

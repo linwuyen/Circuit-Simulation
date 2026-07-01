@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>05 相乘變相加 → L(s)</title>
+    <script src="../assets/vendor/tailwindcss-cdn.js"></script>
+    <script src="../assets/vendor/chart.umd.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
+        .nav a { padding:.25rem .6rem; border-radius:.4rem; font-size:.85rem; white-space:nowrap; }
+        .nav a:hover { background:#eff6ff; }
+        .nav a.active { background:#2563eb; color:#fff; font-weight:700; }
+        .chart-container { position: relative; height: 32vh; min-height: 240px; background:#fff; border-radius:.5rem; padding:1rem; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+        input[type=range]{ width:100%; }
+        .card { background:#fff; border-radius:.5rem; padding:1rem; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+        .legend-dot { display:inline-block; width:.75rem; height:.75rem; border-radius:9999px; margin-right:.35rem; vertical-align:middle; }
+    </style>
+</head>
+<body class="p-4 md:p-6">
+<div class="max-w-6xl mx-auto">
+
+    <nav class="nav bg-white rounded-lg shadow-sm px-3 py-2 mb-5 flex flex-wrap items-center gap-1 text-gray-600">
+        <a href="index.html" class="font-bold text-gray-700">📚 地圖</a><span class="text-gray-300">|</span>
+        <a href="01_what_is_bode.html" title="波德圖的一個點">01</a>
+        <a href="02_integrator.html" title="積分器">02</a>
+        <a href="03_pi_controller.html" title="PI 控制器">03</a>
+        <a href="04_lc_plant.html" title="LC 受控體">04</a>
+        <a href="05_add_in_db.html" class="active" title="相乘變相加">05</a>
+        <a href="06_stability.html" title="穩定度+時域">06</a>
+        <a href="pi.html" class="ml-auto" title="設計沙盒">★ 沙盒</a>
+        <a href="07_challenge.html" title="挑戰任務">🏆 挑戰</a>
+    </nav>
+
+    <div class="mb-5">
+        <p class="text-sm font-semibold text-blue-600">關卡 05</p>
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-800 mb-2">波德圖的魔法：<b>相乘變相加</b></h1>
+        <p class="text-gray-600">開迴路 <b>L(s) = C(s) × P(s)</b> 本來要做複數乘法,很麻煩。但在 <b>dB</b> 上,乘法變成<b>加法</b>:把控制器曲線(灰)和受控體曲線(橘)<b>上下相加</b>,就是 L(s)(藍)。相位也是直接相加。</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div class="space-y-4">
+            <div class="card">
+                <label class="block text-sm font-bold text-gray-700 mb-1">Kp：<span id="kp-val" class="text-blue-600">0.5</span></label>
+                <input type="range" id="kp-slider" min="0.01" max="2.0" step="0.01" value="0.5">
+            </div>
+            <div class="card">
+                <label class="block text-sm font-bold text-gray-700 mb-1">Ki：<span id="ki-val" class="text-blue-600">5000</span></label>
+                <input type="range" id="ki-slider" min="100" max="50000" step="100" value="5000">
+            </div>
+
+            <div class="card">
+                <label class="block text-sm font-bold text-gray-700 mb-1">🔍 檢查游標頻率：<span id="cur-val" class="text-purple-600">300 Hz</span></label>
+                <p class="text-xs text-gray-500 mb-2">拖它,下面會逐項把這個頻率的「C + P = L」算給你看。</p>
+                <input type="range" id="cur-slider" min="1" max="5" step="0.01" value="2.477">
+            </div>
+
+            <div class="card bg-purple-50 border border-purple-100">
+                <h3 class="font-bold text-purple-800 text-sm mb-2">在游標頻率上，親手對帳</h3>
+                <div class="text-sm space-y-1 font-mono">
+                    <div class="flex justify-between"><span><span class="legend-dot" style="background:#9ca3af"></span>C(s)</span><span id="cv-c">-- dB</span></div>
+                    <div class="flex justify-between"><span><span class="legend-dot" style="background:#f59e0b"></span>P(s)</span><span id="cv-p">-- dB</span></div>
+                    <div class="flex justify-between border-t pt-1 font-bold text-purple-800"><span>相加 =</span><span id="cv-sum">-- dB</span></div>
+                    <div class="flex justify-between text-blue-600"><span><span class="legend-dot" style="background:#2563eb"></span>實際 L(s)</span><span id="cv-l">-- dB</span></div>
+                </div>
+                <p class="text-[11px] text-purple-700 mt-2">「相加」和「實際 L」會一模一樣 → 證明 dB 上真的是加法。</p>
+            </div>
+
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-100 text-sm">
+                <h4 class="font-bold text-blue-800 mb-1">💡 觀察重點</h4>
+                <ul class="text-xs text-blue-700 space-y-1 list-disc pl-4">
+                    <li>任何頻率上,藍線高度 = 灰線高度 + 橘線高度。相位同理。</li>
+                    <li>所以「設計控制器」=拿一條你能改的灰線,去把固定的橘線<b>抬到你要的形狀</b>。</li>
+                    <li>橘線的諧振峰(凸起)會原封不動加到藍線上 → 這就是為什麼諧振峰甩不掉,只能設法別讓它碰到 0dB。</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2 space-y-4">
+            <div class="bg-white rounded-lg shadow-sm px-4 py-2 text-xs flex flex-wrap gap-x-4 gap-y-1">
+                <span><span class="legend-dot" style="background:#2563eb"></span>L(s) 開迴路(相加結果)</span>
+                <span><span class="legend-dot" style="background:#9ca3af"></span>C(s) 控制器</span>
+                <span><span class="legend-dot" style="background:#f59e0b"></span>P(s) LC 受控體</span>
+                <span><span class="legend-dot" style="background:#a855f7"></span>檢查游標</span>
+            </div>
+            <div class="chart-container"><canvas id="magChart"></canvas></div>
+            <div class="chart-container"><canvas id="phaseChart"></canvas></div>
+        </div>
+    </div>
+
+    <div class="flex justify-between items-center mt-6 text-sm">
+        <a href="04_lc_plant.html" class="px-4 py-2 rounded-lg bg-white shadow-sm text-gray-600 hover:bg-gray-50">← 上一關：LC 受控體</a>
+        <a href="06_stability.html" class="px-4 py-2 rounded-lg bg-blue-600 text-white shadow-sm hover:bg-blue-700 font-semibold">下一關：穩定度 + 時域 →</a>
+    </div>
+</div>
+
+<script>
+const Wn = 10000, WnSq = Wn*Wn, Zeta = 0.2, TwoZetaWn = 2*Zeta*Wn;
+const F_MIN = 10, F_MAX = 100000, N = 300;
+const freqs = [];
+for (let i = 0; i < N; i++) freqs.push(F_MIN * Math.pow(F_MAX / F_MIN, i / (N - 1)));
+
+let magChart, phaseChart;
+function fmtHz(f){ return f >= 1000 ? (f/1000).toFixed(2)+' kHz' : f.toFixed(0)+' Hz'; }
+function cMul(ar,ai,br,bi){ return {re:ar*br-ai*bi, im:ar*bi+ai*br}; }
+
+function point(f, kp, ki){
+    const w = 2*Math.PI*f;
+    const C = { re: kp, im: -ki/w };
+    const dre = WnSq - w*w, dim = w*TwoZetaWn, den = dre*dre+dim*dim;
+    const P = { re: WnSq*dre/den, im: -WnSq*dim/den };
+    const L = cMul(C.re,C.im,P.re,P.im);
+    return {
+        Cg: 20*Math.log10(Math.hypot(C.re,C.im)), Pg: 20*Math.log10(Math.hypot(P.re,P.im)), Lg: 20*Math.log10(Math.hypot(L.re,L.im)),
+        Cp: Math.atan2(C.im,C.re)*180/Math.PI, Pp: Math.atan2(P.im,P.re)*180/Math.PI, Lp: Math.atan2(L.im,L.re)*180/Math.PI
+    };
+}
+function unwrap(raw){ let off=0; const o=[]; for(let i=0;i<raw.length;i++){ if(i>0){const d=raw[i]-raw[i-1]; if(d>180)off-=360; else if(d<-180)off+=360;} o.push(raw[i]+off);} return o; }
+
+function update() {
+    const kp = parseFloat(document.getElementById('kp-slider').value);
+    const ki = parseFloat(document.getElementById('ki-slider').value);
+    const cf = Math.pow(10, parseFloat(document.getElementById('cur-slider').value));
+    document.getElementById('kp-val').textContent = kp.toFixed(2);
+    document.getElementById('ki-val').textContent = ki;
+    document.getElementById('cur-val').textContent = fmtHz(cf);
+
+    const Cg=[],Pg=[],Lg=[],CpR=[],PpR=[],LpR=[];
+    for (const f of freqs){ const p=point(f,kp,ki); Cg.push({x:f,y:p.Cg}); Pg.push({x:f,y:p.Pg}); Lg.push({x:f,y:p.Lg}); CpR.push(p.Cp); PpR.push(p.Pp); LpR.push(p.Lp); }
+    const Cp=unwrap(CpR),Pp=unwrap(PpR),Lp=unwrap(LpR);
+    const Cpd=Cp.map((y,i)=>({x:freqs[i],y})), Ppd=Pp.map((y,i)=>({x:freqs[i],y})), Lpd=Lp.map((y,i)=>({x:freqs[i],y}));
+
+    magChart.data.datasets[0].data = Lg;
+    magChart.data.datasets[1].data = Cg;
+    magChart.data.datasets[2].data = Pg;
+    magChart.data.datasets[4].data = [{x:cf,y:-80},{x:cf,y:80}];
+    magChart.update();
+    phaseChart.data.datasets[0].data = Lpd;
+    phaseChart.data.datasets[1].data = Cpd;
+    phaseChart.data.datasets[2].data = Ppd;
+    phaseChart.data.datasets[3].data = [{x:cf,y:-270},{x:cf,y:0}];
+    phaseChart.update();
+
+    // 游標對帳
+    const pc = point(cf, kp, ki);
+    document.getElementById('cv-c').textContent = pc.Cg.toFixed(1)+' dB';
+    document.getElementById('cv-p').textContent = pc.Pg.toFixed(1)+' dB';
+    document.getElementById('cv-sum').textContent = (pc.Cg+pc.Pg).toFixed(1)+' dB';
+    document.getElementById('cv-l').textContent = pc.Lg.toFixed(1)+' dB';
+}
+
+function init() {
+    const common = {
+        responsive: true, maintainAspectRatio: false, parsing: false, animation: { duration: 80 },
+        elements: { point: { radius: 0 }, line: { tension: 0 } },
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: { x: { type: 'logarithmic', min: F_MIN, max: F_MAX, title: { display: true, text: '頻率 (Hz, log)' }, grid: { color: 'rgba(0,0,0,.05)' } } }
+    };
+    function hLine(y,color,dash){ return { data:[{x:F_MIN,y},{x:F_MAX,y}], borderColor:color, borderWidth:1.5, borderDash:dash, pointRadius:0, fill:false }; }
+
+    magChart = new Chart(document.getElementById('magChart').getContext('2d'), { type:'line',
+        data:{ datasets:[
+            { data:[], borderColor:'#2563eb', borderWidth:3, fill:false },
+            { data:[], borderColor:'#9ca3af', borderWidth:1.5, borderDash:[4,3], fill:false },
+            { data:[], borderColor:'#f59e0b', borderWidth:1.5, borderDash:[4,3], fill:false },
+            hLine(0,'rgba(239,68,68,0.5)',[6,4]),
+            { data:[], borderColor:'rgba(168,85,247,0.7)', borderWidth:1.5, pointRadius:0, fill:false }
+        ]},
+        options:{ ...common, plugins:{ ...common.plugins, title:{ display:true, text:'增益：灰 + 橘 = 藍（上下相加）', align:'start' } },
+            scales:{ ...common.scales, y:{ min:-80, max:80, title:{ display:true, text:'Magnitude (dB)' }, grid:{ color:'rgba(0,0,0,.05)' } } } }
+    });
+
+    phaseChart = new Chart(document.getElementById('phaseChart').getContext('2d'), { type:'line',
+        data:{ datasets:[
+            { data:[], borderColor:'#2563eb', borderWidth:3, fill:false },
+            { data:[], borderColor:'#9ca3af', borderWidth:1.5, borderDash:[4,3], fill:false },
+            { data:[], borderColor:'#f59e0b', borderWidth:1.5, borderDash:[4,3], fill:false },
+            { data:[], borderColor:'rgba(168,85,247,0.7)', borderWidth:1.5, pointRadius:0, fill:false },
+            hLine(-180,'rgba(239,68,68,0.6)',[6,4])
+        ]},
+        options:{ ...common, plugins:{ ...common.plugins, title:{ display:true, text:'相位：灰 + 橘 = 藍（也是相加）', align:'start' } },
+            scales:{ ...common.scales, y:{ min:-270, max:0, title:{ display:true, text:'Phase (deg)' }, grid:{ color:'rgba(0,0,0,.05)' } } } }
+    });
+}
+
+['kp-slider','ki-slider','cur-slider'].forEach(id => document.getElementById(id).addEventListener('input', update));
+init();
+update();
+</script>
+</body>
+</html>

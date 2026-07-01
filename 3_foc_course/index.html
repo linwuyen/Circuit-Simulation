@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FOC 教學課程 · 課程地圖</title>
+<link rel="stylesheet" href="foc-style.css">
+<style>
+  .hero{padding:28px 22px;border-bottom:1px solid var(--line);background:rgba(15,23,42,.5)}
+  .hero h1{margin:0 0 6px;font-size:24px;color:var(--emer2);letter-spacing:.5px}
+  .hero p{margin:0;color:var(--mut);font-size:13px;max-width:760px;line-height:1.7}
+  .chain{margin-top:12px;font-size:12px;color:var(--mut);font-family:'Share Tech Mono',monospace}
+  .chain b{color:var(--emer2)}
+  .tier{padding:20px 22px}
+  .tier h2{font-size:13px;letter-spacing:1px;color:var(--ink);margin:0 0 4px;display:flex;align-items:center;gap:8px}
+  .tier .tdesc{font-size:12px;color:var(--dim);margin:0 0 14px}
+  .bar{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+  a.card{text-decoration:none;color:inherit;background:rgba(15,23,42,.55);border:1px solid var(--line);
+    border-radius:12px;padding:15px;display:flex;flex-direction:column;gap:6px;transition:.15s;position:relative}
+  a.card:hover{border-color:var(--emer);transform:translateY(-2px)}
+  a.card .tag{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--emer)}
+  a.card .ti{font-size:15px;font-weight:700;color:var(--ink)}
+  a.card .de{font-size:12px;color:var(--mut);line-height:1.55}
+  a.card .shape{position:absolute;top:13px;right:14px;font-size:11px;color:var(--dim);font-family:'Share Tech Mono',monospace}
+  a.card.key{border-color:rgba(16,185,129,.45)}
+  a.card.cap{border-color:rgba(15,110,86,.7);background:rgba(11,59,46,.35)}
+  footer.f{padding:18px 22px;border-top:1px solid var(--line);color:var(--dim);font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<div class="hero">
+  <h1>⚡ FOC 從零到示波器診斷 · 單頁互動課</h1>
+  <p>把一個資訊密集的 FOC 雙路 DAC 示波器，拆成循序漸進的小模擬：先用 L0 建立「為什麼要學」的動機，再建座標變換的直覺、理解控制，接著一個故障一種形狀，最後回到完整診斷儀整合複習。每頁只專注一個概念、一個「啊哈」；每頁底部還有「🔧 落地實作」把數學橋到程式碼與真實數值。</p>
+  <div class="chain">訊號鏈：三相 abc <b>─Clarke→</b> αβ <b>─Park→</b> dq（交流變直流）<b>→ PI →</b> 反Park <b>→ SVPWM →</b> 三相</div>
+  <div class="chain" style="margin-top:6px">📖 術語不熟？查 <a href="glossary.html" style="color:var(--emer2)">詞彙表</a> · 🩺 現場調機？查 <a href="fault-dictionary.html" style="color:var(--emer2)">故障字典</a></div>
+</div>
+
+<div class="tier">
+  <h2><span class="bar" style="background:#CDEFE2"></span>⓪ 動機 — 為什麼要學</h2>
+  <p class="tdesc">先看 FOC 到底解決什麼問題，再進數學就有方向。</p>
+  <div class="cards">
+    <a class="card key" href="L0-why-foc.html"><span class="shape">▶</span><span class="tag">L0 · 起點</span><span class="ti">為什麼需要 FOC</span><span class="de">頓挫六步 vs 平滑 FOC，配三線圈馬達剖面。</span></a>
+  </div>
+</div>
+
+<div class="tier">
+  <h2><span class="bar" style="background:#9FE1CB"></span>① 基礎直覺 — 數學在做什麼</h2>
+  <p class="tdesc">先看懂「向量」與兩個座標變換，後面才不會卡。</p>
+  <div class="cards">
+    <a class="card" href="L1-space-vector.html"><span class="shape">↻</span><span class="tag">L1</span><span class="ti">旋轉空間向量</span><span class="de">一個旋轉箭頭 = 兩條相差 90° 的正弦。</span></a>
+    <a class="card" href="L2-clarke.html"><span class="shape">3→2</span><span class="tag">L2</span><span class="ti">Clarke 變換</span><span class="de">三條 120° 的相電壓合成一個 αβ 向量。</span></a>
+    <a class="card" href="L2_5-inverse-svpwm.html"><span class="shape">⇆</span><span class="tag">L2½ · 補充</span><span class="ti">反 Clarke &amp; SVPWM</span><span class="de">αβ 變回三相、再變成 PWM 占空比（馬鞍波）。</span></a>
+    <a class="card key" href="L3-park.html"><span class="shape">★</span><span class="tag">L3 · 核心</span><span class="ti">Park 變換</span><span class="de">視角綁住轉子，交流瞬間變直流。</span></a>
+  </div>
+</div>
+
+<div class="tier">
+  <h2><span class="bar" style="background:#5DCAA5"></span>② 控制 — dq 為何好用</h2>
+  <p class="tdesc">理解了 dq 的好處與它的副作用（耦合）。</p>
+  <div class="cards">
+    <a class="card" href="L4-why-dq.html"><span class="shape">PI</span><span class="tag">L4</span><span class="ti">為什麼用 dq</span><span class="de">PI 控直流零誤差，控交流卻落後衰減。</span></a>
+    <a class="card" href="L5-coupling.html"><span class="shape">螺旋</span><span class="tag">L5</span><span class="ti">交叉耦合 / 解耦</span><span class="de">階躍：未解耦走螺旋，解耦走直線。</span></a>
+  </div>
+</div>
+
+<div class="tier">
+  <h2><span class="bar" style="background:#1D9E75"></span>③ 硬體非理想 — 一個故障一種形狀</h2>
+  <p class="tdesc">學會「看波形長相，反推故障原因」。</p>
+  <div class="cards">
+    <a class="card" href="L6-adc-gain.html"><span class="shape">橢圓</span><span class="tag">L6</span><span class="ti">ADC 增益不對稱</span><span class="de">兩相增益不一致 → 圓壓成橢圓。</span></a>
+    <a class="card" href="L7-deadtime.html"><span class="shape">✶</span><span class="tag">L7</span><span class="ti">死區時間</span><span class="de">每 60° 固定誤差 → 六角星 / 6 次諧波。</span></a>
+    <a class="card" href="L8-overmodulation.html"><span class="shape">⬡</span><span class="tag">L8</span><span class="ti">過調變 & SVPWM</span><span class="de">超過母線極限 → 圓貼成六邊形、削頂。</span></a>
+    <a class="card key" href="fault-dictionary.html"><span class="shape">🩺</span><span class="tag">速查 · REF</span><span class="ti">故障字典速查表</span><span class="de">六種波形長相 → 病因 → 量測 → 修法，現場可查可列印。</span></a>
+  </div>
+</div>
+
+<div class="tier">
+  <h2><span class="bar" style="background:#0F6E56"></span>④ 整合 — 把全部合起來</h2>
+  <p class="tdesc">前面每塊都懂了，回到完整診斷儀當「故障字典」。</p>
+  <div class="cards">
+    <a class="card cap" href="L9-capstone.html"><span class="shape">ALL</span><span class="tag">L9 · CAPSTONE</span><span class="ti">完整雙路 DAC 診斷示波器</span><span class="de">三畫面 + 故障預設 + 波形判讀，整合複習。</span></a>
+  </div>
+</div>
+
+<footer class="f">建議照 L0 → L9 順序走一遍；之後可把任一頁當作速查，並善用 <a href="glossary.html" style="color:var(--mut)">詞彙表</a> 與 <a href="fault-dictionary.html" style="color:var(--mut)">故障字典</a>。所有頁面共用 foc-core.js 的同一套變換數學。</footer>
+</body>
+</html>

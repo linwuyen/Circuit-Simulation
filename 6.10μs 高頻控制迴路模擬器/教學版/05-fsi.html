@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>第 5 課 · FSI 菊鏈通訊</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="step">第 5 課 / 7</div>
+    <h1>🔗 FSI 菊鏈:把資料傳給下一顆晶片</h1>
+    <p class="lead">算完之後常常要把結果送出去給別的晶片。傳的資料越多,佔用通道的時間越久。</p>
+  </div>
+
+  <div class="goal">
+    <span class="ic">🎯</span>
+    <div>這頁只教一件事:<span class="term">FSI</span> 用「菊鏈(Daisy Chain)」把多顆晶片串起來傳資料。<b>Payload(每次傳的位元組數)越大,佔用匯流排的時間越長</b>,吃掉的 10μs 預算越多。</div>
+  </div>
+
+  <div class="analogy">
+    <span class="tag">生活比喻</span>
+    像一排人傳水桶救火:水桶(資料)從第一個人手上,一個傳一個到最後。<b>桶子越大(Payload 越多),每次交接越慢</b>,整排傳完的時間就越久。
+    而且每次傳遞都有固定的「交接動作」開銷(對應協定的表頭/CRC ≈ 480ns),不管桶大桶小都要做。
+  </div>
+
+  <!-- 互動 -->
+  <div class="card">
+    <h2>🕹️ 動手玩:拖動「Payload 大小」,看匯流排被佔多久</h2>
+
+    <div class="controls">
+      <div class="ctl">
+        <label><span>FSI Payload(每輪傳送量)</span><span class="val v-emerald" id="payVal">16 Bytes</span></label>
+        <input type="range" id="pay" min="4" max="250" step="2" value="16" />
+        <div class="hint">傳輸時間 ≈ 固定開銷 480ns + 每 Byte 約 40ns。佔用超過 10μs 的 30%(3000ns)就要警惕。</div>
+      </div>
+    </div>
+
+    <!-- 菊鏈示意 -->
+    <div class="svg-box" style="margin-top:14px">
+      <svg viewBox="0 0 600 90" style="width:100%">
+        <g id="chain"></g>
+        <circle id="packet" cy="45" r="9" fill="#34d399"/>
+      </svg>
+    </div>
+
+    <div style="margin:14px 0 6px" class="small muted">這段傳輸佔用 10μs 的比例:</div>
+    <div class="svg-box">
+      <svg viewBox="0 0 600 70" style="width:100%">
+        <g id="ticks"></g>
+        <rect y="22" height="26" rx="3" id="busBar" fill="#059669" opacity="0.9"/>
+        <text id="busText" y="39" fill="#fff" font-size="11" font-weight="700"></text>
+        <line x1="500" y1="14" x2="500" y2="54" stroke="#f87171" stroke-width="2"/>
+        <line x1="150" y1="14" x2="150" y2="54" stroke="#fbbf24" stroke-width="1" stroke-dasharray="3 3"/>
+        <text x="150" y="66" text-anchor="middle" fill="#fbbf24" font-size="9">30% 警戒</text>
+      </svg>
+    </div>
+
+    <div class="stats" style="margin-top:16px">
+      <div class="stat"><div class="k">📦 傳輸時間</div><div class="v v-emerald" id="durV">1120<span class="small muted"> ns</span></div></div>
+      <div class="stat"><div class="k">📊 FSI 利用率</div><div class="v" id="utilV" style="font-size:22px">11.2<span class="small muted"> %</span></div></div>
+      <div class="stat"><div class="k">🚦 狀態</div><div class="v" id="statusV" style="font-size:16px"></div></div>
+    </div>
+  </div>
+
+  <div class="observe">
+    <span class="tag">👀 觀察提示</span>
+    <span>16 Bytes:利用率約 11%,綠球在鏈上輕快地跑。把 Payload 拉到 120 以上:傳輸時間暴增、條子越過黃色警戒線變黃 → 匯流排被佔太久,留給其他工作的時間被壓縮,可能引發骨牌效應(回想第 1 課)。</span>
+  </div>
+
+  <div class="keypoints">
+    <h3>📌 重點整理</h3>
+    <ul>
+      <li><span class="term">FSI</span>(Fast Serial Interface)是高速序列介面,常用 <b>菊鏈</b> 把多顆 MCU 串接,資料一站一站往下傳,佈線簡單。</li>
+      <li>每次傳輸 = <b>固定協定開銷</b>(表頭、CRC 等)+ <b>與 Payload 成正比的資料時間</b>。所以只傳「真正需要的資料」很重要。</li>
+      <li>在高頻迴路裡,通訊和運算共用同一個 10μs 預算。FSI 佔太久 → 排擠其他工作。常見對策:<b>減少 Payload、提高傳輸速率、或分多輪傳</b>。</li>
+    </ul>
+  </div>
+
+  <div class="code">
+    <div class="head">💻 對應到真實韌體:設定 FSI 一次要傳幾個字組</div>
+    <pre><span class="cm">// 傳送的資料量(字組數)直接影響佔用匯流排的時間</span>
+FSI_setTxSoftwareFrameSize(FSITXA_BASE, <span class="num">4</span>);  <span class="cm">// 一個 frame 傳 4 個字組</span>
+FSI_setTxDataWidth(FSITXA_BASE, FSI_DATA_WIDTH_1_LANE);
+FSI_startTxTransmit(FSITXA_BASE);
+<span class="cm">// payload 越大 → frame 越長 → 佔用時間越久 → 壓縮 10μs 預算</span></pre>
+  </div>
+
+  <!-- 小測驗 -->
+  <div class="quiz" id="quiz">
+    <h3>✅ 隨堂小測驗</h3>
+    <div class="q">FSI 傳輸佔用時間飆到 10μs 的 50%,最直接的風險是什麼?</div>
+    <button class="opt" data-c="0">A. 資料會傳錯</button>
+    <button class="opt" data-c="1">B. 匯流排被佔太久,排擠運算與輸出,可能來不及在 10μs 內完成全部工作</button>
+    <button class="opt" data-c="0">C. 沒風險,利用率越高越好</button>
+    <div class="explain" id="exp">✔️ 正解 B。利用率高不是好事——它代表通訊吃掉太多共用的 10μs 預算。和運算一樣,通訊也要省時間、留餘裕。</div>
+  </div>
+
+</div>
+
+<script>window.PAGE = '05';</script>
+<script src="nav.js"></script>
+<script>
+var DEADLINE = 10000, SCALE = 500 / DEADLINE;
+
+// 菊鏈三顆晶片
+var chips = [{x:60},{x:290},{x:520}];
+var chain = '';
+chips.forEach(function (c, i) {
+  chain += '<rect x="'+(c.x-35)+'" y="28" width="70" height="34" rx="6" fill="#1e293b" stroke="#475569" stroke-width="1.5"/>';
+  chain += '<text x="'+c.x+'" y="50" text-anchor="middle" fill="#cbd5e1" font-size="11">MCU '+(i+1)+'</text>';
+  if (i < chips.length - 1) chain += '<line x1="'+(c.x+35)+'" y1="45" x2="'+(chips[i+1].x-35)+'" y2="45" stroke="#475569" stroke-width="2"/>';
+});
+document.getElementById('chain').innerHTML = chain;
+
+// 刻度
+var ticks = '';
+[0,5000,10000].forEach(function (t) { var x=t*SCALE; ticks += '<text x="'+x+'" y="68" text-anchor="middle" fill="#64748b" font-size="9">'+t+'</text>'; });
+document.getElementById('ticks').innerHTML = ticks;
+
+// 封包動畫
+var t0 = performance.now();
+function animate(now) {
+  var p = ((now - t0) / 1800) % 1;
+  var x = 60 + (520 - 60) * p;
+  document.getElementById('packet').setAttribute('cx', x);
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+var pay = document.getElementById('pay');
+function render() {
+  var bytes = +pay.value;
+  document.getElementById('payVal').textContent = bytes + ' Bytes';
+  var dur = 480 + bytes * 40;
+  var util = dur / DEADLINE * 100;
+  var warn = dur > 3000;
+
+  var bar = document.getElementById('busBar');
+  bar.setAttribute('width', Math.min(dur * SCALE, 500));
+  bar.setAttribute('fill', warn ? '#f59e0b' : '#059669');
+  document.getElementById('busText').setAttribute('x', 6);
+  document.getElementById('busText').textContent = dur + 'ns';
+
+  document.getElementById('durV').innerHTML = dur + '<span class="small muted"> ns</span>';
+  var uv = document.getElementById('utilV');
+  uv.innerHTML = util.toFixed(1) + '<span class="small muted"> %</span>';
+  uv.className = 'v ' + (warn ? 'v-amber' : 'v-emerald');
+
+  document.getElementById('statusV').innerHTML = warn
+    ? '<span class="badge badge-warn">⚠️ 佔用過久</span>'
+    : '<span class="badge badge-ok">✓ 健康</span>';
+}
+pay.oninput = render;
+render();
+
+document.querySelectorAll('#quiz .opt').forEach(function (b) {
+  b.onclick = function () {
+    document.querySelectorAll('#quiz .opt').forEach(function (x) { x.classList.remove('correct','wrong'); });
+    b.classList.add(b.dataset.c === '1' ? 'correct' : 'wrong');
+    document.getElementById('exp').classList.add('show');
+  };
+});
+</script>
+</body>
+</html>

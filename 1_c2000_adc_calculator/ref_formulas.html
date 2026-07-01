@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>公式速查 · 名詞辭典</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .fcard{ background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px; margin-bottom:12px; }
+  .fcard h5{ margin:0 0 8px; font-size:14px; color:#334155; }
+  .fcard .fx{ font-family:var(--mono); font-size:13px; background:#1e293b; color:#6ee7b7; padding:8px; border-radius:6px; overflow-x:auto; white-space:pre; }
+  .fcard ul{ margin:8px 0 0; padding-left:18px; font-size:12px; color:var(--muted); }
+  .term{ border-bottom:1px solid #f1f5f9; padding:8px 0; } .term:last-child{ border:0; }
+  .term .t{ font-weight:700; font-size:14px; color:#334155; }
+  .term .t span{ font-size:11px; color:var(--faint); font-weight:400; }
+  .term .d{ font-size:13px; color:#475569; margin-top:2px; }
+  .two{ display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  @media (max-width:820px){ .two{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body data-lesson="-1">
+<div class="wrap">
+  <div id="topnav"></div>
+
+  <div class="hero">
+    <div class="badge">📖</div>
+    <div>
+      <h1>公式速查 · 名詞小辭典</h1>
+      <p class="sub">隨時翻的參考頁。<a href="0_index.html">← 回總覽</a></p>
+    </div>
+  </div>
+
+  <div class="two">
+    <div class="block">
+      <h2>Σ 公式總整理</h2>
+      <div class="fcard"><h5>① 電流 → 電壓（Shunt）· 第2課</h5><div class="fx">V_shunt = I × R_shunt</div><ul><li>I：電流 (A)；R_shunt：分流電阻 (Ω)</li></ul></div>
+      <div class="fcard"><h5>② 放大 + 墊高 → ADC 電壓 · 第2~3課</h5><div class="fx">V_adc = I × R_shunt × Gain + Offset</div><ul><li>Gain：放大倍率；Offset 通常 = Vref/2</li></ul></div>
+      <div class="fcard"><h5>③ 分壓（高壓量測）· 第4課</h5><div class="fx">V_adc = V_bus × R_bot / (R_top + R_bot)</div><ul><li>R_top/R_bot：上、下分壓電阻 (kΩ)</li></ul></div>
+      <div class="fcard"><h5>④ ADC 取樣（電壓 → 數字）· 第1課</h5><div class="fx">count = V_adc / Vref × (2ᴺ − 1)</div><ul><li>Vref：參考電壓；N：解析度位元</li></ul></div>
+      <div class="fcard"><h5>⑤ 韌體還原係數 · 第5課</h5><div class="fx">K_I = LSB / (R_shunt × Gain)
+K_V = LSB × (R_top + R_bot) / R_bot
+LSB = Vref / (2ᴺ − 1)</div><ul><li>K_I：A/count；K_V：V/count</li></ul></div>
+      <div class="fcard"><h5>⑥ 電阻發熱（設計檢查）· 第4課</h5><div class="fx">P_Rtop ≈ V_bus² / R_top</div><ul><li>R_top 越大越省電</li></ul></div>
+    </div>
+
+    <div class="block">
+      <h2>📖 名詞小辭典</h2>
+      <div class="term"><div class="t">分流電阻 <span>Shunt Resistor</span></div><div class="d">很小的電阻，讓電流流過產生正比小電壓，間接量電流。電阻小才不發熱。</div></div>
+      <div class="term"><div class="t">增益 <span>Gain</span></div><div class="d">放大器倍率。Shunt 電壓只有 mV，放大後 ADC 才看得清。</div></div>
+      <div class="term"><div class="t">墊高電壓 <span>Offset</span></div><div class="d">刻意加的直流電壓（常為 Vref 一半），讓 0 電流落在中間，雙向都量得到。</div></div>
+      <div class="term"><div class="t">參考電壓 <span>Vref</span></div><div class="d">ADC 能讀到的最高電壓。超過就飽和。</div></div>
+      <div class="term"><div class="t">解析度 / LSB <span>Resolution / LSB</span></div><div class="d">N-bit 把 0~Vref 切成 2ᴺ 格。LSB = Vref/(2ᴺ−1)，最小可分辨電壓。</div></div>
+      <div class="term"><div class="t">滿刻度 <span>Full Scale</span></div><div class="d">最大數字 = 2ᴺ − 1（12-bit 為 4095）。</div></div>
+      <div class="term"><div class="t">分壓比 <span>Divider Ratio</span></div><div class="d">R_bot/(R_top+R_bot)，高壓縮小的倍數。</div></div>
+      <div class="term"><div class="t">飽和 <span>Saturation</span></div><div class="d">訊號超出 0~Vref，讀數被截，量測失真。設計要留餘裕。</div></div>
+      <div class="term"><div class="t">還原係數 <span>K factor / Scale</span></div><div class="d">韌體把 count 乘上它，換回真實電流 (A) 或電壓 (V)。</div></div>
+      <div class="term"><div class="t">餘裕 <span>Headroom</span></div><div class="d">實際最大值離飽和還剩多少％，建議保留 10~20%。</div></div>
+    </div>
+  </div>
+
+  <footer>公式速查 · 名詞辭典 · <a href="0_index.html">回總覽</a></footer>
+</div>
+
+<script src="assets/lessons.js"></script>
+</body>
+</html>

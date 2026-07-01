@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>第3課 R-2R 與電流輸出 — AD5543 教學</title>
+<link rel="stylesheet" href="assets/common.css" />
+</head>
+<body>
+<div class="wrap">
+  <div id="nav-top"></div>
+
+  <div class="lesson-head">
+    <span class="lesson-num">第 3 課</span>
+    <h1>晶片內部:R-2R 階梯與「電流」輸出 IOUT</h1>
+    <p class="goal">這一課你會懂:DAC 內部用 <b>R-2R 電阻階梯</b>把 VREF 依數位碼分流,而 AD5543 真正吐出來的是<b>電流 IOUT</b>,不是電壓。</p>
+  </div>
+
+  <div class="teach">
+    <div class="analogy">
+      <span class="emoji">🪜</span>
+      <div><b>R-2R 階梯</b>只用兩種電阻值(R 與 2R)就能做出「二進位加權」的分流網路:每多一個位元就多一節,電流一路被對半分。
+      數位碼裡每個是 1 的位元,就把對應那條支路的電流「導向輸出」。所有導出的電流加起來 = <b>IOUT</b>。
+      重點:晶片輸出的是<b style="color:#fca5a5">電流</b>,要再外接運放才會變成好量的電壓(下一課)。</div>
+    </div>
+  </div>
+
+  <div class="trythis">
+    <div class="sec-label">🧪 動手試試</div>
+    <ol>
+      <li>把數位碼從 0 慢慢往上拉,看圖中紅色 <span class="k">IOUT</span> 箭頭流速變快、下方 IOUT 數值變大。</li>
+      <li>觀察公式:<span class="k">IOUT = VREF / R × (D/2¹⁶)</span>。VREF 越大、碼越大,電流越大。</li>
+      <li>把碼設成 0:IOUT ≈ 0。R-2R 把所有電流都導去內部接地,沒有電流流向輸出。</li>
+    </ol>
+  </div>
+
+  <div class="panel sim">
+    <div class="viz-top">
+      <button id="animBtn" class="animbtn" onclick="toggleAnim()"></button>
+      <span class="topo">內部結構視圖</span>
+    </div>
+    <div class="viz"><div id="schematic"></div>
+      <div class="flowrow">
+        <span class="chip" style="background:#dbeafe">VREF 電壓</span> ➜
+        <span class="chip" style="background:#e2e8f0">R-2R 依碼分流</span> ➜
+        <span class="chip" style="background:#fee2e2">IOUT 電流</span>
+      </div>
+    </div>
+    <div class="ctrl">
+      <label class="row"><span>VREF (V)</span><span id="vrefVal" style="color:var(--blue-400)"></span></label>
+      <input id="vref" type="range" min="-10" max="10" step="0.1" oninput="setVref(this.value)" style="accent-color:#60a5fa" />
+      <label class="row" style="margin-top:8px"><span>數位碼 D</span><span id="codeVal" style="color:var(--green-400)"></span></label>
+      <input id="code" type="range" min="0" max="65535" step="1" oninput="setCodeRaw(this.value)" style="accent-color:#4ade80" />
+      <div id="presets" class="presets"></div>
+    </div>
+    <div class="stats-grid" id="stats"></div>
+  </div>
+
+  <div class="takeaways">
+    <div class="sec-label">📌 重點整理</div>
+    <ul>
+      <li><b>R-2R 階梯</b>用最少的電阻種類做出二進位加權分流,是 DAC 的核心結構。</li>
+      <li>AD5543 的輸出是<b>電流 IOUT</b>:IOUT = VREF / R_DAC × (D/2¹⁶)。</li>
+      <li>因為是電流輸出,單看它<b>還不能直接當電壓用</b> —— 下一課的 TIA 運放負責把它轉成電壓。</li>
+    </ul>
+  </div>
+
+  <div class="two-grid" id="concepts"></div>
+
+  <div class="quiz" id="quiz"></div>
+  <div id="refs"></div>
+  <div id="nav-bottom"></div>
+</div>
+
+<script src="assets/common.js"></script>
+<script>
+const state = { vref: 10, code: 32768, mode: 'standard' };
+let animate = true;
+function setVref(v){ state.vref = parseFloat(v); render(); }
+function setCodeRaw(v){ state.code = parseInt(v,10); render(); }
+function setCode(v){ state.code = v; render(); }
+function toggleAnim(){ animate = !animate; render(); }
+
+function render(){
+  const c = DAC.compute(state);
+  document.getElementById('vref').value = state.vref;
+  document.getElementById('code').value = state.code;
+  document.getElementById('vrefVal').textContent = Number(state.vref).toFixed(1)+' V';
+  document.getElementById('codeVal').textContent = state.code+'  (0x'+state.code.toString(16).toUpperCase().padStart(4,'0')+')';
+  document.getElementById('presets').innerHTML = DAC.buildPresets(state.code);
+  document.getElementById('schematic').innerHTML = DAC.buildSchematic(state, c, animate);
+  document.getElementById('stats').innerHTML = DAC.buildStats(state, c);
+  document.getElementById('animBtn').innerHTML = (animate ? DAC.ico('pause',12)+' 暫停動畫' : DAC.ico('play',12)+' 播放動畫');
+}
+
+document.getElementById('concepts').innerHTML =
+    DAC.concept('R-2R 階梯','只用兩種電阻值(R 與 2R)串並聯成的網路。每多一個位元就多一節,用很省的方式產生二進位加權分流,是 DAC 的核心結構。')
+  + DAC.concept('IOUT(電流輸出)','AD5543 本體輸出的是<b style="color:#fca5a5">電流</b>而非電壓。電流 = VREF / R × (D/2¹⁶),所以要外接運放才會變成好用的電壓。');
+
+DAC.renderNav('03-r2r-iout.html');
+render();
+document.getElementById('refs').innerHTML = DAC.readMore([
+  { term: 'R-2R Ladder', desc: '內部電流型 R-2R 階梯架構,只用 R 與 2R 兩種值產生二進位加權分流。' },
+  { term: 'RDAC (Ladder Resistance)', desc: 'DAC 等效輸入電阻(本模擬取標稱 5 kΩ,實際有約 ±30% 容差),IOUT = VREF / RDAC × D/2¹⁶。' },
+  { term: 'IOUT1 / IOUT2 Pins', desc: '電流輸出腳:IOUT1 接 TIA 虛接地,IOUT2 通常接地;務必接運放,不可開路。' },
+  { term: 'Output Capacitance', desc: 'IOUT 腳有隨碼變化的寄生電容,會影響 TIA 穩定度與頻寬(下一課的補償電容由此而來)。' },
+]);
+DAC.quiz('quiz', [
+  { q: 'R-2R 階梯為什麼好用?',
+    options: ['只要一種超大電阻','只用 R 與 2R 兩種值就能做二進位加權','完全不需要電阻','可以放大訊號'],
+    answer: 1,
+    explain: '只用兩種電阻值就能精準做出二進位加權分流,容易在晶片上匹配製作。' },
+  { q: 'AD5543 的接腳直接輸出的是什麼?',
+    options: ['電壓','電流 IOUT','頻率','數位訊號'],
+    answer: 1,
+    explain: '它是電流輸出型 DAC,輸出 IOUT,需外接 TIA 運放才轉成電壓。' },
+  { q: 'IOUT 與哪些量成正比?',
+    options: ['只跟 VREF','只跟數位碼','同時跟 VREF 與 D/2¹⁶','跟 SPI 時脈'],
+    answer: 2,
+    explain: 'IOUT = VREF / R × (D/2¹⁶),VREF 與比例 D/2¹⁶ 都會放大電流。' },
+  { q: '數位碼設為 0 時,流向輸出的 IOUT 約為?',
+    options: ['最大','約 0','一半','負最大'],
+    answer: 1,
+    explain: '比例為 0,沒有支路電流被導向輸出,IOUT ≈ 0。' },
+  { q: '為什麼電流輸出的 IOUT 腳不能直接開路當電壓用?',
+    options: ['會燒掉晶片','它輸出的是電流,需 TIA 把電流轉成電壓且提供虛接地','電壓太高','沒有原因,可以直接用'],
+    answer: 1,
+    explain: 'IOUT 是電流源輸出,需運放虛接地把電流導入 RFB 轉成電壓,開路無法正常工作。' },
+], '03-r2r-iout.html', { pick: 3 });
+</script>
+</body>
+</html>

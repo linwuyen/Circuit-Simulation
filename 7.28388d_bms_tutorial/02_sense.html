@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>02 量測 · AFE 感測 | F28388D BMS 教學模擬器</title>
+  <link rel="stylesheet" href="assets/bms-tutorial.css">
+</head>
+<body data-page="afe" data-chapter="2">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="brand-title">F28388D BMS 教學模擬器</span><span class="brand-subtitle">02 量測 · AFE 感測</span></div>
+      <nav class="nav" aria-label="章節導覽">
+        <a href="index.html">首頁</a><a href="01_overview.html">總覽</a><a href="02_sense.html" aria-current="page">量測</a><a href="03_compare.html">比較</a><a href="04_decide.html">決定</a><a href="05_actuate.html">致動</a><a href="06_report.html">回報</a><a href="07_coordinate.html">協同</a><a href="08_failsafe.html">失效</a><a href="09_integrate.html">整合</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="hero">
+      <div>
+        <span class="eyebrow">Lesson 02 · 鏈的第①環</span>
+        <h1>量測是鏈的起點:AFE 提供數字,但它不替系統做安全決策。</h1>
+        <p class="lead">本頁只練三個輸入:最高單體電壓、Pack 總電流、SPI 通訊品質。先把「感測值會被雜訊汙染、所以需要校驗」這件事看清楚,後面才有可信的數字拿去比較。</p>
+      </div>
+      <div class="panel">
+        <h2>先記這三件事</h2>
+        <table class="mini-table" style="margin-top:10px;">
+          <tr><th>輸入</th><th>意義</th></tr>
+          <tr><td>最高單體電壓</td><td>後面拿去和 OVP/放電上限比。</td></tr>
+          <tr><td>Pack 總電流</td><td>後面拿去和 OCP 比。</td></tr>
+          <tr><td>SPI 錯誤計數</td><td>累積到 3 次 = AFE 失聯,感測不可信。</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <section class="lesson-layout">
+      <aside>
+        <div class="panel">
+          <div class="panel-title"><h2>操作任務</h2></div>
+          <ol class="guide-list">
+            <li><span>1</span><div><strong>把電壓拉到 4100 mV</strong><em>之後在「比較」頁會看到它落在可放電窗。</em></div></li>
+            <li><span>2</span><div><strong>把電壓拉到 4200 mV</strong><em>偏高灰帶,還沒過充。</em></div></li>
+            <li><span>3</span><div><strong>把電壓拉到 4300 mV</strong><em>越過 OVP。</em></div></li>
+            <li><span>4</span><div><strong>連按 SPI 錯誤</strong><em>累積 3 次就是失聯風險。</em></div></li>
+          </ol>
+        </div>
+        <div class="panel">
+          <div class="callout warning">如果這是你的車:感測線受干擾導致一筆電壓被噪聲翻高,若不校驗就直接信任,系統可能誤判過壓而把你停在路邊。所以 AFE 用 CRC 把可疑資料擋下來。</div>
+        </div>
+      </aside>
+
+      <section>
+        <div class="panel">
+          <div class="panel-title"><h2>AFE 輸入模擬</h2><small>只改輸入,不做狀態機判斷</small></div>
+          <div class="metric-grid">
+            <div class="metric"><span>ADC_Read</span><strong id="afe-voltage-hex">0x0FA0</strong></div>
+            <div class="metric"><span>Current Raw</span><strong id="afe-current-hex">0x0000</strong></div>
+            <div class="metric"><span>SPI_Err_Cnt</span><strong id="afe-spi-count">0</strong></div>
+          </div>
+          <div class="reg-note">真實對應:<code>ADC_Read</code> = ADC 結果暫存器 <code>ADCRESULTx</code>(12-bit);門檻在韌體裡是 <code>#define OVP_MV 4250</code>、<code>#define DISCHG_MAX_MV 4150</code>、<code>#define OCP_A 150</code>。滑桿改的就是這些之後會被比較的數值。</div>
+          <div class="controls" style="margin-top:16px;">
+            <label class="range-row">
+              <span class="range-label"><span>最高單體電壓</span><strong id="voltage-value">4000 mV</strong></span>
+              <input id="voltage-slider" type="range" min="2500" max="4300" value="4000">
+            </label>
+            <div id="afe-voltage-status" class="callout"></div>
+            <label class="range-row">
+              <span class="range-label"><span>Pack 總電流</span><strong id="current-value">0.0 A</strong></span>
+              <input id="current-slider" type="range" min="-50" max="200" value="0">
+            </label>
+            <div id="afe-current-status" class="callout"></div>
+            <div class="button-row">
+              <button id="spi-once" class="btn">注入一次 SPI CRC 錯誤</button>
+              <button id="spi-break" class="btn danger">模擬 SPI 線路失效</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title"><h2>事件紀錄</h2><small>最新事件在最上方</small></div>
+          <div id="afe-log" class="event-log">
+            <div class="event ok">AFE 已開始提供模擬輸入。</div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" style="margin-top:20px;">
+      <div class="panel-title"><h2>帶走這三句</h2></div>
+      <ul class="checklist">
+        <li>AFE 是鏈的起點,只負責量測,不做安全決策。</li>
+        <li>感測值會被雜訊汙染,所以需要 CRC 校驗才可信。</li>
+        <li>SPI 連續錯誤 = 失聯,後面的判斷必須當作「資料不可信」處理。</li>
+      </ul>
+    </section>
+
+    <nav class="footer-nav">
+      <a href="01_overview.html">上一章:系統總覽</a>
+      <a href="03_compare.html">下一章:比較 · 安全門檻</a>
+    </nav>
+  </main>
+  <script src="assets/bms-sim.js"></script>
+  <script src="assets/bms-learn.js"></script>
+</body>
+</html>

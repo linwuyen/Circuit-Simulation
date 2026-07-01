@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L0 · 為什麼需要 FOC？</title>
+<link rel="stylesheet" href="foc-style.css">
+</head>
+<body>
+<header class="top">
+  <div>
+    <div class="crumb">FOC 教學課程 · 階段 ⓪ 動機 · 從這裡開始</div>
+    <h1>L0 · 為什麼需要 FOC？</h1>
+    <div class="sub">同一顆馬達，控制方式不同 → 一個頓挫抖動、一個平滑安靜</div>
+  </div>
+  <div class="prog">第 0 課 · 動機</div>
+</header>
+
+<main class="stage">
+  <div class="scopes two">
+    <div class="scope sq">
+      <canvas id="cv-motor"></canvas>
+      <span class="lab">馬達剖面（三相定子 120° + 轉子磁鐵）</span>
+      <span class="lab tr" id="m-tag">FOC：電流向量超前 90°</span>
+    </div>
+    <div class="scope sq">
+      <canvas id="cv-trq"></canvas>
+      <span class="lab">輸出扭矩 vs 時間</span>
+      <span class="lab tr"><span style="color:#34d399">●</span>平穩 = 好</span>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <h2>控制方式</h2>
+    <div class="toggle">
+      <button id="b-foc" class="on" onclick="setFoc(true)">✅ FOC（連續旋轉場）</button>
+      <button id="b-six" onclick="setFoc(false)">❌ 六步方波</button>
+    </div>
+    <h2>參數</h2>
+    <div class="ctrl">
+      <div class="row"><span>轉速 ω</span><span class="v" id="v-w">30 Hz</span></div>
+      <input type="range" id="p-w" min="5" max="80" value="30">
+    </div>
+    <div class="readout">
+      <div class="cell"><span>瞬時扭矩</span><span id="r-tq">1.00</span></div>
+      <div class="cell"><span>扭矩漣波</span><span id="r-rip">0%</span></div>
+    </div>
+    <div class="task"><b>🎯 動手試</b>
+      看右圖的扭矩線。<strong>FOC</strong> 幾乎是一條<strong>直線</strong>（漣波≈0）；切到<strong>六步方波</strong>，扭矩變成上下跳動的<strong>鋸齒</strong>（每轉 6 個凹陷）—— 那就是廉價馬達會頓挫、嗡嗡叫的原因。轉速越低越明顯。</div>
+    <div class="aha"><b>💡 為什麼要學 FOC</b>
+      FOC 的目標：讓三相電流是<strong>平滑的正弦</strong>、讓定子磁場<strong>連續旋轉</strong>、而且永遠跟轉子保持<strong>90°</strong>（最有效率的出力角）。後面 L1–L8 的每一個數學變換，都只是為了達成這三件事。先記住這個「終點長相」，再回頭看公式就不會迷路。</div>
+  </aside>
+</main>
+
+<nav class="foot">
+  <a href="index.html">課程地圖</a>
+  <a class="next" href="L1-space-vector.html">下一課：L1 旋轉空間向量 →</a>
+</nav>
+
+<script src="foc-core.js"></script>
+<script>
+const TAU = FOC.TAU;
+const cvM=document.getElementById('cv-motor'),ctxM=cvM.getContext('2d');
+const cvT=document.getElementById('cv-trq'),ctxT=cvT.getContext('2d');
+const pW=document.getElementById('p-w');
+let w=30, foc=true, theta=0, last=performance.now();
+let trq=[]; const N=240;
+
+function ui(){ w=+pW.value; document.getElementById('v-w').textContent=w+' Hz'; }
+pW.addEventListener('input',ui);
+function setFoc(v){ foc=v; trq=[];
+  document.getElementById('b-foc').classList.toggle('on',v);
+  document.getElementById('b-six').classList.toggle('on',!v);
+  document.getElementById('m-tag').textContent=v?'FOC：電流向量超前 90°':'六步：磁場每 60° 跳一格';
+}
+function resize(){ FOC.fit(cvM); FOC.fit(cvT); }
+window.addEventListener('resize',resize);
+
+// 定子場角：FOC = 連續超前 90°；六步 = 量化到最近的 60°
+function fieldAngle(th){
+  const ideal = th + Math.PI/2;
+  if(foc) return ideal;
+  const step = Math.PI/3;
+  return Math.round(ideal/step)*step;
+}
+// 瞬時扭矩 ∝ sin(場角 − 轉子角)；FOC 恆為 1，六步在 0.866~1 間漣波
+function torque(th){ return Math.sin(fieldAngle(th) - th); }
+
+function drawMotor(){
+  const W=cvM.width,H=cvM.height,cx=W/2,cy=H/2,R=Math.min(W,H)*0.40;
+  ctxM.clearRect(0,0,W,H);
+  // 定子外殼
+  ctxM.strokeStyle='rgba(52,211,153,.25)';ctxM.lineWidth=2;
+  ctxM.beginPath();ctxM.arc(cx,cy,R,0,TAU);ctxM.stroke();
+  ctxM.beginPath();ctxM.arc(cx,cy,R*0.62,0,TAU);ctxM.stroke();
+  // 三相線圈 U/V/W 在 0/120/240°，亮度 ∝ 該相瞬時電流
+  const fa=fieldAngle(theta);
+  const names=['U','V','W'], cols=['#34d399','#f59e0b','#22d3ee'];
+  for(let k=0;k<3;k++){
+    const ang=k*TAU/3;                       // 線圈位置
+    const cur=Math.cos(fa-ang);              // 該相電流（投影）
+    const br=Math.max(0,cur);                // 只畫正向發光
+    const x=cx+R*0.81*Math.cos(ang), y=cy-R*0.81*Math.sin(ang);
+    ctxM.fillStyle=cols[k]; ctxM.globalAlpha=0.25+0.75*br;
+    ctxM.shadowBlur=18*br; ctxM.shadowColor=cols[k];
+    ctxM.beginPath(); ctxM.arc(x,y,R*0.13,0,TAU); ctxM.fill();
+    ctxM.globalAlpha=1; ctxM.shadowBlur=0;
+    ctxM.fillStyle='#04140e'; ctxM.font='bold 13px monospace'; ctxM.textAlign='center';
+    ctxM.fillText(names[k],x,y+4);
+  }
+  ctxM.textAlign='left';
+  // 轉子磁鐵（N 紅 / S 藍）
+  const rl=R*0.5, rw=R*0.16;
+  ctxM.save(); ctxM.translate(cx,cy); ctxM.rotate(-theta);
+  ctxM.fillStyle='#ef4444'; ctxM.fillRect(0,-rw,rl,rw*2);
+  ctxM.fillStyle='#3b82f6'; ctxM.fillRect(-rl,-rw,rl,rw*2);
+  ctxM.fillStyle='#fff'; ctxM.font='bold 12px monospace'; ctxM.textAlign='center';
+  ctxM.fillText('N',rl*0.6,4); ctxM.fillText('S',-rl*0.6,4);
+  ctxM.restore(); ctxM.textAlign='left';
+  // 定子磁場向量（箭頭）
+  FOC.vector(ctxM,cx,cy,Math.cos(fa)*0.9,Math.sin(fa)*0.9,R,'#a78bfa');
+}
+
+function drawTorque(){
+  const W=cvT.width,H=cvT.height,base=H*0.78,sy=H*0.55;
+  ctxT.clearRect(0,0,W,H);
+  // 參考線 1.0 與 0
+  ctxT.strokeStyle='rgba(99,102,241,.18)';ctxT.lineWidth=1;
+  ctxT.beginPath();ctxT.moveTo(0,base-sy);ctxT.lineTo(W,base-sy);ctxT.stroke();
+  ctxT.fillStyle='rgba(148,163,184,.6)';ctxT.font='10px monospace';
+  ctxT.fillText('額定 1.0',6,base-sy-4); ctxT.fillText('0',6,base-2);
+  const pts=trq.map((v,i)=>({x:i/(N-1)*W,y:base-v*sy}));
+  FOC.poly(ctxT,pts,foc?'#34d399':'#f59e0b',2.5);
+}
+
+function loop(now){
+  const dt=Math.min(.03,(now-last)/1000); last=now;
+  theta=(theta+TAU*w*dt)%TAU;
+  const tq=torque(theta);
+  trq.push(tq); if(trq.length>N)trq.shift();
+  drawMotor(); drawTorque();
+  // 漣波 = (max−min)/mean over buffer
+  if(trq.length>30){const mx=Math.max(...trq),mn=Math.min(...trq),mean=trq.reduce((a,b)=>a+b,0)/trq.length;
+    document.getElementById('r-rip').textContent=(100*(mx-mn)/Math.max(.01,mean)).toFixed(0)+'%';}
+  document.getElementById('r-tq').textContent=tq.toFixed(2);
+  requestAnimationFrame(loop);
+}
+resize(); ui(); setFoc(true); requestAnimationFrame(loop);
+</script>
+<script src="foc-quiz.js"></script>
+<script>FOCQuiz.mount('L0')</script>
+</body>
+</html>

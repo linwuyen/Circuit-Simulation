@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>06. Overrun 壓力測試（FIFO / ISR / DMA）</title>
+  <link rel="stylesheet" href="assets/spi.css">
+  <style>
+    canvas#lvlCanvas { height: 260px; }
+  </style>
+</head>
+<body data-lesson="06">
+  <header>
+    <div class="header-inner">
+      <p class="eyebrow">SPI 初學者課程 · 第 7 課 / 共 9 課</p>
+      <h1>06. Overrun 壓力測試</h1>
+      <p class="subtitle">用接近 C2000 的數字（16-word FIFO）做一次壓力測試：丟一串連續資料進來，比較「無 FIFO / 逐筆 ISR / 一次多筆 / 加 gap / DMA」誰扛得住、誰會 <span class="term" data-tip="RX Overflow：接收 FIFO 滿了還有新資料進來，舊資料被覆蓋＝遺失">RXFFOVF</span>。</p>
+      <nav class="top-nav" id="lessonNav"></nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="tldr">
+      <span class="k">🎯 一句話先懂</span>
+      <p>只要「CPU 服務一筆的時間 Ts」<strong>大於</strong>「資料到達的間隔 Ta」，FIFO 水位就會一路爬到滿 → overrun。解法就三招：<strong>降速</strong>（拉大 Ta）、<strong>一次讀多筆 / DMA</strong>（縮小 Ts）、<strong>加 gap</strong>（拉大 Ta）。</p>
+    </section>
+
+    <div class="layout-2col">
+      <section class="stack">
+        <div class="panel">
+          <div class="panel-title"><h2>🎮 壓力測試設定</h2><small></small></div>
+          <div class="field-grid">
+            <div class="field">
+              <label for="scenario"><span>處理方式</span><small>scenario</small></label>
+              <select id="scenario">
+                <option value="none">無 FIFO（每筆都要即時讀）</option>
+                <option value="isr1" selected>FIFO + ISR 每次只讀 1 筆</option>
+                <option value="isrN">FIFO + ISR 每次讀到低水位（多筆）</option>
+                <option value="dma">DMA 搬資料（CPU 幾乎不介入）</option>
+              </select>
+            </div>
+            <div class="two">
+              <div class="field">
+                <label for="sclk"><span>SCLK</span><small>MHz</small></label>
+                <input id="sclk" type="number" min="0.5" max="60" step="0.5" value="12.5">
+              </div>
+              <div class="field">
+                <label for="bits"><span>每筆位元</span><small>word</small></label>
+                <select id="bits"><option>8</option><option selected>16</option><option>32</option></select>
+              </div>
+            </div>
+            <div class="two">
+              <div class="field">
+                <label for="burst"><span>連續筆數</span><small>burst</small></label>
+                <input id="burst" type="number" min="16" max="4095" step="1" value="4095">
+              </div>
+              <div class="field">
+                <label for="gap"><span>每筆間 gap</span><small>µs</small></label>
+                <input id="gap" type="number" min="0" max="50" step="0.1" value="0">
+              </div>
+            </div>
+            <div class="field">
+              <label for="isrOv"><span>ISR 固定開銷</span><small>ns / 次</small></label>
+              <input id="isrOv" type="number" min="0" max="10000" step="50" value="1500">
+              <div class="hint">進出中斷的存暫存器、判旗標等固定成本。DMA 不受此影響。</div>
+            </div>
+            <div class="btn-row">
+              <button class="btn" id="btnRun" type="button">跑壓力測試</button>
+              <button class="btn secondary" id="btnReset" type="button">重設</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="stack">
+        <div class="status-result panel" id="resultBox">
+          <div class="panel-title"><h2 id="resTitle">結果</h2><small id="resTag">—</small></div>
+          <div id="resBody" class="callout info">
+            <span class="k" id="resK">按「跑壓力測試」</span>
+            <p id="resP">會即時算出每筆到達間隔、CPU 服務時間，以及會不會 overrun。</p>
+          </div>
+        </div>
+
+        <div class="metric-grid">
+          <div class="metric"><span>到達間隔 Ta</span><strong id="mTa">— ns</strong></div>
+          <div class="metric"><span>服務時間 Ts</span><strong id="mTs">— ns</strong></div>
+          <div class="metric"><span>FIFO 峰值</span><strong id="mPeak">— / 16</strong></div>
+          <div class="metric"><span>掉了幾筆</span><strong id="mLost">—</strong></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><h2>FIFO 水位（整段 burst）</h2><small>越過頂線＝溢位</small></div>
+          <div class="canvas-wrap"><canvas id="lvlCanvas" width="820" height="260"></canvas></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><h2>建議</h2><small>怎麼修</small></div>
+          <div id="fix" class="prose"><p class="hint">跑一次測試後這裡會給對應的修法。</p></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel">
+      <div class="panel-title"><h2>四種方式比一比</h2><small>同一串資料</small></div>
+      <div class="table-scroll">
+        <table class="cmp">
+          <thead><tr><th>方式</th><th>每筆 CPU 成本</th><th>能扛的吞吐</th><th>CPU 負擔</th><th>適用</th></tr></thead>
+          <tbody>
+            <tr><th>無 FIFO</th><td class="bad">最高（每筆即時）</td><td class="bad">最低</td><td class="bad">最重</td><td>低速、零星資料</td></tr>
+            <tr><th>FIFO 逐筆 ISR</th><td class="mid">高（每筆一次中斷開銷）</td><td class="mid">中</td><td class="mid">重</td><td>中速</td></tr>
+            <tr><th>FIFO 多筆 ISR</th><td class="good">低（開銷攤掉）</td><td class="good">高</td><td class="good">較輕</td><td>中高速連續</td></tr>
+            <tr><th>DMA</th><td class="good">最低</td><td class="good">最高</td><td class="good">最輕</td><td>大量 burst</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title"><h2>進階：ISR 一次多讀 vs DMA</h2><small>觀念程式碼</small></div>
+      <div class="prose"><p>逐筆 ISR 之所以容易 overrun，是因為<strong>每筆都付一次中斷開銷</strong>。把 ISR 改成「一次讀到低水位」可以把開銷攤掉；資料量更大時就交給 DMA。</p></div>
+      <div class="codeblock-group" style="margin-top:12px">
+        <div class="codetabs">
+          <button class="codetab active" data-i="0">逐筆 ISR（易溢位）</button>
+          <button class="codetab" data-i="1">多筆 ISR（建議）</button>
+          <button class="codetab" data-i="2">DMA（大量 burst）</button>
+        </div>
+        <pre class="code" data-i="0"><span class="c">// 每次中斷只讀一筆：開銷沒攤掉，高速時跟不上</span>
+<span class="kw">interrupt void</span> <span class="fn">spi_rx_isr</span>(<span class="kw">void</span>) {
+    buf[w++] = SpiaRegs.SPIRXBUF;      <span class="c">// 只讀 1 筆</span>
+    <span class="fn">clear_rx_int_flag</span>();             <span class="c">// 又要付一次進出開銷</span>
+}</pre>
+        <pre class="code" data-i="1" hidden><span class="c">// 觸發水位設高一點，一次把 FIFO 讀到低水位，開銷被攤平</span>
+<span class="kw">interrupt void</span> <span class="fn">spi_rx_isr</span>(<span class="kw">void</span>) {
+    <span class="kw">while</span> (SpiaRegs.SPIFFRX.bit.RXFFST &gt;= 1)
+        buf[w++] = SpiaRegs.SPIRXBUF;  <span class="c">// 一次讀多筆</span>
+
+    <span class="kw">if</span> (SpiaRegs.SPIFFRX.bit.RXFFOVF)
+        <span class="fn">record_overrun</span>();             <span class="c">// 真的溢位才記錄</span>
+
+    <span class="fn">clear_rx_overflow_and_int_flag</span>(); <span class="c">// 清旗順序依 TRM</span>
+}</pre>
+        <pre class="code" data-i="2" hidden><span class="c">// 大量連續資料：DMA 直接搬，CPU 只在搬完才被通知一次</span>
+<span class="fn">DMA_configure</span>(SPI_RX → ring_buffer, words = 4095);
+<span class="fn">DMA_start</span>();
+<span class="c">// CPU 期間可做別的事，搬完才進一次 DMA done 中斷</span></pre>
+      </div>
+      <div class="callout danger" style="margin-top:12px">
+        <span class="k">C2000 提醒</span>
+        <p>RXFFOVF 旗標要依你型號的 TRM 順序清，否則下次判斷會失準。實機暫存器名稱以晶片 TRM 為準。</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title"><h2>✅ 自我檢查</h2><small></small></div>
+      <div class="quiz" data-answer="3">
+        <div class="q">逐筆 ISR 在 12.5 MHz 會 overrun，下列哪個「最沒幫助」？</div>
+        <div class="opts">
+          <button class="opt" data-i="0"><span class="mk">A</span><span>改成 ISR 一次讀多筆</span></button>
+          <button class="opt" data-i="1"><span class="mk">B</span><span>降低 SCLK</span></button>
+          <button class="opt" data-i="2"><span class="mk">C</span><span>改用 DMA</span></button>
+          <button class="opt" data-i="3"><span class="mk">D</span><span>把 FIFO 想像成更大（軟體加大陣列）</span></button>
+        </div>
+        <div class="explain">FIFO 是硬體深度，軟體 buffer 再大也改變不了「進 > 出」的根本問題。要嘛拉大到達間隔（降速、加 gap），要嘛縮小每筆服務成本（多筆讀、DMA）。</div>
+      </div>
+    </section>
+
+    <div class="pager" id="pager"></div>
+  </main>
+
+  <footer>下一課：回到硬體，看 <a href="lesson_07_wiring.html">接線與常見硬體錯誤</a>。</footer>
+
+  <script src="assets/spi-lesson.js"></script>
+  <script>
+    var $ = function (id) { return document.getElementById(id); };
+    var els = ["scenario", "sclk", "bits", "burst", "gap", "isrOv"].reduce(function (o, k) { o[k] = $(k); return o; }, {});
+    var canvas = $("lvlCanvas");
+
+    // 各場景：FIFO 深度、每筆讀取成本、批次大小、是否走 DMA
+    var MODELS = {
+      none: { depth: 1,  per: 200, batch: 1, dma: false },
+      isr1: { depth: 16, per: 200, batch: 1, dma: false },
+      isrN: { depth: 16, per: 200, batch: 8, dma: false },
+      dma:  { depth: 16, per: 40,  batch: 1, dma: true }
+    };
+
+    function params() {
+      var m = MODELS[els.scenario.value];
+      var sclk = Math.max(0.5, parseFloat(els.sclk.value) || 12.5);
+      var bits = parseInt(els.bits.value, 10) || 16;
+      var burst = Math.max(16, Math.min(4095, parseInt(els.burst.value, 10) || 4095));
+      var gapNs = Math.max(0, parseFloat(els.gap.value) || 0) * 1000;
+      var isrOv = els.scenario.value === "dma" ? 0 : Math.max(0, parseFloat(els.isrOv.value) || 0);
+      var wordNs = bits * 1000 / sclk;          // 每筆在線上的時間
+      var Ta = wordNs + gapNs;                    // 到達間隔
+      var Ts = isrOv / m.batch + m.per;           // 每筆服務時間（開銷攤平）
+      return { m: m, sclk: sclk, bits: bits, burst: burst, gapNs: gapNs, isrOv: isrOv, wordNs: wordNs, Ta: Ta, Ts: Ts };
+    }
+
+    function simulate(p) {
+      var total = p.burst * p.Ta, steps = 260, dt = total / steps;
+      var inRate = 1 / p.Ta, drain = 1 / p.Ts;
+      var lvl = 0, lost = 0, peak = 0, pts = [];
+      for (var i = 0; i < steps; i++) {
+        lvl += inRate * dt;
+        lvl -= drain * dt;
+        if (lvl < 0) lvl = 0;
+        if (lvl > p.m.depth) { lost += lvl - p.m.depth; lvl = p.m.depth; }
+        if (lvl > peak) peak = lvl;
+        pts.push(lvl / p.m.depth);
+      }
+      return { pts: pts, lost: Math.round(lost), peak: peak, depth: p.m.depth };
+    }
+
+    function render(run) {
+      var p = params();
+      $("mTa").textContent = p.Ta.toFixed(0) + " ns";
+      $("mTs").textContent = p.Ts.toFixed(0) + " ns";
+      var sim = simulate(p);
+      $("mPeak").textContent = sim.peak.toFixed(1) + " / " + sim.depth;
+      $("mLost").textContent = sim.lost;
+      $("mLost").style.color = sim.lost > 0 ? "var(--red)" : "var(--green)";
+      draw(sim);
+
+      var keepUp = p.Ts <= p.Ta;
+      var maxSclkNoGap = p.bits * 1000 / Math.max(1, p.Ts - p.gapNs);
+      var neededGapUs = Math.max(0, p.Ts - p.wordNs) / 1000;
+
+      var cls, tag, k, txt;
+      if (keepUp) {
+        cls = "tip"; tag = "扛得住"; k = "沒有 overrun ✓";
+        txt = "服務時間 Ts=" + p.Ts.toFixed(0) + " ns ≤ 到達間隔 Ta=" + p.Ta.toFixed(0) + " ns，CPU/DMA 跟得上，FIFO 不會滿。";
+      } else {
+        cls = "danger"; tag = "RXFFOVF"; k = "會 overrun，掉了 " + sim.lost + " 筆 ✗";
+        txt = "Ts=" + p.Ts.toFixed(0) + " ns > Ta=" + p.Ta.toFixed(0) + " ns，每筆都比到達慢一點，FIFO 水位一路爬到滿後開始覆蓋。";
+      }
+      $("resBody").className = "callout " + cls;
+      $("resTag").textContent = tag;
+      $("resK").textContent = k;
+      $("resP").textContent = txt;
+
+      var fix = "";
+      if (keepUp) {
+        fix = "<div class='callout tip'><span class='k'>目前安全</span><p>可以試著提高 SCLK 或拉長 burst，找出這個方式的極限。</p></div>";
+      } else {
+        fix = "<ul>" +
+          "<li><strong>降速</strong>：不加 gap 時，SCLK 要降到約 <strong>" + maxSclkNoGap.toFixed(1) + " MHz</strong> 以下才追得上。</li>" +
+          "<li><strong>加 gap</strong>：維持目前 SCLK，每筆之間至少留 <strong>" + neededGapUs.toFixed(2) + " µs</strong>。</li>" +
+          (els.scenario.value === "isr1" ? "<li><strong>改一次讀多筆</strong>：把上面切到「ISR 讀到低水位」，開銷攤平後 Ts 會大幅下降。</li>" : "") +
+          (els.scenario.value !== "dma" ? "<li><strong>改 DMA</strong>：" + p.burst + " 筆這種連續資料最適合交給 DMA。</li>" : "") +
+          "</ul>";
+      }
+      $("fix").innerHTML = fix;
+    }
+
+    function draw(sim) {
+      var rect = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(420, Math.round(rect.width * dpr));
+      canvas.height = Math.max(220, Math.round(rect.height * dpr));
+      var ctx = canvas.getContext("2d"); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.scale(dpr, dpr);
+      var w = canvas.width / dpr, h = canvas.height / dpr, pad = { l: 40, r: 16, t: 18, b: 26 };
+      ctx.fillStyle = "#0b1220"; ctx.fillRect(0, 0, w, h);
+      var x0 = pad.l, x1 = w - pad.r, y0 = h - pad.b, y1 = pad.t;
+      // 頂線（滿）
+      ctx.strokeStyle = "#ef4444"; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(x0, y1); ctx.lineTo(x1, y1); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = "#fca5a5"; ctx.font = "11px Segoe UI, sans-serif"; ctx.fillText("FIFO 滿 (" + sim.depth + ")", x0 + 4, y1 + 12);
+      ctx.fillStyle = "#64748b"; ctx.fillText("空", x0 - 22, y0 + 4);
+      // 水位線
+      var pts = sim.pts, n = pts.length;
+      ctx.beginPath();
+      for (var i = 0; i < n; i++) {
+        var x = x0 + (x1 - x0) * (i / (n - 1)), y = y0 - (y0 - y1) * Math.min(1, pts[i]);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = "#5eead4"; ctx.lineWidth = 2; ctx.stroke();
+      // 填色
+      ctx.lineTo(x1, y0); ctx.lineTo(x0, y0); ctx.closePath();
+      ctx.fillStyle = "rgba(45,212,191,0.15)"; ctx.fill();
+      ctx.fillStyle = "#94a3b8"; ctx.fillText("時間 →", x1 - 50, y0 + 18);
+    }
+
+    Object.keys(els).forEach(function (k) { els[k].addEventListener("input", function () { render(false); }); els[k].addEventListener("change", function () { render(false); }); });
+    $("btnRun").addEventListener("click", function () { render(true); });
+    $("btnReset").addEventListener("click", function () {
+      els.scenario.value = "isr1"; els.sclk.value = "12.5"; els.bits.value = "16"; els.burst.value = "4095"; els.gap.value = "0"; els.isrOv.value = "1500"; render(false);
+    });
+    window.addEventListener("resize", function () { render(false); });
+    render(false);
+  </script>
+</body>
+</html>

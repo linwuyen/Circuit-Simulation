@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AFE 雙向控制動態示波器模擬器 - Antigravity 核心引擎</title>
+    <!-- Tailwind CSS -->
+    <script src="../assets/vendor/tailwindcss-cdn.js"></script>
+    <!-- Lucide Icons -->
+    <script src="../assets/vendor/lucide.min.js"></script>
+    <style>        .font-mono-tech {
+            font-family: 'Share Tech Mono', monospace;
+        }
+        .font-code {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* 自定義滾動條 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        /* 螢光呼吸燈效果 */
+        .glow-cyan {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+        }
+        .glow-amber {
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.15);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col antialiased selection:bg-cyan-500 selection:text-slate-950">
+
+    <!-- 頂部導航欄 -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur px-6 py-4 flex flex-wrap justify-between items-center gap-4 sticky top-0 z-50">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg text-slate-950 shadow-lg shadow-cyan-500/20">
+                <i data-lucide="activity" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">ANTIGRAVITY AFE SIMULATOR</h1>
+                <p class="text-xs text-slate-400">大功率雙向主動式前端 (DDS + SOGI-PLL + 雙環控制) 實時數位模擬</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-4">
+            <span class="flex items-center gap-2 px-3 py-1 bg-slate-800/80 border border-slate-700 rounded-full text-xs font-mono-tech tracking-wider text-emerald-400 animate-pulse">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span> ENGINE ACTIVE: 20kHz
+            </span>
+            <button id="btn-pause" class="flex items-center gap-2 px-4 py-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 transition border border-slate-700 rounded-lg text-sm font-semibold">
+                <i data-lucide="pause" id="icon-pause" class="w-4 h-4 text-cyan-400"></i> <span id="text-pause">暫停模擬</span>
+            </button>
+            <button id="btn-reset" class="flex items-center gap-2 px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold active:scale-95 transition rounded-lg text-sm">
+                <i data-lucide="rotate-ccw" class="w-4 h-4"></i> 重新載入
+            </button>
+        </div>
+    </header>
+
+    <!-- 主容器 -->
+    <main class="flex-1 p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-[1920px] mx-full w-full">
+        
+        <!-- 左側面板: 控制面板與物理參數調整 (佔 4 格) -->
+        <section class="lg:col-span-4 flex flex-col gap-6">
+            
+            <!-- 狀態卡片群 -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-slate-900 border border-slate-800/80 p-4 rounded-xl flex flex-col justify-between hover:border-slate-700/80 transition glow-cyan">
+                    <span class="text-xs text-slate-400 tracking-wider flex items-center gap-1.5 font-semibold">
+                        <i data-lucide="zap" class="w-3.5 h-3.5 text-cyan-400"></i>直流母線電壓 (DC Bus)
+                    </span>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span id="stat-vbus" class="text-3xl font-mono-tech text-cyan-400">380.0</span>
+                        <span class="text-xs text-slate-500">V / 400.0V</span>
+                    </div>
+                    <div class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                        <div id="stat-vbus-bar" class="bg-cyan-500 h-full transition-all duration-100" style="width: 95%"></div>
+                    </div>
+                </div>
+                
+                <div class="bg-slate-900 border border-slate-800/80 p-4 rounded-xl flex flex-col justify-between hover:border-slate-700/80 transition glow-amber">
+                    <span class="text-xs text-slate-400 tracking-wider flex items-center gap-1.5 font-semibold">
+                        <i data-lucide="shield-check" class="w-3.5 h-3.5 text-amber-400"></i>功率因數 (Power Factor)
+                    </span>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span id="stat-pf" class="text-3xl font-mono-tech text-amber-400">0.999</span>
+                        <span class="text-xs text-slate-500">COS φ</span>
+                    </div>
+                    <div id="stat-pf-label" class="text-xs text-slate-500 mt-2">完美同相 (極致能效)</div>
+                </div>
+            </div>
+
+            <!-- 控制模式切換 -->
+            <div class="bg-slate-900 border border-slate-800/80 rounded-xl p-5 flex flex-col gap-4">
+                <h2 class="text-sm font-bold text-slate-300 tracking-widest flex items-center gap-2 border-b border-slate-800 pb-2">
+                    <i data-lucide="sliders" class="w-4 h-4 text-cyan-400"></i>運作模式 (AFE OPERATING MODE)
+                </h2>
+                <div class="grid grid-cols-3 gap-2">
+                    <button id="mode-auto" class="px-3 py-2 bg-cyan-950/50 border border-cyan-500/50 text-cyan-400 font-semibold rounded-lg text-xs transition duration-150 flex flex-col items-center gap-1 active:scale-95">
+                        <i data-lucide="brain-circuit" class="w-4 h-4"></i>
+                        <span>自動穩壓雙向</span>
+                    </button>
+                    <button id="mode-pfc" class="px-3 py-2 bg-slate-800 border border-transparent text-slate-400 font-semibold rounded-lg text-xs transition duration-150 flex flex-col items-center gap-1 hover:bg-slate-750 active:scale-95">
+                        <i data-lucide="arrow-down-to-dot" class="w-4 h-4"></i>
+                        <span>強制 PFC 整流</span>
+                    </button>
+                    <button id="mode-inv" class="px-3 py-2 bg-slate-800 border border-transparent text-slate-400 font-semibold rounded-lg text-xs transition duration-150 flex flex-col items-center gap-1 hover:bg-slate-750 active:scale-95">
+                        <i data-lucide="arrow-up-from-dot" class="w-4 h-4"></i>
+                        <span>強制 Inverter 逆變</span>
+                    </button>
+                </div>
+                <div id="mode-desc" class="text-xs text-slate-400 leading-relaxed bg-slate-950 p-3 rounded-lg border border-slate-800">
+                    目前處於【自動雙向穩壓模式】：系統自動偵測直流母線負載，負載過重時開啟 PFC 整流吸電；母線電壓過高（倒灌）時，自動切換為 Inverter 逆變器往電網送電。
+                </div>
+            </div>
+
+            <!-- 物理擾動干擾區 -->
+            <div class="bg-slate-900 border border-slate-800/80 rounded-xl p-5 flex flex-col gap-4">
+                <h2 class="text-sm font-bold text-slate-300 tracking-widest flex items-center gap-2 border-b border-slate-800 pb-2">
+                    <i data-lucide="gauge" class="w-4 h-4 text-amber-500"></i>物理環境干擾與負載
+                </h2>
+                
+                <!-- 負載大小 (類比 GPU 算力消耗) -->
+                <div class="flex flex-col gap-2">
+                    <div class="flex justify-between text-xs font-semibold">
+                        <span class="text-slate-400 flex items-center gap-1">
+                            <i data-lucide="cpu" class="w-3.5 h-3.5 text-rose-400"></i>直流端負載功率 (GPU 功耗)
+                        </span>
+                        <span id="val-load" class="text-rose-400 font-mono-tech">1.5 kW</span>
+                    </div>
+                    <input type="range" id="slide-load" min="-3000" max="5000" value="1500" step="100" class="w-full accent-rose-500 bg-slate-800 rounded-lg appearance-none h-2">
+                    <p class="text-[10px] text-slate-500 leading-normal">拉大表示 GPU 滿載抽電；拉到負值（例如 -2.0kW）模擬大型馬達回充電能到直流母線，觀察 AFE 逆變器卸荷送電。</p>
+                </div>
+
+                <!-- 電網諧波雜訊 -->
+                <div class="flex flex-col gap-2 mt-2">
+                    <div class="flex justify-between text-xs font-semibold">
+                        <span class="text-slate-400 flex items-center gap-1">
+                            <i data-lucide="snowflake" class="w-3.5 h-3.5 text-sky-400"></i>電網諧波干擾 (3rd, 5th, 7th THD)
+                        </span>
+                        <span id="val-thd" class="text-sky-400 font-mono-tech">0 %</span>
+                    </div>
+                    <input type="range" id="slide-thd" min="0" max="50" value="0" class="w-full accent-sky-500 bg-slate-800 rounded-lg appearance-none h-2">
+                    <p class="text-[10px] text-slate-500 leading-normal">增加諧波會扭曲輸入交流電網波形，此時可以觀察 SOGI-PLL（鎖相環）如何依託強大的二階濾波器維持極致純淨的鋸齒相位波，不發生抖動。</p>
+                </div>
+
+                <!-- 電網相位突變 -->
+                <div class="flex flex-col gap-2 mt-2">
+                    <div class="flex justify-between text-xs font-semibold">
+                        <span class="text-slate-400 flex items-center gap-1">
+                            <i data-lucide="milestone" class="w-3.5 h-3.5 text-emerald-400"></i>電網相位動態突變 (相位衝擊)
+                        </span>
+                        <span id="val-phase" class="text-emerald-400 font-mono-tech">0°</span>
+                    </div>
+                    <input type="range" id="slide-phase" min="-180" max="180" value="0" class="w-full accent-emerald-500 bg-slate-800 rounded-lg appearance-none h-2">
+                    <p class="text-[10px] text-slate-500 leading-normal">手動模擬電網發生擾動時的瞬時相位偏移，看 PLL 在幾個微秒（微小週期）內重新牢牢鎖定相位。</p>
+                </div>
+            </div>
+
+            <!-- 控制環參數調試 (KP/KI) -->
+            <div class="bg-slate-900 border border-slate-800/80 rounded-xl p-5 flex flex-col gap-4">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <h2 class="text-sm font-bold text-slate-300 tracking-widest flex items-center gap-2">
+                        <i data-lucide="wrench" class="w-4 h-4 text-indigo-400"></i>環路增益調諧 (Loop Tuning)
+                    </h2>
+                    <button id="btn-reset-pi" class="text-[10px] bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded text-indigo-400 border border-slate-700">重設默認</button>
+                </div>
+
+                <!-- 電流環 KP / KI -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex justify-between text-[11px] font-semibold">
+                            <span class="text-slate-400">電流內環 Kp (快)</span>
+                            <span id="val-ikp" class="text-indigo-400 font-mono-tech">2.50</span>
+                        </div>
+                        <input type="range" id="slide-ikp" min="0.1" max="10" value="2.5" step="0.1" class="w-full accent-indigo-500 bg-slate-800 rounded-lg appearance-none h-1.5">
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex justify-between text-[11px] font-semibold">
+                            <span class="text-slate-400">電流內環 Ki</span>
+                            <span id="val-iki" class="text-indigo-400 font-mono-tech">500</span>
+                        </div>
+                        <input type="range" id="slide-iki" min="50" max="2000" value="500" step="50" class="w-full accent-indigo-500 bg-slate-800 rounded-lg appearance-none h-1.5">
+                    </div>
+                </div>
+
+                <!-- 電壓環 KP / KI -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex justify-between text-[11px] font-semibold">
+                            <span class="text-slate-400">電壓外環 Kp (慢)</span>
+                            <span id="val-vkp" class="text-indigo-400 font-mono-tech">0.50</span>
+                        </div>
+                        <input type="range" id="slide-vkp" min="0.05" max="3.0" value="0.5" step="0.05" class="w-full accent-indigo-500 bg-slate-800 rounded-lg appearance-none h-1.5">
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex justify-between text-[11px] font-semibold">
+                            <span class="text-slate-400">電壓外環 Ki</span>
+                            <span id="val-vki" class="text-indigo-400 font-mono-tech">10</span>
+                        </div>
+                        <input type="range" id="slide-vki" min="1" max="100" value="10" step="1" class="w-full accent-indigo-500 bg-slate-800 rounded-lg appearance-none h-1.5">
+                    </div>
+                </div>
+                <p class="text-[10px] text-slate-500 leading-normal">
+                    <span class="text-amber-400">提示：</span>大幅度調大電流內環 Kp（例如大於 8.0）將使實際控制波形開始產生明顯的高頻震盪毛刺；過度減小 Kp 則會導致電流嚴重相位落後，功率因數（PF）降低。
+                </p>
+            </div>
+            
+        </section>
+
+        <!-- 右側面板: 示波器圖表與拓撲圖 (佔 8 格) -->
+        <section class="lg:col-span-8 flex flex-col gap-6">
+            
+            <!-- 示波器主顯示區 -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col gap-4 glow-cyan">
+                
+                <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="monitor-play" class="w-5 h-5 text-cyan-400 animate-pulse"></i>
+                        <h2 class="text-sm font-bold tracking-widest text-slate-200">ANTIGRAVITY 數位高頻示波器 (DYNAMIC SCOPE)</h2>
+                    </div>
+                    <div class="flex items-center gap-4 text-[10px] font-semibold text-slate-400">
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-amber-500 inline-block"></span> 電網電壓 (V_grid)</span>
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-400 inline-block"></span> 實際電流 (I_grid)</span>
+                        <span class="flex items-center gap-1 text-slate-500"><span class="w-2.5 h-2.5 rounded-sm bg-cyan-500/30 border border-cyan-500 border-dashed inline-block"></span> DDS 指令 (I_ref)</span>
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-cyan-400 inline-block"></span> PLL 相位 (Theta)</span>
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-indigo-400 inline-block"></span> DC 母線 (V_bus)</span>
+                    </div>
+                </div>
+
+                <!-- 畫布區域 (動態繪圖) -->
+                <div class="relative w-full h-[380px] bg-slate-950 rounded-lg overflow-hidden border border-slate-800/80">
+                    <canvas id="scope-canvas" class="w-full h-full block"></canvas>
+                </div>
+            </div>
+
+            <!-- 下半部分：硬體拓撲動態圖與 C 原始代碼對照 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <!-- 1. 物理拓撲與能量流向動畫 -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col gap-4">
+                    <h2 class="text-sm font-bold text-slate-300 tracking-widest flex items-center gap-2 border-b border-slate-800 pb-2">
+                        <i data-lucide="network" class="w-4 h-4 text-cyan-400"></i>動態雙向 AFE 拓撲流向 (TOPOLOGY FLOW)
+                    </h2>
+                    
+                    <div class="relative flex-1 min-h-[160px] bg-slate-950 rounded-lg flex items-center justify-around p-4 border border-slate-800 overflow-hidden">
+                        
+                        <!-- AC 側節點 -->
+                        <div id="node-ac" class="z-10 flex flex-col items-center p-3 bg-slate-900 border-2 border-amber-500/80 rounded-xl text-center cursor-pointer transition transform hover:scale-105 active:scale-95">
+                            <i data-lucide="utility-pole" class="w-8 h-8 text-amber-500 mb-1"></i>
+                            <span class="text-[10px] font-bold tracking-widest text-amber-500">AC 電網端</span>
+                            <span id="topo-vgrid" class="text-xs font-mono-tech text-slate-400">110.0 V</span>
+                        </div>
+
+                        <!-- 能量傳輸動態指示線 -->
+                        <div class="relative flex-1 flex flex-col items-center">
+                            <!-- 連接線背景 -->
+                            <div class="w-full h-1 bg-slate-800 rounded-full"></div>
+                            <!-- 動態顆粒軌跡 -->
+                            <div id="energy-particles" class="absolute top-[3px] w-full h-2 flex justify-start overflow-hidden">
+                                <div id="particle-flow" class="h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent rounded-full w-12 blur-[1px]"></div>
+                            </div>
+                            <span id="flow-label" class="text-[9px] font-bold text-cyan-400 tracking-widest uppercase bg-cyan-950/80 border border-cyan-800 px-2 py-0.5 rounded-full mt-2">PFC MODE</span>
+                        </div>
+
+                        <!-- H 橋主動開關 AFE -->
+                        <div id="node-afe" class="z-10 flex flex-col items-center p-3 bg-slate-900 border-2 border-cyan-500/80 rounded-xl text-center cursor-pointer transition transform hover:scale-105 active:scale-95">
+                            <i data-lucide="toggle-left" class="w-8 h-8 text-cyan-500 mb-1"></i>
+                            <span class="text-[10px] font-bold tracking-widest text-cyan-500">AFE 主動 H 橋</span>
+                            <span id="topo-freq" class="text-xs font-mono-tech text-slate-400">20.0 kHz</span>
+                        </div>
+
+                        <!-- 連接線背景 2 -->
+                        <div class="relative flex-1 flex flex-col items-center">
+                            <div class="w-full h-1 bg-slate-800 rounded-full"></div>
+                        </div>
+
+                        <!-- DC 側節點 -->
+                        <div id="node-dc" class="z-10 flex flex-col items-center p-3 bg-slate-900 border-2 border-indigo-500/80 rounded-xl text-center cursor-pointer transition transform hover:scale-105 active:scale-95">
+                            <i data-lucide="battery-charging" class="w-8 h-8 text-indigo-500 mb-1"></i>
+                            <span class="text-[10px] font-bold tracking-widest text-indigo-500">DC 母線</span>
+                            <span id="topo-vbus" class="text-xs font-mono-tech text-slate-400">380.0 V</span>
+                        </div>
+
+                    </div>
+                    <div class="text-[11px] text-slate-400 leading-normal">
+                        <span class="text-cyan-400 font-semibold">提示：</span>點擊拓撲圖中的各個節點，右側代碼視窗會瞬間對齊並高亮顯示在 TI C28 / CLA 中對應的暫存器與控制代碼。
+                    </div>
+                </div>
+
+                <!-- 2. C 原始代碼對照與高亮視窗 -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col gap-4">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                        <h2 class="text-sm font-bold text-slate-300 tracking-widest flex items-center gap-2">
+                            <i data-lucide="code-xml" class="w-4 h-4 text-emerald-400"></i>C28x / CLA 核心代碼映射
+                        </h2>
+                        <span id="code-tag" class="text-[9px] bg-slate-800 border border-slate-700 text-slate-400 px-2 py-0.5 rounded uppercase font-mono-tech">GLOBAL</span>
+                    </div>
+
+                    <div class="relative flex-1 min-h-[160px] bg-slate-950 rounded-lg p-3 border border-slate-850 font-code text-xs text-slate-300 overflow-y-auto leading-relaxed">
+                        <pre id="code-content" class="whitespace-pre-wrap select-all"></pre>
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- 底部資訊區 -->
+    <footer class="border-t border-slate-900 bg-slate-950 py-4 px-6 flex justify-between items-center text-xs text-slate-500">
+        <div>ANTIGRAVITY AFE Core Platform © 2026</div>
+        <div>設計基於 TI C2000 F2837xD & CLA 極限時延優化架構</div>
+    </footer>
+
+    <!-- 初始化指令碼 -->
+    <script>
+        // 初始化 Lucide 圖標
+        lucide.createIcons();
+
+        // ============================================================================
+        // 1. 物理引擎與控制模型參數宣告
+        // ============================================================================
+        const TS = 0.00005; // 採樣週期 = 50微秒 (20kHz)
+        const GRID_OMEGA_NOMINAL = 2.0 * Math.PI * 60.0; // 60Hz 剛性頻率
+        
+        let simActive = true;
+        let time = 0.0;
+        let currentMode = 'auto'; // 'auto', 'pfc', 'inv'
+        
+        // 系統動態狀態變數
+        let sysState = {
+            v_grid_raw: 0.0,
+            v_grid_sampled: 0.0,
+            i_grid_actual: 0.0,
+            v_bus_actual: 380.0,
+            i_load: 15.0 / 400.0, // 初始 1.5kW @ 400V 負載電流
+            pf: 0.999
+        };
+
+        // 參數設定 (來自 UI 阻尼 slider)
+        let settings = {
+            loadWatts: 1500, // 瓦特數
+            thdPercent: 0,   // 諧波百分比
+            phaseShiftDeg: 0, // 電網相位突變
+            pllKp: 180.0,
+            pllKi: 3200.0,
+            innerKp: 2.5,
+            innerKi: 500,
+            outerKp: 0.5,
+            outerKi: 10
+        };
+
+        // 1.1 SOGI-PLL 鎖相環模型
+        let pll = {
+            v_alpha: 0.0,
+            v_beta: 0.0,
+            osg_x0: 0.0,
+            osg_x1: 0.0,
+            k: 1.414,
+            theta: 0.0,
+            omega: GRID_OMEGA_NOMINAL,
+            pi_err_prev: 0.0,
+            pi_out: 0.0
+        };
+
+        // 1.2 雙迴路 PI 控制器狀態
+        let ctrl = {
+            v_bus_ref: 400.0, // DC 400V 固定目標值
+            v_bus_err_prev: 0.0,
+            v_bus_out: 0.0,
+            
+            i_ref: 0.0,
+            i_err_prev: 0.0,
+            i_out: 0.0 // 對應 AFE 的輸出工作電壓控制指令
+        };
+
+        // 1.3 DDS 信號產生器
+        let dds = {
+            gain: 0.0,
+            out: 0.0
+        };
+
+        // 歷史波形繪圖緩衝器 (示波器用)
+        const BUFFER_SIZE = 400; // 展示一個完整週期的多點
+        let scopeBuffer = {
+            v_grid: new Array(BUFFER_SIZE).fill(0),
+            i_grid: new Array(BUFFER_SIZE).fill(0),
+            i_ref: new Array(BUFFER_SIZE).fill(0),
+            theta: new Array(BUFFER_SIZE).fill(0),
+            v_bus: new Array(BUFFER_SIZE).fill(400)
+        };
+
+        // ============================================================================
+        // 2. AFE 演算法核心離散時間運算
+        // ============================================================================
+        function runAfeEngine() {
+            if (!simActive) return;
+
+            // 步進增加時間
+            time += TS;
+
+            // 1. 物理電網電壓模型 (支援諧波注入與相位偏移)
+            let phaseOffsetRad = (settings.phaseShiftDeg * Math.PI) / 180.0;
+            let theta_grid = GRID_OMEGA_NOMINAL * time + phaseOffsetRad;
+            
+            // 基礎波 (110V AC, 約 155V 峰值)
+            let v_grid_base = 155.0 * Math.sin(theta_grid);
+            
+            // 諧波干擾注入 (3次, 5次, 7次)
+            let thd_scale = settings.thdPercent / 100.0;
+            let v_grid_harmonics = 0.0;
+            if (thd_scale > 0) {
+                v_grid_harmonics += 155.0 * 0.5 * thd_scale * Math.sin(3 * theta_grid);
+                v_grid_harmonics += 155.0 * 0.3 * thd_scale * Math.sin(5 * theta_grid);
+                v_grid_harmonics += 155.0 * 0.1 * thd_scale * Math.sin(7 * theta_grid);
+            }
+            sysState.v_grid_raw = v_grid_base + v_grid_harmonics;
+            
+            // ADC 採樣模擬
+            sysState.v_grid_sampled = sysState.v_grid_raw;
+
+            // 2. SOGI-PLL 相位觀測 (模擬 C28 / CLA 的實時核心)
+            let pll_err = sysState.v_grid_sampled - pll.v_alpha;
+            let osg_u = pll_err * pll.k;
+            
+            pll.v_alpha += pll.osg_x0 * TS;
+            pll.osg_x0 += (osg_u * pll.omega - pll.v_beta * pll.omega * pll.omega) * TS;
+            pll.v_beta += pll.osg_x0 * TS;
+
+            // DQ 坐標變換
+            let cos_t = Math.cos(pll.theta);
+            let sin_t = Math.sin(pll.theta);
+            let v_q = -pll.v_alpha * sin_t + pll.v_beta * cos_t;
+
+            // PLL 環路濾波 PI
+            let pll_pi_err = v_q;
+            pll.pi_out += settings.pllKp * (pll_pi_err - pll.pi_err_prev) + settings.pllKi * TS * pll_pi_err;
+            pll.pi_err_prev = pll_pi_err;
+
+            pll.omega = GRID_OMEGA_NOMINAL + pll.pi_out;
+            pll.theta += pll.omega * TS;
+            
+            // 限制在 [0, 2PI]
+            if (pll.theta >= 2.0 * Math.PI) pll.theta -= 2.0 * Math.PI;
+            if (pll.theta < 0.0) pll.theta += 2.0 * Math.PI;
+
+            // 3. 雙閉迴路控制與 DDS 對接點
+            
+            // 3.1 電壓外環 (穩定直流母線電壓 400V)
+            let v_bus_err = ctrl.v_bus_ref - sysState.v_bus_actual;
+            ctrl.v_bus_out += settings.outerKp * (v_bus_err - ctrl.v_bus_err_prev) + settings.outerKi * TS * v_bus_err;
+            // 飽和限制防止過調 (最大吸電 / 送電限制)
+            if (ctrl.v_bus_out > 25.0) ctrl.v_bus_out = 25.0;
+            if (ctrl.v_bus_out < -25.0) ctrl.v_bus_out = -25.0;
+            ctrl.v_bus_err_prev = v_bus_err;
+
+            // 3.2 DDS 根據運作模式決定增益輸出
+            if (currentMode === 'auto') {
+                dds.gain = ctrl.v_bus_out; // 自適應雙向
+            } else if (currentMode === 'pfc') {
+                dds.gain = Math.max(0.0, ctrl.v_bus_out); // 只允許整流
+            } else {
+                dds.gain = Math.min(0.0, ctrl.v_bus_out); // 只允許逆變送電
+            }
+
+            // DDS 查表產生參考電流波形 (對齊 PLL 指針)
+            dds.out = Math.sin(pll.theta);
+            ctrl.i_ref = dds.gain * dds.out; // 完美的正弦參考電流
+
+            // 3.3 電流內環 (快環)
+            let i_err = ctrl.i_ref - sysState.i_grid_actual;
+            ctrl.i_out += settings.innerKp * (i_err - ctrl.i_err_prev) + settings.innerKi * TS * i_err;
+            // 控制指令輸出限制 (對應 AFE 工作開關電壓幅度)
+            if (ctrl.i_out > 180.0) ctrl.i_out = 180.0;
+            if (ctrl.i_out < -180.0) ctrl.i_out = -180.0;
+            ctrl.i_err_prev = i_err;
+
+            // 4. 物理受控系統模擬 (Plant Model)
+            // 實際電網電流受 H 橋輸出調變控制與電感濾波的動態物理方程
+            sysState.i_grid_actual += (ctrl.i_out - sysState.i_grid_actual) * 0.35;
+
+            // DC Bus 電能儲存與消耗動態模擬
+            // 交流端輸送的主動功 P_ac_avg = 0.5 * V_pk * I_pk
+            let power_ac = 0.5 * 155.0 * sysState.i_grid_actual; // 控制在 155VAC
+            // DC 側消費主動功
+            let power_dc_load = settings.loadWatts; 
+            
+            // C * dV/dt = (P_ac - P_dc) / V_bus
+            let c_bus_farad = 0.0012; // 1200uF 直流母線電容
+            let d_vbus = ((power_ac - power_dc_load) / sysState.v_bus_actual) * (TS / c_bus_farad);
+            sysState.v_bus_actual += d_vbus;
+
+            // 限制防炸機物理極限
+            if (sysState.v_bus_actual < 50.0) sysState.v_bus_actual = 50.0;
+            if (sysState.v_bus_actual > 600.0) sysState.v_bus_actual = 600.0;
+
+            // 5. 計算功率因數 (PF) 模擬 (利用實際電流與參考電流的角度交叉差值)
+            let angle_diff = 0;
+            if (Math.abs(dds.gain) > 0.1) {
+                // 利用簡單的相關性逼近 PF
+                let pf_approx = Math.max(0.0, Math.min(1.0, 1.0 - (Math.abs(ctrl.i_err_prev) * 0.02)));
+                sysState.pf = 0.95 + 0.049 * pf_approx;
+            } else {
+                sysState.pf = 1.0;
+            }
+
+            // 6. 壓入示波器繪圖緩衝器
+            scopeBuffer.v_grid.push(sysState.v_grid_sampled);
+            scopeBuffer.i_grid.push(sysState.i_grid_actual);
+            scopeBuffer.i_ref.push(ctrl.i_ref);
+            scopeBuffer.theta.push(pll.theta);
+            scopeBuffer.v_bus.push(sysState.v_bus_actual);
+
+            // 維持緩衝大小
+            if (scopeBuffer.v_grid.length > BUFFER_SIZE) {
+                scopeBuffer.v_grid.shift();
+                scopeBuffer.i_grid.shift();
+                scopeBuffer.i_ref.shift();
+                scopeBuffer.theta.shift();
+                scopeBuffer.v_bus.shift();
+            }
+        }
+
+        // ============================================================================
+        // 3. UI 渲染與示波器畫布繪製 (60 FPS 迴圈)
+        // ============================================================================
+        const canvas = document.getElementById('scope-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // 自動適應畫布大小
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth * window.devicePixelRatio;
+            canvas.height = canvas.parentElement.clientHeight * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function drawScope() {
+            const w = canvas.width / window.devicePixelRatio;
+            const h = canvas.height / window.devicePixelRatio;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // 1. 繪製示波器網格 (Oscilloscope Grid lines)
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            // 垂直線
+            const v_divisions = 10;
+            for (let i = 0; i <= v_divisions; i++) {
+                let x = (w / v_divisions) * i;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, h);
+                ctx.stroke();
+            }
+            // 水平線
+            const h_divisions = 8;
+            for (let i = 0; i <= h_divisions; i++) {
+                let y = (h / h_divisions) * i;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            }
+
+            // 中心基準線
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(0, h / 2);
+            ctx.lineTo(w, h / 2);
+            ctx.stroke();
+
+            // 2. 繪製波形
+            const drawWave = (data, scale, color, lineWidth = 2, isDashed = false) => {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = lineWidth;
+                if (isDashed) ctx.setLineDash([4, 4]);
+                else ctx.setLineDash([]);
+                
+                ctx.beginPath();
+                for (let i = 0; i < data.length; i++) {
+                    let x = (w / BUFFER_SIZE) * i;
+                    // 將物理量映射到畫布高度 (中心對齊，150V 峰值/40A 峰值居中顯示)
+                    let y = h / 2 - data[i] * scale;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            };
+
+            // 繪製電網電壓 V_grid (橘黃色 - 比例縮小)
+            drawWave(scopeBuffer.v_grid, 0.9, '#f59e0b', 2);
+
+            // 繪製實際電網電流 I_grid (亮綠色)
+            drawWave(scopeBuffer.i_grid, 4.5, '#10b981', 2.5);
+
+            // 繪製 DDS 參考電流 I_ref (淡藍虛線)
+            drawWave(scopeBuffer.i_ref, 4.5, 'rgba(6, 182, 212, 0.5)', 1.5, true);
+
+            // 繪製 PLL Phase 鋸齒波 (藍綠色 - 自帶右側副座標)
+            ctx.strokeStyle = 'rgba(34, 211, 238, 0.25)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            for (let i = 0; i < scopeBuffer.theta.length; i++) {
+                let x = (w / BUFFER_SIZE) * i;
+                // [0, 2PI] 映射到 畫布下部區域
+                let y = h - 20 - (scopeBuffer.theta[i] / (2 * Math.PI)) * 80;
+                if (i === 0) ctx.moveTo(x, y);
+                else {
+                    // 鋸齒突變點不畫連線，防止拉直線
+                    if (scopeBuffer.theta[i] < scopeBuffer.theta[i-1] - 5.0) {
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+            }
+            ctx.stroke();
+
+            // 繪製 DC Bus 電壓 (紫色 - 右側軸)
+            ctx.strokeStyle = '#a78bfa';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            for (let i = 0; i < scopeBuffer.v_bus.length; i++) {
+                let x = (w / BUFFER_SIZE) * i;
+                // 將 400V 附近電壓映射到畫布中上部
+                let y = h / 2 - (scopeBuffer.v_bus[i] - 400.0) * 2;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // 3. 繪製測量數值與狀態標籤
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+            ctx.fillRect(10, 10, 240, 130);
+            ctx.strokeStyle = '#334155';
+            ctx.strokeRect(10, 10, 240, 130);
+
+            ctx.font = '11px "Share Tech Mono"';
+            ctx.fillStyle = '#f59e0b';
+            ctx.fillText(`CH1 V_GRID RMS: ${(Math.max(...scopeBuffer.v_grid) / Math.sqrt(2)).toFixed(1)} V`, 20, 28);
+            
+            ctx.fillStyle = '#10b981';
+            let max_cur = Math.max(...scopeBuffer.i_grid.map(Math.abs));
+            ctx.fillText(`CH2 I_GRID PEAK: ${max_cur.toFixed(1)} A`, 20, 48);
+
+            ctx.fillStyle = '#a78bfa';
+            ctx.fillText(`CH3 DC BUS ACT: ${sysState.v_bus_actual.toFixed(1)} V`, 20, 68);
+
+            ctx.fillStyle = '#22d3ee';
+            ctx.fillText(`CH4 PLL FREQ: ${(pll.omega / (2 * Math.PI)).toFixed(2)} Hz`, 20, 88);
+            
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText(`MODE: ${currentMode.toUpperCase()}`, 20, 108);
+            ctx.fillText(`OODA TOTAL DELAY: 1.20 us`, 20, 124);
+        }
+
+        // ============================================================================
+        // 4. 動態資訊更新 & 互動控制機制
+        // ============================================================================
+        const statVbus = document.getElementById('stat-vbus');
+        const statVbusBar = document.getElementById('stat-vbus-bar');
+        const statPf = document.getElementById('stat-pf');
+        const statPfLabel = document.getElementById('stat-pf-label');
+
+        function updateWidgets() {
+            // 直流母線顯示
+            statVbus.innerText = sysState.v_bus_actual.toFixed(1);
+            let percent = (sysState.v_bus_actual / 500.0) * 100;
+            statVbusBar.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+            
+            // 功率因數顯示
+            statPf.innerText = sysState.pf.toFixed(3);
+            if (sysState.pf > 0.99) {
+                statPfLabel.innerText = "完美同相 (極致能效 AFE)";
+                statPfLabel.className = "text-xs text-emerald-400 mt-2";
+            } else if (sysState.pf > 0.95) {
+                statPfLabel.innerText = "輕微相位偏置 (高頻濾波作用)";
+                statPfLabel.className = "text-xs text-amber-400 mt-2";
+            } else {
+                statPfLabel.innerText = "相位顯著失真 (PI 環路震盪警告)";
+                statPfLabel.className = "text-xs text-rose-400 mt-2";
+            }
+
+            // 更新拓撲圖電壓
+            document.getElementById('topo-vgrid').innerText = `${(Math.max(...scopeBuffer.v_grid) / Math.sqrt(2)).toFixed(1)} Vrms`;
+            document.getElementById('topo-vbus').innerText = `${sysState.v_bus_actual.toFixed(1)} VDC`;
+
+            // 更新粒子流動速度與方向
+            const flowLabel = document.getElementById('flow-label');
+            const particleFlow = document.getElementById('particle-flow');
+            
+            // 判定能量流向
+            if (dds.gain > 0.1) {
+                flowLabel.innerText = "PFC 整流吸電 ➜";
+                flowLabel.className = "text-[9px] font-bold text-emerald-400 tracking-widest uppercase bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded-full mt-2 animate-pulse";
+                particleFlow.style.animation = "moveRight 0.8s linear infinite";
+                particleFlow.className = "h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent rounded-full w-12 blur-[1px]";
+            } else if (dds.gain < -0.1) {
+                flowLabel.innerText = "逆變送電 INVERTER ↩";
+                flowLabel.className = "text-[9px] font-bold text-rose-400 tracking-widest uppercase bg-rose-950/80 border border-rose-800 px-2 py-0.5 rounded-full mt-2 animate-pulse";
+                particleFlow.style.animation = "moveLeft 0.8s linear infinite";
+                particleFlow.className = "h-1 bg-gradient-to-r from-transparent via-rose-400 to-transparent rounded-full w-12 blur-[1px]";
+            } else {
+                flowLabel.innerText = "母線穩定 平衡態";
+                flowLabel.className = "text-[9px] font-bold text-slate-400 tracking-widest uppercase bg-slate-900 border border-slate-700 px-2 py-0.5 rounded-full mt-2";
+                particleFlow.style.animation = "none";
+                particleFlow.className = "h-1 bg-slate-800 rounded-full w-12";
+            }
+        }
+
+        // 添加粒子流動 CSS Keyframes 動態寫入
+        const styleSheet = document.styleSheets[0];
+        styleSheet.insertRule(`
+            @keyframes moveRight {
+                0% { transform: translateX(-150%); }
+                100% { transform: translateX(150%); }
+            }
+        `, styleSheet.cssRules.length);
+        styleSheet.insertRule(`
+            @keyframes moveLeft {
+                0% { transform: translateX(150%); }
+                100% { transform: translateX(-150%); }
+            }
+        `, styleSheet.cssRules.length);
+
+        // ============================================================================
+        // 5. 滑動條事件綁定與數值即時響應
+        // ============================================================================
+        
+        // 負載功
+        const slideLoad = document.getElementById('slide-load');
+        const valLoad = document.getElementById('val-load');
+        slideLoad.addEventListener('input', (e) => {
+            settings.loadWatts = parseFloat(e.target.value);
+            valLoad.innerText = `${(settings.loadWatts / 1000).toFixed(1)} kW`;
+        });
+
+        // 諧波
+        const slideThd = document.getElementById('slide-thd');
+        const valThd = document.getElementById('val-thd');
+        slideThd.addEventListener('input', (e) => {
+            settings.thdPercent = parseInt(e.target.value);
+            valThd.innerText = `${settings.thdPercent} %`;
+        });
+
+        // 相位突變
+        const slidePhase = document.getElementById('slide-phase');
+        const valPhase = document.getElementById('val-phase');
+        slidePhase.addEventListener('input', (e) => {
+            settings.phaseShiftDeg = parseInt(e.target.value);
+            valPhase.innerText = `${settings.phaseShiftDeg}°`;
+        });
+
+        // 環路調試 PI 綁定
+        const slideIkp = document.getElementById('slide-ikp');
+        const valIkp = document.getElementById('val-ikp');
+        slideIkp.addEventListener('input', (e) => {
+            settings.innerKp = parseFloat(e.target.value);
+            valIkp.innerText = settings.innerKp.toFixed(2);
+        });
+
+        const slideIki = document.getElementById('slide-iki');
+        const valIki = document.getElementById('val-iki');
+        slideIki.addEventListener('input', (e) => {
+            settings.innerKi = parseInt(e.target.value);
+            valIki.innerText = settings.innerKi;
+        });
+
+        const slideVkp = document.getElementById('slide-vkp');
+        const valVkp = document.getElementById('val-vkp');
+        slideVkp.addEventListener('input', (e) => {
+            settings.outerKp = parseFloat(e.target.value);
+            valVkp.innerText = settings.outerKp.toFixed(2);
+        });
+
+        const slideVki = document.getElementById('slide-vki');
+        const valVki = document.getElementById('val-vki');
+        slideVki.addEventListener('input', (e) => {
+            settings.outerKi = parseInt(e.target.value);
+            valVki.innerText = settings.outerKi;
+        });
+
+        // 重置 PI 按鈕
+        document.getElementById('btn-reset-pi').addEventListener('click', () => {
+            settings.innerKp = 2.5;
+            settings.innerKi = 500;
+            settings.outerKp = 0.5;
+            settings.outerKi = 10;
+            
+            slideIkp.value = 2.5; valIkp.innerText = "2.50";
+            slideIki.value = 500; valIki.innerText = "500";
+            slideVkp.value = 0.5; valVkp.innerText = "0.50";
+            slideVki.value = 10;  valVki.innerText = "10";
+        });
+
+        // ============================================================================
+        // 6. 運作模式按鈕切換邏輯
+        // ============================================================================
+        const modeAuto = document.getElementById('mode-auto');
+        const modePfc = document.getElementById('mode-pfc');
+        const modeInv = document.getElementById('mode-inv');
+        const modeDesc = document.getElementById('mode-desc');
+
+        function setMode(mode) {
+            currentMode = mode;
+            [modeAuto, modePfc, modeInv].forEach(btn => {
+                btn.className = "px-3 py-2 bg-slate-800 border border-transparent text-slate-400 font-semibold rounded-lg text-xs transition duration-150 flex flex-col items-center gap-1 hover:bg-slate-750 active:scale-95";
+            });
+
+            if (mode === 'auto') {
+                modeAuto.className = "px-3 py-2 bg-cyan-950/50 border border-cyan-500/50 text-cyan-400 font-semibold rounded-lg text-xs transition duration-150 flex flex-col items-center gap-1 active:scale-95";
+                modeDesc.innerHTML = "目前處於【自動雙向穩壓模式】：系統自動偵測直流母線負載，負載過重時開啟 PFC 整流吸電；母線電壓過高（倒灌）時，自動切換為 Inverter 逆變器往電網送電。";
+            } else if (mode === 'pfc') {
+                modePfc.className = "px-3 py-2 bg-emerald-950/50 border border-emerald-500/50 text-emerald-400 font-semibold rounded-lg text-xs transition duration-150 flex flex-col items-center gap-1 active:scale-95";
+                modeDesc.innerHTML = "目前處於【強制 PFC 整流模式】：此時 AFE 作為 AC-DC 充電器單向吸能。哪怕直流母線高壓倒灌，控制迴路也會被強制鉗位，不再允許向電網回饋任何逆變能量。";
+            } else {
+                modeInv.className = "px-3 py-2 bg-rose-950/50 border border-rose-500/50 text-rose-400 font-semibold rounded-lg text-xs transition duration-150 flex flex-col items-center gap-1 active:scale-95";
+                modeDesc.innerHTML = "目前處於【強制 Inverter 逆變模式】：系統強制啟動逆變放電，主動將直流端電能向交流電網輸送。常用於太陽能、風能併網饋電或儲能電站逆向卸載。";
+            }
+        }
+
+        modeAuto.addEventListener('click', () => setMode('auto'));
+        modePfc.addEventListener('click', () => setMode('pfc'));
+        modeInv.addEventListener('click', () => setMode('inv'));
+
+        // ============================================================================
+        // 7. C 代碼動態映射與高亮機制 (點擊拓撲節點切換)
+        // ============================================================================
+        const codeContent = document.getElementById('code-content');
+        const codeTag = document.getElementById('code-tag');
+
+        const codeDatabase = {
+            ac: {
+                tag: "SOGI_PLL.c",
+                code: `// --- SOGI-PLL 單相電網鎖相環演算法 (於 C28x / CLA 20kHz 實時執行) ---
+void runSogiPll(PLL_OBJ *p, float v_grid_adc) 
+{
+    // 1. SOGI 二階廣義積分正交濾波器 (Orthogonal Signal Generator)
+    float error = v_grid_adc - p->v_alpha;
+    float osg_u = error * p->k;
+    
+    p->v_alpha += p->osg_x0 * TS;
+    p->osg_x0  += (osg_u * p->omega - p->v_beta * p->omega * p->omega) * TS;
+    p->v_beta  += p->osg_x0 * TS;
+
+    // 2. dq 旋轉坐標變換 (Park Transform) - 提取正交分量
+    float cos_t = __cosf(p->theta); // 使用 C28 內核 TMU 特殊硬體三角加速
+    float sin_t = __sinf(p->theta);
+    float v_q = -p->v_alpha * sin_t + p->v_beta * cos_t;
+
+    // 3. PI 環路濾波器修正相位誤差
+    float pll_pi_err = v_q;
+    p->pi_out += PLL_KP * (pll_pi_err - p->pi_err_prev) + PLL_KI * TS * pll_pi_err;
+    p->pi_err_prev = pll_pi_err;
+
+    // 4. 角頻率累加生成精準相位 Theta (接管 DDS)
+    p->omega = GRID_OMEGA_NOMINAL + p->pi_out;
+    p->theta += p->omega * TS;
+
+    if (p->theta >= 2.0 * PI) p->theta -= 2.0 * PI;
+}`
+            },
+            afe: {
+                tag: "INNER_LOOP.c",
+                code: `// --- 電流內環與 DDS 對接代碼 (高實時快環：ISR 每 50us 執行一次) ---
+void runCurrentLoop(CTRL_OBJ *ctrl, DDS_OBJ *dds, PLL_OBJ *pll) 
+{
+    // 1. 讀取電壓外環（慢環）提供的 DDS 增益命令
+    dds->gain = ctrl->v_bus_out;
+
+    // 2. 直接依託 PLL 鎖相得到的 theta，DDS 查表產生正弦參考電流
+    dds->out = __sinf(pll->theta); 
+    ctrl->i_ref = dds->gain * dds->out; // 生成與電網同相/反相的電流指令
+
+    // 3. 電流內環 PI 控制器
+    float i_err = ctrl->i_ref - AdcaResultRegs.ADCRESULT0; // ADC 實際電網電流
+    ctrl->i_out += INNER_KP * (i_err - ctrl->i_err_prev) + INNER_KI * TS * i_err;
+    ctrl->i_err_prev = i_err;
+
+    // 4. 將控制輸出直接映射寫入 ePWM 模組比較暫存器 (控制開關管佔空比)
+    float duty = (ctrl->i_out / BUS_VOLTAGE_MAX) + 0.5f;
+    EPwm1Regs.CMPA.bit.CMPA = (uint16_t)(duty * EPwm1Regs.TBPRD);
+}`
+            },
+            dc: {
+                tag: "OUTER_LOOP.c",
+                code: `// --- 電壓外環控制代碼 (慢環：通常 1kHz ~ 2kHz 降頻執行) ---
+void runVoltageLoop(CTRL_OBJ *ctrl) 
+{
+    // 1. 採樣 DC Bus 實際電壓
+    float v_bus_sample = AdcbResultRegs.ADCRESULT1;
+
+    // 2. 計算母線誤差並執行電壓環 PI
+    float v_bus_err = ctrl->v_bus_ref - v_bus_sample;
+    
+    // 電壓環 PI 計算
+    ctrl->v_bus_out += OUTER_KP * (v_bus_err - ctrl->v_bus_err_prev) + OUTER_KI * TS * v_bus_err;
+    ctrl->v_bus_err_prev = v_bus_err;
+
+    // 3. 鉗位輸出幅值防過調
+    if (ctrl->v_bus_out > BUS_LIMIT)  ctrl->v_bus_out = BUS_LIMIT;
+    if (ctrl->v_bus_out < -BUS_LIMIT) ctrl->v_bus_out = -BUS_LIMIT;
+
+    // 提示：輸出 ctrl->v_bus_out 的大小直接控制了 DDS 側的吸電 / 放能功率！
+}`
+            }
+        };
+
+        function selectCodeNode(nodeId) {
+            const data = codeDatabase[nodeId];
+            codeTag.innerText = data.tag;
+            codeContent.innerText = data.code;
+            
+            // 重置拓撲圖高亮樣式
+            ['node-ac', 'node-afe', 'node-dc'].forEach(id => {
+                document.getElementById(id).style.transform = "scale(1)";
+                document.getElementById(id).style.boxShadow = "none";
+            });
+            
+            const activeNode = document.getElementById(`node-${nodeId}`);
+            activeNode.style.transform = "scale(1.08)";
+            activeNode.style.boxShadow = "0 0 20px rgba(6, 182, 212, 0.4)";
+        }
+
+        document.getElementById('node-ac').addEventListener('click', () => selectCodeNode('ac'));
+        document.getElementById('node-afe').addEventListener('click', () => selectCodeNode('afe'));
+        document.getElementById('node-dc').addEventListener('click', () => selectCodeNode('dc'));
+
+        // 默認加載 AC 電網部分的鎖相代碼
+        selectCodeNode('ac');
+
+        // ============================================================================
+        // 8. 系統模擬時鐘與主循環調度
+        // ============================================================================
+        const btnPause = document.getElementById('btn-pause');
+        const iconPause = document.getElementById('icon-pause');
+        const textPause = document.getElementById('text-pause');
+
+        btnPause.addEventListener('click', () => {
+            simActive = !simActive;
+            if (simActive) {
+                iconPause.setAttribute('data-lucide', 'pause');
+                textPause.innerText = "暫停模擬";
+            } else {
+                iconPause.setAttribute('data-lucide', 'play');
+                textPause.innerText = "繼續模擬";
+            }
+            lucide.createIcons();
+        });
+
+        // 重新載入復位
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            sysState.v_bus_actual = 380.0;
+            sysState.i_grid_actual = 0.0;
+            time = 0.0;
+            pll.theta = 0.0;
+            pll.v_alpha = 0.0;
+            pll.v_beta = 0.0;
+            ctrl.v_bus_out = 0.0;
+            scopeBuffer.v_bus.fill(380.0);
+            scopeBuffer.i_grid.fill(0);
+        });
+
+        // 引擎高速實時運算迴圈 (以多個 step 加速物理進程，使示波器流暢)
+        setInterval(() => {
+            if (simActive) {
+                // 每幀模擬 15 個時間步進，壓縮視覺更新延時
+                for (let i = 0; i < 15; i++) {
+                    runAfeEngine();
+                }
+                updateWidgets();
+            }
+        }, 8);
+
+        // Canvas 渲染繪圖 60 FPS 迴圈
+        function tickDraw() {
+            drawScope();
+            requestAnimationFrame(tickDraw);
+        }
+        requestAnimationFrame(tickDraw);
+
+    </script>
+</body>
+</html>

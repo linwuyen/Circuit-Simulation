@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>F28388D BMS 初學者教學模擬器</title>
+  <link rel="stylesheet" href="assets/bms-tutorial.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-title">F28388D BMS 教學模擬器</span>
+        <span class="brand-subtitle">用一條因果鏈把 BMS 學起來</span>
+      </div>
+      <nav class="nav" aria-label="章節導覽">
+        <a href="index.html" aria-current="page">首頁</a>
+        <a href="01_overview.html">總覽</a>
+        <a href="02_sense.html">量測</a>
+        <a href="03_compare.html">比較</a>
+        <a href="04_decide.html">決定</a>
+        <a href="05_actuate.html">致動</a>
+        <a href="06_report.html">回報</a>
+        <a href="07_coordinate.html">協同</a>
+        <a href="08_failsafe.html">失效</a>
+        <a href="09_integrate.html">整合</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="hero">
+      <div>
+        <span class="eyebrow">Beginner first</span>
+        <h1>BMS 的本質只有一句話:把電池關在安全範圍內,並決定高壓何時能接上負載。</h1>
+        <p class="lead">這套教材不照晶片積木(CPU1/CPU2/CM4)分章,而是順著「一顆量測值走過的因果鏈」:量測 → 比較 → 決定 → 致動 → 回報,下面墊著跨核協同,任一步危險就鎖定。每頁只學一件事。</p>
+      </div>
+      <div class="panel">
+        <h2>怎麼用這套教材</h2>
+        <ol class="guide-list" style="margin-top:14px;">
+          <li><span>1</span><div><strong>照鏈往下走</strong><em>每頁都是上一頁的「然後呢?」。</em></div></li>
+          <li><span>2</span><div><strong>每頁只改一個輸入</strong><em>看一個結果,讀懂原因。</em></div></li>
+          <li><span>3</span><div><strong>任務自動打勾</strong><em>達標即標記完成,最後做整合實驗。</em></div></li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="cards" aria-label="課程卡片">
+      <a class="card" href="01_overview.html">
+        <span class="card-number">01 · 地圖</span>
+        <h3>系統總覽</h3>
+        <p>先用一張因果鏈圖看懂整個系統,知道每頁學的是哪一環。</p>
+      </a>
+      <a class="card" href="02_sense.html">
+        <span class="card-number">02 · 量測</span>
+        <h3>AFE 感測</h3>
+        <p>感測值怎麼來、會被雜訊與 CRC 影響。它只給數字,不做決策。</p>
+      </a>
+      <a class="card" href="03_compare.html">
+        <span class="card-number">03 · 比較</span>
+        <h3>安全門檻</h3>
+        <p>把量測值拿去和門檻比:可放電窗、偏高灰帶、過壓/過流。</p>
+      </a>
+      <a class="card" href="04_decide.html">
+        <span class="card-number">04 · 決定</span>
+        <h3>BMS 狀態機</h3>
+        <p>同樣的量測,為何結果不同?狀態機讓系統不靠感覺做事。</p>
+      </a>
+      <a class="card" href="05_actuate.html">
+        <span class="card-number">05 · 致動</span>
+        <h3>接觸器與預充</h3>
+        <p>預充時序與 RC 充電:為何不能一開始就閉合主正接觸器。</p>
+      </a>
+      <a class="card" href="06_report.html">
+        <span class="card-number">06 · 回報</span>
+        <h3>CAN/UDS 診斷</h3>
+        <p>用簡化終端機練 ISO 14229:session、讀資料、安全存取與負回應。</p>
+      </a>
+      <a class="card" href="07_coordinate.html">
+        <span class="card-number">07 · 協同</span>
+        <h3>多核與 IPC</h3>
+        <p>三核怎麼安全交換資料:GSRAM、有效旗標與看門狗(整條鏈的基礎)。</p>
+      </a>
+      <a class="card" href="08_failsafe.html">
+        <span class="card-number">08 · 失效安全</span>
+        <h3>故障注入</h3>
+        <p>故意把系統弄壞:看它如何收斂到安全狀態,並理解為何要鎖定。</p>
+      </a>
+      <a class="card" href="09_integrate.html">
+        <span class="card-number">09 · 整合</span>
+        <h3>整合實驗</h3>
+        <p>把整條鏈串成可重現的測試案例,當成一個小型 HIL 來操作。</p>
+      </a>
+    </section>
+
+    <section class="panel" style="margin-top:22px;">
+      <div class="panel-title">
+        <h2>這套教材怎麼提升實用性</h2>
+      </div>
+      <table class="mini-table">
+        <thead>
+          <tr><th>原本的問題</th><th>改法</th><th>學到的實務能力</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>照硬體積木切,初學者抓不到 why</td><td>改成因果鏈,每頁是上一頁的「然後呢」</td><td>能分辨資料流、控制流與診斷流</td></tr>
+          <tr><td>只看到數字變動</td><td>每個數字旁印出「現在拿來比的門檻」</td><td>知道何時可放電、何時要保護</td></tr>
+          <tr><td>UDS 像黑盒子</td><td>把 TX/RX 與正負回應(7F/NRC)寫清楚</td><td>能讀懂基本診斷 log</td></tr>
+          <tr><td>缺「致動/預充」概念</td><td>補上 RC 預充與接觸器時序一頁</td><td>懂為何不能直接閉合主接觸器</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel" style="margin-top:22px;">
+      <div class="panel-title">
+        <h2>完整版與封存</h2>
+        <small>學完九章後,再回來看資訊量更大的完整模擬器</small>
+      </div>
+      <div class="cards">
+        <a class="card" href="legacy/tms320f28388d_bms.html">
+          <span class="card-number">ADVANCED</span>
+          <h3>三核心完整模擬器</h3>
+          <p>96 電芯、AFE SPI-DMA、UDS、預充全部同頁。資訊密集,適合進階對照。</p>
+        </a>
+        <a class="card" href="legacy/28388d_bms_original.html">
+          <span class="card-number">ORIGINAL</span>
+          <h3>原始單頁模擬器</h3>
+          <p>保留最初版本,適合對照教學拆解前後的差異。</p>
+        </a>
+      </div>
+    </section>
+  </main>
+  <script src="assets/bms-learn.js"></script>
+</body>
+</html>

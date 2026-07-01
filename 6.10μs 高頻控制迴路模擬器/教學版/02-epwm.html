@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>第 2 課 · EPWM 硬體鬧鐘</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="step">第 2 課 / 7</div>
+    <h1>⏰ EPWM:精準的硬體鬧鐘</h1>
+    <p class="lead">每一輪是誰按下「開始」?是硬體,不是 CPU。這一課看為什麼這很重要。</p>
+  </div>
+
+  <div class="goal">
+    <span class="ic">🎯</span>
+    <div>這頁只教一件事:用 <b>硬體(EPWM)自動觸發</b> 取樣,每次間隔都一樣準;若改叫 <b>CPU 一直去問(輪詢)</b>,間隔會忽長忽短(抖動 jitter),控制就不準。</div>
+  </div>
+
+  <div class="analogy">
+    <span class="tag">生活比喻</span>
+    你要每小時喝一次水。<b>方法A:設鬧鐘</b>——每次都準時整點。<b>方法B:想到才看錶</b>——你在忙的時候就會忘、拖到 1 小時 20 分才喝。
+    EPWM 就是「方法A 的鬧鐘」,它時間到就自動戳一下 ADC,完全不靠 CPU 記得。
+  </div>
+
+  <!-- 互動 -->
+  <div class="card">
+    <h2>🕹️ 動手玩:讓 CPU「變忙」,看誰的節拍會亂</h2>
+
+    <div class="controls">
+      <div class="ctl">
+        <label><span>CPU 忙碌程度(雜事干擾)</span><span class="val v-amber" id="busyVal">中</span></label>
+        <input type="range" id="busy" min="0" max="100" step="1" value="30" />
+        <div class="hint">往右拉 = CPU 越忙。注意上下兩排的節拍點:哪一排不管 CPU 多忙都「整齊」?</div>
+      </div>
+    </div>
+
+    <div class="svg-box" style="margin-top:14px">
+      <svg viewBox="0 0 600 200" style="width:100%">
+        <!-- 硬體列 -->
+        <text x="8" y="40" fill="#34d399" font-size="13" font-weight="700">⏰ EPWM 硬體觸發</text>
+        <line x1="8" y1="62" x2="592" y2="62" stroke="#334155"/>
+        <g id="hwTicks"></g>
+        <text x="8" y="88" fill="#64748b" font-size="11" id="hwStat"></text>
+
+        <!-- 輪詢列 -->
+        <text x="8" y="130" fill="#f59e0b" font-size="13" font-weight="700">🏃 CPU 輪詢(想到才問)</text>
+        <line x1="8" y1="152" x2="592" y2="152" stroke="#334155"/>
+        <g id="swTicks"></g>
+        <text x="8" y="178" fill="#64748b" font-size="11" id="swStat"></text>
+      </svg>
+    </div>
+    <div class="legend">
+      <span>每個直條 = 一次取樣的時刻。理想上應該等距排列。</span>
+    </div>
+  </div>
+
+  <div class="observe">
+    <span class="tag">👀 觀察提示</span>
+    <span>把忙碌度拉到最大:上排(EPWM)依然整齊等距,<b>間隔誤差 0</b>;下排(輪詢)的條子忽密忽疏,<b>間隔誤差(jitter)飆高</b>。取樣時間不一致 → 控制器以為的「現在」是錯的 → 輸出抖動。</span>
+  </div>
+
+  <div class="keypoints">
+    <h3>📌 重點整理</h3>
+    <ul>
+      <li><span class="term">EPWM</span>(增強型 PWM 模組)內建計時器,可設定「計數到某個值就自動發出 SOC 觸發訊號」去啟動 ADC,全程不需要 CPU 介入。</li>
+      <li>好處是 <b>低 jitter(低抖動)</b>:每次取樣間隔幾乎完全相等,控制演算法才能假設「取樣是等間隔的」。</li>
+      <li>若改用 CPU 輪詢,CPU 一忙就會延後取樣 → 間隔不均 → 控制精度與穩定度都下降。</li>
+    </ul>
+  </div>
+
+  <div class="code">
+    <div class="head">💻 對應到真實韌體:設定 EPWM 自動觸發 ADC(SOCA)</div>
+    <pre><span class="cm">// 讓 EPWM1 在計數器歸零時,自動發出 ADC 啟動訊號(Start-Of-Conversion A)</span>
+EPwm1Regs.ETSEL.bit.<span class="nm">SOCASEL</span> = <span class="num">1</span>;   <span class="cm">// 觸發點:CTR == 0</span>
+EPwm1Regs.ETSEL.bit.<span class="nm">SOCAEN</span>  = <span class="num">1</span>;   <span class="cm">// 啟用自動觸發</span>
+EPwm1Regs.ETPS.bit.<span class="nm">SOCAPRD</span>  = <span class="num">1</span>;   <span class="cm">// 每個週期都觸發一次</span>
+<span class="cm">// 之後 ADC 就會「自己」每 10μs 被戳一次,CPU 完全不用管時間</span></pre>
+  </div>
+
+  <!-- 小測驗 -->
+  <div class="quiz" id="quiz">
+    <h3>✅ 隨堂小測驗</h3>
+    <div class="q">為什麼控制迴路要用 EPWM 硬體觸發 ADC,而不是讓 CPU 自己抓時間去讀?</div>
+    <button class="opt" data-c="0">A. 硬體觸發比較省電</button>
+    <button class="opt" data-c="1">B. 硬體觸發每次間隔都一樣準(低 jitter),CPU 再忙也不會延後取樣</button>
+    <button class="opt" data-c="0">C. CPU 沒辦法讀 ADC,一定要硬體幫忙</button>
+    <div class="explain" id="exp">✔️ 正解 B。關鍵是「等間隔取樣」。CPU 會被別的工作打斷而延後,造成 jitter;EPWM 是專職計時硬體,時間到就觸發,間隔穩定,控制才準。</div>
+  </div>
+
+</div>
+
+<script>window.PAGE = '02';</script>
+<script src="nav.js"></script>
+<script>
+var busy = document.getElementById('busy');
+var N = 10, x0 = 20, x1 = 580, span = x1 - x0;
+
+function render() {
+  var b = +busy.value / 100;
+  document.getElementById('busyVal').textContent = b < .25 ? '低' : b < .6 ? '中' : '高';
+
+  // 硬體:完美等距
+  var hw = '';
+  var ideal = [];
+  for (var i = 0; i < N; i++) {
+    var x = x0 + span * i / (N - 1);
+    ideal.push(x);
+    hw += '<line x1="'+x+'" y1="48" x2="'+x+'" y2="76" stroke="#34d399" stroke-width="3"/>';
+  }
+  document.getElementById('hwTicks').innerHTML = hw;
+  document.getElementById('hwStat').textContent = '間隔誤差(jitter):0 ns —— 永遠等距 ✓';
+
+  // 輪詢:加入與忙碌度成正比的隨機偏移
+  var sw = '', positions = [], maxJit = 0;
+  var seed = 1;
+  function rnd() { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
+  for (var j = 0; j < N; j++) {
+    var base = x0 + span * j / (N - 1);
+    var jit = (rnd() - 0.5) * b * (span / (N - 1)) * 1.6;
+    var px = Math.max(x0, Math.min(x1, base + jit));
+    positions.push(px);
+    sw += '<line x1="'+px+'" y1="138" x2="'+px+'" y2="166" stroke="#f59e0b" stroke-width="3"/>';
+  }
+  document.getElementById('swTicks').innerHTML = sw;
+  // 算最大間隔偏差
+  for (var k = 1; k < positions.length; k++) {
+    var gap = positions[k] - positions[k-1];
+    var idealGap = span / (N - 1);
+    maxJit = Math.max(maxJit, Math.abs(gap - idealGap));
+  }
+  var jitNs = Math.round(maxJit / span * 10000);
+  document.getElementById('swStat').innerHTML = '間隔誤差(jitter):約 ' + jitNs + ' ns ' + (jitNs > 400 ? '—— 太亂,控制會抖 ⚠️' : '');
+}
+busy.oninput = render;
+render();
+
+document.querySelectorAll('#quiz .opt').forEach(function (b) {
+  b.onclick = function () {
+    document.querySelectorAll('#quiz .opt').forEach(function (x) { x.classList.remove('correct','wrong'); });
+    b.classList.add(b.dataset.c === '1' ? 'correct' : 'wrong');
+    document.getElementById('exp').classList.add('show');
+  };
+});
+</script>
+</body>
+</html>

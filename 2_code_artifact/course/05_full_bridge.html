@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第 5 課 · 全橋：單極性 vs 雙極性</title>
+  <script src="../../assets/vendor/tailwindcss-cdn.js"></script>
+  <link rel="stylesheet" href="shared/theme.css">
+</head>
+<body class="min-h-screen">
+  <div class="max-w-6xl mx-auto px-4 py-6">
+    <header class="flex items-center justify-between mb-5">
+      <div class="flex items-center gap-3">
+        <span class="tag text-emerald-400">第 5 課 / 8</span>
+        <h1 class="text-lg md:text-xl font-bold text-slate-100">🌉 全橋 H 橋：單極性 vs 雙極性</h1>
+      </div>
+      <a href="index.html" class="text-xs text-slate-400 hover:text-emerald-400">📍 課程地圖</a>
+    </header>
+
+    <div class="edu-card edu-goal mb-4">
+      <h3 class="text-emerald-400">🎯 本課目標</h3>
+      <p>把兩條半橋（左臂 A、右臂 B）夾住負載，就是 <b>全橋 (H-Bridge)</b>，輸出 <b>V<sub>out</sub> = V<sub>A</sub> − V<sub>B</sub></b>。本課的重點是一個能「眼見為憑」的對照：同樣 m<sub>a</sub>，把調變從<b>雙極性</b>換成<b>單極性</b>，<b>THD 直接砍掉一半</b>——這就是工程上選單極性的理由。</p>
+    </div>
+
+    <div id="sim" class="mb-5"></div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+      <div class="edu-card edu-try">
+        <h3 class="text-amber-400">🔬 動手做（用「快照」比一比）</h3>
+        <ol>
+          <li>目前是<b>雙極性 SPWM</b>，m<sub>a</sub>=0.8。看綠色 CH1：輸出只在 <b>+Vdc 與 −Vdc</b> 兩個準位跳（兩電平）。</li>
+          <li>按示波器下方 <b>「凍結快照」</b>，記下此時的 THD（約 <b>145%</b>）。</li>
+          <li>把<b>調變策略</b>改成 <b>單極性 SPWM</b>。看 CH1 變成 <b>+Vdc、0、−Vdc 三個準位</b>（三電平）。</li>
+          <li>再按一次<b>「凍結快照」</b>比較：V<sub>1</sub> 幾乎不變，但 THD 掉到約 <b>77%</b>。</li>
+        </ol>
+      </div>
+      <div class="edu-card edu-expect">
+        <h3 class="text-cyan-400">✅ 你應該看到 / 為什麼</h3>
+        <p>單極性多了一個 <b>0V 電平</b>，等效開關頻率加倍、電壓跳變幅度減半，所以諧波被推到<b>更高頻</b>、且總量更小 → THD 砍半。</p>
+        <p>諧波越往高頻集中、總量越小，代表後級<b>濾波器可以做得更小更便宜</b>。同樣的母線、同樣的基波，單極性就是更划算。</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="edu-card edu-apply">
+        <h3 class="text-blue-400">🌍 這在真實世界用在哪</h3>
+        <ul>
+          <li>單相 UPS、單相太陽能逆變器、電焊機、感應加熱，幾乎都用全橋。</li>
+          <li>H 橋也是<b>直流馬達正反轉</b>驅動的標準電路（對角導通決定方向）。</li>
+          <li>單極性調變是這些產品能通過 EMC、又用小體積濾波器的關鍵手段。</li>
+        </ul>
+      </div>
+      <div class="edu-card edu-tradeoff">
+        <h3 class="text-purple-300">⚖️ 工程取捨</h3>
+        <p>單極性需要<b>兩臂各自獨立比較</b>（控制稍複雜），且對死區、走線對稱更敏感。雙極性控制簡單、但諧波大、濾波器笨重。多數現代設計選單極性——複雜度交給數位控制器處理就好。</p>
+      </div>
+    </div>
+
+    <div class="edu-card quiz mt-4">
+      <h3 class="text-slate-200">❓ 考考你</h3>
+      <details><summary>全橋比半橋多了什麼好處？</summary><div class="ans">同樣母線電壓下，全橋輸出可達 ±Vdc（半橋只有 ±Vdc/2），電壓加倍；而且能輕鬆做出三電平與正反轉。代價是開關數量加倍。</div></details>
+      <details><summary>單極性的「三電平」中，0V 是怎麼來的？</summary><div class="ans">當兩臂中點電位相同時（例如 Q1、Q3 同時導通，A、B 都接到 +Vdc），V<sub>out</sub>=V<sub>A</sub>−V<sub>B</sub>=0。負載被短路續流，輸出 0V。</div></details>
+      <details><summary>為什麼 THD 砍半，濾波器就能變小？</summary><div class="ans">諧波被推到更高頻、幅度更小，濾波器只要擋更高頻、衰減量需求更低，所需的 L、C 就更小、體積成本都下降。</div></details>
+    </div>
+
+    <nav id="lesson-nav" class="lesson-nav"></nav>
+  </div>
+
+  <script src="shared/widget.js"></script>
+  <script src="shared/ui.js"></script>
+  <script>
+    PE.mount('#sim', {
+      topology: 'full',
+      allowTopology: false,
+      loads: ['R', 'RL', 'LC'],
+      modulations: ['spwm_bi', 'spwm_uni', 'square'],
+      controls: { ma: true, freq: true, fc: true, manual: false },
+      channels: { ch1: true, ch3: true, ch4: true },
+      defaults: { load: 'R', modulation: 'spwm_bi', autoMode: true, ma: 0.8, freq: 50, fc: 1000 },
+      metrics: true,
+      snapshot: true
+    });
+    EDU.renderNav(5);
+  </script>
+</body>
+</html>

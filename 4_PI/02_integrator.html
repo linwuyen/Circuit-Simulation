@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>02 積分器 Ki/s 的指紋</title>
+    <script src="../assets/vendor/tailwindcss-cdn.js"></script>
+    <script src="../assets/vendor/chart.umd.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
+        .nav a { padding:.25rem .6rem; border-radius:.4rem; font-size:.85rem; white-space:nowrap; }
+        .nav a:hover { background:#eff6ff; }
+        .nav a.active { background:#2563eb; color:#fff; font-weight:700; }
+        .chart-container { position: relative; height: 32vh; min-height: 240px; background:#fff; border-radius:.5rem; padding:1rem; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+        input[type=range]{ width:100%; }
+        .card { background:#fff; border-radius:.5rem; padding:1rem; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+    </style>
+</head>
+<body class="p-4 md:p-6">
+<div class="max-w-6xl mx-auto">
+
+    <nav class="nav bg-white rounded-lg shadow-sm px-3 py-2 mb-5 flex flex-wrap items-center gap-1 text-gray-600">
+        <a href="index.html" class="font-bold text-gray-700">📚 地圖</a><span class="text-gray-300">|</span>
+        <a href="01_what_is_bode.html" title="波德圖的一個點">01</a>
+        <a href="02_integrator.html" class="active" title="積分器">02</a>
+        <a href="03_pi_controller.html" title="PI 控制器">03</a>
+        <a href="04_lc_plant.html" title="LC 受控體">04</a>
+        <a href="05_add_in_db.html" title="相乘變相加">05</a>
+        <a href="06_stability.html" title="穩定度+時域">06</a>
+        <a href="pi.html" class="ml-auto" title="設計沙盒">★ 沙盒</a>
+        <a href="07_challenge.html" title="挑戰任務">🏆 挑戰</a>
+    </nav>
+
+    <div class="mb-5">
+        <p class="text-sm font-semibold text-blue-600">關卡 02</p>
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-800 mb-2">積分器 <span class="font-mono">Ki/s</span> 的「指紋」</h1>
+        <p class="text-gray-600">控制器的第一個零件。它的工作是<b>把低頻拉到超高</b>,讓系統對緩慢/穩定的指令幾乎零誤差。它的波德圖長相非常固定,認得出來就好。</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div class="space-y-4">
+            <div class="card">
+                <label class="block text-sm font-bold text-gray-700 mb-1">積分增益 Ki：<span id="ki-val" class="text-blue-600">5000</span></label>
+                <p class="text-xs text-gray-500 mb-2">調大 → 整條線往上平移(低頻追隨更強),但形狀(斜率、相位)完全不變。</p>
+                <input type="range" id="ki-slider" min="100" max="50000" step="100" value="5000">
+            </div>
+
+            <div class="card">
+                <h3 class="font-bold text-gray-800 border-b pb-2 mb-3 text-sm">這條線的三個固定特徵</h3>
+                <div class="mb-2">
+                    <span class="text-xs text-gray-500 block">斜率（固定）</span>
+                    <span class="text-lg font-bold text-gray-900">−20 dB / decade</span>
+                </div>
+                <div class="mb-2">
+                    <span class="text-xs text-gray-500 block">相位（固定）</span>
+                    <span class="text-lg font-bold text-orange-500">−90°（永遠）</span>
+                </div>
+                <div>
+                    <span class="text-xs text-gray-500 block">穿過 0dB 的頻率 f₀ = Ki / 2π</span>
+                    <span id="f0-val" class="text-lg font-bold text-green-600">-- Hz</span>
+                </div>
+            </div>
+
+            <div class="bg-emerald-50 p-4 rounded-lg border border-emerald-100 text-sm">
+                <h4 class="font-bold text-emerald-800 mb-1">🗣️ 白話結論</h4>
+                <p id="narrative" class="text-xs text-emerald-900 leading-relaxed">--</p>
+            </div>
+
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-100 text-sm">
+                <h4 class="font-bold text-blue-800 mb-1">💡 觀察重點</h4>
+                <ul class="text-xs text-blue-700 space-y-1 list-disc pl-4">
+                    <li>增益 = Ki / (2πf)。頻率每變 10 倍,增益就掉 20dB → 這就是那條<b>固定斜率的下坡</b>。</li>
+                    <li>低頻(左邊)增益衝到很高 → 對 60Hz、直流這種慢訊號,誤差幾乎被壓成 0(<b>消除穩態誤差</b>)。</li>
+                    <li>相位<b>永遠 −90°</b>,這是積分器的「指紋」。下一關你會看到它在波德圖最左側留下的痕跡。</li>
+                    <li>代價：這 −90° 會<b>先用掉系統的相位裕度</b>。所以光有積分不夠,下一關要加 Kp 把相位救回來。</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2 space-y-4">
+            <div class="chart-container"><canvas id="magChart"></canvas></div>
+            <div class="chart-container"><canvas id="phaseChart"></canvas></div>
+        </div>
+    </div>
+
+    <div class="flex justify-between items-center mt-6 text-sm">
+        <a href="01_what_is_bode.html" class="px-4 py-2 rounded-lg bg-white shadow-sm text-gray-600 hover:bg-gray-50">← 上一關：一個點</a>
+        <a href="03_pi_controller.html" class="px-4 py-2 rounded-lg bg-blue-600 text-white shadow-sm hover:bg-blue-700 font-semibold">下一關：加上 Kp →</a>
+    </div>
+</div>
+
+<script>
+const F_MIN = 10, F_MAX = 100000, N = 300;
+const freqs = [];
+for (let i = 0; i < N; i++) freqs.push(F_MIN * Math.pow(F_MAX / F_MIN, i / (N - 1)));
+
+let magChart, phaseChart;
+function fmtHz(f){ return f >= 1000 ? (f/1000).toFixed(2)+' kHz' : f.toFixed(0)+' Hz'; }
+
+function update() {
+    const ki = parseFloat(document.getElementById('ki-slider').value);
+    document.getElementById('ki-val').textContent = ki;
+
+    const mag = freqs.map(f => ({ x: f, y: 20 * Math.log10(ki / (2 * Math.PI * f)) }));
+    const f0 = ki / (2 * Math.PI);
+    document.getElementById('f0-val').textContent = fmtHz(f0);
+
+    magChart.data.datasets[0].data = mag;
+    // 0dB 穿越點
+    magChart.data.datasets[2].data = (f0 >= F_MIN && f0 <= F_MAX) ? [{ x: f0, y: 0 }] : [];
+    magChart.update();
+
+    document.getElementById('narrative').textContent =
+        `Ki=${ki} 時,這條下坡線在 ${fmtHz(f0)} 穿過 0dB。在它左邊(更低頻)增益都是正的、甚至上百 dB,代表慢速指令幾乎零誤差;右邊則衰減。把 Ki 調大,整條線往上抬、0dB 點往右移,但「−20dB/decade、−90°」這兩個特徵永遠不變。`;
+}
+
+function init() {
+    const common = {
+        responsive: true, maintainAspectRatio: false, parsing: false, animation: { duration: 80 },
+        elements: { point: { radius: 0 }, line: { tension: 0 } },
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: { x: { type: 'logarithmic', min: F_MIN, max: F_MAX, title: { display: true, text: '頻率 (Hz, log)' }, grid: { color: 'rgba(0,0,0,.05)' } } }
+    };
+
+    function hLine(y, color, dash){ return { data:[{x:F_MIN,y},{x:F_MAX,y}], borderColor:color, borderWidth:1.5, borderDash:dash, pointRadius:0, fill:false }; }
+
+    magChart = new Chart(document.getElementById('magChart').getContext('2d'), { type:'line',
+        data:{ datasets:[
+            { data:[], borderColor:'#9ca3af', borderWidth:2.5, fill:false },   // C(s) 用灰色，呼應後面關卡
+            hLine(0, 'rgba(239,68,68,0.6)', [6,4]),                            // 0dB
+            { data:[], borderColor:'#16a34a', backgroundColor:'#16a34a', pointRadius:6, showLine:false } // f0 點
+        ]},
+        options:{ ...common, plugins:{ ...common.plugins, title:{ display:true, text:'增益：一條固定斜率 −20dB/decade 的下坡', align:'start' } },
+            scales:{ ...common.scales, y:{ min:-40, max:100, title:{ display:true, text:'Magnitude (dB)' }, grid:{ color:'rgba(0,0,0,.05)' } } } }
+    });
+
+    phaseChart = new Chart(document.getElementById('phaseChart').getContext('2d'), { type:'line',
+        data:{ datasets:[ hLine(-90, '#9ca3af', []) ] },
+        options:{ ...common, plugins:{ ...common.plugins, title:{ display:true, text:'相位：永遠 −90°（積分器的指紋）', align:'start' } },
+            scales:{ ...common.scales, y:{ min:-180, max:0, title:{ display:true, text:'Phase (deg)' }, grid:{ color:'rgba(0,0,0,.05)' } } } }
+    });
+    phaseChart.data.datasets[0].borderWidth = 2.5;
+}
+
+document.getElementById('ki-slider').addEventListener('input', update);
+init();
+update();
+</script>
+</body>
+</html>

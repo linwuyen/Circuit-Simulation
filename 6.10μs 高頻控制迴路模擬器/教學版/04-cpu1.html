@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>第 4 課 · CPU1 運算 (PID)</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="step">第 4 課 / 7</div>
+    <h1>🧮 CPU1:在 10μs 內把數學算完</h1>
+    <p class="lead">讀到感測值之後,CPU 要算出「該輸出多少」。算得越複雜越久,就越逼近截止線。</p>
+  </div>
+
+  <div class="goal">
+    <span class="ic">🎯</span>
+    <div>這頁只教一件事:CPU1 必須 <b>等 ADC 資料就緒後才開始算</b>,而且要在 10μs 截止前 <b>算完 PID</b>。運算時間越長,撞線風險越高。</div>
+  </div>
+
+  <div class="analogy">
+    <span class="tag">生活比喻</span>
+    PID 就像開車時你的大腦:<b>P</b> 看「現在偏多少」、<b>I</b> 看「偏了多久還沒修正」、<b>D</b> 看「正在往哪個方向變」,綜合起來決定方向盤要轉多少。
+    這個「想一下」要花時間;想得太久,就會錯過該打方向盤的時機。
+  </div>
+
+  <!-- 互動 -->
+  <div class="card">
+    <h2>🕹️ 動手玩:拖動「CPU1 運算時間」,看會不會撞線</h2>
+
+    <div class="controls">
+      <div class="ctl">
+        <label><span>CPU1 演算法時間</span><span class="val v-purple" id="compVal">1500 ns</span></label>
+        <input type="range" id="comp" min="500" max="9800" step="100" value="1500" />
+        <div class="hint">PID 越複雜、處理的資料越多,這條紫色運算條就越長。注意它的右端有沒有頂到 10000ns 紅線。</div>
+      </div>
+    </div>
+
+    <div style="margin:16px 0 6px" class="small muted">一輪 10μs 時間軸:</div>
+    <div class="svg-box">
+      <svg viewBox="0 0 600 130" style="width:100%">
+        <g id="ticks"></g>
+        <!-- ADC 就緒前的等待(灰) -->
+        <rect x="0" y="46" height="30" id="waitBar" fill="#475569" opacity="0.5"/>
+        <text x="6" y="40" fill="#64748b" font-size="10">等 ADC(550ns)</text>
+        <!-- CPU1 運算條(紫) -->
+        <rect y="46" height="30" rx="3" id="compBar" fill="#7c3aed" opacity="0.9"/>
+        <text id="compText" y="65" fill="#fff" font-size="11" font-weight="700"></text>
+        <!-- 截止線 -->
+        <line x1="500" y1="34" x2="500" y2="88" stroke="#f87171" stroke-width="2"/>
+        <text x="500" y="28" text-anchor="middle" fill="#f87171" font-size="11" font-weight="700">10000ns</text>
+      </svg>
+    </div>
+
+    <div class="stats" style="margin-top:16px">
+      <div class="stat"><div class="k">▶️ 開始運算</div><div class="v v-blue" id="startV">550<span class="small muted"> ns</span></div></div>
+      <div class="stat"><div class="k">⏹️ 算完於</div><div class="v v-purple" id="endV">2050<span class="small muted"> ns</span></div></div>
+      <div class="stat"><div class="k">🟢 餘裕</div><div class="v v-emerald" id="marginV">7950<span class="small muted"> ns</span></div></div>
+      <div class="stat"><div class="k">📊 狀態</div><div class="v" id="statusV" style="font-size:16px"></div></div>
+    </div>
+  </div>
+
+  <div class="observe">
+    <span class="tag">👀 觀察提示</span>
+    <span>運算 1500ns:算完於 2050ns,後面還有一大段時間留給通訊與輸出。把它拉到 9000ns 以上:運算條撞破紅線 → 逾時 → 這一輪根本來不及把結果送出去。<b>運算時間是整條 10μs 預算裡最容易爆掉的一塊。</b></span>
+  </div>
+
+  <div class="keypoints">
+    <h3>📌 重點整理</h3>
+    <ul>
+      <li>CPU1 的工作 = 拿 ADC 的值跑 <b>PID 控制</b>(以及產生命令波形,如正弦),算出這一輪要輸出的控制量。</li>
+      <li>它有兩個限制:<b>(1)</b> 不能比 ADC 早開始(會拿到舊/壞資料);<b>(2)</b> 必須在 10μs 前結束,還得留時間給後面的通訊與輸出。</li>
+      <li>所以韌體工程師會斤斤計較每個函式的 <b>CPU 週期數</b>:用查表代替即時計算、用定點數、開編譯器最佳化,都是為了縮短這條紫色條。</li>
+    </ul>
+  </div>
+
+  <div class="code">
+    <div class="head">💻 對應到真實韌體:典型的控制 ISR 主體</div>
+    <pre><span class="kw">interrupt void</span> <span class="nm">adcA1ISR</span>(<span class="kw">void</span>) {
+    <span class="kw">float</span> meas = <span class="nm">readResult</span>();              <span class="cm">// 取 ADC 結果</span>
+    <span class="kw">float</span> err  = ref - meas;                <span class="cm">// 誤差</span>
+    u = Kp*err + Ki*integ + Kd*(err-prev);  <span class="cm">// PID 三項</span>
+    integ += err;  prev = err;
+    <span class="nm">writeDAC</span>(u);                          <span class="cm">// 輸出</span>
+    <span class="cm">// 整段必須在 10μs 內跑完;太複雜就會撞線</span>
+}</pre>
+  </div>
+
+  <!-- 小測驗 -->
+  <div class="quiz" id="quiz">
+    <h3>✅ 隨堂小測驗</h3>
+    <div class="q">CPU1 的運算為什麼「不能太早開始」也「不能太晚結束」?</div>
+    <button class="opt" data-c="1">A. 太早 → 拿到還沒就緒的 ADC 壞值;太晚 → 撞破 10μs 截止線</button>
+    <button class="opt" data-c="0">B. 太早會耗電,太晚會發熱</button>
+    <button class="opt" data-c="0">C. 其實隨時開始都可以,沒有限制</button>
+    <div class="explain" id="exp">✔️ 正解 A。它被「前面的 ADC 就緒時間」和「後面的 10μs 截止」夾在中間。這個可用區間,就是 CPU1 能花的運算預算。</div>
+  </div>
+
+</div>
+
+<script>window.PAGE = '04';</script>
+<script src="nav.js"></script>
+<script>
+var DEADLINE = 10000, SCALE = 500 / DEADLINE, ADC_READY = 550;
+var ticks = '';
+[0,2500,5000,7500,10000].forEach(function (t) {
+  var x = t * SCALE;
+  ticks += '<line x1="'+x+'" y1="42" x2="'+x+'" y2="80" stroke="#334155"/>';
+  ticks += '<text x="'+x+'" y="98" text-anchor="middle" fill="#64748b" font-size="10">'+t+'</text>';
+});
+document.getElementById('ticks').innerHTML = ticks;
+document.getElementById('waitBar').setAttribute('width', ADC_READY * SCALE);
+
+var comp = document.getElementById('comp');
+function render() {
+  var c = +comp.value;
+  document.getElementById('compVal').textContent = c + ' ns';
+  var start = ADC_READY, end = start + c, margin = DEADLINE - end, over = end > DEADLINE;
+
+  var bar = document.getElementById('compBar');
+  bar.setAttribute('x', start * SCALE);
+  bar.setAttribute('width', Math.min(c * SCALE, 580 - start * SCALE));
+  bar.setAttribute('fill', over ? '#ef4444' : (margin < 1000 ? '#f59e0b' : '#7c3aed'));
+  var tx = document.getElementById('compText');
+  tx.setAttribute('x', start * SCALE + 6); tx.textContent = 'CPU1 ' + c + 'ns';
+
+  document.getElementById('startV').innerHTML = start + '<span class="small muted"> ns</span>';
+  document.getElementById('endV').innerHTML = end + '<span class="small muted"> ns</span>';
+  var mv = document.getElementById('marginV');
+  mv.innerHTML = margin + '<span class="small muted"> ns</span>';
+  mv.className = 'v ' + (over ? 'v-red' : margin < 1000 ? 'v-amber' : 'v-emerald');
+
+  var sv = document.getElementById('statusV');
+  if (over) sv.innerHTML = '<span class="badge badge-bad">💥 逾時</span>';
+  else if (margin < 1000) sv.innerHTML = '<span class="badge badge-warn">⚠️ 壓線</span>';
+  else sv.innerHTML = '<span class="badge badge-ok">✓ 安全</span>';
+}
+comp.oninput = render;
+render();
+
+document.querySelectorAll('#quiz .opt').forEach(function (b) {
+  b.onclick = function () {
+    document.querySelectorAll('#quiz .opt').forEach(function (x) { x.classList.remove('correct','wrong'); });
+    b.classList.add(b.dataset.c === '1' ? 'correct' : 'wrong');
+    document.getElementById('exp').classList.add('show');
+  };
+});
+</script>
+</body>
+</html>

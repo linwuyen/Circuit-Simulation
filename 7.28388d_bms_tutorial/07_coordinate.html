@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>07 協同 · 多核與 IPC | F28388D BMS 教學模擬器</title>
+  <link rel="stylesheet" href="assets/bms-tutorial.css">
+</head>
+<body data-page="ipc" data-chapter="7">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="brand-title">F28388D BMS 教學模擬器</span><span class="brand-subtitle">07 協同 · 多核與 IPC</span></div>
+      <nav class="nav" aria-label="章節導覽">
+        <a href="index.html">首頁</a><a href="01_overview.html">總覽</a><a href="02_sense.html">量測</a><a href="03_compare.html">比較</a><a href="04_decide.html">決定</a><a href="05_actuate.html">致動</a><a href="06_report.html">回報</a><a href="07_coordinate.html" aria-current="page">協同</a><a href="08_failsafe.html">失效</a><a href="09_integrate.html">整合</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="hero">
+      <div>
+        <span class="eyebrow">Lesson 07 · 墊在鏈底下的基礎層</span>
+        <h1>協同不是鏈上的一環,而是讓整條鏈成立的地基:核心之間要安全交換資料。</h1>
+        <p class="lead">前面五環分散在三顆核心上跑,它們得共用同一份資料。這頁把 IPC 拆成兩步:CPU1 寫入 GSRAM 並上鎖,CM4 讀取後 ACK 解鎖。初學者先抓住一句話——共享資料一定要有同步機制。</p>
+      </div>
+      <div class="panel">
+        <h2>實務重點</h2>
+        <p class="callout" style="margin-top:12px;">多核心不是大家直接亂讀同一塊記憶體。資料交換要定義 ownership、更新時機、有效旗標與錯誤處理。</p>
+      </div>
+    </section>
+
+    <section class="lesson-layout">
+      <aside>
+        <div class="panel">
+          <div class="panel-title"><h2>操作任務</h2></div>
+          <ol class="guide-list">
+            <li><span>1</span><div><strong>調整電壓</strong><em>看 CPU1 的 ADC_Read 立刻改變。</em></div></li>
+            <li><span>2</span><div><strong>按單步傳輸</strong><em>第一次代表 CPU1 寫入,第二次代表 CM4 讀取。</em></div></li>
+            <li><span>3</span><div><strong>按自動演示</strong><em>觀察 LOCK/ACK 交替,這就是簡化版同步。</em></div></li>
+          </ol>
+        </div>
+        <div class="panel">
+          <div class="callout warning">如果沒有鎖或有效旗標,CM4 可能讀到一半更新的資料,診斷值就會不可信——回報出去的數字也跟著錯。</div>
+        </div>
+      </aside>
+
+      <section>
+        <div class="panel">
+          <div class="panel-title"><h2>IPC 單步模擬</h2><small>CPU1 -&gt; GSRAM -&gt; CM4</small></div>
+          <div class="architecture">
+            <div class="core-row">
+              <div class="core green">
+                <h3>CPU1 C28x</h3>
+                <p>ADC_Read:<strong id="cpu1-adc">0x0FA0</strong></p>
+                <p>任務:讀取 AFE,準備寫入共享記憶體。</p>
+              </div>
+              <div class="bus">
+                <div class="wire"></div>
+                <h3 id="ipc-lock">IDLE / 等待傳輸</h3>
+                <p>IPCSET / IPCACK</p>
+              </div>
+              <div class="core blue">
+                <h3>CM4 ARM</h3>
+                <p>IPC_Rx_V:<strong id="cm4-rx">0x0000</strong></p>
+                <p>任務:提供 CAN/UDS 可讀資料。</p>
+              </div>
+            </div>
+          </div>
+          <div class="metric-grid" style="margin-top:16px;">
+            <div class="metric"><span>GSRAM.voltage</span><strong id="gsram-value">0x0000</strong></div>
+            <div class="metric"><span>CPU1 狀態</span><strong>Writer</strong></div>
+            <div class="metric"><span>CM4 狀態</span><strong>Reader</strong></div>
+          </div>
+          <div class="reg-note">真實對應:上鎖/通知用 <code>IPCSET</code> 與 <code>IPCACK</code> 暫存器,資料放在 <code>GSRAM</code> 共享區,再配一個「資料有效旗標(data valid flag)」。CM4 要先確認旗標有效才讀,避免讀到寫到一半的值。跨核看門狗則確保某顆核心掛了也能被發現。</div>
+          <div class="controls" style="margin-top:16px;">
+            <label class="range-row">
+              <span class="range-label"><span>AFE 電壓輸入</span><strong id="ipc-voltage-value">4000 mV</strong></span>
+              <input id="ipc-voltage-slider" type="range" min="3000" max="4300" value="4000">
+            </label>
+            <div class="button-row">
+              <button id="ipc-step" class="btn primary">單步傳輸</button>
+              <button id="ipc-auto" class="btn">自動演示 3 次</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title"><h2>事件紀錄</h2></div>
+          <div id="ipc-log" class="event-log">
+            <div class="event ok">IPC 等待資料傳輸。</div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" style="margin-top:20px;">
+      <div class="panel-title"><h2>帶走這三句</h2></div>
+      <ul class="checklist">
+        <li>協同是地基:五個環節分散在三核上,得共用同一份資料。</li>
+        <li>共享資料一定要有 ownership、有效旗標與同步機制。</li>
+        <li>沒同步就可能讀到半更新的值,讓後面每一環都跟著錯。</li>
+      </ul>
+    </section>
+
+    <nav class="footer-nav">
+      <a href="06_report.html">上一章:回報 · CAN/UDS</a>
+      <a href="08_failsafe.html">下一章:失效安全 · 故障注入</a>
+    </nav>
+  </main>
+  <script src="assets/bms-sim.js"></script>
+  <script src="assets/bms-learn.js"></script>
+</body>
+</html>

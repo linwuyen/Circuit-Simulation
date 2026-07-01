@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AFE 控制迴路拆解</title>
+    <link rel="stylesheet" href="assets/app.css">
+    <script src="../assets/vendor/lucide.min.js"></script>
+    <script src="assets/app.js" defer></script>
+    <style>
+        .csim-stage{border:1px solid var(--line);border-radius:var(--radius);background:#0f172a;padding:10px}
+        .csim-stage canvas{display:block;width:100%;height:240px}
+        .csim-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:8px}
+        .legend2{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:13px;font-weight:700}
+        .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+        .verdict{padding:12px 14px;border-radius:var(--radius);border-left:4px solid var(--teal);background:#e9f8f7;font-weight:700;font-size:14px}
+        .verdict.send{border-left-color:var(--rose);background:#ffe9ee}
+        .verdict.hold{border-left-color:var(--amber);background:#fff4dc}
+        input[type=range]{width:100%;min-height:auto;padding:0;accent-color:var(--teal)}
+        @media(max-width:760px){.csim-twin{grid-template-columns:1fr !important}}
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="index.html">
+            <span class="brand-mark"><i data-lucide="activity"></i></span>
+            <span><span class="brand-title">AFE Tutorial</span><span class="brand-subtitle">控制迴路</span></span>
+        </a>
+        <nav class="nav">
+            <a data-nav href="index.html"><i data-lucide="map"></i>總覽</a>
+            <a data-nav href="01-concepts.html"><i data-lucide="blocks"></i>觀念</a>
+            <a data-nav href="02-waveforms.html"><i data-lucide="waves"></i>波形</a>
+            <a data-nav href="03-control-loop.html"><i data-lucide="route"></i>控制</a>
+            <a data-nav href="04-lab.html"><i data-lucide="clipboard-list"></i>實驗</a>
+            <a data-nav href="simulator.html"><i data-lucide="monitor-play"></i>模擬器</a>
+        </nav>
+    </header>
+
+    <main class="page">
+        <section class="intro">
+            <div class="eyebrow">Control loop</div>
+            <h1>把控制器想成 4 個接力站：找角度、算功率、產生參考、追上參考。</h1>
+            <p class="lead">原始程式碼很長，但核心資料流很短。只要知道每個模組的輸入與輸出，就能把示波器上的現象對回控制器。</p>
+        </section>
+
+        <section class="panel">
+            <h2>控制資料流</h2>
+            <div class="flow" style="margin-top: 14px;">
+                <div class="flow-node">
+                    <span class="tag blue">PLL</span>
+                    <h3>找電網角度</h3>
+                    <p class="muted">輸入 V_grid，輸出 theta。</p>
+                </div>
+                <div class="flow-arrow">-&gt;</div>
+                <div class="flow-node">
+                    <span class="tag amber">外環 PI</span>
+                    <h3>決定要吸多少能量</h3>
+                    <p class="muted">輸入 V_bus 誤差，輸出電流幅度命令。</p>
+                </div>
+                <div class="flow-arrow">-&gt;</div>
+                <div class="flow-node">
+                    <span class="tag teal">DDS + 內環 PI</span>
+                    <h3>產生並追蹤電流</h3>
+                    <p class="muted">用 theta 產生 I_ref，再讓 I_grid 追上。</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel" style="margin-top: 22px;">
+            <h2>動手玩：兩個控制器的直覺</h2>
+            <p class="muted">迴路很抽象，但這兩個小互動各自只示範一件事：PLL 怎麼「鎖住」電網角度，PI 怎麼「追上」目標。</p>
+            <div class="grid grid-2 csim-twin" style="margin-top:14px">
+                <div>
+                    <h3 style="margin-bottom:8px">① PLL 鎖相：追上電網角度</h3>
+                    <div class="csim-stage"><canvas id="pll-canvas"></canvas></div>
+                    <div class="csim-row">
+                        <span class="legend2"><i class="dot" style="background:#f59e0b"></i>電網角度</span>
+                        <span class="legend2"><i class="dot" style="background:#22d3ee"></i>PLL 估計</span>
+                    </div>
+                    <div class="csim-row">
+                        <button class="button" type="button" id="pll-kick"><i data-lucide="zap"></i>給一記相位衝擊</button>
+                        <span class="muted" style="font-size:13px">誤差 <strong id="pll-err">0°</strong> · <strong id="pll-status">已鎖定</strong></span>
+                    </div>
+                    <p class="muted" style="font-size:13px;margin-top:8px">按按鈕讓電網角度突跳，看青色箭頭幾下就追回橘色。這就是 PLL 抗擾。</p>
+                </div>
+                <div>
+                    <h3 style="margin-bottom:8px">② PI 追蹤：把實際值拉到目標</h3>
+                    <div class="csim-stage"><canvas id="pi-canvas" style="height:200px"></canvas></div>
+                    <div class="csim-row">
+                        <span class="legend2"><i class="dot" style="background:#38bdf8"></i>目標 r（虛線）</span>
+                        <span class="legend2"><i class="dot" style="background:#10b981"></i>實際 y</span>
+                    </div>
+                    <div class="form-grid" style="margin-top:8px">
+                        <label>Kp 反應力度 <span id="pi-kp-v" style="color:var(--teal)">2.5</span>
+                            <input id="pi-kp" type="range" min="0.2" max="8" step="0.1" value="2.5"></label>
+                        <label>Ki 消誤差 <span id="pi-ki-v" style="color:var(--teal)">5</span>
+                            <input id="pi-ki" type="range" min="0" max="20" step="1" value="5"></label>
+                    </div>
+                    <div class="csim-row">
+                        <button class="button" type="button" id="pi-step"><i data-lucide="step-forward"></i>施加階躍</button>
+                    </div>
+                    <div id="pi-verdict" class="verdict" style="margin-top:10px"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="grid grid-2" style="margin-top: 22px;">
+            <div class="panel">
+                <h2>簡化版偽代碼</h2>
+                <pre class="code-slab">theta = PLL(v_grid)
+
+v_error = 400V - v_bus
+current_gain = voltage_PI(v_error)
+
+i_ref = current_gain * sin(theta)
+i_error = i_ref - i_grid
+pwm_command = current_PI(i_error)
+
+AFE_bridge.apply(pwm_command)</pre>
+            </div>
+            <div class="panel">
+                <h2>對應到原始模擬器</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>畫面元件</th><th>控制意義</th><th>先看哪裡</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>DC Bus 數值</td><td>外環控制目標</td><td>是否接近 400 V</td></tr>
+                            <tr><td>Power Factor</td><td>電流相位品質</td><td>是否接近 1.000</td></tr>
+                            <tr><td>Loop Tuning</td><td>內外環 PI 參數</td><td>一次只改一個參數</td></tr>
+                            <tr><td>C28x / CLA 代碼</td><td>控制器落地寫法</td><td>點 AC、AFE、DC 三個節點切換</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel" style="margin-top: 22px;">
+            <h2>PI 參數調整口訣</h2>
+            <div class="grid grid-3" style="margin-top: 14px;">
+                <article class="term">
+                    <span class="tag teal">Kp</span>
+                    <h3>先調反應速度</h3>
+                    <p class="muted">Kp 太小會慢，太大會抖。調整時看 I_grid 是否能更快貼近 I_ref。</p>
+                </article>
+                <article class="term">
+                    <span class="tag blue">Ki</span>
+                    <h3>再消除長期誤差</h3>
+                    <p class="muted">Ki 幫忙把穩態誤差推回來，但過大會造成累積過頭。</p>
+                </article>
+                <article class="term">
+                    <span class="tag rose">順序</span>
+                    <h3>先內環，後外環</h3>
+                    <p class="muted">電流內環是快環，先讓它能穩定追蹤，再調 DC 母線外環。</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="grid grid-2" style="margin-top: 22px;">
+            <div class="panel">
+                <h2>內環與外環差異</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>迴路</th><th>任務</th><th>反應速度</th><th>觀察指標</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>電流內環</td><td>讓 I_grid 追 I_ref</td><td>快</td><td>I_grid 與 I_ref 的距離</td></tr>
+                            <tr><td>電壓外環</td><td>讓 V_bus 回 400 V</td><td>慢</td><td>V_bus 回復時間與震盪</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="panel">
+                <h2>調參流程</h2>
+                <div class="checklist" data-checklist="control">
+                    <label class="check-row"><input type="checkbox"> 按「重設默認」，建立基準波形。</label>
+                    <label class="check-row"><input type="checkbox"> 只改電流 Kp，記錄 I_grid 是否更貼近 I_ref。</label>
+                    <label class="check-row"><input type="checkbox"> 再改電流 Ki，觀察震盪是否增加。</label>
+                    <label class="check-row"><input type="checkbox"> 最後小幅調外環 Kp/Ki，觀察 V_bus 回復速度。</label>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <a class="button" href="simulator.html"><i data-lucide="monitor-play"></i>開啟教練版模擬器</a>
+        <a class="button primary" href="04-lab.html"><i data-lucide="arrow-right"></i>下一站：實驗工作台</a>
+    </footer>
+
+    <script>
+        // ① PLL 鎖相動畫
+        (function () {
+            const c = document.getElementById('pll-canvas');
+            if (!c) return;
+            const ctx = c.getContext('2d');
+            let tg = 0, tp = 0; const omega = 2.2, dt = 1 / 60;
+            function ensureSize() {
+                const dpr = window.devicePixelRatio || 1;
+                const w = Math.round(c.clientWidth * dpr), h = Math.round(c.clientHeight * dpr);
+                if (c.width !== w || c.height !== h) { c.width = w; c.height = h; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+            }
+            const wrap = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
+            function arrow(cx, cy, r, ang, col, lw) {
+                const ex = cx + Math.cos(ang) * r, ey = cy - Math.sin(ang) * r;
+                ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ex, ey); ctx.stroke();
+                ctx.fillStyle = col; ctx.beginPath(); ctx.arc(ex, ey, 4, 0, Math.PI * 2); ctx.fill();
+            }
+            function draw() {
+                ensureSize();
+                const w = c.clientWidth, h = c.clientHeight, cx = w / 2, cy = h / 2, r = Math.min(w, h) * 0.36;
+                ctx.clearRect(0, 0, w, h);
+                ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+                ctx.strokeStyle = '#243241'; ctx.lineWidth = 1;
+                for (let i = 0; i < 12; i++) { const a = i / 12 * 2 * Math.PI; ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * r, cy - Math.sin(a) * r); ctx.lineTo(cx + Math.cos(a) * r * 0.9, cy - Math.sin(a) * r * 0.9); ctx.stroke(); }
+                arrow(cx, cy, r * 0.92, tg, '#f59e0b', 3);
+                arrow(cx, cy, r * 0.7, tp, '#22d3ee', 3);
+            }
+            function loop() {
+                tg += omega * dt;
+                const err = wrap(tg - tp);
+                tp += (omega + 6 * err) * dt;
+                draw();
+                const deg = Math.abs(err) * 180 / Math.PI;
+                document.getElementById('pll-err').textContent = deg.toFixed(1) + '°';
+                const st = document.getElementById('pll-status');
+                if (deg < 4) { st.textContent = '已鎖定'; st.style.color = 'var(--teal)'; }
+                else { st.textContent = '追蹤中…'; st.style.color = 'var(--amber)'; }
+                requestAnimationFrame(loop);
+            }
+            document.getElementById('pll-kick').addEventListener('click', () => { tg += Math.PI * 0.66; });
+            loop();
+        })();
+
+        // ② PI 追蹤遊戲
+        (function () {
+            const c = document.getElementById('pi-canvas');
+            if (!c) return;
+            const ctx = c.getContext('2d');
+            let Kp = 2.5, Ki = 5, y = 0.35, r = 0.35, integ = 0.35 / 5;
+            const dt = 0.01, tau = 0.10, N = 240, D = 2; // D = 控制迴路延遲樣本數，Kp 太大會因此震盪
+            const buf = new Array(N).fill(0.35), ref = new Array(N).fill(0.35);
+            const uq = new Array(D).fill(0.35); // 控制輸出延遲緩衝
+            function ensureSize() {
+                const dpr = window.devicePixelRatio || 1;
+                const w = Math.round(c.clientWidth * dpr), h = Math.round(c.clientHeight * dpr);
+                if (c.width !== w || c.height !== h) { c.width = w; c.height = h; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+            }
+            function step() {
+                const e = r - y; integ += e * dt; integ = Math.max(-1, Math.min(1, integ));
+                let u = Kp * e + Ki * integ; u = Math.max(-3, Math.min(3, u)); // 致動器飽和：PWM 佔空比有上限
+                uq.push(u); const ud = uq.shift(); // 經過迴路延遲後才作用到受控體
+                y += (ud - y) * dt / tau;
+                buf.push(y); buf.shift(); ref.push(r); ref.shift();
+            }
+            function draw() {
+                ensureSize();
+                const w = c.clientWidth, h = c.clientHeight;
+                ctx.clearRect(0, 0, w, h);
+                ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
+                for (let i = 0; i <= 4; i++) { const yy = h / 4 * i; ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(w, yy); ctx.stroke(); }
+                const Y = v => h - 18 - v * ((h - 36) / 1.3);
+                ctx.strokeStyle = '#38bdf8'; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5; ctx.beginPath();
+                ref.forEach((v, i) => { const x = w * i / (N - 1), yy = Y(v); i ? ctx.lineTo(x, yy) : ctx.moveTo(x, yy); }); ctx.stroke(); ctx.setLineDash([]);
+                ctx.strokeStyle = '#10b981'; ctx.lineWidth = 2.5; ctx.beginPath();
+                buf.forEach((v, i) => { const x = w * i / (N - 1), yy = Y(v); i ? ctx.lineTo(x, yy) : ctx.moveTo(x, yy); }); ctx.stroke();
+            }
+            // 測量階躍後的過渡反應（不是事後快照），才能正確分辨過衝與震盪
+            let measFrames = -1, peak = 0, crosses = 0, prevDev = 0, stepDir = 1;
+            function loop() {
+                step(); step();
+                if (measFrames >= 0) {
+                    const dev = y - r;
+                    if (dev * prevDev < 0) crosses++;
+                    prevDev = dev;
+                    const os = stepDir * (y - r);
+                    if (os > peak) peak = os;
+                    if (++measFrames > 75) { classify(); measFrames = -1; }
+                }
+                draw();
+                requestAnimationFrame(loop);
+            }
+            function classify() {
+                const settle = Math.abs(y - r);
+                const el = document.getElementById('pi-verdict'); el.className = 'verdict';
+                if (crosses >= 6) { el.classList.add('send'); el.innerHTML = '🌀 <strong>震盪</strong>：Kp / Ki 超過迴路延遲能負荷的程度，實際值在目標上下來回甩。把 Kp 調小。'; }
+                else if (peak > 0.08) { el.classList.add('hold'); el.innerHTML = '📈 <strong>過衝</strong>：衝過頭再壓回來。略降 Kp，或減小 Ki。'; }
+                else if (settle > 0.05) { el.classList.add('hold'); el.innerHTML = '🐢 <strong>太慢</strong>：到現在還沒貼上目標，反應太軟。把 Kp 調大一點。'; }
+                else { el.innerHTML = '✅ <strong>漂亮</strong>：又快又穩、幾乎沒有過衝。這就是想要的追蹤。'; }
+            }
+            function runStep() {
+                r = r > 0.5 ? 0.35 : 0.85;
+                stepDir = Math.sign(r - y) || 1; peak = 0; crosses = 0; prevDev = y - r; measFrames = 0;
+            }
+            document.getElementById('pi-kp').addEventListener('input', e => { Kp = parseFloat(e.target.value); document.getElementById('pi-kp-v').textContent = Kp.toFixed(1); });
+            document.getElementById('pi-ki').addEventListener('input', e => { Ki = parseFloat(e.target.value); document.getElementById('pi-ki-v').textContent = Ki; });
+            document.getElementById('pi-step').addEventListener('click', runStep);
+            document.getElementById('pi-verdict').innerHTML = '調 Kp / Ki，再按「施加階躍」，我會幫你判斷追得好不好。';
+            loop();
+        })();
+    </script>
+</body>
+</html>

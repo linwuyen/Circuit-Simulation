@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>01 波德圖的一個點是什麼</title>
+    <script src="../assets/vendor/tailwindcss-cdn.js"></script>
+    <script src="../assets/vendor/chart.umd.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
+        .nav a { padding:.25rem .6rem; border-radius:.4rem; font-size:.85rem; white-space:nowrap; }
+        .nav a:hover { background:#eff6ff; }
+        .nav a.active { background:#2563eb; color:#fff; font-weight:700; }
+        .chart-container { position: relative; height: 30vh; min-height: 230px; background:#fff; border-radius:.5rem; padding:1rem; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+        input[type=range]{ width:100%; }
+        .card { background:#fff; border-radius:.5rem; padding:1rem; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+    </style>
+</head>
+<body class="p-4 md:p-6">
+<div class="max-w-6xl mx-auto">
+
+    <!-- 導覽列 -->
+    <nav class="nav bg-white rounded-lg shadow-sm px-3 py-2 mb-5 flex flex-wrap items-center gap-1 text-gray-600">
+        <a href="index.html" class="font-bold text-gray-700">📚 地圖</a><span class="text-gray-300">|</span>
+        <a href="01_what_is_bode.html" class="active" title="波德圖的一個點">01</a>
+        <a href="02_integrator.html" title="積分器">02</a>
+        <a href="03_pi_controller.html" title="PI 控制器">03</a>
+        <a href="04_lc_plant.html" title="LC 受控體">04</a>
+        <a href="05_add_in_db.html" title="相乘變相加">05</a>
+        <a href="06_stability.html" title="穩定度+時域">06</a>
+        <a href="pi.html" class="ml-auto" title="設計沙盒">★ 沙盒</a>
+        <a href="07_challenge.html" title="挑戰任務">🏆 挑戰</a>
+    </nav>
+
+    <div class="mb-5">
+        <p class="text-sm font-semibold text-blue-600">關卡 01</p>
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-800 mb-2">波德圖的「一個點」到底是什麼？</h1>
+        <p class="text-gray-600">先別管控制器。我們丟一個<b>單一頻率的正弦波</b>進一個系統(這裡用一個簡單的低通濾波器),看輸出。波德圖上的每一個點,就是在回答兩個問題：<b>輸出被放大幾倍?慢了幾度?</b></p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <!-- 左：控制 + 數據 -->
+        <div class="space-y-4">
+            <div class="card">
+                <label class="block text-sm font-bold text-gray-700 mb-1">輸入頻率 f：<span id="f-val" class="text-blue-600">100 Hz</span></label>
+                <p class="text-xs text-gray-500 mb-2">拖動它,看上圖輸出怎麼變、下圖的點怎麼沿曲線跑。</p>
+                <input type="range" id="f-slider" min="1" max="5" step="0.01" value="2">
+                <div class="flex justify-between text-[10px] text-gray-400 mt-1"><span>10Hz</span><span>1kHz</span><span>100kHz</span></div>
+            </div>
+
+            <div class="card">
+                <h3 class="font-bold text-gray-800 border-b pb-2 mb-3 text-sm">這個頻率的量測結果</h3>
+                <div class="mb-3">
+                    <span class="text-xs text-gray-500 block">增益（輸出 ÷ 輸入）</span>
+                    <span id="gain-x" class="text-xl font-bold text-blue-600">--</span>
+                    <span id="gain-db" class="text-sm text-gray-500">-- dB</span>
+                </div>
+                <div>
+                    <span class="text-xs text-gray-500 block">相位（輸出落後輸入）</span>
+                    <span id="phase-val" class="text-xl font-bold text-orange-500">--</span>
+                </div>
+            </div>
+
+            <div class="bg-emerald-50 p-4 rounded-lg border border-emerald-100 text-sm">
+                <h4 class="font-bold text-emerald-800 mb-1">🗣️ 白話結論</h4>
+                <p id="narrative" class="text-xs text-emerald-900 leading-relaxed">--</p>
+            </div>
+
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-100 text-sm">
+                <h4 class="font-bold text-blue-800 mb-1">💡 觀察重點</h4>
+                <ul class="text-xs text-blue-700 space-y-1 list-disc pl-4">
+                    <li>低頻時：輸出幾乎跟輸入<b>一樣大</b>(增益≈1、0dB)、<b>幾乎不延遲</b>。</li>
+                    <li>頻率拉高：輸出<b>變小</b>(增益下降)、而且<b>越來越落後</b>(相位往 −90° 跑)。</li>
+                    <li>把每個頻率的「增益」連起來＝<b>下方第一張波德圖</b>;把「相位」連起來＝<b>第二張</b>。就這樣而已。</li>
+                    <li>為何用 <b>dB</b> 和 <b>log 頻率</b>？因為增益動輒差上千倍、頻率橫跨好幾個 10 倍,取對數才畫得下、看得清。</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 右：圖 -->
+        <div class="lg:col-span-2 space-y-4">
+            <div class="chart-container"><canvas id="timeChart"></canvas></div>
+            <div class="chart-container"><canvas id="magChart"></canvas></div>
+            <div class="chart-container"><canvas id="phaseChart"></canvas></div>
+        </div>
+    </div>
+
+    <!-- 底部導覽 -->
+    <div class="flex justify-between items-center mt-6 text-sm">
+        <a href="index.html" class="px-4 py-2 rounded-lg bg-white shadow-sm text-gray-600 hover:bg-gray-50">← 課程地圖</a>
+        <a href="02_integrator.html" class="px-4 py-2 rounded-lg bg-blue-600 text-white shadow-sm hover:bg-blue-700 font-semibold">下一關：積分器 Ki/s →</a>
+    </div>
+</div>
+
+<script>
+// ===== 系統：一階低通濾波器 H(s)=1/(1+s/wc)，轉角 fc=1kHz =====
+const FC = 1000;
+const F_MIN = 10, F_MAX = 100000;
+
+// 預先掃出整條波德曲線
+const sweepF = [], sweepMag = [], sweepPhase = [];
+for (let i = 0; i < 300; i++) {
+    const f = F_MIN * Math.pow(F_MAX / F_MIN, i / 299);
+    const ratio = f / FC;
+    const g = 1 / Math.sqrt(1 + ratio * ratio);
+    sweepF.push(f);
+    sweepMag.push({ x: f, y: 20 * Math.log10(g) });
+    sweepPhase.push({ x: f, y: -Math.atan(ratio) * 180 / Math.PI });
+}
+
+let timeChart, magChart, phaseChart;
+
+function sliderToFreq(v) { return Math.pow(10, v); } // 1..5 → 10..100000
+
+function fmtHz(f){ return f >= 1000 ? (f/1000).toFixed(2)+' kHz' : f.toFixed(0)+' Hz'; }
+
+function update() {
+    const f = sliderToFreq(parseFloat(document.getElementById('f-slider').value));
+    const ratio = f / FC;
+    const gain = 1 / Math.sqrt(1 + ratio * ratio);
+    const phaseRad = -Math.atan(ratio);
+    const phaseDeg = phaseRad * 180 / Math.PI;
+
+    document.getElementById('f-val').textContent = fmtHz(f);
+    document.getElementById('gain-x').textContent = '× ' + gain.toFixed(2);
+    document.getElementById('gain-db').textContent = (20*Math.log10(gain)).toFixed(1) + ' dB';
+    document.getElementById('phase-val').textContent = phaseDeg.toFixed(0) + '°';
+
+    // 白話
+    let n;
+    if (ratio < 0.2) n = `現在頻率比系統「跟得上」的範圍低很多,所以輸出幾乎原汁原味(放大 ${gain.toFixed(2)} 倍、只慢 ${(-phaseDeg).toFixed(0)}°)。`;
+    else if (ratio < 3) n = `接近系統的轉角(1kHz)。輸出開始縮水成 ${gain.toFixed(2)} 倍、明顯落後 ${(-phaseDeg).toFixed(0)}°。`;
+    else n = `頻率遠高於系統能力,輸出被大幅衰減成 ${gain.toFixed(2)} 倍,而且幾乎落後滿 90°——系統「追不動」這麼快的訊號了。`;
+    document.getElementById('narrative').textContent = n;
+
+    // 時域：畫 3 個輸入週期
+    const T = 1 / f, tEnd = 3 * T, NN = 240;
+    const inp = [], out = [];
+    for (let i = 0; i < NN; i++) {
+        const t = tEnd * i / (NN - 1);
+        inp.push({ x: t * 1000, y: Math.sin(2 * Math.PI * f * t) });
+        out.push({ x: t * 1000, y: gain * Math.sin(2 * Math.PI * f * t + phaseRad) });
+    }
+    timeChart.data.datasets[0].data = inp;
+    timeChart.data.datasets[1].data = out;
+    timeChart.options.scales.x.max = tEnd * 1000;
+    timeChart.update();
+
+    // 波德圖上的點
+    magChart.data.datasets[1].data = [{ x: f, y: 20 * Math.log10(gain) }];
+    phaseChart.data.datasets[1].data = [{ x: f, y: phaseDeg }];
+    magChart.update(); phaseChart.update();
+}
+
+function init() {
+    const tctx = document.getElementById('timeChart').getContext('2d');
+    timeChart = new Chart(tctx, {
+        type: 'line',
+        data: { datasets: [
+            { label: '輸入', data: [], borderColor: '#2563eb', borderWidth: 2, pointRadius: 0, fill: false },
+            { label: '輸出', data: [], borderColor: '#f59e0b', borderWidth: 2.5, pointRadius: 0, fill: false }
+        ]},
+        options: {
+            responsive: true, maintainAspectRatio: false, parsing: false, animation: { duration: 80 },
+            scales: {
+                x: { type: 'linear', min: 0, title: { display: true, text: '時間 (ms)' } },
+                y: { min: -1.15, max: 1.15, title: { display: true, text: '振幅' } }
+            },
+            elements: { line: { tension: 0 } },
+            plugins: { title: { display: true, text: '時域：藍=輸入正弦，橘=輸出（變小＋平移）', align: 'start' }, legend: { display: true, position: 'bottom' }, tooltip: { enabled: false } }
+        }
+    });
+
+    const common = {
+        responsive: true, maintainAspectRatio: false, parsing: false, animation: { duration: 80 },
+        elements: { point: { radius: 0 }, line: { tension: 0 } },
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: { x: { type: 'logarithmic', min: F_MIN, max: F_MAX, title: { display: true, text: '頻率 (Hz, log)' }, grid: { color: 'rgba(0,0,0,.05)' } } }
+    };
+
+    const mctx = document.getElementById('magChart').getContext('2d');
+    magChart = new Chart(mctx, { type: 'line',
+        data: { datasets: [
+            { data: sweepMag, borderColor: '#2563eb', borderWidth: 2.5, fill: false },
+            { data: [], borderColor: '#16a34a', backgroundColor: '#16a34a', pointRadius: 6, showLine: false }
+        ]},
+        options: { ...common, plugins: { ...common.plugins, title: { display: true, text: '波德圖①增益：你現在站在綠點', align: 'start' } },
+            scales: { ...common.scales, y: { min: -40, max: 5, title: { display: true, text: 'Magnitude (dB)' }, grid: { color: 'rgba(0,0,0,.05)' } } } }
+    });
+
+    const pctx = document.getElementById('phaseChart').getContext('2d');
+    phaseChart = new Chart(pctx, { type: 'line',
+        data: { datasets: [
+            { data: sweepPhase, borderColor: '#2563eb', borderWidth: 2.5, fill: false },
+            { data: [], borderColor: '#16a34a', backgroundColor: '#16a34a', pointRadius: 6, showLine: false }
+        ]},
+        options: { ...common, plugins: { ...common.plugins, title: { display: true, text: '波德圖②相位：輸出落後多少度', align: 'start' } },
+            scales: { ...common.scales, y: { min: -95, max: 5, title: { display: true, text: 'Phase (deg)' }, grid: { color: 'rgba(0,0,0,.05)' } } } }
+    });
+}
+
+document.getElementById('f-slider').addEventListener('input', update);
+init();
+update();
+</script>
+</body>
+</html>

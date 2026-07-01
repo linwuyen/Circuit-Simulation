@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPI 01 - 訊號與資料流互動模擬</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --ink: #162033;
+      --muted: #64748b;
+      --line: #d7dee9;
+      --teal: #0f766e;
+      --teal-soft: #e0f2f1;
+      --blue: #2563eb;
+      --blue-soft: #dbeafe;
+      --amber: #b45309;
+      --amber-soft: #fff3d7;
+      --red: #b91c1c;
+      --red-soft: #fee2e2;
+      --dark: #10202b;
+      --shadow: 0 16px 35px rgba(15, 23, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Noto Sans TC", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.55;
+    }
+    button, input, select { font: inherit; }
+    button { border: 0; cursor: pointer; }
+    code, .mono { font-family: Consolas, "Cascadia Mono", monospace; }
+
+    header {
+      background: var(--dark);
+      color: #f8fafc;
+      padding: 18px clamp(16px, 4vw, 40px);
+      border-bottom: 4px solid #14b8a6;
+    }
+    .header-inner, main, footer {
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+    h1 { margin: 0; font-size: clamp(24px, 3.4vw, 38px); }
+    .subtitle { margin: 6px 0 0; color: #cbd5e1; max-width: 760px; }
+    .top-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .top-nav a {
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      padding: 7px 10px;
+      border-radius: 7px;
+      color: #fff;
+      text-decoration: none;
+      font-weight: 800;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.18);
+    }
+
+    main {
+      padding: 22px clamp(14px, 3vw, 34px) 30px;
+      display: grid;
+      grid-template-columns: minmax(300px, 390px) minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .stack { display: grid; gap: 14px; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+    .panel-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .panel-title h2, .panel-title h3 { margin: 0; font-size: 17px; }
+    .panel-title small { color: var(--muted); white-space: nowrap; }
+
+    .field-grid { display: grid; gap: 12px; }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .field { display: grid; gap: 6px; }
+    label {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 800;
+      color: #334155;
+    }
+    label small { color: var(--muted); font-weight: 500; }
+    input, select {
+      width: 100%;
+      min-height: 40px;
+      padding: 8px 10px;
+      border-radius: 7px;
+      border: 1px solid #a8b3c5;
+      outline: none;
+      background: #fff;
+    }
+    input:focus, select:focus {
+      border-color: var(--teal);
+      box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.16);
+    }
+    .hint { color: var(--muted); font-size: 12px; }
+
+    .btn-row { display: flex; flex-wrap: wrap; gap: 9px; }
+    .btn {
+      min-height: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border-radius: 7px;
+      padding: 9px 13px;
+      font-weight: 900;
+      background: var(--teal);
+      color: #fff;
+    }
+    .btn.secondary { background: #e2e8f0; color: #273449; }
+    .btn.warning { background: var(--amber); }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .metric {
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+    .metric span { display: block; color: var(--muted); font-size: 12px; font-weight: 800; }
+    .metric strong { display: block; margin-top: 5px; font-size: 24px; }
+
+    .bus-layout {
+      display: grid;
+      grid-template-columns: 1fr 1.1fr 1fr;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .chip {
+      min-height: 120px;
+      border: 2px solid #334155;
+      border-radius: 8px;
+      background: #f8fafc;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 14px;
+    }
+    .chip strong { display: block; font-size: 20px; }
+    .chip span { display: block; margin-top: 4px; color: var(--muted); }
+    .wire-box {
+      display: grid;
+      gap: 8px;
+    }
+    .wire {
+      display: grid;
+      grid-template-columns: 58px 1fr 58px;
+      gap: 8px;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 900;
+      color: #334155;
+    }
+    .wire-line {
+      position: relative;
+      height: 8px;
+      border-radius: 999px;
+      background: #cbd5e1;
+      overflow: hidden;
+    }
+    .wire-line.active { background: #99f6e4; }
+    .pulse {
+      position: absolute;
+      inset: 0;
+      transform: translateX(var(--pulse, -100%));
+      background: linear-gradient(90deg, transparent, #0f766e, transparent);
+      transition: transform 220ms ease;
+    }
+
+    .canvas-wrap {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0b1220;
+      overflow: hidden;
+      min-height: 300px;
+    }
+    canvas { display: block; width: 100%; height: 300px; }
+
+    .bit-row {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .bit-cell {
+      min-height: 52px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+      font-weight: 900;
+    }
+    .bit-cell.active {
+      border-color: var(--teal);
+      background: var(--teal-soft);
+      color: #0f5f58;
+    }
+    .bit-cell.done {
+      border-color: #bfdbfe;
+      background: #eff6ff;
+      color: var(--blue);
+    }
+
+    .lesson {
+      display: grid;
+      gap: 10px;
+    }
+    .lesson h3 { margin: 0; font-size: 18px; }
+    .lesson p { margin: 0; color: #334155; }
+    .lesson ul { margin: 0; padding-left: 20px; color: #334155; }
+    .lesson li + li { margin-top: 5px; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: var(--blue-soft);
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 900;
+    }
+    footer {
+      padding: 0 clamp(14px, 3vw, 34px) 28px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 980px) {
+      main,
+      .bus-layout {
+        grid-template-columns: 1fr;
+      }
+      .status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 620px) {
+      .two,
+      .status-grid { grid-template-columns: 1fr; }
+      .wire { grid-template-columns: 46px 1fr 46px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <h1>01. SPI 訊號與資料流</h1>
+      <p class="subtitle">先不要急著看暫存器。SPI 最重要的直覺是：Master 每打一個 clock，MOSI 送出 1 bit，MISO 也同時回來 1 bit。</p>
+      <nav class="top-nav">
+        <a href="index.html">課程入口</a>
+        <a href="spi_02_timing.html">下一課：時序模式</a>
+        <a href="spi_fifo.html">FIFO 溢位</a>
+        <a href="spi_04_debug.html">實務除錯</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="stack">
+      <div class="panel">
+        <div class="panel-title">
+          <h2>設定資料</h2>
+          <small>8-bit 範例</small>
+        </div>
+        <div class="field-grid">
+          <div class="two">
+            <div class="field">
+              <label for="mosiHex"><span>Master 送出</span><small>MOSI hex</small></label>
+              <input id="mosiHex" value="A5" maxlength="2" spellcheck="false">
+              <div class="hint">例如命令 byte、register address、dummy byte。</div>
+            </div>
+            <div class="field">
+              <label for="misoHex"><span>Slave 回傳</span><small>MISO hex</small></label>
+              <input id="misoHex" value="3C" maxlength="2" spellcheck="false">
+              <div class="hint">讀取時 Slave 在 MISO 放資料。</div>
+            </div>
+          </div>
+          <div class="two">
+            <div class="field">
+              <label for="bitOrder"><span>位元順序</span><small>Bit order</small></label>
+              <select id="bitOrder">
+                <option value="msb" selected>MSB first</option>
+                <option value="lsb">LSB first</option>
+              </select>
+              <div class="hint">多數 SPI IC 預設 MSB first。</div>
+            </div>
+            <div class="field">
+              <label for="dummyMode"><span>讀取觀念</span><small>Dummy clock</small></label>
+              <select id="dummyMode">
+                <option value="normal" selected>一般交換資料</option>
+                <option value="read">Master 送 dummy，Slave 回資料</option>
+              </select>
+              <div class="hint">SPI 要讀資料，也需要 Master 產生 clock。</div>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn" id="btnStep" type="button">單步 clock</button>
+            <button class="btn secondary" id="btnPlay" type="button">連續播放</button>
+            <button class="btn warning" id="btnReset" type="button">重設</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <h2>本頁先學會</h2>
+          <small>初學重點</small>
+        </div>
+        <div class="lesson">
+          <h3>SPI 是同步、全雙工的 shift register</h3>
+          <p>Master 和 Slave 裡面都像有一個 shift register。每個 SCLK 來時，雙方各推出 1 bit，同時也把對方的 1 bit 收進來。</p>
+          <ul>
+            <li><strong>MOSI</strong>：Master -> Slave。</li>
+            <li><strong>MISO</strong>：Slave -> Master。</li>
+            <li><strong>SCLK</strong>：Master 給 clock，決定交換速度。</li>
+            <li><strong>CS</strong>：選哪顆 Slave，常見低電平有效。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="stack">
+      <div class="status-grid" aria-live="polite">
+        <div class="metric"><span>目前 clock</span><strong id="clockIndex">0 / 8</strong></div>
+        <div class="metric"><span>MOSI bit</span><strong id="mosiBit">-</strong></div>
+        <div class="metric"><span>MISO bit</span><strong id="misoBit">-</strong></div>
+        <div class="metric"><span>Master 已收到</span><strong id="masterRx">0x00</strong></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <h2>線路方向</h2>
+          <small id="busStatus">CS idle</small>
+        </div>
+        <div class="bus-layout">
+          <div class="chip"><div><strong>Master</strong><span id="masterTx">TX 0xA5</span></div></div>
+          <div class="wire-box">
+            <div class="wire"><span>MOSI</span><div class="wire-line" id="mosiWire"><span class="pulse"></span></div><span>-></span></div>
+            <div class="wire"><span>MISO</span><div class="wire-line" id="misoWire"><span class="pulse"></span></div><span><-</span></div>
+            <div class="wire"><span>SCLK</span><div class="wire-line" id="sclkWire"><span class="pulse"></span></div><span>clk</span></div>
+            <div class="wire"><span>CS</span><div class="wire-line" id="csWire"><span class="pulse"></span></div><span>low</span></div>
+          </div>
+          <div class="chip"><div><strong>Slave</strong><span id="slaveTx">TX 0x3C</span></div></div>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="waveCanvas" width="820" height="300"></canvas>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <h2>8 個 clock 對應的 bit</h2>
+          <small><span class="pill" id="orderLabel">MSB first</span></small>
+        </div>
+        <div class="lesson">
+          <p>上排是 MOSI，下排是 MISO。亮起的位置就是目前 clock 正在交換的 bit。</p>
+          <div class="bit-row" id="mosiBits"></div>
+          <div class="bit-row" id="misoBits"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>下一步：到 <a href="spi_02_timing.html">CPOL / CPHA 時序模式</a> 看資料在哪個 clock 邊緣被取樣。</footer>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const dom = {
+      mosiHex: $("mosiHex"),
+      misoHex: $("misoHex"),
+      bitOrder: $("bitOrder"),
+      dummyMode: $("dummyMode"),
+      btnStep: $("btnStep"),
+      btnPlay: $("btnPlay"),
+      btnReset: $("btnReset"),
+      clockIndex: $("clockIndex"),
+      mosiBit: $("mosiBit"),
+      misoBit: $("misoBit"),
+      masterRx: $("masterRx"),
+      masterTx: $("masterTx"),
+      slaveTx: $("slaveTx"),
+      busStatus: $("busStatus"),
+      orderLabel: $("orderLabel"),
+      mosiBits: $("mosiBits"),
+      misoBits: $("misoBits"),
+      mosiWire: $("mosiWire"),
+      misoWire: $("misoWire"),
+      sclkWire: $("sclkWire"),
+      csWire: $("csWire"),
+      waveCanvas: $("waveCanvas")
+    };
+
+    let step = 0;
+    let rxBits = [];
+    let playTimer = null;
+
+    function parseHex(value, fallback) {
+      const clean = String(value).trim().replace(/^0x/i, "").replace(/[^0-9a-f]/gi, "").slice(0, 2);
+      if (!clean) return fallback;
+      return parseInt(clean, 16);
+    }
+
+    function bitsOf(value, order) {
+      const bits = Array.from({ length: 8 }, (_, index) => (value >> (7 - index)) & 1);
+      return order === "lsb" ? bits.reverse() : bits;
+    }
+
+    function hex2(value) {
+      return `0x${value.toString(16).toUpperCase().padStart(2, "0")}`;
+    }
+
+    function currentConfig() {
+      let mosi = parseHex(dom.mosiHex.value, 0xA5);
+      const miso = parseHex(dom.misoHex.value, 0x3C);
+      if (dom.dummyMode.value === "read") mosi = 0xFF;
+      return {
+        mosi,
+        miso,
+        order: dom.bitOrder.value,
+        mosiBits: bitsOf(mosi, dom.bitOrder.value),
+        misoBits: bitsOf(miso, dom.bitOrder.value)
+      };
+    }
+
+    function reset() {
+      step = 0;
+      rxBits = [];
+      stopPlay();
+      render();
+    }
+
+    function stepClock() {
+      const cfg = currentConfig();
+      if (step >= 8) return;
+      rxBits.push(cfg.misoBits[step]);
+      step += 1;
+      render();
+    }
+
+    function stopPlay() {
+      if (playTimer) clearInterval(playTimer);
+      playTimer = null;
+      dom.btnPlay.textContent = "連續播放";
+    }
+
+    function togglePlay() {
+      if (playTimer) {
+        stopPlay();
+        return;
+      }
+      dom.btnPlay.textContent = "暫停";
+      playTimer = setInterval(() => {
+        if (step >= 8) {
+          stopPlay();
+          return;
+        }
+        stepClock();
+      }, 520);
+    }
+
+    function rxValue(order) {
+      if (!rxBits.length) return 0;
+      const padded = [...rxBits, ...Array(8 - rxBits.length).fill(0)];
+      const msbBits = order === "lsb" ? [...padded].reverse() : padded;
+      return msbBits.reduce((acc, bit) => (acc << 1) | bit, 0);
+    }
+
+    function renderBits(container, bits, label) {
+      container.innerHTML = bits.map((bit, index) => {
+        const state = index < step ? "done" : index === step ? "active" : "";
+        return `<div class="bit-cell ${state}"><span>${label}${index}</span><strong>${bit}</strong></div>`;
+      }).join("");
+    }
+
+    function pulseWires(active) {
+      [dom.mosiWire, dom.misoWire, dom.sclkWire, dom.csWire].forEach((wire) => {
+        wire.classList.toggle("active", active);
+        const pulse = wire.querySelector(".pulse");
+        pulse.style.setProperty("--pulse", active ? "100%" : "-100%");
+      });
+    }
+
+    function render() {
+      const cfg = currentConfig();
+      dom.mosiHex.value = cfg.mosi.toString(16).toUpperCase().padStart(2, "0");
+      dom.misoHex.value = cfg.miso.toString(16).toUpperCase().padStart(2, "0");
+      dom.clockIndex.textContent = `${step} / 8`;
+      dom.mosiBit.textContent = step < 8 ? cfg.mosiBits[step] : "-";
+      dom.misoBit.textContent = step < 8 ? cfg.misoBits[step] : "-";
+      dom.masterRx.textContent = hex2(rxValue(cfg.order));
+      dom.masterTx.textContent = `TX ${hex2(cfg.mosi)}`;
+      dom.slaveTx.textContent = `TX ${hex2(cfg.miso)}`;
+      dom.busStatus.textContent = step === 0 ? "CS idle，準備開始" : step >= 8 ? "CS 可拉高，transaction 結束" : "CS low，正在交換資料";
+      dom.orderLabel.textContent = cfg.order === "msb" ? "MSB first" : "LSB first";
+      renderBits(dom.mosiBits, cfg.mosiBits, "M");
+      renderBits(dom.misoBits, cfg.misoBits, "S");
+      pulseWires(step > 0 && step <= 8);
+      drawWave(cfg);
+    }
+
+    function drawWave(cfg) {
+      const canvas = dom.waveCanvas;
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(420, Math.round(rect.width * dpr));
+      canvas.height = Math.max(260, Math.round(rect.height * dpr));
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+      const w = canvas.width / dpr;
+      const h = canvas.height / dpr;
+      const pad = { left: 70, right: 22, top: 20, bottom: 22 };
+      const trackH = 52;
+      const bitW = (w - pad.left - pad.right) / 8;
+      ctx.fillStyle = "#0b1220";
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = "#1f2a44";
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 8; i++) {
+        const x = pad.left + i * bitW;
+        ctx.beginPath();
+        ctx.moveTo(x, pad.top);
+        ctx.lineTo(x, h - pad.bottom);
+        ctx.stroke();
+      }
+      drawDigital(ctx, "CS", 0, Array(8).fill(step > 0 ? 0 : 1), pad, bitW, trackH, "#38bdf8");
+      drawClock(ctx, "SCLK", 1, pad, bitW, trackH, "#fbbf24");
+      drawDigital(ctx, "MOSI", 2, cfg.mosiBits, pad, bitW, trackH, "#5eead4");
+      drawDigital(ctx, "MISO", 3, cfg.misoBits, pad, bitW, trackH, "#c4b5fd");
+      if (step < 8) {
+        const x = pad.left + step * bitW;
+        ctx.fillStyle = "rgba(20, 184, 166, 0.16)";
+        ctx.fillRect(x, pad.top, bitW, h - pad.top - pad.bottom);
+      }
+    }
+
+    function drawDigital(ctx, name, row, values, pad, bitW, trackH, color) {
+      const top = pad.top + row * trackH;
+      const high = top + 10;
+      const low = top + 36;
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "12px Segoe UI, sans-serif";
+      ctx.fillText(name, 14, top + 27);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      values.forEach((value, index) => {
+        const x0 = pad.left + index * bitW;
+        const x1 = x0 + bitW;
+        const y = value ? high : low;
+        if (index === 0) ctx.moveTo(x0, y);
+        else ctx.lineTo(x0, values[index - 1] ? high : low);
+        ctx.lineTo(x0, y);
+        ctx.lineTo(x1, y);
+        ctx.fillStyle = "#cbd5e1";
+        ctx.fillText(String(value), x0 + bitW / 2 - 3, top + 50);
+      });
+      ctx.stroke();
+    }
+
+    function drawClock(ctx, name, row, pad, bitW, trackH, color) {
+      const top = pad.top + row * trackH;
+      const high = top + 10;
+      const low = top + 36;
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "12px Segoe UI, sans-serif";
+      ctx.fillText(name, 14, top + 27);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const x0 = pad.left + i * bitW;
+        const xm = x0 + bitW / 2;
+        const x1 = x0 + bitW;
+        if (i === 0) ctx.moveTo(x0, low);
+        ctx.lineTo(xm, low);
+        ctx.lineTo(xm, high);
+        ctx.lineTo(x1, high);
+        ctx.lineTo(x1, low);
+      }
+      ctx.stroke();
+    }
+
+    [dom.mosiHex, dom.misoHex, dom.bitOrder, dom.dummyMode].forEach((el) => el.addEventListener("input", reset));
+    dom.btnStep.addEventListener("click", stepClock);
+    dom.btnPlay.addEventListener("click", togglePlay);
+    dom.btnReset.addEventListener("click", reset);
+    window.addEventListener("resize", render);
+    render();
+  </script>
+</body>
+</html>

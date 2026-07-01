@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>第 3 課 · ADC 取樣保持 (ACQPS)</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="step">第 3 課 / 7</div>
+    <h1>🔌 ADC 與取樣保持:別讀太早</h1>
+    <p class="lead">ADC 把「電壓」變成「數字」。但抓值之前要等一下下,等不夠久就會抓到錯的。</p>
+  </div>
+
+  <div class="goal">
+    <span class="ic">🎯</span>
+    <div>這頁只教一件事:<span class="term">ACQPS</span>(取樣保持時間)就是「ADC 抓值前先等多久」。等太短 → 內部電容還沒充飽 → <b>讀到的數字是錯的</b>。</div>
+  </div>
+
+  <div class="analogy">
+    <span class="tag">生活比喻</span>
+    像用吸管喝珍珠奶茶:你得 <b>先吸一下下</b> 讓珍珠到嘴邊,太急著一吸就只有空氣。
+    ADC 內部有個小電容,要花一點時間「充飽」到跟輸入電壓一樣;<b>沒充飽就讀,數字會偏低、失真。</b>
+  </div>
+
+  <!-- 互動 -->
+  <div class="card">
+    <h2>🕹️ 動手玩:拖動 ACQPS(等待時間),看抓到的值準不準</h2>
+
+    <div class="controls">
+      <div class="ctl">
+        <label><span>ACQPS 取樣保持時間</span><span class="val v-blue" id="acqVal">600 ns</span></label>
+        <input type="range" id="acq" min="100" max="1200" step="20" value="600" />
+        <div class="hint">外部精準 ADC(LTC2353)約需 <b style="color:var(--red)">550ns</b> 才充飽。試著拉到 550 以下,看會怎樣。</div>
+      </div>
+    </div>
+
+    <div class="svg-box" style="margin-top:14px">
+      <svg viewBox="0 0 600 220" style="width:100%">
+        <!-- 充電曲線區 -->
+        <text x="8" y="20" fill="#94a3b8" font-size="12">電容充電過程(越久越接近真實電壓)</text>
+        <!-- 目標電壓線 -->
+        <line x1="40" y1="50" x2="560" y2="50" stroke="#64748b" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <text x="564" y="54" fill="#94a3b8" font-size="10">真實值</text>
+        <!-- 底線 -->
+        <line x1="40" y1="180" x2="560" y2="180" stroke="#334155"/>
+        <line x1="40" y1="50" x2="40" y2="180" stroke="#334155"/>
+        <!-- 充電曲線 -->
+        <path id="curve" fill="none" stroke="#3b82f6" stroke-width="2.5"/>
+        <!-- 550ns 安全線 -->
+        <line id="safeLine" y1="44" y2="186" stroke="#f87171" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <text id="safeTxt" y="200" fill="#f87171" font-size="10" text-anchor="middle">550ns 安全</text>
+        <!-- 讀取點 -->
+        <line id="readLine" y1="44" y2="186" stroke="#fbbf24" stroke-width="2"/>
+        <circle id="readDot" r="6" fill="#fbbf24"/>
+        <text id="readTxt" y="38" fill="#fbbf24" font-size="11" font-weight="700" text-anchor="middle"></text>
+      </svg>
+    </div>
+
+    <div class="stats" style="margin-top:16px">
+      <div class="stat"><div class="k">🎯 真實電壓</div><div class="v v-blue">2.500<span class="small muted"> V</span></div></div>
+      <div class="stat"><div class="k">📥 ADC 讀到</div><div class="v" id="readV" style="font-size:22px">2.500<span class="small muted"> V</span></div></div>
+      <div class="stat"><div class="k">📊 誤差</div><div class="v" id="errV" style="font-size:22px">0<span class="small muted"> %</span></div></div>
+    </div>
+
+    <div id="statusBox" style="margin-top:14px"></div>
+  </div>
+
+  <div class="observe">
+    <span class="tag">👀 觀察提示</span>
+    <span>ACQPS = 600ns:讀取點落在曲線「幾乎到頂」的地方,誤差近 0 ✓。拉到 300ns:讀取點落在曲線還在爬升的地方,讀到的值明顯偏低、誤差變大、變紅 ⚠️。這顆假電壓會直接餵給 PID,讓控制器做出錯誤判斷。</span>
+  </div>
+
+  <div class="keypoints">
+    <h3>📌 重點整理</h3>
+    <ul>
+      <li><span class="term">ACQPS</span> = Acquisition Prescale,設定「取樣保持窗口」要多長,用 ADC 時脈週期數表示。</li>
+      <li>窗口要 <b>≥ 訊號源穩定所需時間</b>。訊號源阻抗越高、外部 ADC 越精準,需要的時間越長(這裡示意值 ≈ 550ns)。</li>
+      <li>設太短 = 省了時間但抓到壞值,是高頻控制裡很常見的隱形 bug;設太長則浪費寶貴的 10μs 預算。要<b>剛剛好</b>。</li>
+    </ul>
+  </div>
+
+  <div class="code">
+    <div class="head">💻 對應到真實韌體:設定某個 SOC 的取樣保持窗口</div>
+    <pre><span class="cm">// ACQPS 以「ADC 時脈週期 - 1」為單位。數字越大,取樣窗口越長。</span>
+AdcaRegs.ADCSOC0CTL.bit.<span class="nm">ACQPS</span>   = <span class="num">14</span>;  <span class="cm">// = 15 個 ADCCLK,給訊號充飽的時間</span>
+AdcaRegs.ADCSOC0CTL.bit.<span class="nm">CHSEL</span>   = <span class="num">0</span>;   <span class="cm">// 選擇輸入通道</span>
+AdcaRegs.ADCSOC0CTL.bit.<span class="nm">TRIGSEL</span> = <span class="num">5</span>;   <span class="cm">// 由 EPWM1 SOCA 觸發(接上一課)</span>
+<span class="cm">// ⚠️ ACQPS 太小 → 取樣窗口太短 → 高阻抗訊號讀到壞值</span></pre>
+  </div>
+
+  <!-- 小測驗 -->
+  <div class="quiz" id="quiz">
+    <h3>✅ 隨堂小測驗</h3>
+    <div class="q">你把 ACQPS 從 600ns 改小到 300ns 以「省時間」。最可能的後果是?</div>
+    <button class="opt" data-c="0">A. ADC 變快又更準,賺到</button>
+    <button class="opt" data-c="1">B. 取樣窗口太短,電容沒充飽,讀到偏掉的假電壓,PID 跟著算錯</button>
+    <button class="opt" data-c="0">C. 完全沒影響,ACQPS 只是裝飾</button>
+    <div class="explain" id="exp">✔️ 正解 B。省下的那點時間,換來的是錯誤的量測值。控制系統「垃圾進、垃圾出」——壞輸入會讓後面再精準的 PID 也算出錯的輸出。</div>
+  </div>
+
+</div>
+
+<script>window.PAGE = '03';</script>
+<script src="nav.js"></script>
+<script>
+// 座標:x 從 40(t=0) 到 560(t=1200ns);y 從 180(0V) 到 50(2.5V 真實值)
+var X0 = 40, X1 = 560, Y0 = 180, YTOP = 50, TMAX = 1200, TRUE_V = 2.5, TAU = 180; // 時間常數(ns)
+function tx(t) { return X0 + (X1 - X0) * t / TMAX; }
+function vy(v) { return Y0 - (Y0 - YTOP) * (v / TRUE_V); }
+function charged(t) { return TRUE_V * (1 - Math.exp(-t / TAU)); }   // 1 - e^(-t/τ)
+
+// 畫曲線(固定)
+var d = '';
+for (var t = 0; t <= TMAX; t += 12) { d += (t === 0 ? 'M' : 'L') + tx(t).toFixed(1) + ',' + vy(charged(t)).toFixed(1) + ' '; }
+document.getElementById('curve').setAttribute('d', d);
+// 安全線 550ns
+document.getElementById('safeLine').setAttribute('x1', tx(550)); document.getElementById('safeLine').setAttribute('x2', tx(550));
+document.getElementById('safeTxt').setAttribute('x', tx(550));
+
+var acq = document.getElementById('acq');
+function render() {
+  var t = +acq.value;
+  document.getElementById('acqVal').textContent = t + ' ns';
+  var v = charged(t);
+  var err = (TRUE_V - v) / TRUE_V * 100;
+  var bad = t < 550;
+
+  var x = tx(t), y = vy(v);
+  document.getElementById('readLine').setAttribute('x1', x);
+  document.getElementById('readLine').setAttribute('x2', x);
+  document.getElementById('readLine').setAttribute('stroke', bad ? '#f87171' : '#fbbf24');
+  var dot = document.getElementById('readDot');
+  dot.setAttribute('cx', x); dot.setAttribute('cy', y); dot.setAttribute('fill', bad ? '#f87171' : '#fbbf24');
+  var rt = document.getElementById('readTxt'); rt.setAttribute('x', Math.min(x, 540)); rt.textContent = '讀此處';
+  rt.setAttribute('fill', bad ? '#f87171' : '#fbbf24');
+
+  document.getElementById('readV').innerHTML = v.toFixed(3) + '<span class="small muted"> V</span>';
+  document.getElementById('readV').className = 'v ' + (bad ? 'v-red' : 'v-emerald');
+  var ev = document.getElementById('errV');
+  ev.innerHTML = err.toFixed(1) + '<span class="small muted"> %</span>';
+  ev.className = 'v ' + (err > 5 ? 'v-red' : err > 1 ? 'v-amber' : 'v-emerald');
+
+  document.getElementById('statusBox').innerHTML = bad
+    ? '<div class="observe" style="border-color:rgba(248,113,113,.6);background:rgba(248,113,113,.08)"><span class="tag" style="color:var(--red)">⚠️ 讀太早</span><span>ACQPS &lt; 550ns,電容還沒充飽就讀,抓到的電壓偏低 '+err.toFixed(1)+'%,是壞值。</span></div>'
+    : '<div class="observe" style="border-color:rgba(52,211,153,.5);background:rgba(52,211,153,.07)"><span class="tag" style="color:var(--emerald)">✓ 正常</span><span>等到電容充飽才讀,量測準確。</span></div>';
+}
+acq.oninput = render;
+render();
+
+document.querySelectorAll('#quiz .opt').forEach(function (b) {
+  b.onclick = function () {
+    document.querySelectorAll('#quiz .opt').forEach(function (x) { x.classList.remove('correct','wrong'); });
+    b.classList.add(b.dataset.c === '1' ? 'correct' : 'wrong');
+    document.getElementById('exp').classList.add('show');
+  };
+});
+</script>
+</body>
+</html>

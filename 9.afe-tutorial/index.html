@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AFE 入門拆解地圖</title>
+    <link rel="stylesheet" href="assets/app.css">
+    <script src="../assets/vendor/lucide.min.js"></script>
+    <script src="assets/app.js" defer></script>
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="index.html">
+            <span class="brand-mark"><i data-lucide="activity"></i></span>
+            <span>
+                <span class="brand-title">AFE Tutorial</span>
+                <span class="brand-subtitle">從觀念到實驗</span>
+            </span>
+        </a>
+        <nav class="nav">
+            <a data-nav href="index.html"><i data-lucide="map"></i>總覽</a>
+            <a data-nav href="01-concepts.html"><i data-lucide="blocks"></i>觀念</a>
+            <a data-nav href="02-waveforms.html"><i data-lucide="waves"></i>波形</a>
+            <a data-nav href="03-control-loop.html"><i data-lucide="route"></i>控制</a>
+            <a data-nav href="04-lab.html"><i data-lucide="clipboard-list"></i>實驗</a>
+            <a data-nav href="simulator.html"><i data-lucide="monitor-play"></i>模擬器</a>
+        </nav>
+    </header>
+
+    <main class="page">
+        <section class="intro">
+            <div class="eyebrow">Learning map</div>
+            <h1>把原本很滿的 AFE 模擬器，拆成初學者能吸收的 5 個入口。</h1>
+            <p class="lead">
+                原始頁面同時有示波器、拓撲圖、PI 參數、模式切換、C28x/CLA 程式碼。拆解後的重點不是減少內容，而是安排學習順序：先知道 AFE 在做什麼，再學會看波形，最後才進入控制器與實驗紀錄。<strong>現在第 1～3 站每頁都內建一個小互動</strong>：只給一兩個控制項，讓你先預測、再操作、再看白話結論，最後才進入全功能模擬器。
+            </p>
+        </section>
+
+        <section class="grid grid-3">
+            <a class="route-card" href="01-concepts.html">
+                <div class="card-head">
+                    <span class="icon-box"><i data-lucide="blocks"></i></span>
+                    <span class="tag teal">第 1 站</span>
+                </div>
+                <h2>觀念地圖</h2>
+                <p class="muted">用 AC 端、AFE 主橋、DC 母線三個積木先建立整體圖像。</p>
+                <span class="tag teal">🎮 動手玩：切換能量方向</span>
+            </a>
+            <a class="route-card" href="02-waveforms.html">
+                <div class="card-head">
+                    <span class="icon-box"><i data-lucide="waves"></i></span>
+                    <span class="tag blue">第 2 站</span>
+                </div>
+                <h2>波形判讀</h2>
+                <p class="muted">學會用 V_grid、I_grid、I_ref、Theta、V_bus 判斷系統狀態。</p>
+                <span class="tag teal">🎮 動手玩：拖相位看 PF</span>
+            </a>
+            <a class="route-card" href="03-control-loop.html">
+                <div class="card-head">
+                    <span class="icon-box"><i data-lucide="route"></i></span>
+                    <span class="tag amber">第 3 站</span>
+                </div>
+                <h2>控制迴路</h2>
+                <p class="muted">把 PLL、DDS、電壓外環、電流內環拆成可追蹤的資料流。</p>
+                <span class="tag teal">🎮 動手玩：PLL 鎖相 + PI 調參</span>
+            </a>
+            <a class="route-card" href="04-lab.html">
+                <div class="card-head">
+                    <span class="icon-box"><i data-lucide="clipboard-list"></i></span>
+                    <span class="tag rose">第 4 站</span>
+                </div>
+                <h2>實驗工作台</h2>
+                <p class="muted">用負載、諧波、相位、PI 參數做情境測試，並留下觀察紀錄。</p>
+            </a>
+            <a class="route-card" href="simulator.html">
+                <div class="card-head">
+                    <span class="icon-box"><i data-lucide="monitor-play"></i></span>
+                    <span class="tag">第 5 站</span>
+                </div>
+                <h2>教練版模擬器</h2>
+                <p class="muted">保留原始動態模擬器，旁邊加上觀察順序與節點說明。</p>
+            </a>
+            <section class="panel">
+                <span class="tag teal">拆解原則</span>
+                <h2>每次只看一件事</h2>
+                <p class="muted">初學者最常遇到的問題不是資訊不足，而是沒有判讀順序。這份版本把「目的、訊號、控制、實驗」分開，讓每次操作都有觀察目標。</p>
+            </section>
+        </section>
+
+        <section class="panel" style="margin-top: 22px;">
+            <h2>建議學習路線</h2>
+            <div class="flow" style="margin-top: 14px;">
+                <div class="flow-node">
+                    <span class="tag teal">1</span>
+                    <h3>先看能量方向</h3>
+                    <p class="muted">AFE 可以吸電，也可以送電。方向是整個系統的主線。</p>
+                </div>
+                <div class="flow-arrow">-&gt;</div>
+                <div class="flow-node">
+                    <span class="tag blue">2</span>
+                    <h3>再看波形</h3>
+                    <p class="muted">電流是否跟電壓同相，比一開始背公式更重要。</p>
+                </div>
+                <div class="flow-arrow">-&gt;</div>
+                <div class="flow-node">
+                    <span class="tag amber">3</span>
+                    <h3>最後看控制器</h3>
+                    <p class="muted">PLL 找角度，DDS 產生參考，PI 讓實際量追上目標。</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="grid grid-2" style="margin-top: 22px;">
+            <div class="panel">
+                <h2>原始單頁適合展示</h2>
+                <p class="muted">它很適合展示完整系統，因為所有儀表與程式碼都在同一頁。但初學者第一次打開時，容易不知道先看哪個數值，也不容易把操作和現象連起來。</p>
+            </div>
+            <div class="panel">
+                <h2>拆頁後適合教學</h2>
+                <p class="muted">多頁版讓每一頁只回答一個問題：AFE 是什麼、波形怎麼看、控制怎麼串、實驗怎麼做。等概念建立後，再回到完整模擬器會更有效率。</p>
+            </div>
+        </section>
+
+        <section class="panel" style="margin-top: 22px;">
+            <h2>整合包文件</h2>
+            <p class="muted">若要把整個資料夾交給別人，請讓對方先開 `START_HERE.html`。原始備份放在 `originals/afe.html`，教學流程放在 `docs/TEACHING_FLOW.md`。</p>
+            <div class="actions">
+                <a class="button" href="START_HERE.html"><i data-lucide="folder-open"></i>整合包入口</a>
+                <a class="button" href="README.md"><i data-lucide="file-text"></i>README</a>
+                <a class="button" href="docs/TEACHING_FLOW.md"><i data-lucide="presentation"></i>教學流程</a>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">本教材保留原始模擬器作為 simulator-core.html，原始備份另存於 originals/afe.html。</footer>
+</body>
+</html>

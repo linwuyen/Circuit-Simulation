@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>第 7 課 · 完整時序模擬器</title>
+<link rel="stylesheet" href="style.css" />
+<style>
+  /* 本頁專用:時序圖細節 */
+  .layer { position: relative; z-index: 2; margin-bottom: 16px; }
+  .layer h4 { font-size: 12px; color: var(--faint); text-transform: uppercase; letter-spacing: .08em; margin: 0 0 8px; }
+  .axis { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--faint); border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 14px; }
+  .tlwrap { position: relative; }
+  .grid-v { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(51,65,85,.5); z-index: 0; }
+  .playhead { position: absolute; top: -4px; bottom: 0; width: 2px; background: rgba(255,255,255,.8); z-index: 20; box-shadow: 0 0 8px 2px rgba(255,255,255,.35); pointer-events: none; }
+  .playhead .lbl { position: absolute; top: -19px; transform: translateX(-50%); background: #fff; color: #0f172a; font-family: var(--mono); font-size: 10px; font-weight: 700; padding: 1px 4px; border-radius: 3px; white-space: nowrap; }
+  .tl-fill.active { filter: brightness(1.5); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: 1; } }
+  .statuscards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 12px; }
+  .sc { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 10px; border: 1px solid; }
+  .sc.ok  { background: rgba(52,211,153,.08); border-color: rgba(52,211,153,.4); }
+  .sc.warn{ background: rgba(251,191,36,.12); border-color: var(--amber); }
+  .sc.bad { background: rgba(248,113,113,.12); border-color: var(--red); }
+  .sc .t { font-weight: 700; font-size: 13px; }
+  .sc .d { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .preset { padding: 6px 11px; border-radius: 7px; font-size: 12px; font-weight: 600; background: var(--bg); border: 1px solid var(--border); color: var(--text); cursor: pointer; }
+  .preset:hover { border-color: var(--border2); }
+  .gloss { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px,1fr)); gap: 12px; }
+  .gloss .g { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 13px 15px; }
+  .gloss .g h3 { color: var(--blue); font-size: 13px; }
+  .gloss .g p { font-size: 12.5px; color: var(--muted); margin: 4px 0 0; }
+  .fix { background: rgba(96,165,250,.07); border: 1px solid rgba(96,165,250,.3); border-radius: 10px; padding: 13px 16px; margin-top: 12px; font-size: 13.5px; }
+  .fix b { color: var(--blue); }
+</style>
+</head>
+<body>
+<div class="wrap wrap-wide">
+
+  <div class="hero">
+    <div class="step">第 7 課 / 7 · 畢業關卡</div>
+    <h1>🎛️ 完整時序模擬器</h1>
+    <p class="lead">把前六課組合起來。現在每個滑桿、每一層、每個警告你都認得了——調調看,觀察它們如何互相牽動。</p>
+  </div>
+
+  <div class="goal">
+    <span class="ic">🎯</span>
+    <div>綜合應用:同時調整 <b>ACQPS(第3課)</b>、<b>CPU1 運算(第4課)</b>、<b>FSI Payload(第5課)</b>,看四層時序、即時數據與 <b>DAC 輸出(第6課)</b> 如何一起變化,並學會看到警告時<b>怎麼修</b>。</div>
+  </div>
+
+  <!-- 控制列 -->
+  <div class="card">
+    <div class="btn-row" style="justify-content:space-between">
+      <div class="btn-row">
+        <button class="btn btn-primary" id="play">▶ 開始</button>
+        <button class="btn btn-ghost" id="reset">↺ 重置</button>
+        <button class="btn btn-ghost" id="teach">📖 教學模式 開</button>
+      </div>
+      <div class="btn-row">
+        <span class="muted small">速度</span>
+        <button class="preset" data-spd="1">0.3×</button>
+        <button class="preset" data-spd="3">1×</button>
+        <button class="preset" data-spd="8">2.5×</button>
+      </div>
+    </div>
+    <div class="btn-row" style="margin-top:12px">
+      <span class="muted small">一鍵情境</span>
+      <button class="preset" data-preset="ok">✅ 理想運作</button>
+      <button class="preset" data-preset="adc">⚠️ ADC 太早讀</button>
+      <button class="preset" data-preset="fsi">⚠️ FSI 過載</button>
+      <button class="preset" data-preset="timeout">💥 運算逾時</button>
+    </div>
+  </div>
+
+  <!-- 即時數據 -->
+  <div class="stats">
+    <div class="stat"><div class="k">⏱️ 關鍵路徑</div><div class="v v-blue" id="s-crit">—</div></div>
+    <div class="stat"><div class="k">🟢 餘裕時間</div><div class="v" id="s-margin">—</div></div>
+    <div class="stat"><div class="k">🔗 FSI 利用率</div><div class="v" id="s-util">—</div></div>
+    <div class="stat"><div class="k">📈 理論最高頻率</div><div class="v" id="s-freq">—</div></div>
+  </div>
+
+  <div style="display:grid; grid-template-columns: 1fr; gap:18px; margin-top:18px">
+    <!-- 狀態卡 -->
+    <div class="statuscards" id="statuscards"></div>
+
+    <!-- 參數 + 時序 並排 -->
+    <div style="display:grid; grid-template-columns: 320px 1fr; gap:18px" id="mainGrid">
+      <!-- 參數 -->
+      <div class="card" style="margin:0">
+        <h2>⚙️ 系統參數設定</h2>
+        <div class="controls">
+          <div class="ctl">
+            <label><span>內部 ADC 計時 (ACQPS)</span><span class="val v-blue" id="v-acq">600 ns</span></label>
+            <input type="range" id="acq" min="300" max="1500" step="50" value="600" />
+            <div class="hint">CPU 等多久後讀資料。<span style="color:var(--red)">必須 ≥ 550ns</span>,否則讀到壞值。<a href="03-adc.html" class="term" style="text-decoration:none">→ 複習第3課</a></div>
+          </div>
+          <div class="ctl">
+            <label><span>CPU1 演算法時間</span><span class="val v-purple" id="v-cpu">1500 ns</span></label>
+            <input type="range" id="cpu" min="500" max="9000" step="100" value="1500" />
+            <div class="hint">PID 與波形運算。越長越容易撞線。<a href="04-cpu1.html" class="term" style="text-decoration:none">→ 複習第4課</a></div>
+          </div>
+          <div class="ctl">
+            <label><span>FSI 封包大小 (Payload)</span><span class="val v-emerald" id="v-pay">16 Bytes</span></label>
+            <input type="range" id="pay" min="4" max="250" step="2" value="16" />
+            <div class="hint">菊鏈傳送量(≈40ns/Byte)。<a href="05-fsi.html" class="term" style="text-decoration:none">→ 複習第5課</a></div>
+          </div>
+        </div>
+        <div class="code" style="margin-top:16px">
+          <div class="head">📐 計算過程(即時)</div>
+          <pre id="calc" style="font-size:12px"></pre>
+        </div>
+      </div>
+
+      <!-- 時序圖 -->
+      <div class="card" style="margin:0">
+        <div class="axis"><span>0ns</span><span>2500</span><span>5000</span><span>7500</span><span style="color:var(--red)">10000 截止</span></div>
+        <div class="tlwrap" id="tlwrap">
+          <div class="grid-v" style="left:25%"></div>
+          <div class="grid-v" style="left:50%"></div>
+          <div class="grid-v" style="left:75%"></div>
+          <div class="playhead" id="playhead" style="left:0%"><div class="lbl" id="phlbl">0</div></div>
+
+          <div class="layer">
+            <h4>🔵 Layer 1/2:硬體同步 &amp; ADC 計時</h4>
+            <div class="teach analogy" style="margin:0 0 10px"><span class="tag">說明</span>EPWM 像鬧鐘,時間到自動觸發 ADC(第2課)。外部 ADC 約需 550ns;內部 ADC 的 ACQPS 是取樣保持時間,設太短會抓到壞值(第3課)。</div>
+            <div id="layer1"></div>
+          </div>
+          <div class="layer">
+            <h4>🟣 Layer 3:精密運算迴路 (CPU1)</h4>
+            <div class="teach analogy" style="margin:0 0 10px"><span class="tag">說明</span>CPU1 算 PID 與正弦波。必須等 ADC 就緒才開始,且要在 10μs 前算完(第4課)。</div>
+            <div id="layer3"></div>
+          </div>
+          <div class="layer" style="margin-bottom:0">
+            <h4>🟢 Layer 4:菊鏈通訊 (CPU2)</h4>
+            <div class="teach analogy" style="margin:0 0 10px"><span class="tag">說明</span>CPU2 把資料丟進 FSI,菊鏈一站站傳;Payload 越大佔用越久(第5課);資料繞回來再寫進 DAC。</div>
+            <div id="layer4"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 怎麼修正(實用性) -->
+    <div class="card" style="margin:0">
+      <h2>🔧 看到警告,怎麼修?</h2>
+      <div id="fixbox"></div>
+    </div>
+
+    <!-- DAC 波形 -->
+    <div class="card" style="margin:0">
+      <h2>〰️ 控制輸出波形 (DAC) <span id="dacBadge" style="margin-left:auto"></span></h2>
+      <div class="teach analogy"><span class="tag">說明</span>整個 10μs 迴路的成果。每輪輸出一格;許多格拼成正弦波(第6課)。迴路出錯就會變紅失真 → 馬達抖動。</div>
+      <div class="svg-box">
+        <svg viewBox="0 0 600 160" style="width:100%; max-height:180px">
+          <line x1="0" y1="80" x2="600" y2="80" stroke="#475569" stroke-width="1" stroke-dasharray="4 4"/>
+          <polyline id="dacTarget" fill="none" stroke="#64748b" stroke-width="1.5" stroke-dasharray="2 3" opacity="0.7"/>
+          <polyline id="dacStair" fill="none" stroke="#34d399" stroke-width="2.5"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 名詞小抄 -->
+    <div class="card" style="margin:0">
+      <h2>📖 名詞白話小抄</h2>
+      <div class="gloss" id="gloss"></div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    <span>ℹ️</span>
+    <span>教學示意:部分數值(以 ≈ 標示)為簡化估算,用來說明概念。實際專案請以 datasheet 與實測為準。</span>
+  </div>
+
+</div>
+
+<script>window.PAGE = '07';</script>
+<script src="nav.js"></script>
+<script>
+/* ============ 時序模型(沿用原模擬器邏輯) ============ */
+var TOTAL = 10000, EXT_ADC = 550, CPU2_START = 500, CPU2_TX = 200;
+var state = { acq: 600, cpu: 1500, pay: 16, speed: 3, playing: false, t: 0, phase: 0, teach: true };
+
+function model() {
+  var cpu1Start = state.acq, cpu1End = cpu1Start + state.cpu;
+  var fsiStart = CPU2_START + CPU2_TX;
+  var fsiDur = 480 + state.pay * 40;
+  var fsiEnd = fsiStart + fsiDur;
+  var rxStart = fsiEnd + 1200, rxEnd = rxStart + 300;
+  var crit = Math.max(cpu1End, rxEnd);
+  return {
+    cpu1Start: cpu1Start, cpu1End: cpu1End, fsiStart: fsiStart, fsiDur: fsiDur, fsiEnd: fsiEnd,
+    rxStart: rxStart, rxEnd: rxEnd, crit: crit,
+    margin: TOTAL - crit, util: fsiDur / TOTAL * 100, freq: 1e6 / crit,
+    corrupted: state.acq < EXT_ADC, fsiWarn: fsiDur > 3000, timeout: crit > TOTAL
+  };
+}
+
+/* ============ 時序長條 ============ */
+function bar(container, name, start, end, color, warn) {
+  var l = start / TOTAL * 100, w = (end - start) / TOTAL * 100;
+  var d = document.createElement('div');
+  d.className = 'tl-row';
+  d.innerHTML = '<div class="tl-name">' + name + '</div>' +
+    '<div class="tl-fill ' + (warn ? 'tl-warn' : '') + '" data-s="' + start + '" data-e="' + end + '" ' +
+    'style="left:' + l + '%; width:' + w + '%; background:' + color + '">' +
+    (w > 7 ? Math.round(end - start) + 'ns' : '') + '</div>';
+  container.appendChild(d);
+}
+
+function renderBars() {
+  var m = model();
+  var L1 = document.getElementById('layer1'); L1.innerHTML = '';
+  bar(L1, 'EPWM Trigger', 0, 50, '#eab308', false);
+  bar(L1, 'Ext. ADC (LTC2353)', 0, EXT_ADC, '#64748b', false);
+  bar(L1, 'Int. ADC (ACQPS)', 0, state.acq, '#2563eb', m.corrupted);
+
+  var L3 = document.getElementById('layer3'); L3.innerHTML = '';
+  bar(L3, 'CPU1 Compute', m.cpu1Start, m.cpu1End, '#7c3aed', m.corrupted || m.cpu1End > TOTAL);
+
+  var L4 = document.getElementById('layer4'); L4.innerHTML = '';
+  bar(L4, 'CPU2 (Tx Prep)', CPU2_START, m.fsiStart, '#4f46e5', false);
+  bar(L4, 'FSI Bus (DDR)', m.fsiStart, m.fsiEnd, '#059669', m.fsiWarn);
+  bar(L4, 'CPU2 (Rx Update)', m.rxStart, m.rxEnd, '#db2777', m.rxEnd > TOTAL);
+}
+
+/* ============ 數據 / 狀態 / 修正建議 ============ */
+function renderStats() {
+  var m = model();
+  document.getElementById('v-acq').textContent = state.acq + ' ns';
+  document.getElementById('v-cpu').textContent = state.cpu + ' ns';
+  document.getElementById('v-pay').textContent = state.pay + ' Bytes';
+
+  document.getElementById('s-crit').innerHTML = Math.round(m.crit) + '<span class="small muted"> ns</span>';
+  var sm = document.getElementById('s-margin');
+  sm.innerHTML = Math.round(m.margin) + '<span class="small muted"> ns</span>';
+  sm.className = 'v ' + (m.margin < 0 ? 'v-red' : m.margin < 1000 ? 'v-amber' : 'v-emerald');
+  var su = document.getElementById('s-util');
+  su.innerHTML = m.util.toFixed(1) + '<span class="small muted"> %</span>';
+  su.className = 'v ' + (m.fsiWarn ? 'v-amber' : 'v-emerald');
+  var sf = document.getElementById('s-freq');
+  sf.innerHTML = m.freq.toFixed(1) + '<span class="small muted"> kHz</span>';
+  sf.className = 'v ' + (m.freq < 100 ? 'v-red' : 'v-emerald');
+
+  // 計算過程
+  document.getElementById('calc').innerHTML =
+    'CPU1 結束 = ' + state.acq + ' + ' + state.cpu + ' = <b style="color:var(--purple)">' + m.cpu1End + 'ns</b>\n' +
+    'FSI 時間  = 480 + ' + state.pay + '×40 = <b style="color:var(--emerald)">' + m.fsiDur + 'ns</b>\n' +
+    '關鍵路徑  = <b style="color:var(--blue)">' + Math.round(m.crit) + 'ns</b> / 10000ns';
+
+  // 狀態卡
+  var cards = [
+    m.corrupted
+      ? { c: 'bad',  i: '⚠️', t: 'ADC 讀取狀態', d: '危險:CPU 過早讀取,資料尚未準備好!' }
+      : { c: 'ok',   i: '✓',  t: 'ADC 讀取狀態', d: '正常:在外部 ADC 轉換完成後才讀取。' },
+    m.fsiWarn
+      ? { c: 'warn', i: '⚠️', t: 'FSI 匯流排利用率', d: '警告:傳輸時間過長 (>30%),有骨牌效應風險。' }
+      : { c: 'ok',   i: '✓',  t: 'FSI 匯流排利用率', d: '健康:保留足夠 Idle Time。' },
+    m.timeout
+      ? { c: 'bad',  i: '💥', t: '10μs 迴路逾時', d: '崩潰:超時,無法維持 100kHz!' }
+      : { c: 'ok',   i: '✓',  t: '10μs 迴路逾時', d: '穩定:所有任務在 10μs 內完成。' }
+  ];
+  document.getElementById('statuscards').innerHTML = cards.map(function (k) {
+    return '<div class="sc ' + k.c + '"><div style="font-size:20px">' + k.i + '</div><div><div class="t">' + k.t + '</div><div class="d">' + k.d + '</div></div></div>';
+  }).join('');
+
+  // 修正建議(實用性)
+  var fixes = [];
+  if (m.corrupted) fixes.push('<b>ADC 讀到壞值:</b>把 ACQPS 調回 ≥ 550ns,讓內部 ADC 取樣窗口涵蓋外部 ADC 的轉換時間。寧可多等一點,也不要拿到假數據。');
+  if (m.fsiWarn) fixes.push('<b>FSI 過載:</b>減少 Payload(只傳必要的資料)、提高 FSI 傳輸速率,或把大資料拆成多輪分批傳。');
+  if (m.timeout) fixes.push('<b>運算逾時:</b>縮短 CPU1 運算——用查表取代即時三角函數、改用定點數、開編譯器最佳化,或把部分工作分到 CPU2。');
+  if (m.margin >= 0 && m.margin < 1000 && !m.timeout) fixes.push('<b>餘裕偏低(&lt;1000ns):</b>目前壓線,雜訊或溫度變化可能讓它瞬間逾時。建議想辦法多留一點緩衝。');
+  if (fixes.length === 0) fixes.push('<b>👍 目前一切健康。</b>所有任務都在 10μs 內完成,且留有舒適的餘裕。試試切到「FSI 過載」或「運算逾時」情境,看這裡會給什麼建議。');
+  document.getElementById('fixbox').innerHTML = fixes.map(function (f) { return '<div class="fix">' + f + '</div>'; }).join('');
+
+  document.getElementById('dacBadge').innerHTML = (m.corrupted || m.timeout)
+    ? '<span class="badge badge-bad">輸出失真 ⚠️</span>' : '<span class="badge badge-ok">輸出正常 ✓</span>';
+}
+
+/* ============ 動畫(playhead + 波形) ============ */
+var seed = 5;
+function rnd() { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
+function renderWave() {
+  var m = model(), bad = m.corrupted || m.timeout;
+  var W = 600, mid = 80, amp = 60, N = 24, omega = 2 * Math.PI / 16 * (W / 600) * 16 / W; // 簡化
+  // 目標
+  var tgt = [];
+  for (var x = 0; x <= W; x += 6) { var v = Math.sin(state.phase + (x / 25) * (2 * Math.PI / 16)); tgt.push(x + ',' + (mid - amp * v).toFixed(1)); }
+  document.getElementById('dacTarget').setAttribute('points', tgt.join(' '));
+  // 階梯
+  seed = 5;
+  var step = W / N, stair = [];
+  for (var i = 0; i < N; i++) {
+    var v2 = Math.sin(state.phase + i * (2 * Math.PI / 16));
+    if (bad) v2 += (rnd() - 0.5) * 1.4;
+    v2 = Math.max(-1.15, Math.min(1.15, v2));
+    var y = (mid - amp * v2).toFixed(1);
+    stair.push((i * step) + ',' + y); stair.push(((i + 1) * step) + ',' + y);
+  }
+  var s = document.getElementById('dacStair');
+  s.setAttribute('points', stair.join(' '));
+  s.setAttribute('stroke', bad ? '#f87171' : '#34d399');
+}
+
+var last = performance.now();
+function loop(now) {
+  var dt = now - last; last = now;
+  if (state.playing) {
+    state.t += dt * state.speed;
+    if (state.t >= TOTAL) state.t = 0;
+    state.phase += dt * state.speed * 0.0008;
+  }
+  // playhead
+  var ph = document.getElementById('playhead');
+  ph.style.left = (state.t / TOTAL * 100) + '%';
+  document.getElementById('phlbl').textContent = Math.round(state.t);
+  // active glow
+  document.querySelectorAll('.tl-fill').forEach(function (f) {
+    var s = +f.dataset.s, e = +f.dataset.e;
+    if (state.t >= s && state.t <= e) f.classList.add('active'); else f.classList.remove('active');
+  });
+  renderWave();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ============ 互動綁定 ============ */
+function refresh() { renderBars(); renderStats(); }
+document.getElementById('acq').oninput = function () { state.acq = +this.value; refresh(); };
+document.getElementById('cpu').oninput = function () { state.cpu = +this.value; refresh(); };
+document.getElementById('pay').oninput = function () { state.pay = +this.value; refresh(); };
+
+document.getElementById('play').onclick = function () { state.playing = !state.playing; this.textContent = state.playing ? '⏸ 暫停' : '▶ 開始'; };
+document.getElementById('reset').onclick = function () { state.playing = false; state.t = 0; state.phase = 0; document.getElementById('play').textContent = '▶ 開始'; };
+document.getElementById('teach').onclick = function () {
+  state.teach = !state.teach;
+  this.textContent = state.teach ? '📖 教學模式 開' : '📖 教學模式 關';
+  document.querySelectorAll('.teach').forEach(function (el) { el.style.display = state.teach ? '' : 'none'; });
+};
+
+document.querySelectorAll('[data-spd]').forEach(function (b) { b.onclick = function () { state.speed = +this.dataset.spd; }; });
+
+var PRESETS = { ok: [600,1500,16], adc: [400,1500,16], fsi: [600,1500,120], timeout: [1500,9000,16] };
+document.querySelectorAll('[data-preset]').forEach(function (b) {
+  b.onclick = function () {
+    var p = PRESETS[this.dataset.preset];
+    state.acq = p[0]; state.cpu = p[1]; state.pay = p[2];
+    document.getElementById('acq').value = p[0];
+    document.getElementById('cpu').value = p[1];
+    document.getElementById('pay').value = p[2];
+    refresh();
+  };
+});
+
+/* ============ 名詞小抄 ============ */
+var GLOSS = [
+  ['🕐 為什麼是 10μs / 100kHz?', '控制迴路每 10μs 跑完「讀→算→輸出」一輪。馬達/電源控制要這麼快才穩。所有任務必須塞進這 10μs。'],
+  ['⚡ 硬體觸發 (EPWM)', 'EPWM 像鬧鐘,時間到自動觸發 ADC,不靠 CPU 輪詢,每次間隔一致(低 jitter)。'],
+  ['📏 ACQPS 取樣保持', 'ADC 抓值前要等電容充飽。設太短會讀到壞值;外部 LTC2353 約需 550ns。'],
+  ['🧩 雙核分工 (CPU1/CPU2)', 'CPU1 專心精密運算(PID、正弦);CPU2 專心對外通訊。分工並行,互不卡住。'],
+  ['🔗 FSI 菊鏈', 'FSI 高速序列介面,把多顆晶片串成鏈條,資料一站站傳。傳越多 Byte,佔匯流排越久。'],
+  ['💥 骨牌效應與餘裕', '某輪沒在 10μs 內做完,工作拖到下一輪累積,越積越多終至崩潰。所以要刻意留 idle 餘裕當緩衝。']
+];
+document.getElementById('gloss').innerHTML = GLOSS.map(function (g) {
+  return '<div class="g"><h3>' + g[0] + '</h3><p>' + g[1] + '</p></div>';
+}).join('');
+
+refresh();
+</script>
+</body>
+</html>

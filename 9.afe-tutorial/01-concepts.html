@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AFE 觀念地圖</title>
+    <link rel="stylesheet" href="assets/app.css">
+    <script src="../assets/vendor/lucide.min.js"></script>
+    <script src="assets/app.js" defer></script>
+    <style>
+        .esim-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(230px,300px);gap:16px;align-items:start;margin-top:14px}
+        .esim-stage{border:1px solid var(--line);border-radius:var(--radius);background:#0f172a;padding:10px}
+        .esim-stage canvas{display:block;width:100%;height:240px}
+        .esim-side{display:grid;gap:12px}
+        .esim-modes{display:grid;gap:8px}
+        .esim-modes .button.is-active{border-color:var(--slate);background:var(--slate);color:#fff}
+        .reading{display:grid;gap:4px;text-align:center;padding:14px;border-radius:var(--radius);background:var(--surface-strong)}
+        .reading .big{font-size:32px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+        .verdict{padding:12px 14px;border-radius:var(--radius);border-left:4px solid var(--teal);background:#e9f8f7;font-weight:700;font-size:14px}
+        .verdict.send{border-left-color:var(--rose);background:#ffe9ee}
+        .verdict.hold{border-left-color:var(--amber);background:#fff4dc}
+        @media(max-width:760px){.esim-grid{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="index.html">
+            <span class="brand-mark"><i data-lucide="activity"></i></span>
+            <span><span class="brand-title">AFE Tutorial</span><span class="brand-subtitle">觀念地圖</span></span>
+        </a>
+        <nav class="nav">
+            <a data-nav href="index.html"><i data-lucide="map"></i>總覽</a>
+            <a data-nav href="01-concepts.html"><i data-lucide="blocks"></i>觀念</a>
+            <a data-nav href="02-waveforms.html"><i data-lucide="waves"></i>波形</a>
+            <a data-nav href="03-control-loop.html"><i data-lucide="route"></i>控制</a>
+            <a data-nav href="04-lab.html"><i data-lucide="clipboard-list"></i>實驗</a>
+            <a data-nav href="simulator.html"><i data-lucide="monitor-play"></i>模擬器</a>
+        </nav>
+    </header>
+
+    <main class="page">
+        <section class="intro">
+            <div class="eyebrow">Concepts</div>
+            <h1>AFE 可以先理解成「會控制方向與品質的 AC/DC 閘門」。</h1>
+            <p class="lead">一般整流器只把 AC 變 DC；AFE 多了主動開關與控制器，所以可以讓電流接近正弦、功率因數接近 1，也能在 DC 端能量過多時反向送回 AC 端。</p>
+        </section>
+
+        <section class="diagram">
+            <div class="diagram-row">
+                <div class="diagram-node">
+                    <span class="tag amber">AC side</span>
+                    <h2>電網端</h2>
+                    <p class="muted">提供或接收交流能量。模擬器中的 V_grid 是它的電壓。</p>
+                </div>
+                <div class="diagram-arrow">&lt;-&gt;</div>
+                <div class="diagram-node">
+                    <span class="tag teal">AFE bridge</span>
+                    <h2>主動 H 橋</h2>
+                    <p class="muted">透過 PWM 控制電感電流，決定能量流向與電流形狀。</p>
+                </div>
+                <div class="diagram-arrow">&lt;-&gt;</div>
+                <div class="diagram-node">
+                    <span class="tag blue">DC side</span>
+                    <h2>直流母線</h2>
+                    <p class="muted">通常要穩在目標電壓，例如原始模擬器中的 400 V。</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel" style="margin-top: 22px;" id="esim">
+            <h2>動手玩：切換能量方向</h2>
+            <p class="muted">這頁只有一個操作——選一個模式，看能量往哪邊流、DC 母線「水位」怎麼變。先猜再按。</p>
+            <div class="esim-grid">
+                <div class="esim-stage"><canvas id="esim-canvas"></canvas></div>
+                <div class="esim-side">
+                    <div class="esim-modes">
+                        <button class="button" type="button" data-mode="pfc"><i data-lucide="arrow-down-to-dot"></i>PFC 吸電</button>
+                        <button class="button" type="button" data-mode="balance"><i data-lucide="scale"></i>平衡態</button>
+                        <button class="button" type="button" data-mode="inv"><i data-lucide="arrow-up-from-dot"></i>Inverter 送電</button>
+                    </div>
+                    <div class="reading">
+                        <span class="muted" style="font-weight:800">DC 母線（概念水位）</span>
+                        <span class="big"><span id="esim-vbus">400</span> V</span>
+                    </div>
+                    <div id="esim-verdict" class="verdict"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="grid grid-2" style="margin-top: 22px;">
+            <div class="panel">
+                <h2>兩種能量方向</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>模式</th><th>方向</th><th>直覺理解</th><th>常見用途</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>PFC 整流</strong></td>
+                                <td>AC -&gt; DC</td>
+                                <td>從電網吸能，把 DC 母線補到目標電壓。</td>
+                                <td>充電器、伺服驅動器前端、資料中心電源。</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Inverter 逆變</strong></td>
+                                <td>DC -&gt; AC</td>
+                                <td>DC 端能量過多，控制成交流電流送回電網。</td>
+                                <td>儲能、太陽能併網、馬達再生煞車。</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>初學者先抓 3 個問題</h2>
+                <div class="checklist" data-checklist="concepts">
+                    <label class="check-row"><input type="checkbox"> DC 母線現在是低於、等於，還是高於目標 400 V？</label>
+                    <label class="check-row"><input type="checkbox"> 電流 I_grid 是跟電壓 V_grid 同相，還是反相？</label>
+                    <label class="check-row"><input type="checkbox"> 模式顯示的是 PFC、Inverter，還是平衡態？</label>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel" style="margin-top: 22px;">
+            <h2>名詞表</h2>
+            <input class="search" type="search" data-glossary-search placeholder="搜尋名詞，例如 PLL、THD、功率因數">
+            <div class="grid grid-3" style="margin-top: 14px;">
+                <article class="term" data-term><h3>AFE</h3><p class="muted">Active Front End，主動式前端。用可控開關取代被動整流，讓輸入電流與能量方向可控制。</p></article>
+                <article class="term" data-term><h3>PFC</h3><p class="muted">Power Factor Correction，功率因數校正。目標是讓電流更接近正弦且與電壓同相。</p></article>
+                <article class="term" data-term><h3>Inverter</h3><p class="muted">逆變。把 DC 端能量轉成 AC 端電流，通常用於回饋或併網。</p></article>
+                <article class="term" data-term><h3>DC Bus</h3><p class="muted">直流母線。系統中間的能量水庫，控制目標通常是穩定電壓。</p></article>
+                <article class="term" data-term><h3>PLL</h3><p class="muted">Phase Locked Loop，鎖相環。用來估計電網角度 Theta，讓參考電流能對齊電網。</p></article>
+                <article class="term" data-term><h3>DDS</h3><p class="muted">Direct Digital Synthesis。這裡用 PLL 的角度產生正弦參考電流。</p></article>
+                <article class="term" data-term><h3>PI 控制</h3><p class="muted">比例積分控制器。Kp 決定反應力度，Ki 消除長期誤差。</p></article>
+                <article class="term" data-term><h3>THD</h3><p class="muted">Total Harmonic Distortion，總諧波失真。數值越高，波形越不像乾淨正弦。</p></article>
+                <article class="term" data-term><h3>功率因數</h3><p class="muted">有功功率與視在功率的比例。接近 1 通常代表能量利用更有效。</p></article>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer"><a class="button" href="02-waveforms.html"><i data-lucide="arrow-right"></i>下一站：波形判讀</a></footer>
+
+    <script>
+        (function () {
+            const canvas = document.getElementById('esim-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            let mode = 'pfc';
+            let vbus = 400;
+            let parts = [];
+            for (let i = 0; i < 14; i++) parts.push(i / 14);
+            const flow = () => mode === 'pfc' ? 1 : mode === 'inv' ? -1 : 0;
+
+            function ensureSize() {
+                const dpr = window.devicePixelRatio || 1;
+                const w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
+                if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+            }
+            function roundRect(x, y, w, h, r) {
+                ctx.beginPath(); ctx.moveTo(x + r, y);
+                ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+                ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+            }
+            function nodeBox(x, y, w, h, color, title, sub) {
+                ctx.fillStyle = '#111c2e'; ctx.strokeStyle = color; ctx.lineWidth = 2;
+                roundRect(x, y, w, h, 8); ctx.fill(); ctx.stroke();
+                ctx.textAlign = 'center';
+                ctx.fillStyle = color; ctx.font = '700 12px Inter, sans-serif'; ctx.fillText(title, x + w / 2, y + h / 2 - 3);
+                ctx.fillStyle = '#94a3b8'; ctx.font = '11px Inter, sans-serif'; ctx.fillText(sub, x + w / 2, y + h / 2 + 14);
+            }
+            function drawTank(x, y, w, h) {
+                ctx.strokeStyle = '#6366f1'; ctx.lineWidth = 2; ctx.fillStyle = '#0b1220';
+                roundRect(x, y, w, h, 8); ctx.fill(); ctx.stroke();
+                const lvl = Math.max(0, Math.min(1, (vbus - 150) / (560 - 150)));
+                ctx.save(); roundRect(x + 2, y + 2, w - 4, h - 4, 6); ctx.clip();
+                ctx.fillStyle = 'rgba(99,102,241,0.5)';
+                ctx.fillRect(x + 2, y + h - 2 - (h - 4) * lvl, w - 4, (h - 4) * lvl); ctx.restore();
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#c7d2fe'; ctx.font = '700 12px Inter, sans-serif'; ctx.fillText('DC 母線', x + w / 2, y + h / 2 - 3);
+                ctx.fillStyle = '#a5b4fc'; ctx.font = '11px Inter, sans-serif'; ctx.fillText(Math.round(vbus) + ' V', x + w / 2, y + h / 2 + 14);
+            }
+            function drawPart(x0, x1, p, cy, col) {
+                const pp = flow() > 0 ? p : 1 - p;
+                const x = x0 + (x1 - x0) * pp;
+                ctx.beginPath(); ctx.arc(x, cy, 3.5, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill();
+            }
+            function draw() {
+                ensureSize();
+                const w = canvas.clientWidth, h = canvas.clientHeight;
+                ctx.clearRect(0, 0, w, h);
+                const cy = h * 0.42, bw = Math.min(118, w * 0.22), bh = 62;
+                const acX = w * 0.04, afeX = w * 0.5 - bw / 2, dcX = w - w * 0.04 - bw;
+                ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 4;
+                ctx.beginPath(); ctx.moveTo(acX + bw, cy); ctx.lineTo(afeX, cy); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(afeX + bw, cy); ctx.lineTo(dcX, cy); ctx.stroke();
+                const f = flow();
+                if (f !== 0) {
+                    const col = f > 0 ? '#10b981' : '#f43f5e';
+                    parts.forEach(p => { drawPart(acX + bw, afeX, p, cy, col); drawPart(afeX + bw, dcX, p, cy, col); });
+                }
+                nodeBox(acX, cy - bh / 2, bw, bh, '#f59e0b', 'AC 電網', '110V 交流');
+                nodeBox(afeX, cy - bh / 2, bw, bh, '#22d3ee', 'AFE 主橋', 'PWM 開關');
+                drawTank(dcX, cy - bh / 2, bw, bh);
+                ctx.textAlign = 'center'; ctx.font = '700 13px Inter, sans-serif';
+                ctx.fillStyle = f > 0 ? '#34d399' : f < 0 ? '#fb7185' : '#94a3b8';
+                ctx.fillText(f > 0 ? '能量流向  ▶  吸電（AC → DC）' : f < 0 ? '送電（DC → AC）  ◀  能量流向' : '— 平衡 · 無淨能量流動 —', w / 2, h - 12);
+            }
+            function stepSim() {
+                const f = flow();
+                vbus += f * 0.7;
+                if (mode === 'balance') vbus += (400 - vbus) * 0.05;
+                vbus = Math.max(150, Math.min(560, vbus));
+                parts = parts.map(p => { const np = p + 0.004; return np > 1 ? np - 1 : np; });
+            }
+            function setMode(m) {
+                mode = m;
+                document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('is-active', b.dataset.mode === m));
+                const v = document.getElementById('esim-verdict'); v.className = 'verdict';
+                if (m === 'pfc') v.innerHTML = '🔋 <strong>PFC 吸電</strong>：能量從電網流向 DC 母線，水位被補上去。整流器、充電器、伺服驅動前端的日常。';
+                else if (m === 'inv') { v.classList.add('send'); v.innerHTML = '⚡ <strong>Inverter 送電</strong>：DC 端能量倒灌回電網，水位被放掉。太陽能併網、馬達再生煞車。'; }
+                else { v.classList.add('hold'); v.innerHTML = '⚖️ <strong>平衡態</strong>：吸電 ≈ 耗電，沒有淨能量流動，母線停在目標 400 V 附近。'; }
+            }
+            document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+            function loop() { stepSim(); draw(); document.getElementById('esim-vbus').textContent = Math.round(vbus); requestAnimationFrame(loop); }
+            setMode('pfc'); loop();
+        })();
+    </script>
+</body>
+</html>

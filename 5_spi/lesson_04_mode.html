@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>04. CPOL / CPHA 四模式 + setup margin</title>
+  <link rel="stylesheet" href="assets/spi.css">
+  <style>
+    .mode-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .mode-card { border:1px solid var(--line); border-radius:8px; padding:11px; background:#fff; }
+    .mode-card.active { border-color:var(--teal); background:var(--teal-soft); }
+    .mode-card strong { display:block; font-size:13px; }
+    .mode-card span { display:block; margin-top:3px; color:var(--muted); font-size:12px; }
+    .status-card { border-radius:9px; padding:16px; border:1px solid var(--line); background:#fff; }
+    .status-card h2 { margin:0 0 6px; font-size:18px; }
+    .status-card p { margin:0; color:#334155; }
+    .status-card.safe { background:var(--green-soft); border-color:#86efac; }
+    .status-card.safe h2 { color:var(--green); }
+    .status-card.warn { background:var(--amber-soft); border-color:#fde68a; }
+    .status-card.warn h2 { color:var(--amber); }
+    .status-card.bad { background:var(--red-soft); border-color:#fca5a5; }
+    .status-card.bad h2 { color:var(--red); }
+    canvas#timingCanvas { height:330px; }
+  </style>
+</head>
+<body data-lesson="04">
+  <header>
+    <div class="header-inner">
+      <p class="eyebrow">SPI 初學者課程 · 第 5 課 / 共 9 課</p>
+      <h1>04. CPOL / CPHA 四模式 + setup margin</h1>
+      <p class="subtitle">把上一課的「取樣邊緣」整理成四種標準模式（Mode 0~3），並用一個小計算器估算：在你的速度與線路延遲下，setup 還剩多少餘裕、最高能跑多快。</p>
+      <nav class="top-nav" id="lessonNav"></nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="tldr">
+      <span class="k">🎯 一句話先懂</span>
+      <p><strong>CPOL</strong> 決定 clock 閒置時是高還是低；<strong>CPHA</strong> 決定在第一個還是第二個邊緣取樣。兩個各 2 種，組合出 <strong>Mode 0~3</strong>。Master 與 Slave 一定要設成<strong>同一個 mode</strong>。</p>
+    </section>
+
+    <section class="analogy">
+      <span class="k">🪣 生活比喻</span>
+      <p>像兩個人約跳舞：CPOL＝起手是站著還是蹲著，CPHA＝聽到第一拍就動還是第二拍才動。只要兩人約定不一致，整支舞就會錯拍——SPI 對不上 mode 就是這種「錯拍」，常表現成 bit 位移或第一個 bit 錯。</p>
+    </section>
+
+    <div class="layout-2col">
+      <section class="stack">
+        <div class="panel">
+          <div class="panel-title"><h2>🎮 設定</h2><small>對齊雙方</small></div>
+          <div class="field-grid">
+            <div class="two">
+              <div class="field">
+                <label for="masterMode"><span>Master Mode</span><small>CPOL/CPHA</small></label>
+                <select id="masterMode">
+                  <option value="0" selected>Mode 0: CPOL 0, CPHA 0</option>
+                  <option value="1">Mode 1: CPOL 0, CPHA 1</option>
+                  <option value="2">Mode 2: CPOL 1, CPHA 0</option>
+                  <option value="3">Mode 3: CPOL 1, CPHA 1</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="slaveMode"><span>Slave Mode</span><small>CPOL/CPHA</small></label>
+                <select id="slaveMode">
+                  <option value="0" selected>Mode 0: CPOL 0, CPHA 0</option>
+                  <option value="1">Mode 1: CPOL 0, CPHA 1</option>
+                  <option value="2">Mode 2: CPOL 1, CPHA 0</option>
+                  <option value="3">Mode 3: CPOL 1, CPHA 1</option>
+                </select>
+              </div>
+            </div>
+            <div class="two">
+              <div class="field">
+                <label for="sclkMHz"><span>SCLK</span><small>MHz</small></label>
+                <input id="sclkMHz" type="number" min="0.1" max="100" step="0.1" value="12.5">
+                <div class="hint">時鐘越快，半週期越短。</div>
+              </div>
+              <div class="field">
+                <label for="dataDelayNs"><span>資料延遲</span><small>ns</small></label>
+                <input id="dataDelayNs" type="number" min="0" max="500" step="1" value="18">
+                <div class="hint">Slave 輸出 + 線路 + 隔離器 + level shifter。</div>
+              </div>
+            </div>
+            <div class="two">
+              <div class="field">
+                <label for="setupNeedNs"><span>需要 setup</span><small>ns</small></label>
+                <input id="setupNeedNs" type="number" min="0" max="200" step="1" value="10">
+                <div class="hint">接收端取樣前資料需穩定多久。</div>
+              </div>
+              <div class="field">
+                <label for="extraJitterNs"><span>保守裕量</span><small>ns</small></label>
+                <input id="extraJitterNs" type="number" min="0" max="200" step="1" value="5">
+                <div class="hint">留給 jitter、溫度、負載。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><h2>Mode 對照表</h2><small id="modeLabel">Mode 0</small></div>
+          <div class="mode-grid" id="modeCards"></div>
+        </div>
+      </section>
+
+      <section class="stack">
+        <div class="status-card" id="statusCard" aria-live="polite">
+          <h2 id="statusTitle">時序安全</h2>
+          <p id="statusText">Master 與 Slave 模式一致，setup margin 足夠。</p>
+        </div>
+
+        <div class="metric-grid">
+          <div class="metric"><span>Clock 週期</span><strong id="periodNs">80.0 ns</strong></div>
+          <div class="metric"><span>半週期</span><strong id="halfNs">40.0 ns</strong></div>
+          <div class="metric"><span>估算 margin</span><strong id="marginNs">7.0 ns</strong></div>
+          <div class="metric"><span>建議最高 SCLK</span><strong id="maxSclk">15.2 MHz</strong></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><h2>示波器視角</h2><small>黃線是取樣點</small></div>
+          <div class="canvas-wrap"><canvas id="timingCanvas" width="860" height="330"></canvas></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><h2>實務判讀</h2><small>下一步怎麼做</small></div>
+          <div class="prose" id="advice"></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel">
+      <div class="panel-title"><h2>📐 margin 是怎麼算的</h2><small>看懂公式就會調</small></div>
+      <div class="prose">
+        <p>取樣邊緣大約落在半個 clock 週期之後。資料要在那之前穩定，所以：</p>
+        <pre class="code">margin = 半週期 − 資料延遲 − 需要的 setup − 保守裕量
+最高 SCLK ≈ 1 / ( 2 × (資料延遲 + setup + 裕量) )</pre>
+        <p>margin 變負，就代表「資料還沒站好就被拍照」，必須<strong>降速</strong>或<strong>縮短延遲</strong>。這也是為什麼長線、加隔離器後常常要把 SCLK 調慢。</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title"><h2>✅ 自我檢查</h2><small></small></div>
+      <div class="quiz" data-answer="1">
+        <div class="q">讀回來的資料看起來像「左移了一個 bit」，最該先懷疑什麼？</div>
+        <div class="opts">
+          <button class="opt" data-i="0"><span class="mk">A</span><span>FIFO 溢位</span></button>
+          <button class="opt" data-i="1"><span class="mk">B</span><span>CPHA / 取樣邊緣設定不一致</span></button>
+          <button class="opt" data-i="2"><span class="mk">C</span><span>電源不穩</span></button>
+          <button class="opt" data-i="3"><span class="mk">D</span><span>CS 拉太久</span></button>
+        </div>
+        <div class="explain">位移類錯誤幾乎都是取樣邊緣對不上（CPHA）或 bit order 設錯。這種問題加 delay、開 FIFO 都救不了，要先把 mode 對齊。</div>
+      </div>
+    </section>
+
+    <div class="pager" id="pager"></div>
+  </main>
+
+  <footer>下一課：時序對了也可能掉資料——看 <a href="lesson_05_fifo_why.html">為什麼需要 FIFO</a>。</footer>
+
+  <script src="assets/spi-lesson.js"></script>
+  <script>
+    var $ = function (id) { return document.getElementById(id); };
+    var dom = {
+      masterMode: $("masterMode"), slaveMode: $("slaveMode"), sclkMHz: $("sclkMHz"),
+      dataDelayNs: $("dataDelayNs"), setupNeedNs: $("setupNeedNs"), extraJitterNs: $("extraJitterNs"),
+      modeCards: $("modeCards"), modeLabel: $("modeLabel"),
+      statusCard: $("statusCard"), statusTitle: $("statusTitle"), statusText: $("statusText"),
+      periodNs: $("periodNs"), halfNs: $("halfNs"), marginNs: $("marginNs"), maxSclk: $("maxSclk"),
+      timingCanvas: $("timingCanvas"), advice: $("advice")
+    };
+    var modeInfo = [
+      { mode: 0, cpol: 0, cpha: 0, idle: "Low", sample: "第一個邊緣", update: "第二個邊緣" },
+      { mode: 1, cpol: 0, cpha: 1, idle: "Low", sample: "第二個邊緣", update: "第一個邊緣" },
+      { mode: 2, cpol: 1, cpha: 0, idle: "High", sample: "第一個邊緣", update: "第二個邊緣" },
+      { mode: 3, cpol: 1, cpha: 1, idle: "High", sample: "第二個邊緣", update: "第一個邊緣" }
+    ];
+    function num(el, f) { var v = Number(el.value); return Number.isFinite(v) ? v : f; }
+    function cfg() {
+      var master = modeInfo[Number(dom.masterMode.value)], slave = modeInfo[Number(dom.slaveMode.value)];
+      var sclk = Math.max(0.1, num(dom.sclkMHz, 12.5)), period = 1000 / sclk, half = period / 2;
+      var dataDelay = Math.max(0, num(dom.dataDelayNs, 18)), setupNeed = Math.max(0, num(dom.setupNeedNs, 10)), jitter = Math.max(0, num(dom.extraJitterNs, 5));
+      var margin = half - dataDelay - setupNeed - jitter, max = 1000 / (2 * (dataDelay + setupNeed + jitter));
+      return { master: master, slave: slave, sclk: sclk, period: period, half: half, dataDelay: dataDelay, setupNeed: setupNeed, jitter: jitter, margin: margin, max: max };
+    }
+    function render() { var c = cfg(); renderModeCards(c); renderStatus(c); draw(c); renderAdvice(c); }
+    function renderModeCards(c) {
+      dom.modeLabel.textContent = "Master Mode " + c.master.mode;
+      dom.modeCards.innerHTML = modeInfo.map(function (info) {
+        return '<div class="mode-card ' + (info.mode === c.master.mode ? "active" : "") + '">' +
+          '<strong>Mode ' + info.mode + ': CPOL ' + info.cpol + ', CPHA ' + info.cpha + '</strong>' +
+          '<span>Idle ' + info.idle + '，' + info.sample + '取樣，' + info.update + '更新</span></div>';
+      }).join("");
+    }
+    function renderStatus(c) {
+      var mismatch = c.master.mode !== c.slave.mode, badMargin = c.margin < 0;
+      dom.periodNs.textContent = c.period.toFixed(1) + " ns";
+      dom.halfNs.textContent = c.half.toFixed(1) + " ns";
+      dom.marginNs.textContent = c.margin.toFixed(1) + " ns";
+      dom.maxSclk.textContent = c.max.toFixed(1) + " MHz";
+      if (mismatch) {
+        dom.statusCard.className = "status-card bad"; dom.statusTitle.textContent = "Mode 不一致";
+        dom.statusText.textContent = "Master 與 Slave 取樣邊緣不同，容易 bit shift、第一 bit 錯或讀值不穩。先把 CPOL/CPHA 對齊。";
+      } else if (badMargin) {
+        dom.statusCard.className = "status-card bad"; dom.statusTitle.textContent = "SCLK 太快或延遲太大";
+        dom.statusText.textContent = "資料延遲加 setup 與裕量已超過半個 clock 週期。降低 SCLK 或改善線路延遲。";
+      } else if (c.margin < 5) {
+        dom.statusCard.className = "status-card warn"; dom.statusTitle.textContent = "時序裕量偏小";
+        dom.statusText.textContent = "理論可用，但只剩很小 margin。實機可能因溫度、線長、負載偶發錯。";
+      } else {
+        dom.statusCard.className = "status-card safe"; dom.statusTitle.textContent = "時序安全";
+        dom.statusText.textContent = "Master 與 Slave mode 一致，估算 setup margin 足夠。下一步檢查 FIFO/ISR/DMA。";
+      }
+    }
+    function renderAdvice(c) {
+      var mismatch = c.master.mode !== c.slave.mode, badMargin = c.margin < 0, html;
+      if (mismatch) {
+        html = "<h3>先修 CPOL / CPHA</h3><p>這類問題加 delay 或開 FIFO 都救不了，資料是在錯的邊緣被取樣。</p><ul><li>查 Slave datasheet 要求的 SPI mode。</li><li>用邏輯分析儀確認 SCLK idle 電平與 sample edge。</li><li>讀值像左移/右移一位，優先懷疑 CPHA。</li></ul>";
+      } else if (badMargin) {
+        html = "<h3>降低速度或改善延遲</h3><p>現在半週期只有 " + c.half.toFixed(1) + " ns，但資料穩定需約 " + (c.dataDelay + c.setupNeed + c.jitter).toFixed(1) + " ns。</p><ul><li>先把 SCLK 降到 " + c.max.toFixed(1) + " MHz 以下再測。</li><li>縮短線長，減少 level shifter / isolator 延遲。</li><li>示波器同看 SCLK 與 MISO，量資料穩定到取樣邊緣的時間。</li></ul>";
+      } else {
+        html = "<h3>時序看起來可以，接著看資料路徑</h3><p>若 mode 與 margin 都沒問題，讀錯可能來自 protocol、CS 節奏、FIFO overrun 或軟體讀取順序。</p><ul><li>確認 CS 整段 transaction 保持有效。</li><li>確認命令/位址/dummy byte 數量符合 datasheet。</li><li>大量連續資料就進 FIFO 頁看 RXFFST / RXFFOVF。</li></ul>";
+      }
+      dom.advice.innerHTML = html;
+    }
+    function draw(c) {
+      var canvas = dom.timingCanvas, rect = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(460, Math.round(rect.width * dpr));
+      canvas.height = Math.max(300, Math.round(rect.height * dpr));
+      var ctx = canvas.getContext("2d"); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.scale(dpr, dpr);
+      var w = canvas.width / dpr, h = canvas.height / dpr;
+      var pad = { left: 78, right: 22, top: 28, bottom: 30 }, bitW = (w - pad.left - pad.right) / 4;
+      ctx.fillStyle = "#0b1220"; ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = "#1f2a44";
+      for (var i = 0; i <= 8; i++) { var x = pad.left + i * bitW / 2; ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, h - pad.bottom); ctx.stroke(); }
+      drawSclk(ctx, c.master, pad, bitW, "#fbbf24");
+      drawData(ctx, c.master, pad, bitW, "#5eead4");
+      drawEdges(ctx, c.master, pad, bitW);
+      ctx.fillStyle = "#cbd5e1"; ctx.font = "12px Segoe UI, sans-serif";
+      ctx.fillText("Mode " + c.master.mode + ": CPOL " + c.master.cpol + ", CPHA " + c.master.cpha, pad.left, h - 10);
+      ctx.fillStyle = c.margin < 0 ? "#fecaca" : "#bbf7d0";
+      ctx.fillText("setup margin = " + c.margin.toFixed(1) + " ns", Math.max(pad.left, w - 190), h - 10);
+    }
+    function drawSclk(ctx, mode, pad, bitW, color) {
+      var top = pad.top + 28, high = top, low = top + 44;
+      var idleY = mode.cpol ? high : low, activeY = mode.cpol ? low : high;
+      ctx.fillStyle = "#94a3b8"; ctx.font = "12px Segoe UI, sans-serif"; ctx.fillText("SCLK", 18, top + 25);
+      ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(pad.left, idleY);
+      for (var i = 0; i < 4; i++) {
+        var x0 = pad.left + i * bitW, xm = x0 + bitW / 2, x1 = x0 + bitW;
+        ctx.lineTo(xm, idleY); ctx.lineTo(xm, activeY); ctx.lineTo(x1, activeY); ctx.lineTo(x1, idleY);
+      }
+      ctx.stroke();
+    }
+    function drawData(ctx, mode, pad, bitW, color) {
+      var top = pad.top + 120, high = top, low = top + 44, values = [1, 0, 1, 1], updateAtFirst = mode.cpha === 1;
+      ctx.fillStyle = "#94a3b8"; ctx.font = "12px Segoe UI, sans-serif"; ctx.fillText("DATA", 18, top + 25);
+      ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+      values.forEach(function (value, index) {
+        var start = pad.left + index * bitW + (updateAtFirst ? bitW / 2 : 0);
+        var end = pad.left + (index + 1) * bitW + (updateAtFirst ? bitW / 2 : 0);
+        var y = value ? high : low;
+        if (index === 0) ctx.moveTo(pad.left, y);
+        ctx.lineTo(start, index ? (values[index - 1] ? high : low) : y); ctx.lineTo(start, y);
+        ctx.lineTo(Math.min(end, pad.left + bitW * 4), y);
+        ctx.fillStyle = "#cbd5e1"; ctx.fillText("D" + index, start + 12, top + 64);
+      });
+      ctx.stroke();
+    }
+    function drawEdges(ctx, mode, pad, bitW) {
+      var sampleOffset = mode.cpha === 0 ? bitW / 2 : bitW;
+      ctx.strokeStyle = "#facc15"; ctx.fillStyle = "#facc15"; ctx.lineWidth = 2;
+      for (var i = 0; i < 4; i++) {
+        var x = pad.left + i * bitW + sampleOffset;
+        ctx.beginPath(); ctx.moveTo(x, pad.top + 12); ctx.lineTo(x, pad.top + 210); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x - 5, pad.top + 210); ctx.lineTo(x + 5, pad.top + 210); ctx.lineTo(x, pad.top + 222); ctx.closePath(); ctx.fill();
+      }
+      ctx.fillStyle = "#fde68a"; ctx.font = "12px Segoe UI, sans-serif"; ctx.fillText("sample edge", pad.left + 8, pad.top + 226);
+    }
+    [dom.masterMode, dom.slaveMode, dom.sclkMHz, dom.dataDelayNs, dom.setupNeedNs, dom.extraJitterNs].forEach(function (e) {
+      e.addEventListener("input", render); e.addEventListener("change", render);
+    });
+    window.addEventListener("resize", render);
+    render();
+  </script>
+</body>
+</html>

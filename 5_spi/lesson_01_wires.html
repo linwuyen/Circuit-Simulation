@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>01. 四條線各做什麼</title>
+  <link rel="stylesheet" href="assets/spi.css">
+  <style>
+    .diagram { width: 100%; height: auto; background: #0b1220; border-radius: 8px; }
+    .wire { cursor: pointer; }
+    .wire .hit { stroke: transparent; stroke-width: 18; }
+    .box-label { fill: #e2e8f0; font: 700 15px "Segoe UI", sans-serif; }
+    .box-sub { fill: #94a3b8; font: 500 11px "Segoe UI", sans-serif; }
+    .wire-label { fill: #cbd5e1; font: 800 12px Consolas, monospace; }
+    .role-card { display:grid; gap:6px; }
+    .role-pin {
+      display:inline-flex; align-items:center; gap:8px;
+      font-weight:900; font-size:18px;
+    }
+    .dot { width:14px; height:14px; border-radius:50%; display:inline-block; }
+  </style>
+</head>
+<body data-lesson="01">
+  <header>
+    <div class="header-inner">
+      <p class="eyebrow">SPI 初學者課程 · 第 2 課 / 共 9 課</p>
+      <h1>01. 四條線各做什麼</h1>
+      <p class="subtitle">SPI 最少只要四條線。點圖上的任一條線，看它的方向、角色與初學者最常踩的坑。</p>
+      <nav class="top-nav" id="lessonNav"></nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="tldr">
+      <span class="k">🎯 一句話先懂</span>
+      <p>四條線分工很清楚：<strong>MOSI / MISO</strong> 是資料一去一回，<strong>SCLK</strong> 是節拍，<strong>CS</strong> 是「我現在跟你講話」的開關。</p>
+    </section>
+
+    <div class="layout-2col">
+      <section class="stack">
+        <div class="panel">
+          <div class="panel-title"><h2>🎮 互動接線圖</h2><small>點線看角色</small></div>
+          <div class="btn-row" style="margin-bottom:12px">
+            <button class="btn secondary" id="oneSlave" type="button">單一 Slave</button>
+            <button class="btn secondary" id="multiSlave" type="button">多個 Slave</button>
+          </div>
+          <svg id="diagram" class="diagram" viewBox="0 0 820 360" role="img" aria-label="SPI 接線圖"></svg>
+          <p class="hint" style="margin-top:10px">箭頭代表資料方向。灰色＝沒被選中的線。</p>
+        </div>
+      </section>
+
+      <section class="stack">
+        <div class="panel">
+          <div class="panel-title"><h2 id="roleName">點一條線看說明</h2><small id="roleDir">—</small></div>
+          <div id="roleBody" class="prose">
+            <p>左邊接線圖上，點 <strong>MOSI / MISO / SCLK / CS</strong> 任一條線，這裡會說明它在做什麼，以及初學者最容易搞錯的地方。</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><h2>四條線速記</h2><small>背這張就夠</small></div>
+          <div class="table-scroll">
+            <table class="cmp">
+              <thead><tr><th>線</th><th>全名</th><th>方向</th><th>白話</th></tr></thead>
+              <tbody>
+                <tr><th>MOSI</th><td>Master Out Slave In</td><td>主→從</td><td>主機送出去</td></tr>
+                <tr><th>MISO</th><td>Master In Slave Out</td><td>從→主</td><td>從機回來</td></tr>
+                <tr><th>SCLK</th><td>Serial Clock</td><td>主→從</td><td>節拍</td></tr>
+                <tr><th>CS / SS</th><td>Chip / Slave Select</td><td>主→從</td><td>選中誰</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="hint" style="margin-top:8px">有些晶片把 MOSI/MISO 叫 SDI/SDO 或 DIN/DOUT，把 CS 叫 STE/NSS，意思一樣。</p>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel">
+      <div class="panel-title"><h2>⚠️ 接線最常見的坑</h2><small>新手必看</small></div>
+      <div class="prose" style="display:grid;gap:10px">
+        <div class="callout danger">
+          <span class="k">忘了共地（GND）</span>
+          <p>四條訊號線之外，<strong>兩邊的 GND 一定要接在一起</strong>。沒共地，電壓參考不同，波形會整個歪掉或讀到亂碼。</p>
+        </div>
+        <div class="callout danger">
+          <span class="k">MOSI 接 MOSI、MISO 接 MISO</span>
+          <p>SPI <strong>不像 UART 要交叉</strong>。Master 的 MOSI 接 Slave 的 MOSI、MISO 對 MISO，直接同名對接。接反了 MISO 會永遠讀不到東西。</p>
+        </div>
+        <div class="callout warn">
+          <span class="k">多顆 Slave 共用 MISO 卻沒 Hi-Z</span>
+          <p>多裝置時 MISO 是共用的。沒被選中的 Slave 必須把 MISO 放成<span class="term" data-tip="High-Z：高阻抗，等於把腳「放開」不驅動，讓出匯流排">高阻抗</span>，否則兩顆同時驅動會打架，資料全錯。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title"><h2>✅ 自我檢查</h2><small></small></div>
+      <div class="quiz" data-answer="1">
+        <div class="q">要同時接 3 顆 SPI 裝置，最少需要幾條 CS？</div>
+        <div class="opts">
+          <button class="opt" data-i="0"><span class="mk">A</span><span>1 條，大家共用</span></button>
+          <button class="opt" data-i="1"><span class="mk">B</span><span>3 條，每顆一條</span></button>
+          <button class="opt" data-i="2"><span class="mk">C</span><span>0 條，用位址選</span></button>
+          <button class="opt" data-i="3"><span class="mk">D</span><span>6 條，每顆兩條</span></button>
+        </div>
+        <div class="explain">MOSI / MISO / SCLK 可以共用，但每顆 Slave 要有自己獨立的 CS，同一時間只拉低一條。用位址選裝置的是 I²C，不是 SPI。</div>
+      </div>
+    </section>
+
+    <div class="pager" id="pager"></div>
+  </main>
+
+  <footer>下一課：看 <a href="lesson_02_fullduplex.html">資料怎麼在這幾條線上一個 bit 一個 bit 交換</a>。</footer>
+
+  <script src="assets/spi-lesson.js"></script>
+  <script>
+    var $ = function (id) { return document.getElementById(id); };
+    var svg = $("diagram");
+    var mode = "one";
+    var selected = null;
+
+    var SIG = {
+      mosi: { name: "MOSI", full: "Master Out, Slave In", dir: "主機 → 從機", color: "#14b8a6",
+        body: "<p><strong>主機把資料送給從機</strong>的線：命令 byte、暫存器位址、要寫進去的資料都走這裡。</p><div class='callout tip'><span class='k'>初學重點</span><p>就算你的目的是「讀」，Master 也常要在 MOSI 送一個 <span class='term' data-tip='假資料：只是為了製造 clock，內容不重要'>dummy byte</span> 來製造 clock，Slave 才有節拍把資料吐到 MISO。</p></div>" },
+      miso: { name: "MISO", full: "Master In, Slave Out", dir: "從機 → 主機", color: "#a78bfa",
+        body: "<p><strong>從機把資料回給主機</strong>的線：讀回來的值、狀態暫存器都走這裡。</p><div class='callout warn'><span class='k'>常見現象</span><p>MISO 一直 0x00 → 多半是沒選到 Slave 或 Slave 沒輸出；一直 0xFF → 多半是線浮接只剩上拉。這在第 8 課除錯表會詳細查。</p></div>" },
+      sclk: { name: "SCLK", full: "Serial Clock", dir: "主機 → 從機", color: "#fbbf24",
+        body: "<p><strong>由 Master 產生的時脈</strong>，決定交換速度。沒有 clock，SPI 就不會推下一個 bit。</p><div class='callout tip'><span class='k'>初學重點</span><p>clock 的「閒置電平」和「在哪個邊緣取樣」就是下一課 CPOL / CPHA 要談的，雙方必須一致。</p></div>" },
+      cs: { name: "CS / SS", full: "Chip Select / Slave Select", dir: "主機 → 從機", color: "#38bdf8",
+        body: "<p><strong>選中要對話的那顆 Slave</strong>，常見<span class='term' data-tip='低電平有效：拉低（0）才算選中'>低電平有效</span>。拉低＝開始一段 transaction，拉高＝結束。</p><div class='callout danger'><span class='k'>常見坑</span><p>CS 極性設反，Slave 整段都沒被選中，MISO 會一直讀到 0xFF 或 0x00。多裝置時同一時間只能拉低一條 CS。</p></div>" }
+    };
+
+    function showRole(key) {
+      selected = key;
+      var s = SIG[key];
+      $("roleName").innerHTML = "<span class='role-pin'><span class='dot' style='background:" + s.color + "'></span>" + s.name + "</span>";
+      $("roleDir").textContent = s.full + " · " + s.dir;
+      $("roleBody").innerHTML = s.body;
+      draw();
+    }
+
+    // 一條線：含透明粗 hit、可見細線、箭頭、文字
+    function wire(key, x1, y1, x2, y2, label, labelX, reverse) {
+      var s = SIG[key];
+      var on = selected === key;
+      var col = on ? s.color : "#5b6b86";
+      var w = on ? 4 : 2.5;
+      var ax = reverse ? x1 : x2;            // 箭頭端
+      var dir = reverse ? 1 : -1;            // 箭頭朝向
+      var arrow = '<path d="M' + ax + ',' + y1 + ' l' + (dir * 10) + ',-5 l0,10 z" fill="' + col + '"/>';
+      return '<g class="wire" data-wire="' + key + '">' +
+        '<line class="hit" x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '"/>' +
+        '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="' + col + '" stroke-width="' + w + '"/>' +
+        arrow +
+        '<text class="wire-label" x="' + labelX + '" y="' + (y1 - 8) + '" fill="' + (on ? s.color : '#cbd5e1') + '">' + label + '</text>' +
+      '</g>';
+    }
+
+    function chip(x, y, w, h, title, sub) {
+      return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="10" fill="#15233a" stroke="#33415c" stroke-width="2"/>' +
+        '<text class="box-label" x="' + (x + w / 2) + '" y="' + (y + h / 2 - 2) + '" text-anchor="middle">' + title + '</text>' +
+        '<text class="box-sub" x="' + (x + w / 2) + '" y="' + (y + h / 2 + 16) + '" text-anchor="middle">' + sub + '</text>';
+    }
+
+    function drawOne() {
+      svg.setAttribute("viewBox", "0 0 820 300");
+      var mx = 70, mw = 150, my = 70, mh = 160;
+      var sx = 600, sw = 150;
+      var lx = mx + mw, rx = sx;
+      var ys = { mosi: 100, miso: 140, sclk: 180, cs: 220 };
+      var html = chip(mx, my, mw, mh, "Master", "MCU");
+      html += chip(sx, my, sw, mh, "Slave", "感測器 / Flash");
+      html += wire("mosi", lx, ys.mosi, rx, ys.mosi, "MOSI →", lx + 90, false);
+      html += wire("miso", lx, ys.miso, rx, ys.miso, "← MISO", lx + 90, true);
+      html += wire("sclk", lx, ys.sclk, rx, ys.sclk, "SCLK →", lx + 90, false);
+      html += wire("cs", lx, ys.cs, rx, ys.cs, "CS →", lx + 90, false);
+      svg.innerHTML = html;
+    }
+
+    function drawMulti() {
+      svg.setAttribute("viewBox", "0 0 820 360");
+      var mx = 50, mw = 140, my = 130, mh = 110;
+      var html = chip(mx, my, mw, mh, "Master", "一顆主機");
+      var lx = mx + mw;
+      var slaves = [{ y: 30 }, { y: 140 }, { y: 250 }];
+      var sx = 600, sw = 170, sh = 80;
+      var busX = 330;
+      var csColors = ["#38bdf8", "#34d399", "#f472b6"];
+
+      // 共用三線：MOSI/MISO/SCLK 當作一束 bus，從 Master 到一條垂直幹線，再分到各 Slave
+      var busOn = selected === "mosi" || selected === "miso" || selected === "sclk";
+      var busCol = busOn ? "#5eead4" : "#5b6b86";
+      var bw = busOn ? 4 : 2.5;
+      // master → 幹線
+      html += '<g class="wire" data-wire="mosi">' +
+        '<line class="hit" x1="' + lx + '" y1="185" x2="' + busX + '" y2="185"/>' +
+        '<line x1="' + lx + '" y1="185" x2="' + busX + '" y2="185" stroke="' + busCol + '" stroke-width="' + bw + '"/>' +
+        '<line x1="' + busX + '" y1="60" x2="' + busX + '" y2="290" stroke="' + busCol + '" stroke-width="' + bw + '"/>' +
+        '<text class="wire-label" x="' + (lx + 8) + '" y="178" fill="' + (busOn ? '#5eead4' : '#cbd5e1') + '">MOSI / MISO / SCLK 共用</text>';
+      slaves.forEach(function (sl) {
+        html += '<line x1="' + busX + '" y1="' + (sl.y + sh / 2) + '" x2="' + sx + '" y2="' + (sl.y + sh / 2) + '" stroke="' + busCol + '" stroke-width="' + bw + '"/>';
+      });
+      html += '</g>';
+
+      // 各自 CS
+      slaves.forEach(function (sl, i) {
+        var on = selected === ("cs" + i) || selected === "cs";
+        var col = on ? csColors[i] : "#5b6b86";
+        var w = on ? 4 : 2.5;
+        var y = sl.y + sh - 14;
+        html += '<g class="wire" data-wire="cs">' +
+          '<line class="hit" x1="' + (lx) + '" y1="' + (my + 20 + i * 22) + '" x2="' + (busX - 6) + '" y2="' + (my + 20 + i * 22) + '"/>' +
+          '<path d="M' + lx + ',' + (my + 20 + i * 22) + ' L' + (busX - 6) + ',' + (my + 20 + i * 22) + ' L' + (busX - 6) + ',' + y + ' L' + sx + ',' + y + '" fill="none" stroke="' + col + '" stroke-width="' + w + '"/>' +
+          '<text class="wire-label" x="' + sx + '" y="' + (y - 6) + '" text-anchor="end" fill="' + col + '">CS' + i + '</text>' +
+        '</g>';
+      });
+
+      slaves.forEach(function (sl, i) {
+        html += chip(sx, sl.y, sw, sh, "Slave " + i, i === 0 ? "ADC" : i === 1 ? "Flash" : "LCD");
+      });
+      svg.innerHTML = html;
+    }
+
+    function draw() { if (mode === "one") drawOne(); else drawMulti(); bindWires(); }
+
+    function bindWires() {
+      svg.querySelectorAll(".wire").forEach(function (g) {
+        g.addEventListener("click", function () {
+          var key = g.getAttribute("data-wire");
+          showRoleFor(key);
+        });
+      });
+    }
+    function showRoleFor(key) {
+      if (mode === "multi" && key === "cs") {
+        selected = "cs";
+        var s = SIG.cs;
+        $("roleName").innerHTML = "<span class='role-pin'><span class='dot' style='background:" + s.color + "'></span>" + s.name + "（多裝置）</span>";
+        $("roleDir").textContent = "每顆 Slave 一條獨立 CS";
+        $("roleBody").innerHTML = "<p>多裝置時，<strong>MOSI / MISO / SCLK 三條共用</strong>，但每顆 Slave 各有一條 CS。</p><div class='callout danger'><span class='k'>鐵則</span><p>同一時間只能拉低一條 CS。沒被選中的 Slave 必須讓 MISO 變高阻抗，否則匯流排會打架。</p></div>";
+        draw();
+      } else {
+        showRole(key);
+      }
+    }
+
+    $("oneSlave").addEventListener("click", function () { mode = "one"; setBtn(); draw(); });
+    $("multiSlave").addEventListener("click", function () { mode = "multi"; setBtn(); draw(); });
+    function setBtn() {
+      $("oneSlave").className = "btn " + (mode === "one" ? "" : "secondary");
+      $("multiSlave").className = "btn " + (mode === "multi" ? "" : "secondary");
+    }
+
+    setBtn();
+    draw();
+    showRole("mosi");
+  </script>
+</body>
+</html>

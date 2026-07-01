@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第 4 課 · SPWM：用 PWM 畫出正弦</title>
+  <script src="../../assets/vendor/tailwindcss-cdn.js"></script>
+  <link rel="stylesheet" href="shared/theme.css">
+</head>
+<body class="min-h-screen">
+  <div class="max-w-6xl mx-auto px-4 py-6">
+    <header class="flex items-center justify-between mb-5">
+      <div class="flex items-center gap-3">
+        <span class="tag text-emerald-400">第 4 課 / 8</span>
+        <h1 class="text-lg md:text-xl font-bold text-slate-100">〰️ SPWM：用 PWM 畫出正弦</h1>
+      </div>
+      <a href="index.html" class="text-xs text-slate-400 hover:text-emerald-400">📍 課程地圖</a>
+    </header>
+
+    <div class="edu-card edu-goal mb-4">
+      <h3 class="text-emerald-400">🎯 本課目標</h3>
+      <p>把第 3 課的參考波從「固定值」換成<b>正弦波</b>，就得到 <b>SPWM（正弦脈寬調變）</b>。你會親眼看到：那一堆寬窄不一的方塊脈衝，<b>平均下來竟然是一條乾淨的正弦波</b>。並理解 <b>調變比 m<sub>a</sub></b> 如何決定輸出正弦的<b>幅度</b>。</p>
+    </div>
+
+    <div id="sim" class="mb-5"></div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+      <div class="edu-card edu-try">
+        <h3 class="text-amber-400">🔬 動手做</h3>
+        <ol>
+          <li>畫面上：紅色 <b>CH4</b> 是正弦參考波、綠色 <b>CH1</b> 是被切出來的 PWM、青色 <b>CH2</b> 是經 LC 濾波後的「平均結果」。</li>
+          <li><b>關鍵對照</b>：青色 CH2 幾乎完美貼著紅色參考波 → <b>PWM 的平均 = 你想要的正弦</b>。</li>
+          <li>拉 <b>m<sub>a</sub></b> 由小到大：青色正弦的<b>振幅跟著放大</b>，下方 <b>V<sub>1,rms</sub></b> 數字也跟著上升（基波幅度 ∝ m<sub>a</sub>）。</li>
+          <li>把 <b>m<sub>a</sub> 拉到超過 1.0</b>（過調變區）→ 正弦頂部開始被「削平」，波形失真。</li>
+        </ol>
+      </div>
+      <div class="edu-card edu-expect">
+        <h3 class="text-cyan-400">✅ 你應該看到 / 為什麼</h3>
+        <p>綠色脈衝在正弦<b>波峰</b>處最寬（平均最高）、<b>過零</b>處最窄、<b>波谷</b>處幾乎反向。把這些局部平均連起來，就是青色那條正弦。</p>
+        <p><b>m<sub>a</sub> &le; 1</b> 是線性區，輸出基波正比於 m<sub>a</sub>；<b>m<sub>a</sub> &gt; 1</b> 進入<span class="gloss" title="參考波幅度超過載波，部分區間開關不再切換，頂部被鉗住">過調變</span>，雖然基波還能再大一點，但會引入低次諧波、波形變差。</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="edu-card edu-apply">
+        <h3 class="text-blue-400">🌍 這在真實世界用在哪</h3>
+        <ul>
+          <li>太陽能逆變器、UPS、變頻冷氣，把直流電變成市電 50/60Hz 正弦，靠的就是 SPWM。</li>
+          <li>馬達 V/f 控制：用 m<sub>a</sub> 調電壓幅度、用基波頻率 f 調轉速。</li>
+          <li>本課的 LC 濾波只是「揭曉平均值」，第 6 課會專門講濾波器怎麼設計。</li>
+        </ul>
+      </div>
+      <div class="edu-card edu-tradeoff">
+        <h3 class="text-purple-300">⚖️ 工程取捨</h3>
+        <p>標準 SPWM 在 m<sub>a</sub>=1 時，輸出線電壓只能用到母線的約 <b>86.6%</b>，母線沒被充分利用。想榨出更多？要嘛進過調變（失真），要嘛用更聰明的 <b>SVPWM</b>（第 7 課）——它能在不失真下多擠出約 15%。</p>
+      </div>
+    </div>
+
+    <div class="edu-card quiz mt-4">
+      <h3 class="text-slate-200">❓ 考考你</h3>
+      <details><summary>SPWM 跟第 3 課的 PWM 差在哪？</summary><div class="ans">只差在「參考波」：第 3 課是固定準位（固定占空比），SPWM 把參考波換成正弦，於是占空比隨時間正弦變化，平均輸出就是正弦。</div></details>
+      <details><summary>m<sub>a</sub> 從 0.5 加到 1.0，輸出正弦的幅度怎麼變？</summary><div class="ans">大約加倍。線性區內基波幅度正比於 m<sub>a</sub>。你可以盯著 V<sub>1,rms</sub> 數字驗證。</div></details>
+      <details><summary>為什麼濾波後（CH2）的正弦這麼乾淨，但量到的 THD 還是很高？</summary><div class="ans">下方 THD 量的是<b>濾波前</b>的橋臂電壓 CH1（含大量高頻開關成分），本來就高。LC 濾波器把高頻擋掉後，負載真正看到的（CH2）才乾淨。重點是濾波前後的差別。</div></details>
+    </div>
+
+    <nav id="lesson-nav" class="lesson-nav"></nav>
+  </div>
+
+  <script src="shared/widget.js"></script>
+  <script src="shared/ui.js"></script>
+  <script>
+    PE.mount('#sim', {
+      topology: 'half',
+      allowTopology: false,
+      loads: ['LC', 'R'],
+      modulations: ['spwm'],
+      controls: { ma: true, freq: true, fc: true, manual: false },
+      channels: { ch1: true, ch2: true, ch4: true },
+      defaults: { load: 'LC', modulation: 'spwm', autoMode: true, ma: 0.8, freq: 50, fc: 1000 },
+      metrics: true
+    });
+    EDU.renderNav(4);
+  </script>
+</body>
+</html>

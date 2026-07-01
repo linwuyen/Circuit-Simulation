@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L5 · 交叉耦合與解耦</title>
+<link rel="stylesheet" href="foc-style.css">
+</head>
+<body>
+<header class="top">
+  <div>
+    <div class="crumb">FOC 教學課程 · 階段 ② 控制</div>
+    <h1>L5 · 交叉耦合與解耦 (螺旋 vs 直線)</h1>
+    <div class="sub">dq 兩軸透過 ω·L 互相拉扯；前饋解耦讓它們各走各的</div>
+  </div>
+  <div class="prog">第 5 / 9 課</div>
+</header>
+
+<main class="stage">
+  <div class="scopes two">
+    <div class="scope sq">
+      <canvas id="cv-dq"></canvas>
+      <span class="lab">dq 階躍軌跡</span>
+      <span class="lab tr" id="dq-tag">耦合 → 螺旋</span>
+    </div>
+    <div class="scope sq">
+      <canvas id="cv-yt"></canvas>
+      <span class="lab">Vd / Vq 時域</span>
+      <span class="lab tr"><span style="color:#22d3ee">●</span>Vd <span style="color:#34d399">●</span>Vq</span>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <h2>解耦控制</h2>
+    <div class="toggle">
+      <button id="b-on" class="on" onclick="setDec(false)">❌ 未解耦</button>
+      <button id="b-off" onclick="setDec(true)">✅ 前饋解耦</button>
+    </div>
+    <h2>參數</h2>
+    <div class="ctrl">
+      <div class="row"><span>耦合電感 ω·L 強度</span><span class="v" id="v-c">3.5</span></div>
+      <input type="range" id="p-c" min="0" max="5" step="0.1" value="3.5">
+    </div>
+    <div class="ctrl">
+      <div class="row"><span>轉速 ω</span><span class="v" id="v-w">180 Hz</span></div>
+      <input type="range" id="p-w" min="20" max="400" value="180">
+    </div>
+    <button class="primary" onclick="doStep()">⚡ 觸發扭矩階躍 (Iq*)</button>
+    <div class="readout">
+      <div class="cell"><span>Vd 峰值擾動</span><span id="r-vd">0.000</span></div>
+      <div class="cell"><span>Vq</span><span id="r-vq">0.000</span></div>
+    </div>
+    <div class="task"><b>🎯 動手試</b>
+      先在「❌ 未解耦」按階躍：右圖 Vd 被踢出一個<strong>擾動包</strong>、左圖畫出<strong>螺旋</strong>才收斂。切到「✅ 前饋解耦」再按一次：Vd 幾乎不動、左圖是一條<strong>直線</strong>。轉速越高，未解耦的螺旋越誇張。</div>
+    <div class="aha"><b>💡 你學到了</b>
+      q 軸（扭矩）一變動，會透過 <code>ω·L·Iq</code> 反電動勢「踢」到 d 軸，造成超調與螺旋。加入前饋解耦項主動抵消這個耦合，d、q 就互不干擾、響應又快又直。</div>
+  </aside>
+</main>
+
+<nav class="foot">
+  <a href="L4-why-dq.html">← L4</a>
+  <a href="index.html">課程地圖</a>
+  <a class="next" href="L6-adc-gain.html">下一課：L6 ADC 增益不對稱 →</a>
+</nav>
+
+<script src="foc-core.js"></script>
+<script>
+const cvDQ=document.getElementById('cv-dq'),ctxDQ=cvDQ.getContext('2d');
+const cvYT=document.getElementById('cv-yt'),ctxYT=cvYT.getContext('2d');
+const pC=document.getElementById('p-c'),pW=document.getElementById('p-w');
+let coup=3.5,w=180,decouple=false,last=performance.now();
+let cVd=0,cVq=0.3,tVq=0.3; let trail=[],bVd=[],bVq=[]; const N=300;
+let vdPeak=0;
+
+function ui(){coup=+pC.value;w=+pW.value;
+  document.getElementById('v-c').textContent=coup.toFixed(1);
+  document.getElementById('v-w').textContent=w+' Hz';}
+[pC,pW].forEach(p=>p.addEventListener('input',ui));
+function setDec(v){decouple=v;trail=[];vdPeak=0;
+  document.getElementById('b-on').classList.toggle('on',!v);
+  document.getElementById('b-off').classList.toggle('on',v);
+  document.getElementById('dq-tag').textContent=v?'解耦 → 直線':'耦合 → 螺旋';}
+function doStep(){ tVq=(tVq<0.5)?0.9:0.3; vdPeak=0; }
+function resize(){FOC.fit(cvDQ);FOC.fit(cvYT);}
+window.addEventListener('resize',resize);
+
+function loop(now){
+  const dt=Math.min(.03,(now-last)/1000); last=now;
+  const steps=4, h=dt/steps, sc=w/300, eff=decouple?0:coup, resp=11;
+  for(let i=0;i<steps;i++){
+    const dVd=(0-cVd)-(eff*sc*cVq*0.15);
+    const dVq=(tVq-cVq)+(eff*sc*cVd*0.15);
+    cVd+=dVd*resp*h; cVq+=dVq*resp*h;
+    trail.push({d:cVd,q:cVq}); if(trail.length>240)trail.shift();
+    bVd.push(cVd); bVq.push(cVq); if(bVd.length>N){bVd.shift();bVq.shift();}
+    if(Math.abs(cVd)>Math.abs(vdPeak))vdPeak=cVd;
+  }
+  // 左 dq 軌跡
+  const W=cvDQ.width,H=cvDQ.height,cx=W/2,cy=H*0.62,s=Math.min(W,H)*0.5;
+  FOC.plane(ctxDQ,W,H,cx,cy,s,{});
+  ctxDQ.strokeStyle='rgba(6,182,212,.3)';ctxDQ.setLineDash([5,5]);
+  ctxDQ.beginPath();ctxDQ.moveTo(cx,0);ctxDQ.lineTo(cx,H);ctxDQ.stroke();ctxDQ.setLineDash([]);
+  ctxDQ.fillStyle='rgba(148,163,184,.8)';ctxDQ.font='11px monospace';
+  ctxDQ.fillText('+d →',W-44,cy-6);ctxDQ.fillText('↑ +q',cx+6,14);
+  for(let i=0;i<trail.length-1;i++){const r=i/trail.length;
+    ctxDQ.strokeStyle='rgba(6,182,212,'+(r*0.9)+')';ctxDQ.lineWidth=r*3+0.5;
+    ctxDQ.beginPath();
+    ctxDQ.moveTo(cx+trail[i].d*s,cy-trail[i].q*s);
+    ctxDQ.lineTo(cx+trail[i+1].d*s,cy-trail[i+1].q*s);ctxDQ.stroke();}
+  if(trail.length){const c=trail[trail.length-1];
+    ctxDQ.beginPath();ctxDQ.arc(cx+c.d*s,cy-c.q*s,5,0,FOC.TAU);
+    ctxDQ.fillStyle='#fff';ctxDQ.shadowBlur=12;ctxDQ.shadowColor='#fff';ctxDQ.fill();ctxDQ.shadowBlur=0;}
+
+  // 右 時域
+  const W2=cvYT.width,H2=cvYT.height,c2=H2*0.6,sy=H2*0.42;
+  ctxYT.clearRect(0,0,W2,H2);
+  ctxYT.strokeStyle='rgba(99,102,241,.15)';ctxYT.beginPath();ctxYT.moveTo(0,c2);ctxYT.lineTo(W2,c2);ctxYT.stroke();
+  const map=(arr)=>arr.map((v,i)=>({x:i/(N-1)*W2,y:c2-v*sy}));
+  FOC.poly(ctxYT,map(bVd),'#22d3ee',2);
+  FOC.poly(ctxYT,map(bVq),'#34d399',2);
+
+  document.getElementById('r-vd').textContent=vdPeak.toFixed(3);
+  document.getElementById('r-vq').textContent=cVq.toFixed(3);
+  requestAnimationFrame(loop);
+}
+resize();ui();requestAnimationFrame(loop);
+</script>
+<script src="foc-quiz.js"></script>
+<script>FOCQuiz.mount('L5')</script>
+<script src="foc-lab.js"></script>
+<script>FOCLab.mount('L5')</script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L1 · 旋轉空間向量</title>
+<link rel="stylesheet" href="foc-style.css">
+</head>
+<body>
+<header class="top">
+  <div>
+    <div class="crumb">FOC 教學課程 · 階段 ① 基礎直覺</div>
+    <h1>L1 · 旋轉空間向量 (Space Vector)</h1>
+    <div class="sub">一個旋轉的箭頭，就等於兩條相差 90° 的正弦波</div>
+  </div>
+  <div class="prog">第 1 / 9 課</div>
+</header>
+
+<main class="stage">
+  <div class="scopes two">
+    <div class="scope sq">
+      <canvas id="cv-xy"></canvas>
+      <span class="lab">αβ 平面 (XY)</span>
+      <span class="lab tr">轉一圈 = 一個電氣週期</span>
+    </div>
+    <div class="scope sq">
+      <canvas id="cv-yt"></canvas>
+      <span class="lab">時域 (YT)</span>
+      <span class="lab tr"><span style="color:#34d399">●</span>Vα <span style="color:#f59e0b">●</span>Vβ</span>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <h2>參數</h2>
+    <div class="ctrl">
+      <div class="row"><span>角速度 ω</span><span class="v" id="v-w">60 Hz</span></div>
+      <input type="range" id="p-w" min="5" max="200" value="60">
+    </div>
+    <div class="ctrl">
+      <div class="row"><span>向量長度 |V|</span><span class="v" id="v-m">0.80</span></div>
+      <input type="range" id="p-m" min="0.2" max="1" step="0.05" value="0.8">
+    </div>
+    <div class="readout">
+      <div class="cell"><span>θ</span><span id="r-th">0°</span></div>
+      <div class="cell"><span>|V|</span><span id="r-m">0.80</span></div>
+      <div class="cell"><span>Vα=|V|cosθ</span><span id="r-a">0.000</span></div>
+      <div class="cell"><span>Vβ=|V|sinθ</span><span id="r-b">0.000</span></div>
+    </div>
+    <div class="task"><b>🎯 動手試</b>
+      盯著左圖的白點（向量尖端），同時看右圖：白點往上 = 綠線（Vα）到波峰、橙線（Vβ）過零。把 ω 調大，看兩圖一起變快。</div>
+    <div class="aha"><b>💡 你學到了</b>
+      馬達的三相電壓，可以濃縮成 αβ 平面上「一支等速旋轉的向量」。它在兩個軸上的投影，自然就是兩條相差 90° 的正弦波 —— 這就是後面所有變換的起點。</div>
+  </aside>
+</main>
+
+<nav class="foot">
+  <a href="L0-why-foc.html">← L0</a>
+  <a href="index.html">課程地圖</a>
+  <a class="next" href="L2-clarke.html">下一課：L2 Clarke 變換 →</a>
+</nav>
+
+<script src="foc-core.js"></script>
+<script>
+const cvXY = document.getElementById('cv-xy'), ctxXY = cvXY.getContext('2d');
+const cvYT = document.getElementById('cv-yt'), ctxYT = cvYT.getContext('2d');
+const pW = document.getElementById('p-w'), pM = document.getElementById('p-m');
+let theta = 0, w = 60, mag = 0.8, last = performance.now();
+
+function ui(){
+  w = +pW.value; mag = +pM.value;
+  document.getElementById('v-w').textContent = w + ' Hz';
+  document.getElementById('v-m').textContent = mag.toFixed(2);
+}
+[pW, pM].forEach(p => p.addEventListener('input', ui));
+function resize(){ FOC.fit(cvXY); FOC.fit(cvYT); }
+window.addEventListener('resize', resize);
+
+function loop(now){
+  const dt = Math.min(.016, (now - last) / 1000); last = now;
+  theta = (theta + FOC.TAU * w * dt) % FOC.TAU;
+  const a = mag * Math.cos(theta), b = mag * Math.sin(theta);
+
+  // 左：αβ 平面
+  const W = cvXY.width, H = cvXY.height, cx = W/2, cy = H/2, s = Math.min(W,H)*0.4;
+  FOC.plane(ctxXY, W, H, cx, cy, s, { unitCircle:true });
+  // 投影輔助虛線
+  ctxXY.strokeStyle = 'rgba(148,163,184,.35)'; ctxXY.setLineDash([3,3]); ctxXY.lineWidth=1;
+  ctxXY.beginPath();
+  ctxXY.moveTo(cx + a*s, cy - b*s); ctxXY.lineTo(cx + a*s, cy);
+  ctxXY.moveTo(cx + a*s, cy - b*s); ctxXY.lineTo(cx, cy - b*s);
+  ctxXY.stroke(); ctxXY.setLineDash([]);
+  FOC.vector(ctxXY, cx, cy, a, b, s, '#34d399');
+
+  // 右：時域，回推 1.5 個週期
+  const W2 = cvYT.width, H2 = cvYT.height, c2 = H2/2, sy = H2*0.38;
+  ctxYT.clearRect(0,0,W2,H2);
+  ctxYT.strokeStyle='rgba(99,102,241,.15)'; ctxYT.beginPath();
+  ctxYT.moveTo(0,c2); ctxYT.lineTo(W2,c2); ctxYT.stroke();
+  const pa=[], pb=[];
+  for (let x=0; x<W2; x++){
+    const ang = theta - (x/W2)*FOC.TAU*1.5;
+    pa.push({x:W2-x, y:c2 - mag*Math.cos(ang)*sy});
+    pb.push({x:W2-x, y:c2 - mag*Math.sin(ang)*sy});
+  }
+  FOC.poly(ctxYT, pa, '#34d399');
+  FOC.poly(ctxYT, pb, '#f59e0b');
+
+  // 讀數
+  document.getElementById('r-th').textContent = (theta*180/Math.PI).toFixed(0)+'°';
+  document.getElementById('r-m').textContent = mag.toFixed(2);
+  document.getElementById('r-a').textContent = a.toFixed(3);
+  document.getElementById('r-b').textContent = b.toFixed(3);
+  requestAnimationFrame(loop);
+}
+resize(); ui(); requestAnimationFrame(loop);
+</script>
+<script src="foc-quiz.js"></script>
+<script>FOCQuiz.mount('L1')</script>
+<script src="foc-lab.js"></script>
+<script>FOCLab.mount('L1')</script>
+</body>
+</html>

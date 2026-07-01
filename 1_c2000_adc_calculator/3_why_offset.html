@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第3課 · 為什麼要墊高 Offset</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-lesson="3">
+<div class="wrap">
+  <div id="topnav"></div>
+
+  <div class="hero">
+    <div class="badge">3</div>
+    <div>
+      <h1>↕️ 為什麼要「墊高」(Offset)？</h1>
+      <p class="sub">馬達電流有正有負，但 ADC 只認得 0V 以上。墊高就是解法。</p>
+    </div>
+  </div>
+
+  <div class="block goal">
+    <h2><span class="k">這一課</span> 要搞懂的一件事</h2>
+    <p class="big">把「0 電流」對應到範圍中間 (Vref/2)，正電流往上推、負電流往下推，雙向都量得到。</p>
+  </div>
+
+  <div class="block metaphor">
+    <h2>🌰 生活比喻</h2>
+    <p style="margin:0;color:#475569;">想像一把<b>只能量正數的體重計</b>。你想同時記錄「比基準胖多少」和「瘦多少」，
+    但負數量不了。解法：先請對方<b>站到一疊書上（墊高）</b>，把基準抬到中間。
+    現在往上是變胖、往下是變瘦，正負都讀得到。那疊書的高度＝Offset，通常設成量程的一半。</p>
+  </div>
+
+  <div class="block">
+    <h2>🔬 動手玩</h2>
+    <div class="fieldgrid" style="margin-bottom:6px;">
+      <div class="field"><label>墊高電壓 Offset</label><div class="inrow"><input type="number" id="off" value="1.65" step="0.05"><span class="unit">V</span></div><p class="note">通常 = Vref/2 = 1.65V</p></div>
+      <div class="field"><label>Vref（量程上限）</label><div class="inrow"><input type="number" id="vref" value="3.3" step="0.1"><span class="unit">V</span></div></div>
+    </div>
+    <div class="presets">
+      <button onclick="setOff(1.65)">標準墊高 1.65V</button>
+      <button onclick="setOff(0)">⚠ 不墊高 (0V) 看問題</button>
+    </div>
+
+    <div class="ctrl">
+      <div class="grow">
+        <label class="cap">模擬電流（拉到負的試試）</label>
+        <input type="range" id="curr" min="-40" max="40" value="20" step="1">
+        <div class="ends"><span>-40 A</span><span>0 A</span><span>+40 A</span></div>
+      </div>
+      <div class="numbox"><label class="cap">電流</label><div class="inrow"><input type="number" id="currn" value="20" step="1"><span class="unit">A</span></div></div>
+    </div>
+
+    <div id="warn"></div>
+
+    <div class="barwrap">
+      <div class="barcap"><span>0 V</span><span class="mid">ADC 可讀範圍</span><span id="cap-vref">3.3 V</span></div>
+      <div class="bar"><div class="bfill" id="fill"></div><div class="bzero" id="zero"></div><div class="bmark" id="mark"></div></div>
+      <div class="barfoot"><span id="foot"></span><span id="zerolab">虛線 = 0 電流點</span></div>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin:14px 0 2px;">📝 計算過程</div>
+    <div class="walk" id="steps"></div>
+
+    <details class="green">
+      <summary>💡 按「不墊高 (0V)」會發生什麼？</summary>
+      <div class="body">
+        <p>Offset 設 0 時，把電流拉到負的——藍線會撞到最左邊 0V，<b>所有負電流都讀成 0</b>，
+        晶片完全不知道是 −5A 還是 −40A。這就是為什麼一定要墊高。</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="block challenge">
+    <h2>✅ 換你試試</h2>
+    <p class="q">Offset＝1.65V。把電流往正的拉，<b>大約到幾安培訊號會撞到頂端 3.3V（飽和）？</b>
+    （本課固定 R_shunt×Gain＝0.041 V/A）先用滑桿找到飽和的臨界電流，再填答案：</p>
+    <div class="inrow" style="gap:8px;max-width:240px;">
+      <input type="number" id="ans" value="40" step="1"><span class="unit">A</span>
+      <button class="copybtn" onclick="answer()">檢查</button>
+    </div>
+    <button class="hintbtn" onclick="document.getElementById('hint').style.display='block'">看提示</button>
+    <p id="hint" style="display:none;font-size:13px;color:#6d28d9;margin:6px 0 0;">提示：頂端還剩 3.3−1.65 = 1.65V 給正電流。1.65 ÷ 0.041 ≈ 40A。</p>
+    <div class="verdict" id="verdict"></div>
+  </div>
+
+  <details style="margin:0 0 16px;">
+    <summary>⚠️ 初學者常踩的雷</summary>
+    <div class="body">
+      <ul>
+        <li><b>Offset 不等於 Vref/2</b>：墊高沒設在正中間，正、負電流的可量範圍就不對稱，某一邊很快飽和。</li>
+        <li><b>忽略 Offset 漂移</b>：實際電路的墊高電壓會隨溫度/元件誤差飄動，韌體常需開機時量一次「零電流」做校正。</li>
+        <li><b>只測試正電流</b>：負電流的飽和（撞到 0V）很容易漏測，設計時兩端都要驗。</li>
+      </ul>
+    </div>
+  </details>
+
+  <div class="block recap">
+    <h2>📌 重點回顧</h2>
+    <ul>
+      <li><b>V_adc = I × R_shunt × Gain + Offset</b>，Offset 把 0 電流抬到中間。</li>
+      <li>正電流往上、負電流往下；上下各留一半量程 → 對稱的雙向量測範圍。</li>
+      <li>兩端都可能飽和：訊號頂到 0V 或 Vref 就量不準了。<b>下一課換高壓電壓路徑。</b></li>
+    </ul>
+  </div>
+
+  <div id="botnav"></div>
+  <footer>第 3 課 · 為什麼要墊高</footer>
+</div>
+
+<script src="assets/lessons.js"></script>
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  var num=function(id){var v=parseFloat($(id).value);return isNaN(v)?0:v;};
+  var clamp=function(x,a,b){return Math.max(a,Math.min(b,x));};
+  var KSEN=0.041; // R_shunt×Gain，本課固定 ≈ 0.005×8.2
+  function step(n,label,f,c,r){
+    return '<div class="stp"><div class="head"><span class="num">'+n+'</span>'+label+'</div>'+
+           '<div class="f">'+f+'</div><div class="c">'+c+' <b>= '+r+'</b></div></div>';
+  }
+  function update(){
+    var off=num('off'), vref=num('vref'), cur=num('curr');
+    var vsig=cur*KSEN, vadc=vsig+off;
+    var satHi=vadc>vref, satLo=vadc<0, sat=satHi||satLo;
+    var pct=vref?clamp(vadc/vref*100,0,100):0, zpct=vref?clamp(off/vref*100,0,100):0;
+    $('cap-vref').textContent=vref.toFixed(2)+' V';
+    $('fill').style.width=pct+'%';
+    $('fill').style.background=sat?'#fecaca':'#bfdbfe';
+    $('mark').style.left=pct+'%'; $('mark').style.background=sat?'#ef4444':'#2563eb';
+    $('zero').style.left=zpct+'%';
+    $('zerolab').textContent='虛線 = 0 電流點 ('+off+'V)';
+    $('foot').innerHTML='目前訊號：<b style="color:'+(sat?'#dc2626':'#1d4ed8')+'">'+vadc.toFixed(3)+' V</b>'+
+      (sat?' <span class="sat">⚠ 飽和</span>':'');
+    $('warn').innerHTML =
+      (satHi?'<div class="alert">⚠ 訊號 '+vadc.toFixed(2)+'V 超過 Vref（正電流太大）</div>':'')+
+      (satLo?'<div class="alert">⚠ 訊號 '+vadc.toFixed(2)+'V 低於 0V（負電流被截成 0，量不到）</div>':'');
+    $('steps').innerHTML=
+      step(1,'電流先變成（已放大的）訊號電壓','V_sig = I × R_shunt × Gain', cur+' A × 0.041', vsig.toFixed(3)+' V')+
+      step(2,'加上墊高，落在 ADC 範圍內','V_adc = V_sig + Offset', vsig.toFixed(3)+' + '+off, vadc.toFixed(3)+' V');
+  }
+  ['off','vref','curr'].forEach(function(id){$(id).addEventListener('input',function(){
+    if(id==='curr')$('currn').value=$('curr').value; update();});});
+  $('currn').addEventListener('input',function(){var v=parseFloat($('currn').value);if(!isNaN(v))$('curr').value=v;update();});
+  window.setOff=function(v){$('off').value=v;update();};
+  window.answer=function(){
+    var off=num('off'), vref=num('vref'), a=num('ans');
+    var ic=(vref-off)/KSEN, ok=Math.abs(a-ic)<4, v=$('verdict');
+    v.className='verdict '+(ok?'ok':'no');
+    v.innerHTML=(ok?'✅ 對！':'❌ 再找找。')+' 臨界電流 = (Vref − Offset) ÷ 0.041 = ('+vref+'−'+off+')÷0.041 ≈ '+ic.toFixed(0)+' A。'+
+      (ok?'':' 你填 '+a+'A。');
+    if(ok) window.C2000.markDone();
+  };
+  update();
+})();
+</script>
+</body>
+</html>

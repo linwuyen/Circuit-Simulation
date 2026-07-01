@@ -1,0 +1,199 @@
+/* ===================================================================== */
+/* AD5543 教學課程 — 共用樣式 (common.css)                                */
+/* 八課共用一份;改這裡,全部同步。完全離線、無任何外部資源。            */
+/* ===================================================================== */
+:root{
+  --slate-950:#020617;--slate-900:#0f172a;--slate-800:#1e293b;--slate-700:#334155;
+  --slate-600:#475569;--slate-500:#64748b;--slate-400:#94a3b8;--slate-300:#cbd5e1;--slate-100:#f1f5f9;
+  --blue-400:#60a5fa;--blue-300:#93c5fd;--blue-600:#2563eb;
+  --green-400:#4ade80;--green-600:#16a34a;
+  --yellow-400:#facc15;--red-400:#f87171;--amber-300:#fcd34d;
+  --orange-300:#fdba74;--orange-400:#fb923c;--orange-600:#ea580c;
+  --pink-300:#f9a8d4;--pink-500:#ec4899;--pink-600:#db2777;
+  --purple-400:#c084fc;--indigo-300:#a5b4fc;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;
+  --sans:"Segoe UI","PingFang TC","Microsoft JhengHei",system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--slate-950);color:var(--slate-100);
+  font-family:var(--sans);line-height:1.6;}
+.wrap{max-width:60rem;margin:24px auto;background:var(--slate-900);border-radius:12px;
+  padding:24px;display:flex;flex-direction:column;gap:20px;}
+code,.mono{font-family:var(--mono);}
+
+/* ---- 導覽列 / 進度 -------------------------------------------------- */
+.navbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:10px 14px;background:var(--slate-800);border:1px solid var(--slate-700);border-radius:8px;}
+.navbtn{font-size:.85rem;font-weight:700;color:var(--blue-300);text-decoration:none;
+  padding:4px 10px;border-radius:6px;background:var(--slate-700);white-space:nowrap;}
+.navbtn:hover{background:var(--slate-600);}
+.navprog{flex:1;min-width:120px;height:8px;background:var(--slate-700);border-radius:9999px;overflow:hidden;}
+.navprogbar{height:100%;background:linear-gradient(90deg,var(--blue-600),var(--green-400));transition:width .3s;}
+.navpct{font-size:.8rem;color:var(--slate-400);font-family:var(--mono);}
+.pnrow{display:flex;justify-content:space-between;gap:12px;margin-top:4px;}
+.pnbtn{font-size:.9rem;font-weight:700;text-decoration:none;color:var(--slate-200);
+  padding:10px 16px;border-radius:8px;background:var(--slate-800);border:1px solid var(--slate-700);max-width:48%;}
+.pnbtn:hover{border-color:var(--blue-400);color:var(--blue-300);}
+.pnbtn.next{background:var(--blue-600);border-color:var(--blue-400);color:#fff;text-align:right;}
+.pnbtn.next:hover{background:#1d4ed8;color:#fff;}
+
+/* ---- 課程標題 ------------------------------------------------------ */
+.lesson-head{border-bottom:1px solid var(--slate-700);padding-bottom:16px;}
+.lesson-num{display:inline-block;font-size:.75rem;font-weight:700;letter-spacing:.08em;
+  color:var(--green-400);background:rgba(22,163,74,.15);padding:3px 10px;border-radius:9999px;text-transform:uppercase;}
+.lesson-head h1{font-size:1.7rem;margin:10px 0 6px;color:var(--blue-400);line-height:1.3;}
+.goal{font-size:.95rem;color:var(--slate-300);margin:0;}
+.goal b{color:var(--amber-300);}
+
+/* ---- 教學區塊 ------------------------------------------------------ */
+.sec-label{font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--slate-500);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.teach{background:rgba(30,58,138,.18);border:1px solid rgba(37,99,235,.4);
+  border-radius:10px;padding:16px 18px;font-size:.95rem;color:#dbeafe;}
+.teach b{color:var(--amber-300);}
+.analogy{display:flex;gap:12px;align-items:flex-start;}
+.analogy .emoji{font-size:1.8rem;line-height:1;}
+
+.trythis{background:var(--slate-800);border:1px dashed var(--green-600);border-radius:10px;padding:16px 18px;}
+.trythis ol{margin:8px 0 0;padding-left:20px;}
+.trythis li{margin:6px 0;font-size:.9rem;color:var(--slate-300);}
+.trythis .k{font-family:var(--mono);color:var(--green-400);font-weight:700;}
+
+.panel{background:var(--slate-800);border:1px solid var(--slate-700);border-radius:10px;padding:18px;}
+.panel.sim{display:flex;flex-direction:column;gap:16px;}
+
+.takeaways{background:rgba(22,163,74,.1);border:1px solid var(--green-600);border-radius:10px;padding:16px 18px;}
+.takeaways ul{margin:8px 0 0;padding-left:20px;}
+.takeaways li{margin:6px 0;font-size:.92rem;color:var(--slate-200);}
+.takeaways li b{color:var(--green-400);}
+
+/* ---- 控制元件 ------------------------------------------------------ */
+.ctrl{display:flex;flex-direction:column;gap:8px;}
+label.row{display:flex;justify-content:space-between;font-size:.9rem;color:var(--slate-300);}
+input[type=range]{width:100%;cursor:pointer;margin:0;}
+.hexrow{display:flex;justify-content:space-between;font-size:.7rem;color:var(--slate-500);font-family:var(--mono);}
+.hint{font-size:12px;color:var(--slate-500);line-height:1.5;margin:8px 0 0;}
+.presets{display:flex;flex-wrap:wrap;gap:6px;}
+.preset{padding:5px 10px;border-radius:6px;font-size:12px;border:1px solid var(--slate-600);
+  background:var(--slate-700);color:var(--slate-300);cursor:pointer;font-family:var(--mono);}
+.preset.on{background:var(--green-600);border-color:var(--green-400);color:#fff;}
+.preset:hover{border-color:var(--green-400);}
+.btn{padding:6px 14px;border-radius:6px;font-size:.85rem;font-weight:700;border:none;cursor:pointer;
+  background:var(--slate-600);color:var(--slate-200);}
+.btn:hover{background:var(--slate-500);}
+.btn.accent{background:var(--blue-600);color:#fff;}
+.btn.on{background:var(--green-600);color:#fff;}
+
+/* ---- 數學盒 / 數值 ------------------------------------------------- */
+.mathbox{background:var(--slate-900);border:1px solid var(--slate-700);border-radius:8px;
+  padding:14px;font-size:.9rem;font-family:var(--mono);}
+.mathbox p{margin:3px 0;}
+.bigout{font-size:1.4rem;font-weight:700;margin-top:8px;border-top:1px solid var(--slate-700);
+  padding-top:8px;text-align:right;font-family:var(--mono);}
+
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;}
+.stat{background:var(--slate-900);border:1px solid var(--slate-700);border-radius:8px;padding:12px;}
+.stat .lab{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--slate-400);text-transform:uppercase;}
+.stat .val{font-size:1.15rem;font-weight:700;margin-top:4px;font-family:var(--mono);}
+.stat .h{font-size:10px;color:var(--slate-500);margin-top:4px;line-height:1.3;}
+
+/* ---- 視覺化容器 ---------------------------------------------------- */
+.viz{background:var(--slate-100);color:#0f172a;border:1px solid var(--slate-700);
+  border-radius:8px;padding:16px;position:relative;overflow:hidden;}
+.viz-top{position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:8px;z-index:5;}
+.animbtn{display:flex;align-items:center;gap:4px;font-size:11px;padding:4px 8px;border-radius:4px;
+  background:#e2e8f0;color:#334155;border:none;cursor:pointer;}
+.topo{font-size:.75rem;font-weight:700;color:#64748b;}
+.flowrow{margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:11px;color:#475569;}
+.chip{padding:2px 6px;border-radius:4px;}
+
+/* ---- 位元暫存器 ---------------------------------------------------- */
+.bitreg{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;}
+.bit{width:38px;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  border-radius:4px;border:1px solid var(--slate-600);background:var(--slate-700);color:var(--slate-500);cursor:pointer;font-family:var(--mono);}
+.bit.on{background:var(--blue-600);border-color:var(--blue-400);color:#fff;box-shadow:0 0 10px rgba(37,99,235,.5);}
+.bit .idx{font-size:10px;color:var(--slate-400);margin-bottom:2px;}
+.bit .v{font-weight:700;font-size:1rem;}
+.bit .w{font-size:8px;margin-top:2px;}
+
+/* ---- 誤差控制 ------------------------------------------------------ */
+.errctrls{display:flex;flex-direction:column;gap:12px;}
+.errvals{display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center;margin-top:12px;}
+.errvals .box{background:var(--slate-900);border:1px solid var(--slate-700);border-radius:6px;padding:8px;}
+
+/* ---- 設計計算機 / 程式碼 ------------------------------------------- */
+.calc-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.field{display:flex;flex-direction:column;gap:4px;}
+.field label{font-size:.8rem;color:var(--slate-400);}
+.field input,.field select{background:var(--slate-900);border:1px solid var(--slate-600);
+  color:var(--slate-100);border-radius:6px;padding:8px;font-family:var(--mono);font-size:.95rem;}
+.result-card{background:var(--slate-900);border:1px solid var(--green-600);border-radius:8px;padding:14px;}
+.result-card .big{font-size:1.5rem;font-weight:700;color:var(--green-400);font-family:var(--mono);}
+pre.code{background:#0b1220;border:1px solid var(--slate-700);border-radius:8px;padding:14px;
+  overflow:auto;font-family:var(--mono);font-size:.82rem;color:#d1e7ff;margin:0;}
+pre.code .cmt{color:var(--slate-500);}
+pre.code .kw{color:var(--pink-300);}
+pre.code .num{color:var(--amber-300);}
+
+/* ---- 小測驗 -------------------------------------------------------- */
+.quiz{background:var(--slate-800);border:1px solid var(--slate-700);border-radius:10px;padding:18px;}
+.qh{display:flex;align-items:center;gap:6px;font-size:1rem;color:var(--pink-300);margin:0 0 12px;}
+.qitem{margin-bottom:16px;}
+.qq{font-size:.95rem;font-weight:700;color:var(--slate-100);margin:0 0 8px;}
+.qopts{display:flex;flex-direction:column;gap:6px;}
+.qopt{text-align:left;padding:9px 12px;border-radius:6px;border:1px solid var(--slate-600);
+  background:var(--slate-700);color:var(--slate-200);cursor:pointer;font-size:.9rem;}
+.qopt:hover{border-color:var(--blue-400);}
+.qopt.correct{background:rgba(22,163,74,.35);border-color:var(--green-400);color:#fff;}
+.qopt.wrong{background:rgba(220,38,38,.3);border-color:var(--red-400);color:#fff;}
+.qexp{font-size:.85rem;color:var(--slate-300);margin:8px 0 0;padding:8px 10px;
+  background:var(--slate-900);border-radius:6px;border-left:3px solid var(--blue-400);}
+.qdone{font-size:1rem;font-weight:700;color:var(--green-400);text-align:center;margin:12px 0 0;}
+.btn.reroll{margin-left:auto;font-size:.75rem;padding:4px 10px;background:var(--slate-700);}
+.btn.reroll:hover{background:var(--pink-600);color:#fff;}
+
+/* ---- 延伸閱讀 / datasheet 對照 ------------------------------------- */
+.readmore{background:rgba(30,41,59,.5);border:1px solid var(--slate-700);border-radius:10px;padding:16px 18px;}
+.reflist{margin:8px 0 0;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;}
+.reflist dt{font-family:var(--mono);font-size:.82rem;color:var(--amber-300);font-weight:700;}
+.reflist dd{margin:0;font-size:.86rem;color:var(--slate-300);line-height:1.5;}
+@media(max-width:600px){.reflist{grid-template-columns:1fr;gap:2px 0;}.reflist dd{margin:0 0 8px;}}
+
+/* ---- 概念卡 -------------------------------------------------------- */
+.concept{background:rgba(30,41,59,.6);border:1px solid var(--slate-700);border-radius:8px;padding:14px;}
+.concept .t{font-size:.9rem;font-weight:700;color:var(--blue-300);margin-bottom:4px;}
+.concept p{font-size:.8rem;color:var(--slate-300);line-height:1.55;margin:0;}
+.two-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.eng{background:rgba(30,58,138,.3);border:1px solid rgba(29,78,216,.5);padding:16px;
+  border-radius:8px;font-size:.88rem;color:#bfdbfe;line-height:1.6;}
+
+/* ---- 首頁地圖 ------------------------------------------------------ */
+.hero h1{font-size:2rem;color:var(--blue-400);margin:0 0 6px;}
+.hero .sub{color:var(--slate-400);margin:0;}
+.onesentence{background:rgba(30,58,138,.18);border:1px solid rgba(37,99,235,.4);
+  border-radius:10px;padding:18px;font-size:1rem;color:#dbeafe;line-height:1.7;}
+.onesentence b{color:var(--green-400);}
+.map{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;}
+.card{display:block;text-decoration:none;background:var(--slate-800);border:1px solid var(--slate-700);
+  border-radius:10px;padding:16px;color:var(--slate-200);transition:.15s;position:relative;}
+.card:hover{border-color:var(--blue-400);transform:translateY(-2px);}
+.card .cnum{font-family:var(--mono);font-size:.75rem;color:var(--green-400);}
+.card h3{margin:6px 0 4px;font-size:1.05rem;color:var(--blue-300);}
+.card p{margin:0;font-size:.82rem;color:var(--slate-400);line-height:1.5;}
+.card .check{position:absolute;top:12px;right:14px;font-size:1.1rem;}
+.card.done{border-color:var(--green-600);}
+
+.flex-h{display:flex;align-items:center;gap:8px;}
+.row-between{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+
+/* ---- 動畫 ---------------------------------------------------------- */
+@keyframes flowdash{to{stroke-dashoffset:-22;}}
+@keyframes glowpulse{0%,100%{opacity:.15}50%{opacity:.7}}
+.flow{animation:flowdash .6s linear infinite;}
+.glow{animation:glowpulse 1.2s ease-in-out infinite;}
+
+@media(max-width:768px){
+  .wrap{margin:0;border-radius:0;padding:16px;}
+  .calc-grid,.two-grid{grid-template-columns:1fr;}
+  .lesson-head h1{font-size:1.4rem;}
+}

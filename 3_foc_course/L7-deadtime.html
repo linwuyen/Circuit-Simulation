@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L7 · 死區時間</title>
+<link rel="stylesheet" href="foc-style.css">
+</head>
+<body>
+<header class="top">
+  <div>
+    <div class="crumb">FOC 教學課程 · 階段 ③ 硬體非理想</div>
+    <h1>L7 · 死區時間 (圓 → 六角星)</h1>
+    <div class="sub">橋臂死區在每 60° 注入固定電壓誤差，顯示為 6 次諧波</div>
+  </div>
+  <div class="prog">第 7 / 9 課</div>
+</header>
+
+<main class="stage">
+  <div class="scopes two">
+    <div class="scope sq">
+      <canvas id="cv-xy"></canvas>
+      <span class="lab">αβ 軌跡</span>
+      <span class="lab tr" id="shape">正圓</span>
+    </div>
+    <div class="scope sq">
+      <canvas id="cv-yt"></canvas>
+      <span class="lab">αβ 時域（看毛刺）</span>
+      <span class="lab tr"><span style="color:#10b981">●</span>Vα <span style="color:#f59e0b">●</span>Vβ</span>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <h2>故障注入</h2>
+    <div class="ctrl">
+      <div class="row"><span>死區畸變量</span><span class="v" id="v-d">0 %</span></div>
+      <input type="range" id="p-d" min="0" max="15" step="0.5" value="0">
+    </div>
+    <div class="ctrl">
+      <div class="row"><span>振幅 |V|</span><span class="v" id="v-m">0.75</span></div>
+      <input type="range" id="p-m" min="0.3" max="1" step="0.05" value="0.75">
+    </div>
+    <div class="ctrl">
+      <div class="row"><span>轉速 ω</span><span class="v" id="v-w">70 Hz</span></div>
+      <input type="range" id="p-w" min="20" max="300" value="70">
+    </div>
+    <div class="readout">
+      <div class="cell"><span>毛刺主頻</span><span>6 次諧波</span></div>
+      <div class="cell"><span>星芒數</span><span id="r-n">0</span></div>
+    </div>
+    <div class="task"><b>🎯 動手試</b>
+      拉「死區畸變量」：左圖圓周冒出 <strong>6 個規律凹凸</strong>（六角星），右圖正弦上疊了週期性毛刺。試著把 <code>|V|</code> 調很小 —— 毛刺相對更明顯（死區誤差跟電壓大小幾乎無關）。</div>
+    <div class="aha"><b>💡 你學到了</b>
+      上下橋臂為了不直通而插入死區，每個 60° 扇區邊界都掉一塊固定的伏秒。它在 αβ 是 6 倍頻徑向漣波（= 靜止系 5、7 次諧波），在 dq 看到 6 倍頻脈動。補償法：死區補償 (dead-time compensation)。</div>
+  </aside>
+</main>
+
+<nav class="foot">
+  <a href="L6-adc-gain.html">← L6</a>
+  <a href="index.html">課程地圖</a>
+  <a class="next" href="L8-overmodulation.html">下一課：L8 過調變與 SVPWM →</a>
+</nav>
+
+<script src="foc-core.js"></script>
+<script>
+const cvXY=document.getElementById('cv-xy'),ctxXY=cvXY.getContext('2d');
+const cvYT=document.getElementById('cv-yt'),ctxYT=cvYT.getContext('2d');
+const pD=document.getElementById('p-d'),pM=document.getElementById('p-m'),pW=document.getElementById('p-w');
+let dead=0,mag=0.75,w=70,theta=0,last=performance.now();
+
+function ui(){dead=+pD.value/100;mag=+pM.value;w=+pW.value;
+  document.getElementById('v-d').textContent=(dead*100).toFixed(1)+' %';
+  document.getElementById('v-m').textContent=mag.toFixed(2);
+  document.getElementById('v-w').textContent=w+' Hz';}
+[pD,pM,pW].forEach(p=>p.addEventListener('input',ui));
+function comp(a){
+  let al=mag*Math.cos(a),be=mag*Math.sin(a);
+  if(dead>0){const r=dead*0.30*Math.cos(6*a);al+=r*Math.cos(a);be+=r*Math.sin(a);}
+  return{alpha:al,beta:be};
+}
+function resize(){FOC.fit(cvXY);FOC.fit(cvYT);}
+window.addEventListener('resize',resize);
+
+function loop(now){
+  const dt=Math.min(.016,(now-last)/1000);last=now;
+  theta=(theta+FOC.TAU*w*dt)%FOC.TAU;
+  const W=cvXY.width,H=cvXY.height,cx=W/2,cy=H/2,s=Math.min(W,H)*0.42;
+  FOC.plane(ctxXY,W,H,cx,cy,s,{unitCircle:true});
+  const pts=[];for(let i=0;i<=360;i++){const v=comp(i/360*FOC.TAU);pts.push({x:cx+v.alpha*s,y:cy-v.beta*s});}
+  FOC.poly(ctxXY,pts,'rgba(167,139,250,.55)',1.4);
+  const c=comp(theta);FOC.vector(ctxXY,cx,cy,c.alpha,c.beta,s,'#a78bfa');
+
+  const W2=cvYT.width,H2=cvYT.height,c2=H2/2,sy=H2*0.36;
+  ctxYT.clearRect(0,0,W2,H2);
+  ctxYT.strokeStyle='rgba(99,102,241,.15)';ctxYT.beginPath();ctxYT.moveTo(0,c2);ctxYT.lineTo(W2,c2);ctxYT.stroke();
+  const pa=[],pb=[];
+  for(let x=0;x<W2;x++){const ang=theta-(x/W2)*FOC.TAU*1.5;const v=comp(ang);
+    pa.push({x:W2-x,y:c2-v.alpha*sy});pb.push({x:W2-x,y:c2-v.beta*sy});}
+  FOC.poly(ctxYT,pa,'#10b981');FOC.poly(ctxYT,pb,'#f59e0b');
+
+  document.getElementById('r-n').textContent=dead>0.005?'6':'0';
+  document.getElementById('shape').textContent=dead>0.005?'六角星':'正圓';
+  requestAnimationFrame(loop);
+}
+resize();ui();requestAnimationFrame(loop);
+</script>
+<script src="foc-quiz.js"></script>
+<script>FOCQuiz.mount('L7')</script>
+<script src="foc-lab.js"></script>
+<script>FOCLab.mount('L7')</script>
+</body>
+</html>

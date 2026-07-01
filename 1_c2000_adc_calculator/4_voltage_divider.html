@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第4課 · 高壓分壓</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-lesson="4">
+<div class="wrap">
+  <div id="topnav"></div>
+
+  <div class="hero">
+    <div class="badge">4</div>
+    <div>
+      <h1>🪜 幾百伏特怎麼降到 3.3V？</h1>
+      <p class="sub">電壓路徑不用放大，而是反過來——用分壓電阻把高壓「按比例縮小」。</p>
+    </div>
+  </div>
+
+  <div class="block goal">
+    <h2><span class="k">這一課</span> 要搞懂的一件事</h2>
+    <p class="big">用兩顆串聯電阻 (R_top、R_bot) 做分壓，把母線電壓縮成 ADC 能讀的小電壓。</p>
+  </div>
+
+  <div class="block metaphor">
+    <h2>🌰 生活比喻</h2>
+    <p style="margin:0;color:#475569;">分壓像<b>一道很高的階梯</b>：總高度是母線電壓，你只在最底下一階 (R_bot) 量高度。
+    R_bot 佔總高度的比例 = 分壓比，乘上去就得到 ADC 看到的電壓。
+    R_top 故意做超大（如 2MΩ），因為電阻越大、漏過去的電流越小、<b>發熱越少越省電</b>。</p>
+  </div>
+
+  <div class="block">
+    <h2>🔬 動手玩</h2>
+    <div class="fieldgrid" style="margin-bottom:6px;">
+      <div class="field"><label>上電阻 R_top</label><div class="inrow"><input type="number" id="rtop" value="2000" step="10"><span class="unit">kΩ</span></div></div>
+      <div class="field"><label>下電阻 R_bot</label><div class="inrow"><input type="number" id="rbot" value="8.25" step="0.05"><span class="unit">kΩ</span></div></div>
+    </div>
+
+    <div class="schematic">
+      <svg viewBox="0 0 560 200" width="100%" font-family="system-ui,sans-serif">
+        <defs><marker id="ar" markerWidth="7" markerHeight="7" refX="5.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#94a3b8"/></marker></defs>
+        <circle cx="60" cy="40" r="5" stroke="#ef4444" stroke-width="2" fill="#fff"/>
+        <text x="60" y="28" font-size="11" font-weight="700" fill="#ef4444" text-anchor="middle">HV+</text>
+        <text id="bus" x="92" y="44" font-size="14" font-weight="700" fill="#ef4444">380 V</text>
+        <line x1="60" y1="45" x2="60" y2="70" stroke="#ef4444" stroke-width="2"/>
+        <g transform="translate(35,70)">
+          <path d="M0,5 L25,5 L29,0 L37,10 L41,0 L49,10 L50,5" fill="none" stroke="#475569" stroke-width="2"/>
+          <text x="70" y="9" font-size="10" fill="#64748b">R_top</text>
+          <text id="rtopl" x="70" y="24" font-size="10" font-weight="700" fill="#334155">2000 kΩ</text>
+        </g>
+        <line x1="60" y1="80" x2="60" y2="110" stroke="#475569" stroke-width="2"/>
+        <circle cx="60" cy="110" r="3.5" fill="#334155"/>
+        <line x1="60" y1="110" x2="150" y2="110" stroke="#22c55e" stroke-width="2.5" marker-end="url(#ar)"/>
+        <text x="105" y="102" font-size="10" fill="#64748b" text-anchor="middle">V_adc</text>
+        <g transform="translate(35,110)">
+          <path d="M25,5 L25,30 M21,9 L29,12 L21,16 L29,19 L21,23 L29,26" fill="none" stroke="#475569" stroke-width="2"/>
+          <text x="70" y="20" font-size="10" fill="#64748b">R_bot</text>
+          <text id="rbotl" x="70" y="34" font-size="10" font-weight="700" fill="#334155">8.25 kΩ</text>
+        </g>
+        <line x1="60" y1="140" x2="60" y2="165" stroke="#475569" stroke-width="2"/>
+        <g transform="translate(60,165)"><line x1="0" y1="0" x2="0" y2="8" stroke="#475569" stroke-width="2"/><line x1="-9" y1="8" x2="9" y2="8" stroke="#475569" stroke-width="2"/><line x1="-5" y1="12" x2="5" y2="12" stroke="#475569" stroke-width="2"/></g>
+        <rect x="160" y="86" width="110" height="48" rx="6" fill="#dcfce7" stroke="#86efac"/>
+        <text x="215" y="106" font-size="11" fill="#166534" text-anchor="middle">ADC 看到</text>
+        <text id="vadc" x="215" y="124" font-size="15" font-weight="800" fill="#166534" text-anchor="middle">1.56 V</text>
+        <g transform="translate(310,60)">
+          <text x="0" y="0" font-size="11" fill="#64748b" font-style="italic">分壓比 = R_bot / (R_top + R_bot)</text>
+          <text id="rtxt" x="0" y="20" font-size="12" fill="#334155" font-family="monospace">= 8.25 / 2008.25</text>
+          <text id="rval" x="0" y="40" font-size="14" font-weight="700" fill="#1d4ed8" font-family="monospace">= 0.004108</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="heat"><span class="l">🔥 R_top 約略熱功耗 (P ≈ V²/R)</span><span class="r" id="pow">0.072 W</span></div>
+
+    <div class="ctrl">
+      <div class="grow">
+        <label class="cap">模擬母線電壓 V_bus</label>
+        <input type="range" id="bus2" min="0" max="960" value="380" step="10">
+        <div class="ends"><span>0 V</span><span>480 V</span><span>960 V</span></div>
+      </div>
+      <div class="numbox"><label class="cap">電壓</label><div class="inrow"><input type="number" id="busn" value="380" step="10"><span class="unit">V</span></div></div>
+    </div>
+
+    <div id="warn"></div>
+
+    <div class="barwrap">
+      <div class="barcap"><span>0 V</span><span class="mid">ADC 可讀範圍</span><span id="cap-vref">3.3 V</span></div>
+      <div class="bar"><div class="bfill" id="fill"></div><div class="bmark" id="mark"></div></div>
+      <div class="barfoot"><span id="foot"></span></div>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin:14px 0 2px;">📝 計算過程</div>
+    <div class="walk" id="steps"></div>
+
+    <details>
+      <summary>🧵 為什麼電路圖常把 R_top 畫成「一串」電阻？</summary>
+      <div class="body">
+        <p>每顆電阻都有「耐壓上限」，幾百伏直接壓一顆會打穿。所以把 R_top 拆成<b>多顆串聯</b>分攤電壓，
+        每顆只承受一部分。總電阻不變，分壓算法也一樣。</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="block">
+    <h2>🔇 加映：分壓後那組 RC 濾波</h2>
+    <p style="font-size:14px;color:#475569;margin:0 0 10px;">分壓出來的電壓進 ADC 前也接一組 <b>RC 低通濾波</b>擋雜訊。母線電壓變化通常較慢，所以這裡 f_c 可以設得比電流路徑低：</p>
+    <div class="fieldgrid" style="margin-bottom:6px;">
+      <div class="field"><label>濾波電阻 R_fc (kΩ)</label><input type="number" id="l4r" value="1" step="0.1"></div>
+      <div class="field"><label>濾波電容 C_fc (nF)</label><input type="number" id="l4c" value="10" step="1"></div>
+    </div>
+    <div class="heat" style="background:#eff6ff;border-color:#bfdbfe;"><span class="l" style="color:#1e40af;">截止頻率 f_c = 1 ÷ (2π·R·C)</span><span class="r" id="l4fc" style="color:#1d4ed8;">—</span></div>
+    <p class="note">注意：分壓電阻很大時，濾波 R 與分壓阻抗會互相影響，實務上 R_fc 通常遠小於 R_top。</p>
+  </div>
+
+  <details style="margin:0 0 16px;">
+    <summary>⚠️ 初學者常踩的雷</summary>
+    <div class="body">
+      <ul>
+        <li><b>單顆 R_top 耐壓不足</b>：幾百伏壓一顆電阻會打穿，要用多顆串聯分攤電壓。</li>
+        <li><b>分壓比沒留餘裕</b>：剛好讓最高電壓＝Vref，一有突波就飽和；通常留 10~20%。</li>
+        <li><b>忽略 ADC 輸入阻抗/漏電流</b>：R_bot 太大時，ADC 取樣電容充電不及或漏電流造成誤差，分壓電阻不能無限大。</li>
+      </ul>
+    </div>
+  </details>
+
+  <div class="block challenge">
+    <h2>✅ 換你試試</h2>
+    <p class="q">母線最高會到 <b>800V</b>，Vref＝3.3V。R_bot 固定 8.25kΩ。
+    要讓 800V 時 ADC 剛好<b>不超過 3.3V</b>，R_top 至少要多大？調 R_top、把滑桿推到 800V 觀察是否飽和：</p>
+    <div class="inrow" style="gap:8px;max-width:240px;">
+      <input type="number" id="ans" value="2000" step="10"><span class="unit">kΩ</span>
+      <button class="copybtn" onclick="answer()">檢查</button>
+    </div>
+    <button class="hintbtn" onclick="document.getElementById('hint').style.display='block'">看提示</button>
+    <p id="hint" style="display:none;font-size:13px;color:#6d28d9;margin:6px 0 0;">提示：要 V_adc ≤ 3.3，需要分壓比 ≤ 3.3/800 ≈ 0.004125。由此反推 R_top ≥ R_bot×(800/3.3 − 1) ≈ 1992kΩ，取 2000kΩ 較安全。</p>
+    <div class="verdict" id="verdict"></div>
+  </div>
+
+  <div class="block recap">
+    <h2>📌 重點回顧</h2>
+    <ul>
+      <li><b>分壓比 = R_bot / (R_top + R_bot)</b>；<b>V_adc = V_bus × 分壓比</b>。</li>
+      <li>R_top 越大越省電 (P=V²/R 越小)，但太大會更容易被雜訊干擾，要折衷。</li>
+      <li>到這裡硬體都懂了——<b>下一課把這些換算「反過來」，做成韌體係數。</b></li>
+    </ul>
+  </div>
+
+  <div id="botnav"></div>
+  <footer>第 4 課 · 高壓分壓</footer>
+</div>
+
+<script src="assets/lessons.js"></script>
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  var num=function(id){var v=parseFloat($(id).value);return isNaN(v)?0:v;};
+  var clamp=function(x,a,b){return Math.max(a,Math.min(b,x));};
+  var VREF=3.3;
+  function step(n,label,f,c,r){
+    return '<div class="stp"><div class="head"><span class="num">'+n+'</span>'+label+'</div>'+
+           '<div class="f">'+f+'</div><div class="c">'+c+' <b>= '+r+'</b></div></div>';
+  }
+  function update(){
+    var rtop=num('rtop'), rbot=num('rbot'), bus=num('bus2');
+    var den=rtop+rbot, ratio=den?rbot/den:0, vadc=bus*ratio;
+    var pow=rtop?(bus*bus)/(rtop*1000):0, sat=vadc>VREF;
+    var pct=clamp(vadc/VREF*100,0,100);
+    $('bus').textContent=bus+' V';
+    $('rtopl').textContent=rtop+' kΩ';
+    $('rbotl').textContent=rbot+' kΩ';
+    $('vadc').textContent=vadc.toFixed(2)+' V';
+    $('vadc').setAttribute('fill',sat?'#dc2626':'#166534');
+    $('rtxt').textContent='= '+rbot+' / '+den.toFixed(2);
+    $('rval').textContent='= '+ratio.toFixed(6);
+    $('pow').textContent=pow.toFixed(3)+' W';
+    $('cap-vref').textContent=VREF.toFixed(2)+' V';
+    $('fill').style.width=pct+'%'; $('fill').style.background=sat?'#fecaca':'#bfdbfe';
+    $('mark').style.left=pct+'%'; $('mark').style.background=sat?'#ef4444':'#2563eb';
+    $('foot').innerHTML='目前訊號：<b style="color:'+(sat?'#dc2626':'#1d4ed8')+'">'+vadc.toFixed(3)+' V</b>'+
+      (sat?' <span class="sat">⚠ 超過 Vref（飽和）</span>':'');
+    $('warn').innerHTML=sat?'<div class="alert">⚠ V_adc '+vadc.toFixed(2)+'V 超過 Vref，請加大 R_top</div>':'';
+    $('steps').innerHTML=
+      step(1,'先算分壓比','ratio = R_bot ÷ (R_top + R_bot)', rbot+' ÷ '+den.toFixed(2), ratio.toFixed(6))+
+      step(2,'高壓按比例縮小','V_adc = V_bus × ratio', bus+' × '+ratio.toFixed(6), vadc.toFixed(3)+' V');
+  }
+  ['rtop','rbot','bus2'].forEach(function(id){$(id).addEventListener('input',function(){
+    if(id==='bus2')$('busn').value=$('bus2').value; update();});});
+  $('busn').addEventListener('input',function(){var v=parseFloat($('busn').value);if(!isNaN(v))$('bus2').value=v;update();});
+  function fmtHz(f){ if(!f||!isFinite(f))return '—'; if(f>=1e6)return (f/1e6).toFixed(2)+' MHz'; if(f>=1e3)return (f/1e3).toFixed(2)+' kHz'; return f.toFixed(1)+' Hz'; }
+  function rcUpdate(){ var r=num('l4r'), c=num('l4c'); var fc=(r>0&&c>0)?1/(2*Math.PI*(r*1000)*(c*1e-9)):0; $('l4fc').textContent=fmtHz(fc); }
+  ['l4r','l4c'].forEach(function(id){ $(id).addEventListener('input',rcUpdate); });
+  rcUpdate();
+
+  window.answer=function(){
+    var rtop=num('ans'), rbot=num('rbot');
+    var vadc=800*rbot/(rtop+rbot), ok=vadc<=VREF&&vadc>=VREF-0.4, v=$('verdict');
+    v.className='verdict '+(ok?'ok':'no');
+    v.innerHTML=(ok?'✅ 剛好！':(vadc>VREF?'❌ 還會飽和。':'⚠ 安全但偏保守。'))+
+      ' R_top='+rtop+'kΩ 時，800V → V_adc = '+vadc.toFixed(3)+' V。'+
+      (vadc>VREF?' 需要更大的 R_top。':' 約 2000kΩ 最剛好。');
+    if(ok) window.C2000.markDone();
+  };
+  update();
+})();
+</script>
+</body>
+</html>

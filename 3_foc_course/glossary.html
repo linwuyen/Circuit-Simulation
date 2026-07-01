@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FOC 詞彙表 · 中英對照速查</title>
+<link rel="stylesheet" href="foc-style.css">
+<style>
+  .hero{padding:22px;border-bottom:1px solid var(--line);background:rgba(15,23,42,.5)}
+  .hero h1{margin:0 0 6px;font-size:22px;color:var(--emer2)}
+  .hero p{margin:0;color:var(--mut);font-size:13px;line-height:1.7;max-width:760px}
+  .search{margin:16px 22px 0}
+  .search input{width:100%;max-width:420px;background:#0b1220;border:1px solid var(--line);
+    color:var(--ink);border-radius:9px;padding:10px 13px;font-size:13px}
+  .search input:focus{outline:none;border-color:var(--emer)}
+  .gsec{padding:8px 22px 4px}
+  .gsec h2{font-size:12px;letter-spacing:1px;color:var(--ink);margin:14px 0 8px;
+    display:flex;align-items:center;gap:8px}
+  .gsec h2 .bar{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .glist{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+  .gterm{background:rgba(15,23,42,.55);border:1px solid var(--line);border-radius:10px;padding:11px 13px}
+  .gterm .ab{font-size:14px;font-weight:800;color:var(--cyan)}
+  .gterm .zh{font-size:12.5px;color:var(--ink);margin:2px 0 4px;font-weight:600}
+  .gterm .de{font-size:12px;color:var(--mut);line-height:1.55}
+  .gterm.hide{display:none}
+  .empty{color:var(--dim);font-size:13px;padding:20px 22px}
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <div class="crumb">FOC 教學課程 · 📖 詞彙表</div>
+    <h1>FOC 詞彙表 · 中英對照速查</h1>
+    <div class="sub">被術語淹沒時來這裡查；英文是給你 Google / 看 datasheet 用的</div>
+  </div>
+  <div class="prog">REF</div>
+</header>
+
+<div class="hero">
+  <h1>📖 名詞解釋</h1>
+  <p>初學 FOC 最大的障礙不是數學，而是術語。這頁把整個訊號鏈
+     <b>abc → Clarke → αβ → Park → dq → PI → 反Park → SVPWM → 三相</b>
+     用到的詞，配上中英文與一句白話解釋。打字即時過濾。</p>
+</div>
+
+<div class="search"><input id="q" placeholder="🔍 輸入關鍵字過濾（中、英、縮寫都可）…"></div>
+
+<main id="glos"></main>
+
+<nav class="foot">
+  <a href="index.html">課程地圖</a>
+  <a class="next" href="fault-dictionary.html">故障字典速查 →</a>
+</nav>
+
+<script>
+const SECTIONS = [
+  { t:'① 座標與向量', c:'#9FE1CB', items:[
+    ['Space Vector','空間向量','把三相 (abc) 濃縮成 αβ 平面上一支旋轉箭頭，長度=幅值、角度=相位。'],
+    ['abc','三相座標','馬達實體三條相線，彼此差 120° 電氣角。'],
+    ['αβ (alpha-beta)','兩相靜止座標','Clarke 的輸出；不旋轉的正交兩軸，向量在此轉圈。'],
+    ['dq (d-q)','兩相旋轉座標','Park 的輸出；座標鎖在轉子上一起轉，交流就變直流。'],
+    ['d-axis','直軸','對齊轉子磁通方向；Id 控磁通（表面型 PMSM 設 0）。'],
+    ['q-axis','交軸','與磁通垂直；Iq 直接決定扭矩。'],
+    ['θ theta','電氣角','轉子目前的電氣位置，Park/反Park 都要用它。'],
+    ['ω omega','電氣角速度','θ 變化率＝電氣轉速 (rad/s)，=2πf。'],
+  ]},
+  { t:'② 變換', c:'#5DCAA5', items:[
+    ['Clarke Transform','Clarke 變換','3 相 → 2 相 (abc→αβ)，幅值不變式假設 a+b+c=0。'],
+    ['Inverse Clarke','反 Clarke','2 相 → 3 相 (αβ→abc)，輸出三相電壓命令。'],
+    ['Park Transform','Park 變換','αβ → dq，把座標旋到轉子上，交流變直流。'],
+    ['Inverse Park','反 Park','dq → αβ，把控制器算好的直流命令轉回交流。'],
+    ['Amplitude invariant','幅值不變式','轉換前後峰值相同的 Clarke 版本（另有功率不變式）。'],
+  ]},
+  { t:'③ 控制', c:'#3FB68C', items:[
+    ['PI Controller','PI 控制器','比例(P)+積分(I)；對直流命令可達零穩態誤差。'],
+    ['Reference (ref)','命令值','你要控制器追的目標，如 iq_ref。'],
+    ['Steady-state error','穩態誤差','收斂後輸出與命令的殘差；PI 的積分項把它清零。'],
+    ['Anti-windup','抗積分飽和','輸出飽和時凍結積分，避免超調與遲滯。'],
+    ['Cross-coupling','交叉耦合','d、q 透過 ω·L 互相干擾，階躍時走螺旋。'],
+    ['Feedforward','前饋','預先算好的補償項（如解耦、反電動勢）直接加到輸出。'],
+    ['Decoupling','解耦','加前饋抵消 ω·L 耦合，讓 d/q 各走各的、響應變直線。'],
+    ['Back-EMF','反電動勢','轉子旋轉在繞組感應的電壓，∝ ω·磁鏈。'],
+    ['Bandwidth','頻寬','控制環反應速度；電流環常設 ~1 kHz。'],
+  ]},
+  { t:'④ 調變 / PWM', c:'#1D9E75', items:[
+    ['SVPWM','空間向量 PWM','含共模注入的調變法，線性區比正弦 PWM 多 ~15%。'],
+    ['Common-mode','共模','三相同步加減的量；不影響線電壓，可壓低峰值。'],
+    ['Duty cycle','占空比','一個 PWM 週期內高電位佔的比例 (0–1)。'],
+    ['Modulation index','調變比','電壓命令 / 可用母線電壓；>1 進入過調變。'],
+    ['Overmodulation','過調變','命令超過六邊形內切圓，波形削頂、生低次諧波。'],
+    ['Field weakening','弱磁','高速時注入負 Id 降磁通，換取更高轉速。'],
+    ['Six-step','六步方波','過調變的極限，磁場每 60° 跳一格，扭矩漣波大。'],
+  ]},
+  { t:'⑤ 硬體 / 非理想', c:'#0F6E56', items:[
+    ['ADC','類比數位轉換器','把電流感測的類比電壓轉成數位讀數（如 12-bit）。'],
+    ['Offset','偏置','零輸入時讀數不為零；上電歸零校正扣掉。'],
+    ['Gain mismatch','增益失配','兩相放大倍率不一致 → αβ 圓變橢圓。'],
+    ['Calibration','校正','量測 offset/gain 係數再補回，使兩相對稱。'],
+    ['Dead-time','死區時間','同臂上下開關都關的安全空檔，防直通短路。'],
+    ['Shoot-through','直通','上下臂同時導通造成的短路，死區就是要避免它。'],
+    ['Vsat','飽和壓降','開關元件導通時的壓降，影響死區補償量。'],
+    ['Harmonic','諧波','基頻的整數倍成分；死區生 5/7 次、失配生 2 次。'],
+    ['Vdc / DC bus','母線電壓','逆變器的直流供電，決定可輸出的最大電壓。'],
+  ]},
+];
+
+const root = document.getElementById('glos');
+SECTIONS.forEach(s=>{
+  const sec=document.createElement('div'); sec.className='gsec';
+  sec.innerHTML=`<h2><span class="bar" style="background:${s.c}"></span>${s.t}</h2>`;
+  const list=document.createElement('div'); list.className='glist';
+  s.items.forEach(it=>{
+    const d=document.createElement('div'); d.className='gterm';
+    d.dataset.k=(it[0]+' '+it[1]+' '+it[2]).toLowerCase();
+    d.innerHTML=`<div class="ab">${it[0]}</div><div class="zh">${it[1]}</div><div class="de">${it[2]}</div>`;
+    list.appendChild(d);
+  });
+  sec.appendChild(list); root.appendChild(sec);
+});
+
+document.getElementById('q').addEventListener('input',e=>{
+  const v=e.target.value.trim().toLowerCase();
+  document.querySelectorAll('.gterm').forEach(t=>t.classList.toggle('hide', v && !t.dataset.k.includes(v)));
+  document.querySelectorAll('.gsec').forEach(sec=>{
+    const any=[...sec.querySelectorAll('.gterm')].some(t=>!t.classList.contains('hide'));
+    sec.style.display=any?'':'none';
+  });
+});
+</script>
+</body>
+</html>

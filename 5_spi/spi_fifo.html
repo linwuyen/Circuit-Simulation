@@ -1,0 +1,1845 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPI FIFO 初學者互動教學與溢位計算器</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --panel-soft: #f8fafc;
+      --ink: #18212f;
+      --muted: #64748b;
+      --line: #d7dee9;
+      --line-strong: #a8b3c5;
+      --teal: #0f766e;
+      --teal-soft: #e0f2f1;
+      --amber: #b45309;
+      --amber-soft: #fff3d7;
+      --red: #b91c1c;
+      --red-soft: #fee2e2;
+      --blue: #2563eb;
+      --blue-soft: #dbeafe;
+      --violet: #6d28d9;
+      --violet-soft: #ede9fe;
+      --dark: #10202b;
+      --shadow: 0 16px 35px rgba(15, 23, 42, 0.08);
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Noto Sans TC", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.55;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    code,
+    pre,
+    .mono {
+      font-family: Consolas, "Cascadia Mono", "SFMono-Regular", monospace;
+    }
+
+    .app-header {
+      background: var(--dark);
+      color: #f8fafc;
+      padding: 18px clamp(16px, 4vw, 40px);
+      border-bottom: 4px solid #14b8a6;
+    }
+
+    .header-inner {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: center;
+      max-width: 1440px;
+      margin: 0 auto;
+    }
+
+    .app-title {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 34px);
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .app-subtitle {
+      margin: 6px 0 0;
+      color: #cbd5e1;
+      max-width: 760px;
+    }
+
+    .header-status {
+      min-width: 220px;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: var(--radius);
+    }
+
+    .header-status strong {
+      display: block;
+      font-size: 13px;
+      color: #cbd5e1;
+      margin-bottom: 2px;
+    }
+
+    .header-status span {
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .course-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .course-nav a {
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      padding: 7px 10px;
+      border-radius: 7px;
+      color: #fff;
+      text-decoration: none;
+      font-weight: 800;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    .app-shell {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 22px clamp(14px, 3vw, 36px) 30px;
+      display: grid;
+      grid-template-columns: minmax(300px, 410px) minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .stack {
+      display: grid;
+      gap: 16px;
+    }
+
+    .panel,
+    .metric,
+    .mode-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .panel {
+      padding: 18px;
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-title h2,
+    .panel-title h3 {
+      margin: 0;
+      font-size: 16px;
+      color: #253247;
+    }
+
+    .panel-title small {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .field-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-weight: 700;
+      color: #334155;
+      font-size: 14px;
+    }
+
+    .field label small {
+      font-weight: 500;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .field input,
+    .field select {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: #fff;
+      color: var(--ink);
+      padding: 8px 10px;
+      outline: none;
+    }
+
+    .field input:focus,
+    .field select:focus {
+      border-color: var(--teal);
+      box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.16);
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .mode-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .mode-card {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 10px;
+      padding: 12px;
+      cursor: pointer;
+      box-shadow: none;
+      transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+
+    .mode-card:hover {
+      border-color: var(--teal);
+      transform: translateY(-1px);
+    }
+
+    .mode-card input {
+      margin-top: 4px;
+      accent-color: var(--teal);
+    }
+
+    .mode-card strong {
+      display: block;
+      color: #1f2937;
+      margin-bottom: 2px;
+    }
+
+    .mode-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .mode-card:has(input:checked) {
+      border-color: var(--teal);
+      background: var(--teal-soft);
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .btn {
+      min-height: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border-radius: 7px;
+      padding: 9px 13px;
+      font-weight: 800;
+      color: #fff;
+      background: var(--teal);
+      transition: transform 120ms ease, opacity 120ms ease;
+    }
+
+    .btn:hover {
+      opacity: 0.92;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn.secondary {
+      color: #273449;
+      background: #e2e8f0;
+    }
+
+    .btn.warning {
+      background: var(--amber);
+    }
+
+    .btn.danger {
+      background: var(--red);
+    }
+
+    .icon {
+      display: inline-grid;
+      width: 18px;
+      height: 18px;
+      place-items: center;
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      padding: 14px;
+      box-shadow: none;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 6px;
+      font-size: clamp(22px, 3vw, 32px);
+      line-height: 1;
+      color: #172033;
+    }
+
+    .metric em {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-style: normal;
+    }
+
+    .status-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 0.45fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .risk-box {
+      padding: 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: var(--panel-soft);
+    }
+
+    .risk-box.safe {
+      border-color: #86efac;
+      background: #ecfdf3;
+    }
+
+    .risk-box.warn {
+      border-color: #fbbf24;
+      background: var(--amber-soft);
+    }
+
+    .risk-box.bad {
+      border-color: #fca5a5;
+      background: var(--red-soft);
+    }
+
+    .risk-box h2 {
+      margin: 0 0 8px;
+      font-size: 24px;
+    }
+
+    .risk-box p {
+      margin: 0;
+      color: #334155;
+    }
+
+    .formula-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .formula-row {
+      display: grid;
+      grid-template-columns: minmax(130px, 0.8fr) minmax(0, 1fr);
+      gap: 10px;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+    }
+
+    .formula-row span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .formula-row strong {
+      color: #1f2937;
+      font-size: 13px;
+    }
+
+    .visual-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+      gap: 16px;
+    }
+
+    .fifo-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 28px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: #eef2f7;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .pill.teal {
+      background: var(--teal-soft);
+      color: #0f5f58;
+    }
+
+    .pill.red {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .pill.amber {
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .fifo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(42px, 1fr));
+      gap: 7px;
+    }
+
+    .slot {
+      position: relative;
+      min-height: 50px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #f8fafc;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    .slot.filled {
+      background: linear-gradient(180deg, #ccfbf1, #99f6e4);
+      border-color: #2dd4bf;
+    }
+
+    .slot .index {
+      position: absolute;
+      top: 4px;
+      left: 5px;
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .slot .word {
+      font-size: 11px;
+      font-weight: 900;
+      color: #0f766e;
+    }
+
+    .marker {
+      position: absolute;
+      right: 4px;
+      bottom: 4px;
+      display: inline-grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .marker.w {
+      background: var(--blue);
+      right: 24px;
+    }
+
+    .marker.r {
+      background: var(--red);
+    }
+
+    .canvas-wrap {
+      position: relative;
+      min-height: 260px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #0b1220;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 260px;
+    }
+
+    .tab-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .tab-btn {
+      min-height: 34px;
+      padding: 7px 11px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+      color: #334155;
+      font-weight: 800;
+    }
+
+    .tab-btn.active {
+      border-color: var(--teal);
+      background: var(--teal);
+      color: #fff;
+    }
+
+    .lesson {
+      display: grid;
+      gap: 12px;
+    }
+
+    .lesson h3 {
+      margin: 0;
+      color: #1f2937;
+      font-size: 17px;
+    }
+
+    .lesson p {
+      margin: 0;
+      color: #334155;
+    }
+
+    .lesson ul {
+      margin: 0;
+      padding-left: 20px;
+      color: #334155;
+    }
+
+    .lesson li + li {
+      margin-top: 6px;
+    }
+
+    .code-block {
+      white-space: pre-wrap;
+      overflow-x: auto;
+      margin: 0;
+      padding: 14px;
+      border-radius: var(--radius);
+      background: #0b1220;
+      color: #dbeafe;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .log-list {
+      display: grid;
+      gap: 8px;
+      max-height: 260px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .log-item {
+      display: grid;
+      grid-template-columns: 86px minmax(0, 1fr);
+      gap: 10px;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+      font-size: 13px;
+    }
+
+    .log-item strong {
+      color: #475569;
+    }
+
+    .log-item.bad {
+      border-color: #fecaca;
+      background: #fff1f2;
+    }
+
+    .log-item.good {
+      border-color: #bbf7d0;
+      background: #f0fdf4;
+    }
+
+    .footer {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 0 clamp(14px, 3vw, 36px) 28px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 1120px) {
+      .app-shell,
+      .visual-grid,
+      .status-card {
+        grid-template-columns: 1fr;
+      }
+
+      .metric-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .header-inner {
+        grid-template-columns: 1fr;
+      }
+
+      .header-status {
+        min-width: 0;
+      }
+
+      .two-col,
+      .metric-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .formula-row,
+      .log-item {
+        grid-template-columns: 1fr;
+      }
+
+      .button-row .btn {
+        flex: 1 1 140px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div>
+        <h1 class="app-title">SPI FIFO 初學者互動教學</h1>
+        <p class="app-subtitle">用同一個畫面看懂三件事：Master 多快把資料送進來、Slave 多快讀走、FIFO 什麼時候會被塞爆。</p>
+        <nav class="course-nav" aria-label="SPI 課程導覽">
+          <a href="index.html">課程入口</a>
+          <a href="spi_01_signals.html">01 訊號基礎</a>
+          <a href="spi_02_timing.html">02 時序模式</a>
+          <a href="spi_04_debug.html">04 實務除錯</a>
+        </nav>
+      </div>
+      <div class="header-status" aria-live="polite">
+        <strong>目前判斷</strong>
+        <span id="headerRisk">尚未模擬</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <section class="stack" aria-label="設定區">
+      <div class="panel">
+        <div class="panel-title">
+          <h2>1. 選一個情境</h2>
+          <small>可再手動調整</small>
+        </div>
+        <div class="field">
+          <label for="presetSelect">
+            <span>範例設定</span>
+            <small>先從常見問題開始</small>
+          </label>
+          <select id="presetSelect">
+            <option value="risky">C2000 FIFO 16 words，12.5 MHz，32-bit，CPU 讀太慢</option>
+            <option value="safeGap">加 Master gap，讓 CPU 有時間讀</option>
+            <option value="drainMore">ISR 一次讀多筆，提高吞吐</option>
+            <option value="handshake">GPIO Ready/Busy，Master 會等待</option>
+            <option value="dma">DMA 搬資料，CPU 不逐筆讀</option>
+            <option value="nofifo">沒有 FIFO，只靠單筆接收緩衝</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <h2>2. 資料怎麼進來</h2>
+          <small>Master 端</small>
+        </div>
+        <div class="field-grid">
+          <div class="two-col">
+            <div class="field">
+              <label for="sclkMHz">
+                <span>SCLK</span>
+                <small>MHz</small>
+              </label>
+              <input id="sclkMHz" type="number" min="0.1" max="80" step="0.1" value="12.5">
+              <div class="hint">時鐘越快，FIFO 被填入的速度越快。</div>
+            </div>
+            <div class="field">
+              <label for="frameBits">
+                <span>每筆資料</span>
+                <small>bits</small>
+              </label>
+              <select id="frameBits">
+                <option value="8">8-bit</option>
+                <option value="16">16-bit</option>
+                <option value="24">24-bit</option>
+                <option value="32" selected>32-bit</option>
+                <option value="64">64-bit</option>
+              </select>
+              <div class="hint">C2000 FIFO 通常以 16-bit word 計數。</div>
+            </div>
+          </div>
+
+          <div class="two-col">
+            <div class="field">
+              <label for="gapUs">
+                <span>兩筆之間空檔</span>
+                <small>us</small>
+              </label>
+              <input id="gapUs" type="number" min="0" max="1000" step="0.1" value="0">
+              <div class="hint">Master 每筆資料後刻意停多久。</div>
+            </div>
+            <div class="field">
+              <label for="packetCount">
+                <span>總共送幾筆</span>
+                <small>packets</small>
+              </label>
+              <input id="packetCount" type="number" min="1" max="20000" step="1" value="4095">
+              <div class="hint">壓力測試用，常見於連續 burst 傳輸。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <h2>3. Slave 怎麼讀走</h2>
+          <small>CPU / DMA 端</small>
+        </div>
+        <div class="field-grid">
+          <div class="two-col">
+            <div class="field">
+              <label for="fifoDepth">
+                <span>FIFO 深度</span>
+                <small>16-bit words</small>
+              </label>
+              <select id="fifoDepth">
+                <option value="4">4 words</option>
+                <option value="8">8 words</option>
+                <option value="16" selected>16 words</option>
+                <option value="32">32 words</option>
+              </select>
+              <div class="hint">32-bit 資料會占 2 個 16-bit FIFO 格。</div>
+            </div>
+            <div class="field">
+              <label for="triggerWords">
+                <span>RXFFIL 門檻</span>
+                <small>words</small>
+              </label>
+              <input id="triggerWords" type="number" min="1" max="32" step="1" value="2">
+              <div class="hint">FIFO 到這個水位才叫 CPU 進來讀。</div>
+            </div>
+          </div>
+
+          <div class="two-col">
+            <div class="field">
+              <label for="serviceUs">
+                <span>讀取處理時間</span>
+                <small>us / 次</small>
+              </label>
+              <input id="serviceUs" type="number" min="0.05" max="1000" step="0.05" value="10">
+              <div class="hint">包含中斷延遲、ISR、搬資料與解析時間。</div>
+            </div>
+            <div class="field">
+              <label for="readPackets">
+                <span>每次讀出</span>
+                <small>packets</small>
+              </label>
+              <select id="readPackets">
+                <option value="1" selected>1 packet</option>
+                <option value="2">2 packets</option>
+                <option value="4">4 packets</option>
+                <option value="8">8 packets</option>
+                <option value="all">能讀就全部讀完</option>
+              </select>
+              <div class="hint">實務上 ISR 常會 while 迴圈把 FIFO 清到低水位。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <h2>4. 接收架構</h2>
+          <small>會影響溢位行為</small>
+        </div>
+        <div class="mode-list">
+          <label class="mode-card">
+            <input type="radio" name="mode" value="fifo" checked>
+            <span>
+              <strong>C2000 FIFO + CPU ISR</strong>
+              <span>最常見：FIFO 先暫存，CPU 之後讀走。CPU 平均速度不足時仍會溢位。</span>
+            </span>
+          </label>
+          <label class="mode-card">
+            <input type="radio" name="mode" value="nofifo">
+            <span>
+              <strong>無 FIFO，只有單筆緩衝</strong>
+              <span>幾乎沒有緩衝時間，適合理解 overrun 最基本的原因。</span>
+            </span>
+          </label>
+          <label class="mode-card">
+            <input type="radio" name="mode" value="handshake">
+            <span>
+              <strong>GPIO Ready/Busy 握手</strong>
+              <span>Slave 沒空間時 Master 等待。資料不掉，但總傳輸時間會變長。</span>
+            </span>
+          </label>
+          <label class="mode-card">
+            <input type="radio" name="mode" value="dma">
+            <span>
+              <strong>DMA 搬移 FIFO</strong>
+              <span>用硬體把 FIFO 搬到 RAM，CPU 不需要逐筆進中斷。</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <h2>5. 操作</h2>
+          <small>建議先按壓力測試</small>
+        </div>
+        <div class="button-row">
+          <button class="btn" id="btnRun" type="button"><span class="icon">&#9654;</span>壓力測試</button>
+          <button class="btn secondary" id="btnStep" type="button"><span class="icon">&#8594;</span>送 1 筆</button>
+          <button class="btn secondary" id="btnPlay" type="button"><span class="icon" id="playIcon">&#9654;</span><span id="playText">連續播放</span></button>
+          <button class="btn warning" id="btnDrain" type="button"><span class="icon">&#8681;</span>手動讀 FIFO</button>
+          <button class="btn danger" id="btnResetSim" type="button"><span class="icon">&#8635;</span>重設模擬</button>
+          <button class="btn secondary" id="btnResetConfig" type="button"><span class="icon">&#9675;</span>恢復預設</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="stack" aria-label="模擬結果">
+      <div class="metric-grid" aria-live="polite">
+        <div class="metric">
+          <span>Master 已送出</span>
+          <strong id="statSent">0</strong>
+          <em>packets</em>
+        </div>
+        <div class="metric">
+          <span>Slave 已接收進 FIFO</span>
+          <strong id="statAccepted">0</strong>
+          <em id="statAcceptedPct">0.0%</em>
+        </div>
+        <div class="metric">
+          <span>CPU / DMA 已讀走</span>
+          <strong id="statProcessed">0</strong>
+          <em>packets</em>
+        </div>
+        <div class="metric">
+          <span>溢位遺失</span>
+          <strong id="statLost">0</strong>
+          <em id="statLostPct">0.0%</em>
+        </div>
+      </div>
+
+      <div class="panel status-card">
+        <div class="risk-box" id="riskBox">
+          <h2 id="riskTitle">尚未模擬</h2>
+          <p id="riskText">調整左側參數後，可以單步看 FIFO 怎麼被填滿，也可以直接跑完整壓力測試。</p>
+        </div>
+        <div class="formula-list" id="formulaList"></div>
+      </div>
+
+      <div class="visual-grid">
+        <div class="panel">
+          <div class="panel-title">
+            <h3>FIFO 即時水位</h3>
+            <small id="fifoModeLabel">16-bit words</small>
+          </div>
+          <div class="fifo-meta">
+            <span class="pill teal">RXFFST <span id="fifoLevel">0 / 16</span></span>
+            <span class="pill">W 指標 <span id="writePtr">0</span></span>
+            <span class="pill">R 指標 <span id="readPtr">0</span></span>
+            <span class="pill red">RXFFOVF <span id="ovfFlag">0</span></span>
+          </div>
+          <div class="fifo-grid" id="fifoGrid"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">
+            <h3>水位時間圖</h3>
+            <small id="timeText">0.00 us</small>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="levelCanvas" width="760" height="260" aria-label="FIFO 水位圖"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <h3>初學者講解</h3>
+          <small id="lessonMode">依目前設定更新</small>
+        </div>
+        <div class="tab-row" role="tablist" aria-label="教學內容">
+          <button class="tab-btn active" data-tab="why" type="button">發生了什麼</button>
+          <button class="tab-btn" data-tab="fix" type="button">怎麼修</button>
+          <button class="tab-btn" data-tab="checklist" type="button">實務檢查表</button>
+          <button class="tab-btn" data-tab="code" type="button">偽碼</button>
+        </div>
+        <div class="lesson" id="lessonContent"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <h3>事件紀錄</h3>
+          <small>最新在上</small>
+        </div>
+        <div class="log-list" id="logList"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    說明：這是用來學習與估算的模型。真正晶片的暫存器名稱、FIFO 行為、DMA 時序與中斷清除順序，請以該型號 datasheet / TRM 為準。回到 <a href="index.html">SPI 課程入口</a>。
+  </footer>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    const defaults = {
+      preset: "risky",
+      mode: "fifo",
+      sclkMHz: 12.5,
+      frameBits: 32,
+      gapUs: 0,
+      packetCount: 4095,
+      fifoDepth: 16,
+      triggerWords: 2,
+      serviceUs: 10,
+      readPackets: "1"
+    };
+
+    const presets = {
+      risky: {
+        mode: "fifo",
+        sclkMHz: 12.5,
+        frameBits: 32,
+        gapUs: 0,
+        packetCount: 4095,
+        fifoDepth: 16,
+        triggerWords: 2,
+        serviceUs: 10,
+        readPackets: "1"
+      },
+      safeGap: {
+        mode: "fifo",
+        sclkMHz: 12.5,
+        frameBits: 32,
+        gapUs: 7.5,
+        packetCount: 4095,
+        fifoDepth: 16,
+        triggerWords: 2,
+        serviceUs: 10,
+        readPackets: "1"
+      },
+      drainMore: {
+        mode: "fifo",
+        sclkMHz: 12.5,
+        frameBits: 32,
+        gapUs: 0,
+        packetCount: 4095,
+        fifoDepth: 16,
+        triggerWords: 8,
+        serviceUs: 10,
+        readPackets: "4"
+      },
+      handshake: {
+        mode: "handshake",
+        sclkMHz: 12.5,
+        frameBits: 32,
+        gapUs: 0,
+        packetCount: 4095,
+        fifoDepth: 16,
+        triggerWords: 2,
+        serviceUs: 10,
+        readPackets: "1"
+      },
+      dma: {
+        mode: "dma",
+        sclkMHz: 12.5,
+        frameBits: 32,
+        gapUs: 0,
+        packetCount: 4095,
+        fifoDepth: 16,
+        triggerWords: 8,
+        serviceUs: 10,
+        readPackets: "all"
+      },
+      nofifo: {
+        mode: "nofifo",
+        sclkMHz: 12.5,
+        frameBits: 16,
+        gapUs: 0,
+        packetCount: 128,
+        fifoDepth: 4,
+        triggerWords: 1,
+        serviceUs: 10,
+        readPackets: "1"
+      }
+    };
+
+    const dom = {
+      presetSelect: $("presetSelect"),
+      sclkMHz: $("sclkMHz"),
+      frameBits: $("frameBits"),
+      gapUs: $("gapUs"),
+      packetCount: $("packetCount"),
+      fifoDepth: $("fifoDepth"),
+      triggerWords: $("triggerWords"),
+      serviceUs: $("serviceUs"),
+      readPackets: $("readPackets"),
+      btnRun: $("btnRun"),
+      btnStep: $("btnStep"),
+      btnPlay: $("btnPlay"),
+      btnDrain: $("btnDrain"),
+      btnResetSim: $("btnResetSim"),
+      btnResetConfig: $("btnResetConfig"),
+      playIcon: $("playIcon"),
+      playText: $("playText"),
+      headerRisk: $("headerRisk"),
+      riskBox: $("riskBox"),
+      riskTitle: $("riskTitle"),
+      riskText: $("riskText"),
+      formulaList: $("formulaList"),
+      statSent: $("statSent"),
+      statAccepted: $("statAccepted"),
+      statAcceptedPct: $("statAcceptedPct"),
+      statProcessed: $("statProcessed"),
+      statLost: $("statLost"),
+      statLostPct: $("statLostPct"),
+      fifoModeLabel: $("fifoModeLabel"),
+      fifoLevel: $("fifoLevel"),
+      writePtr: $("writePtr"),
+      readPtr: $("readPtr"),
+      ovfFlag: $("ovfFlag"),
+      fifoGrid: $("fifoGrid"),
+      levelCanvas: $("levelCanvas"),
+      timeText: $("timeText"),
+      lessonMode: $("lessonMode"),
+      lessonContent: $("lessonContent"),
+      logList: $("logList")
+    };
+
+    let activeTab = "why";
+    let playTimer = null;
+    let batchMode = false;
+    let state = createState(normalizeConfig());
+
+    function createState(cfg) {
+      const depth = cfg ? cfg.fifoDepth : defaults.fifoDepth;
+      return {
+        sent: 0,
+        accepted: 0,
+        processed: 0,
+        lost: 0,
+        currentTime: 0,
+        fifoWords: 0,
+        writePtr: 0,
+        readPtr: 0,
+        cpuActive: false,
+        cpuBusyUntil: 0,
+        ovf: false,
+        firstOvfTime: null,
+        fifoSlots: Array.from({ length: depth }, () => false),
+        logs: [],
+        levelHistory: [{ t: 0, fifo: 0, ovf: false }],
+        lossEvents: []
+      };
+    }
+
+    function numberValue(input, fallback) {
+      const value = Number(input.value);
+      return Number.isFinite(value) ? value : fallback;
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function normalizeConfig() {
+      const mode = document.querySelector("input[name='mode']:checked")?.value || defaults.mode;
+      const frameBits = Number(dom.frameBits.value);
+      const packetWords = Math.ceil(frameBits / 16);
+      let fifoDepth = Number(dom.fifoDepth.value);
+      let triggerWords = Math.round(numberValue(dom.triggerWords, packetWords));
+      let serviceUs = numberValue(dom.serviceUs, defaults.serviceUs);
+      let readPacketsRaw = dom.readPackets.value;
+      let readWords;
+
+      if (mode === "nofifo") {
+        fifoDepth = packetWords;
+        triggerWords = packetWords;
+        readPacketsRaw = "1";
+      } else {
+        fifoDepth = Math.max(packetWords, fifoDepth);
+        triggerWords = clamp(triggerWords, 1, fifoDepth);
+      }
+
+      if (mode === "dma") {
+        serviceUs = 0.25;
+        triggerWords = Math.min(packetWords, fifoDepth);
+        readPacketsRaw = "all";
+      }
+
+      if (readPacketsRaw === "all") {
+        readWords = fifoDepth;
+      } else {
+        readWords = Math.max(packetWords, Number(readPacketsRaw) * packetWords);
+      }
+
+      const sclkMHz = Math.max(0.1, numberValue(dom.sclkMHz, defaults.sclkMHz));
+      const packetTimeUs = frameBits / sclkMHz;
+      const gapUs = Math.max(0, numberValue(dom.gapUs, defaults.gapUs));
+      const packetCount = clamp(Math.round(numberValue(dom.packetCount, defaults.packetCount)), 1, 20000);
+      const arrivalIntervalUs = packetTimeUs + gapUs;
+
+      return {
+        mode,
+        sclkMHz,
+        frameBits,
+        packetWords,
+        packetTimeUs,
+        gapUs,
+        arrivalIntervalUs,
+        packetCount,
+        fifoDepth,
+        triggerWords,
+        serviceUs: Math.max(0.05, serviceUs),
+        readPacketsRaw,
+        readWords: Math.min(readWords, fifoDepth)
+      };
+    }
+
+    function analyze(cfg) {
+      const readablePacketsPerService = Math.max(1, Math.floor(cfg.readWords / cfg.packetWords));
+      const inputPacketsPerUs = 1 / cfg.arrivalIntervalUs;
+      const outputPacketsPerUs = readablePacketsPerService / cfg.serviceUs;
+      const servicePerPacketUs = cfg.serviceUs / readablePacketsPerService;
+      const minGapUs = Math.max(0, servicePerPacketUs - cfg.packetTimeUs);
+      const maxSclkMHz = servicePerPacketUs > cfg.gapUs
+        ? cfg.frameBits / (servicePerPacketUs - cfg.gapUs)
+        : Infinity;
+      const fifoPacketCapacity = Math.max(1, Math.floor(cfg.fifoDepth / cfg.packetWords));
+      const fifoWindowUs = fifoPacketCapacity * cfg.arrivalIntervalUs;
+      const ratio = outputPacketsPerUs / inputPacketsPerUs;
+      const stableByRate = cfg.mode === "handshake" || outputPacketsPerUs >= inputPacketsPerUs;
+
+      return {
+        readablePacketsPerService,
+        inputPacketsPerUs,
+        outputPacketsPerUs,
+        servicePerPacketUs,
+        minGapUs,
+        maxSclkMHz,
+        fifoPacketCapacity,
+        fifoWindowUs,
+        ratio,
+        stableByRate
+      };
+    }
+
+    function addLog(message, level = "info", force = false) {
+      if (batchMode && !force) return;
+      const time = `${state.currentTime.toFixed(2)} us`;
+      state.logs.unshift({ time, message, level });
+      if (state.logs.length > 80) state.logs.pop();
+    }
+
+    function addLevelPoint(t = state.currentTime) {
+      const last = state.levelHistory[state.levelHistory.length - 1];
+      if (last && Math.abs(last.t - t) < 0.0001 && last.fifo === state.fifoWords && last.ovf === state.ovf) return;
+      state.levelHistory.push({ t, fifo: state.fifoWords, ovf: state.ovf });
+      if (state.levelHistory.length > 420) state.levelHistory.shift();
+    }
+
+    function maybeStartService(cfg) {
+      if (state.cpuActive || state.fifoWords <= 0) return;
+      const shouldStart = cfg.mode !== "fifo" || state.fifoWords >= cfg.triggerWords;
+      if (!shouldStart) return;
+      state.cpuActive = true;
+      state.cpuBusyUntil = state.currentTime + cfg.serviceUs;
+    }
+
+    function completeServiceAt(time, cfg) {
+      state.currentTime = time;
+      const before = state.fifoWords;
+      const wordsRead = Math.min(before, cfg.readWords);
+      const packetsRead = Math.floor(wordsRead / cfg.packetWords);
+
+      for (let i = 0; i < wordsRead; i++) {
+        state.fifoSlots[state.readPtr] = false;
+        state.readPtr = (state.readPtr + 1) % cfg.fifoDepth;
+      }
+
+      state.fifoWords -= wordsRead;
+      state.processed += packetsRead;
+      state.cpuActive = false;
+      addLevelPoint(time);
+
+      if (wordsRead > 0) {
+        const actor = cfg.mode === "dma" ? "DMA" : "CPU";
+        addLog(`${actor} 讀走 ${wordsRead} word，約 ${packetsRead} 筆資料。FIFO 剩 ${state.fifoWords} word。`, "good");
+      }
+
+      maybeStartService(cfg);
+    }
+
+    function advanceServicesUntil(targetTime, cfg) {
+      maybeStartService(cfg);
+      while (state.cpuActive && state.cpuBusyUntil <= targetTime) {
+        completeServiceAt(state.cpuBusyUntil, cfg);
+      }
+      state.currentTime = targetTime;
+    }
+
+    function waitForHandshakeRoom(cfg) {
+      if (cfg.mode !== "handshake") return;
+      let waited = false;
+
+      while (state.fifoWords + cfg.packetWords > cfg.fifoDepth) {
+        maybeStartService(cfg);
+        if (!state.cpuActive) break;
+        const waitUntil = state.cpuBusyUntil;
+        advanceServicesUntil(waitUntil, cfg);
+        waited = true;
+      }
+
+      if (waited) {
+        addLog("Ready/Busy 讓 Master 等到 FIFO 有空間後才繼續送。", "good", true);
+      }
+    }
+
+    function pushPacketToFifo(cfg) {
+      if (state.fifoWords + cfg.packetWords > cfg.fifoDepth) {
+        state.lost += 1;
+        state.ovf = true;
+        if (state.firstOvfTime === null) state.firstOvfTime = state.currentTime;
+        state.lossEvents.push({ t: state.currentTime, sent: state.sent + 1 });
+        addLog(`第 ${state.sent + 1} 筆進來時 FIFO 空間不足，RXFFOVF 變成 1。`, "bad", true);
+        return false;
+      }
+
+      for (let i = 0; i < cfg.packetWords; i++) {
+        state.fifoSlots[state.writePtr] = true;
+        state.writePtr = (state.writePtr + 1) % cfg.fifoDepth;
+      }
+
+      state.accepted += 1;
+      state.fifoWords += cfg.packetWords;
+      addLevelPoint(state.currentTime);
+
+      if (!batchMode || state.sent < 5) {
+        addLog(`第 ${state.sent + 1} 筆接收成功，占 ${cfg.packetWords} word。RXFFST = ${state.fifoWords}。`, "good");
+      }
+
+      maybeStartService(cfg);
+      return true;
+    }
+
+    function simulateOnePacket(render = true) {
+      const cfg = normalizeConfig();
+      ensureStateShape(cfg);
+
+      if (state.sent >= cfg.packetCount) {
+        addLog("已達到設定的總筆數。", "info", true);
+        stopPlay();
+        if (render) renderAll();
+        return;
+      }
+
+      waitForHandshakeRoom(cfg);
+
+      const packetStart = state.currentTime;
+      const packetEnd = packetStart + cfg.packetTimeUs;
+      advanceServicesUntil(packetEnd, cfg);
+
+      pushPacketToFifo(cfg);
+      state.sent += 1;
+      state.currentTime = packetEnd + cfg.gapUs;
+      addLevelPoint(state.currentTime);
+
+      if (render) renderAll();
+    }
+
+    function manualDrain() {
+      const cfg = normalizeConfig();
+      ensureStateShape(cfg);
+      if (state.fifoWords <= 0) {
+        addLog("FIFO 目前是空的，沒有資料可讀。", "info", true);
+        renderAll();
+        return;
+      }
+
+      const wordsRead = Math.min(state.fifoWords, cfg.readWords);
+      const packetsRead = Math.floor(wordsRead / cfg.packetWords);
+      for (let i = 0; i < wordsRead; i++) {
+        state.fifoSlots[state.readPtr] = false;
+        state.readPtr = (state.readPtr + 1) % cfg.fifoDepth;
+      }
+      state.fifoWords -= wordsRead;
+      state.processed += packetsRead;
+      state.cpuActive = false;
+      state.cpuBusyUntil = state.currentTime;
+      addLevelPoint();
+      addLog(`手動讀出 ${wordsRead} word，約 ${packetsRead} 筆資料。`, "good", true);
+      maybeStartService(cfg);
+      renderAll();
+    }
+
+    function runStressTest() {
+      stopPlay();
+      const cfg = normalizeConfig();
+      state = createState(cfg);
+      addLog(`開始壓力測試：Master 連續送 ${cfg.packetCount} 筆。`, "info", true);
+      batchMode = true;
+      for (let i = 0; i < cfg.packetCount; i++) {
+        simulateOnePacket(false);
+      }
+      batchMode = false;
+      addLog(`壓力測試完成：接收 ${state.accepted} 筆，遺失 ${state.lost} 筆。`, state.lost ? "bad" : "good", true);
+      renderAll();
+    }
+
+    function resetSimulation(render = true) {
+      stopPlay();
+      const cfg = normalizeConfig();
+      state = createState(cfg);
+      addLog("模擬已重設。", "info", true);
+      if (render) renderAll();
+    }
+
+    function ensureStateShape(cfg) {
+      if (state.fifoSlots.length === cfg.fifoDepth) return;
+      state = createState(cfg);
+      addLog("FIFO 深度改變，已重設模擬狀態。", "info", true);
+    }
+
+    function applyConfig(values) {
+      const merged = { ...defaults, ...values };
+      dom.sclkMHz.value = merged.sclkMHz;
+      dom.frameBits.value = merged.frameBits;
+      dom.gapUs.value = merged.gapUs;
+      dom.packetCount.value = merged.packetCount;
+      dom.fifoDepth.value = merged.fifoDepth;
+      dom.triggerWords.value = merged.triggerWords;
+      dom.serviceUs.value = merged.serviceUs;
+      dom.readPackets.value = merged.readPackets;
+      document.querySelectorAll("input[name='mode']").forEach((radio) => {
+        radio.checked = radio.value === merged.mode;
+      });
+      resetSimulation();
+    }
+
+    function stopPlay() {
+      if (playTimer) {
+        clearInterval(playTimer);
+        playTimer = null;
+      }
+      dom.playIcon.innerHTML = "&#9654;";
+      dom.playText.textContent = "連續播放";
+    }
+
+    function togglePlay() {
+      if (playTimer) {
+        stopPlay();
+        return;
+      }
+      dom.playIcon.innerHTML = "&#10074;&#10074;";
+      dom.playText.textContent = "暫停";
+      playTimer = setInterval(() => {
+        const cfg = normalizeConfig();
+        if (state.sent >= cfg.packetCount) {
+          stopPlay();
+          renderAll();
+          return;
+        }
+        simulateOnePacket(true);
+      }, 420);
+    }
+
+    function renderAll() {
+      const cfg = normalizeConfig();
+      ensureStateShape(cfg);
+      const facts = analyze(cfg);
+      renderMetrics(cfg, facts);
+      renderFormulaList(cfg, facts);
+      renderFifo(cfg);
+      renderChart(cfg);
+      renderLesson(cfg, facts);
+      renderLogs();
+    }
+
+    function renderMetrics(cfg, facts) {
+      const sentBase = Math.max(1, state.sent);
+      const acceptedPct = state.sent ? (state.accepted / state.sent) * 100 : 0;
+      const lostPct = state.sent ? (state.lost / state.sent) * 100 : 0;
+      const risk = getRisk(cfg, facts);
+
+      dom.statSent.textContent = state.sent;
+      dom.statAccepted.textContent = state.accepted;
+      dom.statAcceptedPct.textContent = `${acceptedPct.toFixed(1)}%`;
+      dom.statProcessed.textContent = state.processed;
+      dom.statLost.textContent = state.lost;
+      dom.statLostPct.textContent = `${lostPct.toFixed(1)}%`;
+      dom.headerRisk.textContent = risk.title;
+      dom.riskBox.className = `risk-box ${risk.level}`;
+      dom.riskTitle.textContent = risk.title;
+      dom.riskText.textContent = risk.text;
+      dom.lessonMode.textContent = modeName(cfg.mode);
+      dom.timeText.textContent = `${state.currentTime.toFixed(2)} us`;
+      dom.fifoModeLabel.textContent = cfg.mode === "nofifo" ? "單筆緩衝模型" : `${cfg.fifoDepth} 個 16-bit words`;
+
+      if (sentBase === 1 && state.sent === 0) {
+        dom.statAcceptedPct.textContent = "0.0%";
+        dom.statLostPct.textContent = "0.0%";
+      }
+    }
+
+    function getRisk(cfg, facts) {
+      if (state.lost > 0) {
+        const when = state.firstOvfTime === null ? "" : `，第一次在 ${state.firstOvfTime.toFixed(2)} us`;
+        return {
+          level: "bad",
+          title: "會溢位",
+          text: `FIFO 已經不夠用${when}。重點不是 FIFO 有沒有開，而是平均讀走速度小於平均進來速度。`
+        };
+      }
+
+      if (cfg.mode === "handshake") {
+        return {
+          level: "warn",
+          title: "不掉資料，但會變慢",
+          text: "Ready/Busy 會讓 Master 等 Slave 有空間再送。這是可靠的做法，但吞吐量會由 Slave 處理速度決定。"
+        };
+      }
+
+      if (cfg.mode === "dma") {
+        return {
+          level: "safe",
+          title: "DMA 情境通常安全",
+          text: "這個模型把 DMA 視為 0.25 us 內搬完一批資料。實機仍要確認 DMA buffer、觸發源與中斷清除流程。"
+        };
+      }
+
+      if (!facts.stableByRate) {
+        return {
+          level: "bad",
+          title: "長時間會溢位",
+          text: "目前雖然可能還沒跑到溢位，但平均而言 CPU 讀走速度追不上 Master 送入速度。"
+        };
+      }
+
+      return {
+        level: "safe",
+        title: "平均速度足夠",
+        text: "CPU / DMA 平均讀走速度大於資料進來速度。仍要保留中斷延遲與偶發阻塞的裕量。"
+      };
+    }
+
+    function renderFormulaList(cfg, facts) {
+      const maxSclk = Number.isFinite(facts.maxSclkMHz) ? `${facts.maxSclkMHz.toFixed(2)} MHz` : "目前 gap 已足夠";
+      const rows = [
+        ["每筆傳輸時間", `${cfg.frameBits} bits / ${cfg.sclkMHz.toFixed(2)} MHz = ${cfg.packetTimeUs.toFixed(2)} us`],
+        ["每筆占用 FIFO", `${cfg.frameBits}-bit 需要 ${cfg.packetWords} 個 16-bit word`],
+        ["Master 送入間隔", `${cfg.packetTimeUs.toFixed(2)} us + gap ${cfg.gapUs.toFixed(2)} us = ${cfg.arrivalIntervalUs.toFixed(2)} us`],
+        ["Slave 平均讀速", `每 ${cfg.serviceUs.toFixed(2)} us 讀約 ${facts.readablePacketsPerService} 筆`],
+        ["建議最小 gap", `${facts.minGapUs.toFixed(2)} us`],
+        ["建議最高 SCLK", maxSclk]
+      ];
+
+      dom.formulaList.innerHTML = rows.map(([label, value]) => `
+        <div class="formula-row">
+          <span>${label}</span>
+          <strong>${value}</strong>
+        </div>
+      `).join("");
+    }
+
+    function renderFifo(cfg) {
+      dom.fifoLevel.textContent = `${state.fifoWords} / ${cfg.fifoDepth}`;
+      dom.writePtr.textContent = state.writePtr;
+      dom.readPtr.textContent = state.readPtr;
+      dom.ovfFlag.textContent = state.ovf ? "1" : "0";
+
+      const cells = [];
+      for (let i = 0; i < cfg.fifoDepth; i++) {
+        const filled = state.fifoSlots[i];
+        const markers = [];
+        if (i === state.writePtr) markers.push('<span class="marker w">W</span>');
+        if (i === state.readPtr) markers.push('<span class="marker r">R</span>');
+        cells.push(`
+          <div class="slot ${filled ? "filled" : ""}">
+            <span class="index">${i}</span>
+            <span class="word">${filled ? "DATA" : "EMPTY"}</span>
+            ${markers.join("")}
+          </div>
+        `);
+      }
+      dom.fifoGrid.innerHTML = cells.join("");
+    }
+
+    function renderChart(cfg) {
+      const canvas = dom.levelCanvas;
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const width = Math.max(320, Math.round(rect.width * dpr));
+      const height = Math.max(220, Math.round(rect.height * dpr));
+
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+      ctx.scale(dpr, dpr);
+
+      const w = width / dpr;
+      const h = height / dpr;
+      const pad = { left: 48, right: 16, top: 18, bottom: 34 };
+      const chartW = w - pad.left - pad.right;
+      const chartH = h - pad.top - pad.bottom;
+      const history = state.levelHistory.length ? state.levelHistory : [{ t: 0, fifo: 0, ovf: false }];
+      const minT = history[0].t;
+      const maxT = Math.max(history[history.length - 1].t, minT + 1);
+      const xFor = (t) => pad.left + ((t - minT) / (maxT - minT)) * chartW;
+      const yFor = (fifo) => pad.top + (1 - fifo / cfg.fifoDepth) * chartH;
+
+      ctx.fillStyle = "#0b1220";
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.strokeStyle = "#1f2a44";
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = pad.top + (chartH / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y);
+        ctx.lineTo(w - pad.right, y);
+        ctx.stroke();
+      }
+      for (let i = 0; i <= 6; i++) {
+        const x = pad.left + (chartW / 6) * i;
+        ctx.beginPath();
+        ctx.moveTo(x, pad.top);
+        ctx.lineTo(x, h - pad.bottom);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "12px Consolas, monospace";
+      ctx.fillText(`${cfg.fifoDepth}`, 8, yFor(cfg.fifoDepth) + 4);
+      ctx.fillText("0", 24, yFor(0) + 4);
+      ctx.fillText(`${minT.toFixed(1)} us`, pad.left, h - 10);
+      ctx.fillText(`${maxT.toFixed(1)} us`, Math.max(pad.left, w - 118), h - 10);
+
+      const warnY = yFor(Math.max(0, cfg.fifoDepth - cfg.packetWords));
+      ctx.strokeStyle = "#f59e0b";
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(pad.left, warnY);
+      ctx.lineTo(w - pad.right, warnY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.beginPath();
+      history.forEach((point, index) => {
+        const x = xFor(point.t);
+        const y = yFor(point.fifo);
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = "#2dd4bf";
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      const last = history[history.length - 1];
+      ctx.beginPath();
+      ctx.arc(xFor(last.t), yFor(last.fifo), 4, 0, Math.PI * 2);
+      ctx.fillStyle = state.ovf ? "#ef4444" : "#5eead4";
+      ctx.fill();
+
+      state.lossEvents.slice(-20).forEach((event) => {
+        const x = xFor(event.t);
+        ctx.strokeStyle = "#ef4444";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x, pad.top);
+        ctx.lineTo(x, h - pad.bottom);
+        ctx.stroke();
+      });
+
+      ctx.fillStyle = "#cbd5e1";
+      ctx.font = "12px Segoe UI, sans-serif";
+      ctx.fillText("FIFO level", pad.left + 4, pad.top + 14);
+      ctx.fillStyle = "#fbbf24";
+      ctx.fillText("接近滿載線", pad.left + 4, Math.min(h - pad.bottom - 8, warnY + 16));
+      if (state.ovf) {
+        ctx.fillStyle = "#fecaca";
+        ctx.fillText("紅線 = overrun", pad.left + 4, pad.top + 32);
+      }
+    }
+
+    function renderLesson(cfg, facts) {
+      const content = {
+        why: lessonWhy(cfg, facts),
+        fix: lessonFix(cfg, facts),
+        checklist: lessonChecklist(cfg, facts),
+        code: lessonCode(cfg)
+      };
+      dom.lessonContent.innerHTML = content[activeTab];
+    }
+
+    function lessonWhy(cfg, facts) {
+      const inputEvery = cfg.arrivalIntervalUs.toFixed(2);
+      const outputEvery = facts.servicePerPacketUs.toFixed(2);
+      const ratio = facts.ratio.toFixed(2);
+      const firstOvf = state.firstOvfTime === null ? "尚未發生" : `${state.firstOvfTime.toFixed(2)} us`;
+
+      if (cfg.mode === "handshake") {
+        return `
+          <h3>握手線把問題從「掉資料」改成「等待」</h3>
+          <p>Master 原本每 ${inputEvery} us 想送 1 筆；當 FIFO 沒空間時，Ready/Busy 會要求 Master 先停。這樣 RXFFOVF 通常不會發生，但總傳輸時間會拉長。</p>
+          <p>這種設計適合不能掉資料的命令、校正資料、韌體設定資料。缺點是 Master 端必須支援等待或重送節奏。</p>
+        `;
+      }
+
+      if (cfg.mode === "dma") {
+        return `
+          <h3>DMA 的目的，是讓 FIFO 不等 CPU</h3>
+          <p>此模型把 DMA 搬移時間估為 ${cfg.serviceUs.toFixed(2)} us。Master 每 ${inputEvery} us 送 1 筆，但 DMA 可以一次搬走多個 FIFO word，所以 FIFO 比較不容易累積到滿。</p>
+          <p>實機上要特別確認 DMA destination buffer 是否夠大，以及半滿、全滿中斷是否會被及時處理。</p>
+        `;
+      }
+
+      return `
+        <h3>FIFO 不是加速器，它只是緩衝區</h3>
+        <p>現在 Master 平均每 ${inputEvery} us 送 1 筆，Slave 平均每 ${outputEvery} us 才讀走 1 筆。讀走速度 / 送入速度 = ${ratio} 倍。</p>
+        <p>當這個數字小於 1，代表 FIFO 水位會一直往上堆。FIFO 深度只能爭取大約 ${facts.fifoWindowUs.toFixed(2)} us 的緩衝時間，不能解決長時間速度不匹配。</p>
+        <p>第一次溢位時間：<strong>${firstOvf}</strong>。如果還沒溢位，可以增加總筆數或按壓力測試看長時間結果。</p>
+      `;
+    }
+
+    function lessonFix(cfg, facts) {
+      const gap = facts.minGapUs.toFixed(2);
+      const sclk = Number.isFinite(facts.maxSclkMHz) ? `${facts.maxSclkMHz.toFixed(2)} MHz` : "目前 gap 已足夠，不需要再降 SCLK";
+      const readMore = Math.max(2, Math.min(8, facts.readablePacketsPerService * 2));
+
+      return `
+        <h3>修正方向要讓「讀走平均速度」追上「送入平均速度」</h3>
+        <ul>
+          <li>Master 可停頓時，把兩筆之間空檔設到至少 <strong>${gap} us</strong>。</li>
+          <li>Master 不方便停頓時，把 SCLK 降到約 <strong>${sclk}</strong> 以下。</li>
+          <li>ISR 不要只讀 1 筆。嘗試每次讀出 <strong>${readMore} packets</strong>，或改成「能讀就全部讀完」。</li>
+          <li>連續大量資料，例如 4095 筆 burst，優先考慮 DMA 或 Ready/Busy 握手。</li>
+          <li>RXFFIL 不要設太高。門檻越高，中斷越少，但 CPU 開始處理也越晚。</li>
+        </ul>
+      `;
+    }
+
+    function lessonChecklist(cfg, facts) {
+      return `
+        <h3>實機 debug 時照這個順序查</h3>
+        <ul>
+          <li>確認 SPI frame 長度。${cfg.frameBits}-bit 在 16-bit FIFO 內會占 ${cfg.packetWords} word。</li>
+          <li>確認 RXFFST 是 word 數，不是 packet 數。</li>
+          <li>確認 ISR 內是否真的把 FIFO 讀到低水位，而不是只讀一次 SPIRXBUF 就離開。</li>
+          <li>確認 RXFFOVF 發生後有清除 overflow flag 與 interrupt flag，且清除順序符合 TRM。</li>
+          <li>量測 ISR 最壞時間，不只看平均時間。其他高優先權中斷會讓 FIFO 更容易滿。</li>
+          <li>Master 若會 burst 連續送，協定上要有 gap、Ready/Busy、封包 ACK 或 DMA buffer 設計。</li>
+        </ul>
+      `;
+    }
+
+    function lessonCode(cfg) {
+      const words = cfg.packetWords;
+      const readWords = cfg.readWords;
+      return `
+        <h3>概念偽碼：ISR 內把 FIFO 讀到安全水位</h3>
+        <pre class="code-block">// 這是觀念偽碼，暫存器名稱與清旗順序請查你的 C2000 TRM。
+#define WORDS_PER_PACKET ${words}
+#define READ_WORD_LIMIT  ${readWords}
+
+interrupt void spi_rx_isr(void)
+{
+    int words_read = 0;
+
+    while (RXFFST >= WORDS_PER_PACKET && words_read < READ_WORD_LIMIT) {
+        // 16-bit FIFO: 32-bit packet 要讀 2 次，64-bit packet 要讀 4 次。
+        uint16_t w0 = SPIRXBUF;
+        words_read++;
+
+        if (WORDS_PER_PACKET >= 2) {
+            uint16_t w1 = SPIRXBUF;
+            words_read++;
+            // packet = (w0 << 16) | w1; 依你的位元順序調整。
+        }
+    }
+
+    if (RXFFOVF == 1) {
+        // 先記錄錯誤，再依 TRM 清 overflow flag。
+        clear_spi_rx_overflow_flag();
+    }
+
+    clear_spi_rx_interrupt_flag();
+}</pre>
+      `;
+    }
+
+    function renderLogs() {
+      if (!state.logs.length) {
+        dom.logList.innerHTML = '<div class="log-item"><strong>0.00 us</strong><span>尚無事件。</span></div>';
+        return;
+      }
+
+      dom.logList.innerHTML = state.logs.map((log) => `
+        <div class="log-item ${log.level}">
+          <strong>${log.time}</strong>
+          <span>${log.message}</span>
+        </div>
+      `).join("");
+    }
+
+    function modeName(mode) {
+      const names = {
+        fifo: "C2000 FIFO + CPU ISR",
+        nofifo: "無 FIFO 單筆緩衝",
+        handshake: "GPIO Ready/Busy",
+        dma: "DMA 搬移"
+      };
+      return names[mode] || mode;
+    }
+
+    function initEvents() {
+      dom.presetSelect.addEventListener("change", () => {
+        const key = dom.presetSelect.value;
+        applyConfig(presets[key] || defaults);
+      });
+
+      const configInputs = [
+        dom.sclkMHz,
+        dom.frameBits,
+        dom.gapUs,
+        dom.packetCount,
+        dom.fifoDepth,
+        dom.triggerWords,
+        dom.serviceUs,
+        dom.readPackets
+      ];
+
+      configInputs.forEach((input) => {
+        input.addEventListener("change", () => resetSimulation());
+        input.addEventListener("input", () => {
+          stopPlay();
+          renderAll();
+        });
+      });
+
+      document.querySelectorAll("input[name='mode']").forEach((radio) => {
+        radio.addEventListener("change", () => resetSimulation());
+      });
+
+      dom.btnRun.addEventListener("click", runStressTest);
+      dom.btnStep.addEventListener("click", () => simulateOnePacket(true));
+      dom.btnPlay.addEventListener("click", togglePlay);
+      dom.btnDrain.addEventListener("click", manualDrain);
+      dom.btnResetSim.addEventListener("click", () => resetSimulation());
+      dom.btnResetConfig.addEventListener("click", () => {
+        dom.presetSelect.value = defaults.preset;
+        applyConfig(defaults);
+      });
+
+      document.querySelectorAll(".tab-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+          activeTab = button.dataset.tab;
+          document.querySelectorAll(".tab-btn").forEach((btn) => btn.classList.remove("active"));
+          button.classList.add("active");
+          renderAll();
+        });
+      });
+
+      window.addEventListener("resize", () => renderChart(normalizeConfig()));
+    }
+
+    initEvents();
+    applyConfig(presets.risky);
+  </script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AFE 實驗工作台</title>
+    <link rel="stylesheet" href="assets/app.css">
+    <script src="../assets/vendor/lucide.min.js"></script>
+    <script src="assets/app.js" defer></script>
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="index.html">
+            <span class="brand-mark"><i data-lucide="activity"></i></span>
+            <span><span class="brand-title">AFE Tutorial</span><span class="brand-subtitle">實驗工作台</span></span>
+        </a>
+        <nav class="nav">
+            <a data-nav href="index.html"><i data-lucide="map"></i>總覽</a>
+            <a data-nav href="01-concepts.html"><i data-lucide="blocks"></i>觀念</a>
+            <a data-nav href="02-waveforms.html"><i data-lucide="waves"></i>波形</a>
+            <a data-nav href="03-control-loop.html"><i data-lucide="route"></i>控制</a>
+            <a data-nav href="04-lab.html"><i data-lucide="clipboard-list"></i>實驗</a>
+            <a data-nav href="simulator.html"><i data-lucide="monitor-play"></i>模擬器</a>
+        </nav>
+    </header>
+
+    <main class="page wide-page">
+        <section class="intro">
+            <div class="eyebrow">Lab</div>
+            <h1>把模擬器改成實驗課：每次操作都留下設定、現象與結論。</h1>
+            <p class="lead">實用性來自可重複的測試流程。這頁把原始模擬器放在右側，左側提供實驗情境與紀錄表，適合教學、報告截圖、參數比較。</p>
+        </section>
+
+        <section class="lab-layout">
+            <div class="stack sticky-side">
+                <section class="panel">
+                    <h2>推薦實驗情境</h2>
+                    <button class="button" type="button" data-scenario='{"scenario":"負載階躍測試","mode":"auto","loadKw":"3.0","thd":"0","phaseDeg":"0"}'><i data-lucide="zap"></i>負載階躍測試</button>
+                    <p class="muted">把負載調到 3.0 kW。看 V_bus 先下沉，然後外環把它拉回 400 V。</p>
+                    <button class="button" type="button" data-scenario='{"scenario":"再生送電測試","mode":"auto","loadKw":"-2.0","thd":"0","phaseDeg":"0"}'><i data-lucide="battery-charging"></i>再生送電測試</button>
+                    <p class="muted">把負載調成負值。看能量方向是否切到 Inverter，I_grid 與 V_grid 方向會反轉。</p>
+                    <button class="button" type="button" data-scenario='{"scenario":"諧波耐受測試","mode":"auto","loadKw":"1.5","thd":"30","phaseDeg":"0"}'><i data-lucide="waves"></i>諧波耐受測試</button>
+                    <p class="muted">把 THD 調到 30%。看 PLL 角度是否仍穩定，電流是否被拉出失真。</p>
+                    <button class="button" type="button" data-scenario='{"scenario":"PI 過激測試","mode":"auto","loadKw":"1.5","thd":"0","phaseDeg":"0"}'><i data-lucide="gauge"></i>PI 過激測試</button>
+                    <p class="muted">將電流 Kp 慢慢拉高。看 I_grid 是否開始高頻抖動，並記錄臨界值。</p>
+                </section>
+
+                <section class="panel">
+                    <h2>實驗紀錄</h2>
+                    <form id="lab-record-form" class="stack">
+                        <label>實驗名稱
+                            <input name="scenario" placeholder="例如：負載階躍測試">
+                        </label>
+                        <div class="form-grid">
+                            <label>模式
+                                <select name="mode">
+                                    <option value="auto">auto</option>
+                                    <option value="pfc">pfc</option>
+                                    <option value="inverter">inverter</option>
+                                </select>
+                            </label>
+                            <label>負載 kW
+                                <input name="loadKw" inputmode="decimal" placeholder="1.5">
+                            </label>
+                            <label>THD %
+                                <input name="thd" inputmode="numeric" placeholder="0">
+                            </label>
+                            <label>相位 deg
+                                <input name="phaseDeg" inputmode="numeric" placeholder="0">
+                            </label>
+                        </div>
+                        <label>觀察與結論
+                            <textarea name="observation" placeholder="例如：V_bus 約 1 秒內回到 400 V，PF 維持 0.99 以上。"></textarea>
+                        </label>
+                        <div class="actions">
+                            <button class="button primary" type="submit"><i data-lucide="save"></i>儲存紀錄</button>
+                            <button class="button" type="button" data-export-records><i data-lucide="download"></i>匯出 CSV</button>
+                            <button class="button danger" type="button" data-clear-records><i data-lucide="trash-2"></i>清空</button>
+                        </div>
+                    </form>
+                </section>
+
+                <section class="panel">
+                    <h2>已儲存紀錄</h2>
+                    <div class="records" data-records></div>
+                </section>
+            </div>
+
+            <section class="sim-box">
+                <iframe title="AFE 原始模擬器" src="simulator-core.html"></iframe>
+            </section>
+        </section>
+    </main>
+
+    <footer class="footer">紀錄會儲存在此瀏覽器的 localStorage。需要交作業或比較參數時，可使用 CSV 匯出。</footer>
+</body>
+</html>

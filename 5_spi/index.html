@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPI 初學者互動課程 · 入口</title>
+  <link rel="stylesheet" href="assets/spi.css">
+  <style>
+    .hero-cta { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
+    .hero-cta a { text-decoration:none; }
+    .section-head { display:flex; align-items:baseline; gap:12px; margin:6px 0 2px; }
+    .section-head .badge {
+      width:30px; height:30px; display:grid; place-items:center; border-radius:8px;
+      background:#14b8a6; color:#06231f; font-weight:900;
+    }
+    .section-head h2 { margin:0; font-size:20px; }
+    .section-head span { color:var(--muted); font-size:13px; }
+    .module-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+    .lesson-card {
+      background:var(--panel); border:1px solid var(--line); border-radius:9px; box-shadow:var(--shadow);
+      padding:16px; text-decoration:none; color:var(--ink);
+      display:grid; grid-template-rows:auto auto 1fr auto; gap:10px;
+      transition:transform 140ms ease, border-color 140ms ease;
+    }
+    .lesson-card:hover { transform:translateY(-2px); border-color:var(--teal); }
+    .lesson-card .no { font-size:12px; font-weight:900; color:var(--muted); letter-spacing:0.05em; }
+    .lesson-card h3 { margin:0; font-size:17px; }
+    .lesson-card p { margin:0; color:#475569; font-size:14px; }
+    .lesson-card .go { color:var(--teal); font-weight:900; font-size:14px; }
+    .glossary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+    .term-box { padding:12px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+    .term-box strong { display:block; margin-bottom:4px; }
+    .term-box span { color:var(--muted); font-size:13px; }
+    @media (max-width:900px){ .module-grid, .glossary { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <p class="eyebrow">互動式教學 · 純 HTML，雙擊即可開</p>
+      <h1>SPI 初學者互動課程</h1>
+      <p class="subtitle">把 SPI 拆成 9 堂能動手玩的小課，一堂一個觀念。每課都有「一句話先懂 → 生活比喻 → 動手模擬 → 常見錯誤 → 自我檢查」，先建立直覺，再碰暫存器與程式。</p>
+      <div class="hero-cta">
+        <a class="btn" href="lesson_00_what.html">▶ 從第 1 課開始</a>
+        <a class="btn secondary" href="lesson_08_debug.html">直接看除錯表</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel">
+      <div class="panel-title"><h2>建議學習順序</h2><small>四個階段</small></div>
+      <div class="prose">
+        <ol>
+          <li><strong>先有畫面（00–02）</strong>：SPI 是什麼、四條線、一個 bit 換一個 bit。</li>
+          <li><strong>搞懂時序（03–04）</strong>：clock 怎麼推資料、CPOL/CPHA 與最高速度。</li>
+          <li><strong>資料量大（05–06）</strong>：為什麼要 FIFO、overrun 壓力測試。</li>
+          <li><strong>動手實務（07–08）</strong>：接線與硬體錯誤、症狀除錯表。</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- A -->
+    <div class="section-head"><div class="badge">A</div><h2>先有畫面</h2><span>建立基本直覺</span></div>
+    <section class="module-grid">
+      <a class="lesson-card" href="lesson_00_what.html">
+        <span class="no">LESSON 00</span><h3>SPI 是什麼、何時用</h3>
+        <p>對比 UART / I²C，互動推薦匯流排，看腳位數量差異。</p>
+        <span class="go">打開 →</span>
+      </a>
+      <a class="lesson-card" href="lesson_01_wires.html">
+        <span class="no">LESSON 01</span><h3>四條線各做什麼</h3>
+        <p>點接線圖看 MOSI/MISO/SCLK/CS 角色，含多 Slave。</p>
+        <span class="go">打開 →</span>
+      </a>
+      <a class="lesson-card" href="lesson_02_fullduplex.html">
+        <span class="no">LESSON 02</span><h3>全雙工：一個 bit 換一個 bit</h3>
+        <p>單步播放 8 個 clock，看懂「寫一筆同時也讀一筆」。</p>
+        <span class="go">打開 →</span>
+      </a>
+    </section>
+
+    <!-- B -->
+    <div class="section-head"><div class="badge">B</div><h2>搞懂時序</h2><span>邊緣與速度</span></div>
+    <section class="module-grid">
+      <a class="lesson-card" href="lesson_03_clock.html">
+        <span class="no">LESSON 03</span><h3>Clock 怎麼推動資料</h3>
+        <p>取樣邊緣＝拍照瞬間。看資料太慢時為什麼讀錯。</p>
+        <span class="go">打開 →</span>
+      </a>
+      <a class="lesson-card" href="lesson_04_mode.html">
+        <span class="no">LESSON 04</span><h3>CPOL / CPHA + setup margin</h3>
+        <p>Mode 0–3 對照，計算 margin 與建議最高 SCLK。</p>
+        <span class="go">打開 →</span>
+      </a>
+      <a class="lesson-card" href="lesson_05_fifo_why.html">
+        <span class="no">LESSON 05</span><h3>為什麼需要 FIFO</h3>
+        <p>水桶比喻：調進出水速度，看水位何時溢出。</p>
+        <span class="go">打開 →</span>
+      </a>
+    </section>
+
+    <!-- C/D -->
+    <div class="section-head"><div class="badge">C</div><h2>資料量大 + 動手實務</h2><span>吞吐與除錯</span></div>
+    <section class="module-grid">
+      <a class="lesson-card" href="lesson_06_overrun.html">
+        <span class="no">LESSON 06</span><h3>Overrun 壓力測試</h3>
+        <p>16-word FIFO，比較無 FIFO / ISR / 多筆 / DMA 誰會溢位。</p>
+        <span class="go">打開 →</span>
+      </a>
+      <a class="lesson-card" href="lesson_07_wiring.html">
+        <span class="no">LESSON 07</span><h3>接線與常見硬體錯誤</h3>
+        <p>故障注入器 + 真實晶片腳位 + 可複製讀取程式碼。</p>
+        <span class="go">打開 →</span>
+      </a>
+      <a class="lesson-card" href="lesson_08_debug.html">
+        <span class="no">LESSON 08</span><h3>症狀 → 原因除錯表</h3>
+        <p>輸入現象，產生由高到低機率的檢查順序。</p>
+        <span class="go">打開 →</span>
+      </a>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title"><h2>先記住這幾個詞</h2><small>中英對照</small></div>
+      <div class="glossary">
+        <div class="term-box"><strong>MOSI</strong><span>Master 輸出、Slave 輸入。送命令或資料。</span></div>
+        <div class="term-box"><strong>MISO</strong><span>Master 輸入、Slave 輸出。讀回資料。</span></div>
+        <div class="term-box"><strong>SCLK</strong><span>Master 產生的時鐘，沒它就不交換 bit。</span></div>
+        <div class="term-box"><strong>CS / STE</strong><span>選哪顆 Slave，常見低電平有效。</span></div>
+        <div class="term-box"><strong>CPOL / CPHA</strong><span>決定 idle 電平與取樣邊緣，雙方要一致。</span></div>
+        <div class="term-box"><strong>RXFFOVF</strong><span>接收 FIFO 滿了還進資料，代表已遺失。</span></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    這組檔案都是純 HTML/CSS/JavaScript，直接雙擊 <code>index.html</code> 或用瀏覽器開啟即可，不需安裝或啟動伺服器。
+    共用樣式在 <code>assets/spi.css</code>、共用腳本在 <code>assets/spi-lesson.js</code>。實機暫存器名稱與清旗順序以你的晶片 TRM 為準。
+  </footer>
+</body>
+</html>

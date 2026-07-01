@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>3 · 電容把電流漣波撫成電壓漣波</title>
+<style>
+  :root{--bg:#f1f5f9;--card:#fff;--ink:#1e293b;--muted:#64748b;--hint:#94a3b8;--line:#e2e8f0;--blue:#2563eb;--red:#dc2626;--purple:#7c3aed;--green:#059669;--cyan:#0891b2;--amber:#b45309;--mono:ui-monospace,Consolas,Menlo,monospace;--radius:12px;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Noto Sans TC","Microsoft JhengHei",sans-serif;line-height:1.7}
+  .wrap{max-width:900px;margin:0 auto;padding:22px 20px 64px}
+  a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+  .crumb{font-size:13px;color:var(--hint);margin-bottom:8px}
+  h1{font-size:23px;font-weight:600;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:15px;margin:0 0 20px}
+  .stage{display:grid;grid-template-columns:340px 1fr;gap:20px;align-items:start}
+  @media(max-width:760px){.stage{grid-template-columns:1fr}}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+  .cap{font-size:12.5px;margin-top:8px;text-align:center;font-weight:600}
+  .fixed{font-size:12px;color:var(--hint);margin-top:14px;border-top:1px dashed var(--line);padding-top:10px}
+  .ctrl{margin:14px 0 0}
+  .row{display:flex;justify-content:space-between;margin-bottom:4px}
+  label{font-size:13px;color:var(--muted)}
+  .val{font-family:var(--mono);font-weight:600}
+  input[type=range]{width:100%}
+  .hint{font-size:11.5px;color:var(--hint);margin-top:3px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:10px;margin-bottom:12px}
+  .metric{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+  .metric .t{font-size:11.5px;color:var(--muted);margin-bottom:2px}
+  .metric .n{font-size:21px;font-weight:600;font-family:var(--mono)}
+  .scope{background:#0f172a;border-radius:var(--radius);padding:12px 14px;margin-bottom:10px}
+  .scope .stitle{color:#cbd5e1;font-size:12.5px;font-family:var(--mono);margin-bottom:4px}
+  .formula{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:10px 13px;font-family:var(--mono);font-size:12.5px;color:var(--muted);line-height:1.8}
+  .try{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:13px 16px;margin:20px 0 0;font-size:14.5px;color:#1e3a8a}
+  .try b{color:#1e40af}
+  .takeaway{background:#dcfce7;border:1px solid #86efac;border-radius:10px;padding:13px 16px;margin:12px 0 0;font-size:15px;color:#065f46}
+  .takeaway code{background:#bbf7d0;padding:1px 6px;border-radius:4px;font-family:var(--mono)}
+  .nav{display:flex;justify-content:space-between;margin-top:26px;gap:10px}
+  .nav a{font-size:14px;padding:9px 16px;border:1px solid var(--line);border-radius:9px;background:var(--card)}
+  .nav a.next{border-color:#93c5fd;color:#1d4ed8;font-weight:600}
+  .foot{margin-top:28px;font-size:11.5px;color:var(--hint);text-align:center}
+  code{background:#eef2f7;padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="crumb">步驟 3 / 5 · <a href="index.html">← 學習地圖</a></div>
+  <h1>電容把電流漣波撫成電壓漣波</h1>
+  <p class="sub">一句話：漣波電流灌進輸出電容，充放電造成輸出電壓的小抖動 ΔVout；電容越大越穩。</p>
+
+  <div class="stage">
+    <div>
+      <div class="panel">
+        <div id="circ"></div>
+        <div class="cap" id="ccap" style="color:var(--green)">🟢 聚焦：輸出電容 C（吸收漣波電流）</div>
+        <div class="ctrl">
+          <div class="row"><label for="di">電流漣波 ΔI（來自上一頁）</label><span class="val" id="diO" style="color:#3b82f6">1.0 A</span></div>
+          <input id="di" type="range" min="0.2" max="3" step="0.1" value="1.0" style="accent-color:#3b82f6">
+        </div>
+        <div class="ctrl">
+          <div class="row"><label for="cap">輸出電容 C</label><span class="val" id="capO" style="color:#059669">22 μF</span></div>
+          <input id="cap" type="range" min="1" max="220" step="1" value="22" style="accent-color:#059669">
+          <div class="hint">↑ C 加倍 → ΔVout 減半</div>
+        </div>
+        <div class="ctrl">
+          <div class="row"><label for="fsw">開關頻率 Fsw</label><span class="val" id="fswO" style="color:#7c3aed">500 kHz</span></div>
+          <input id="fsw" type="range" min="100" max="2000" step="50" value="500" style="accent-color:#7c3aed">
+        </div>
+        <div class="fixed">本頁固定：Vout 基準 = 3.3 V（只看漣波大小）</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="cards">
+        <div class="metric"><div class="t">輸出電壓漣波 ΔVout</div><div class="n" id="dvN" style="color:#059669">— mV</div></div>
+        <div class="metric"><div class="t">占 Vout 比例</div><div class="n" id="pctN" style="font-size:17px">—</div></div>
+      </div>
+      <div class="scope">
+        <div class="stitle">① 流進電容的漣波電流（峰−谷＝ΔI）</div>
+        <svg id="iSc" width="100%" viewBox="0 0 440 120" style="display:block"></svg>
+      </div>
+      <div class="scope">
+        <div class="stitle">② 積分後的輸出電壓漣波 ΔVout</div>
+        <svg id="vSc" width="100%" viewBox="0 0 440 120" style="display:block"></svg>
+      </div>
+      <div class="formula" id="f"></div>
+    </div>
+  </div>
+
+  <div class="try">🔧 <b>動手試：</b>記下現在的 ΔVout。把 <b>C 從 22 拉到 44 μF</b>，下面那條綠波的高度掉一半。電容就是「水庫」—— 越大，輸出電壓被漣波電流推動得越小。</div>
+  <div class="takeaway">📌 <b>帶走這句：</b><code>ΔVout = ΔI /(8·Fsw·C)</code>。同樣的漣波電流，<b>C 越大、Fsw 越高 → 輸出電壓越乾淨</b>。注意上一頁壓 ΔI、這一頁壓 ΔVout，兩段是接力的。</div>
+
+  <div class="nav">
+    <a href="2_current_ripple.html">← 上一頁</a>
+    <a class="next" href="4_ccm_vs_dcm.html">下一頁：CCM vs DCM →</a>
+  </div>
+  <p class="foot">理想化：假設漣波電流全部流入電容（忽略 ESR）。電壓波形為對稱漣波積分，峰−峰值符合上式。</p>
+</div>
+
+<script>
+(function(){
+  var $=function(i){return document.getElementById(i);};
+  function circuitSVG(focus){
+    var acc={sw:'#2563eb',L:'#dc2626',D:'#7c3aed',C:'#059669',load:'#0891b2'};
+    function c(id){return focus===id?acc[id]:'#475569';}function w(id){return focus===id?3.4:2;}
+    var s='<svg viewBox="0 0 340 170" width="100%" style="max-width:340px;display:block;margin:0 auto">';
+    s+='<line x1="30" y1="146" x2="312" y2="146" stroke="#94a3b8" stroke-width="2"/>';
+    s+='<circle cx="30" cy="94" r="14" fill="none" stroke="#475569" stroke-width="2"/><text x="30" y="98" text-anchor="middle" font-size="10" fill="#475569">Vin</text>';
+    s+='<line x1="30" y1="48" x2="30" y2="80" stroke="#475569" stroke-width="2"/><line x1="30" y1="108" x2="30" y2="146" stroke="#475569" stroke-width="2"/>';
+    s+='<line x1="30" y1="48" x2="88" y2="48" stroke="#475569" stroke-width="2"/>';
+    s+='<rect x="88" y="36" width="34" height="24" rx="4" fill="#fff" stroke="'+c('sw')+'" stroke-width="'+w('sw')+'"/><text x="105" y="52" text-anchor="middle" font-size="11" fill="'+c('sw')+'">SW</text>';
+    s+='<line x1="122" y1="48" x2="150" y2="48" stroke="#475569" stroke-width="2"/><circle cx="150" cy="48" r="3" fill="#475569"/>';
+    s+='<line x1="150" y1="48" x2="164" y2="48" stroke="#475569" stroke-width="2"/><rect x="164" y="38" width="58" height="20" rx="10" fill="#fff" stroke="'+c('L')+'" stroke-width="'+w('L')+'"/><text x="193" y="52" text-anchor="middle" font-size="11" fill="'+c('L')+'">L</text>';
+    s+='<line x1="222" y1="48" x2="252" y2="48" stroke="#475569" stroke-width="2"/><circle cx="252" cy="48" r="3" fill="#475569"/>';
+    s+='<line x1="150" y1="48" x2="150" y2="84" stroke="#475569" stroke-width="2"/><path d="M138,106 L162,106 L150,88 Z" fill="none" stroke="'+c('D')+'" stroke-width="'+w('D')+'"/><line x1="138" y1="88" x2="162" y2="88" stroke="'+c('D')+'" stroke-width="'+w('D')+'"/><line x1="150" y1="106" x2="150" y2="146" stroke="#475569" stroke-width="2"/><text x="128" y="104" text-anchor="middle" font-size="11" fill="'+c('D')+'">D</text>';
+    s+='<line x1="252" y1="48" x2="252" y2="90" stroke="#475569" stroke-width="2"/><line x1="240" y1="90" x2="264" y2="90" stroke="'+c('C')+'" stroke-width="'+w('C')+'"/><line x1="240" y1="98" x2="264" y2="98" stroke="'+c('C')+'" stroke-width="'+w('C')+'"/><line x1="252" y1="98" x2="252" y2="146" stroke="#475569" stroke-width="2"/><text x="274" y="98" font-size="11" fill="'+c('C')+'">C</text>';
+    s+='<line x1="252" y1="48" x2="300" y2="48" stroke="#475569" stroke-width="2"/><line x1="300" y1="48" x2="300" y2="72" stroke="#475569" stroke-width="2"/><rect x="290" y="72" width="20" height="40" rx="3" fill="#fff" stroke="'+c('load')+'" stroke-width="'+w('load')+'"/><text x="300" y="66" text-anchor="middle" font-size="9" fill="'+c('load')+'">負載</text><line x1="300" y1="112" x2="300" y2="146" stroke="#475569" stroke-width="2"/>';
+    s+='<text x="250" y="32" text-anchor="middle" font-size="10" fill="#1d4ed8">Vout</text></svg>';return s;
+  }
+  $("circ").innerHTML=circuitSVG("C");
+
+  var W=440,pL=40,pR=14,plotW=W-pL-pR,periodW=plotW/2;
+  function render(){
+    var dI=+$("di").value, C=+$("cap").value, fsw=+$("fsw").value;
+    $("diO").textContent=dI.toFixed(1)+" A"; $("capO").textContent=C+" μF"; $("fswO").textContent=fsw+" kHz";
+    var mv=dI*1e6/(8*fsw*C); // ΔVout in mV
+    $("dvN").textContent=(mv<10?mv.toFixed(2):mv.toFixed(1))+" mV";
+    $("pctN").textContent=(mv/1000/3.3*100).toFixed(2)+"%";
+
+    // ---- current scope (symmetric triangle, pk-pk = dI) ----
+    var iH=120,ipT=14,ipB=20,iy0=iH-ipB;
+    var iMaxAmp=dI/2*1.5||0.5;
+    function iY(v){return (ipT+iy0)/2 - (v/iMaxAmp)*(iy0-ipT)/2;}
+    var s='';
+    s+='<line x1="'+pL+'" y1="'+iY(0)+'" x2="'+(W-pR)+'" y2="'+iY(0)+'" stroke="#10b981" stroke-width="1.5" stroke-dasharray="4" opacity="0.6"/><text x="6" y="'+(iY(0)+3)+'" fill="#34d399" font-size="9">平均</text>';
+    var iv=[];
+    for(var q=0;q<2;q++){var x0=pL+q*periodW;iv.push([x0,iY(-dI/2)],[x0+periodW/2,iY(dI/2)],[x0+periodW,iY(-dI/2)]);}
+    s+='<polyline points="'+iv.map(function(a){return a[0].toFixed(1)+','+a[1].toFixed(1);}).join(' ')+'" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linejoin="round"/>';
+    var yT=iY(dI/2),yB=iY(-dI/2);
+    s+='<line x1="26" y1="'+yT+'" x2="26" y2="'+yB+'" stroke="#93c5fd" stroke-width="1.5"/><text x="30" y="'+((yT+yB)/2+3)+'" fill="#93c5fd" font-size="10">ΔI</text>';
+    $("iSc").innerHTML=s;
+
+    // ---- voltage scope: integrate symmetric triangle ----
+    var N=120, T=1/(fsw*1000), Cf=C/1e6, dt=T/N, v=0, arr=[0], vmin=0,vmax=0;
+    for(var k=1;k<=N;k++){ var fr=((k-0.5)/N); var ic=(fr<0.5)?(-dI/2+dI*(fr/0.5)):(dI/2-dI*((fr-0.5)/0.5)); v+=ic*dt/Cf; arr.push(v); if(v<vmin)vmin=v; if(v>vmax)vmax=v; }
+    var pp=vmax-vmin||1e-9, mid=(vmax+vmin)/2;
+    var vH=120,vpT=16,vpB=18,vy0=vH-vpB;
+    function vY(val){return (vpT+vy0)/2 - ((val-mid)/pp)*(vy0-vpT)*0.78;}
+    var vs='';
+    vs+='<rect x="'+pL+'" y="'+vpT+'" width="'+plotW+'" height="'+(vy0-vpT)+'" fill="rgba(16,185,129,0.06)"/>';
+    vs+='<line x1="'+pL+'" y1="'+vY(0)+'" x2="'+(W-pR)+'" y2="'+vY(0)+'" stroke="#10b981" stroke-width="1.5" stroke-dasharray="4" opacity="0.5"/><text x="6" y="'+(vY(0)+3)+'" fill="#34d399" font-size="9">3.3V</text>';
+    var vp=[];
+    for(var cc=0;cc<2;cc++){for(var j=0;j<=N;j++){vp.push((pL+(cc+j/N)*periodW).toFixed(1)+','+vY(arr[j]).toFixed(1));}}
+    vs+='<polyline points="'+vp.join(' ')+'" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linejoin="round"/>';
+    var vyT=vY(mid+pp/2),vyB=vY(mid-pp/2);
+    vs+='<line x1="26" y1="'+vyT+'" x2="26" y2="'+vyB+'" stroke="#6ee7b7" stroke-width="1.5"/><line x1="21" y1="'+vyT+'" x2="31" y2="'+vyT+'" stroke="#6ee7b7"/><line x1="21" y1="'+vyB+'" x2="31" y2="'+vyB+'" stroke="#6ee7b7"/>';
+    vs+='<text x="'+(W-pR-2)+'" y="'+(vpT+9)+'" text-anchor="end" fill="#6ee7b7" font-size="10">ΔVout '+(mv<10?mv.toFixed(2):mv.toFixed(1))+' mV</text>';
+    $("vSc").innerHTML=vs;
+
+    $("f").innerHTML="ΔVout = ΔI /(8·Fsw·C) = "+dI.toFixed(1)+" /(8×"+fsw+"k×"+C+"µ) = <b style='color:#059669'>"+(mv<10?mv.toFixed(2):mv.toFixed(1))+" mV</b>";
+  }
+  ["di","cap","fsw"].forEach(function(k){$(k).addEventListener("input",render);});
+  render();
+})();
+</script>
+</body>
+</html>

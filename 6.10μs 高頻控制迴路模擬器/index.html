@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>10μs 高頻控制迴路 · 入口</title>
+<style>
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  background: #f8fafc;
+  color: #172026;
+}
+.wrap { width: min(900px, calc(100% - 32px)); margin: 0 auto; padding: 42px 0; }
+h1 { margin: 0 0 10px; font-size: clamp(30px, 5vw, 46px); }
+p { color: #64748b; line-height: 1.7; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-top: 24px; }
+a { display: grid; gap: 10px; min-height: 150px; padding: 18px; border: 1px solid #d8dee8; border-radius: 8px; background: #fff; color: inherit; text-decoration: none; }
+a:hover { border-color: #94a3b8; }
+.tag { width: fit-content; padding: 3px 8px; border-radius: 8px; background: #e0f2fe; color: #0369a1; font-size: 12px; font-weight: 800; }
+h2 { margin: 0; font-size: 21px; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>10μs 高頻控制迴路</h1>
+  <p>建議從教學版開始，把 EPWM、ADC、CPU1、FSI、DAC 與完整時序分開學，再回到完整模擬器對照。</p>
+  <section class="grid">
+    <a href="教學版/index.html">
+      <span class="tag">COURSE</span>
+      <h2>互動教學版</h2>
+      <p>7 堂小課，逐步理解 10μs 控制迴路。</p>
+    </a>
+    <a href="10μs 高頻控制迴路模擬器.html">
+      <span class="tag">FULL</span>
+      <h2>完整模擬器</h2>
+      <p>原始完整操作畫面，適合完成課程後整合複習。</p>
+    </a>
+  </section>
+</main>
+</body>
+</html>
