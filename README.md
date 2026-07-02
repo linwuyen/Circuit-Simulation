@@ -21,8 +21,12 @@
 
 - `assets/learning/tutor.css`
 - `assets/learning/tutor.js`
+- `assets/learning/micro-sim.css`
+- `assets/learning/micro-sim.js`
 
 助手會依目前頁面路徑自動顯示該頁的教學目標、操作步驟、判讀方式、相關故障、詞彙與報告入口。`legacy/` 與 `originals/` 預設不注入。
+
+第 10、11 組資訊量較大，已拆成微型教學模擬頁。每頁只保留一個觀念、一組少量控制項、即時判讀指標與小任務，最後再回到完整儀表板。
 
 ## 使用方式
 
@@ -48,13 +52,14 @@ python -m http.server 8080
 | 7 | F28388D BMS 教學 | `7.28388d_bms_tutorial/START_HERE.html` |
 | 8 | AD5543 DAC 教學 | `8.ad5543_simulator/index.html` |
 | 9 | AFE 入門拆解 | `9.afe-tutorial/START_HERE.html` |
-| 10 | ACMC-PRO 雙迴路控制逆變器 | `10.acmc-pro_power_simulator/index.html` |
-| 11 | C2000 電力測量與 DDS 儀表板 | `11.c2000_dds_dashboard/index.html` |
+| 10 | ACMC-PRO 雙迴路控制逆變器 | `10.acmc-pro_power_simulator/00_system_map.html` |
+| 11 | C2000 電力測量與 DDS 儀表板 | `11.c2000_dds_dashboard/00_measurement_map.html` |
 
 ## 維護狀態
 
 - 正式教材的主要外部腳本已複製到 `assets/vendor/`，方便離線使用。
 - 新增的教學框架位於 `assets/learning/`，負責初學路線、實驗任務、故障速查、搜尋、詞彙表、頁內教學助手與報告產生器。
+- 微型教學模擬頁共用 `micro-sim.css` 與 `micro-sim.js`；各頁只設定 `window.MICRO_LESSON`，避免重複維護互動畫布與任務 UI。
 - `legacy/` 與 `originals/` 代表封存或備份內容，不是主要學習入口。
 - 這個資料夾已可用 Git 管理；第三方 vendor 檔案保留在版本控制內，因為它們支援離線開啟。
 

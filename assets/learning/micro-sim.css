@@ -1,0 +1,379 @@
+:root {
+  --ms-bg: #f5f7fa;
+  --ms-panel: #ffffff;
+  --ms-ink: #172026;
+  --ms-muted: #667085;
+  --ms-line: #d9e1ec;
+  --ms-soft: #eef2f7;
+  --ms-teal: #0f8f83;
+  --ms-blue: #2f63d8;
+  --ms-amber: #b7791f;
+  --ms-rose: #c2415b;
+  --ms-green: #22885f;
+  --ms-slate: #243241;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ms-ink);
+  background: var(--ms-bg);
+  font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif;
+  line-height: 1.62;
+}
+
+a { color: inherit; }
+
+.ms-shell {
+  width: min(1180px, calc(100% - 34px));
+  margin: 0 auto;
+  padding: 24px 0 56px;
+}
+
+.ms-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.ms-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: inherit;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.ms-mark {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--ms-slate);
+  color: #fff;
+  font-size: 13px;
+}
+
+.ms-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ms-link,
+.ms-button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--ms-line);
+  border-radius: 8px;
+  background: var(--ms-panel);
+  color: var(--ms-muted);
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.ms-link:hover,
+.ms-button:hover {
+  border-color: #b7c2d2;
+  color: var(--ms-ink);
+}
+
+.ms-button.primary {
+  border-color: #1d6f68;
+  background: var(--ms-teal);
+  color: #fff;
+}
+
+.ms-button.done {
+  border-color: #b7dccb;
+  background: #e7f6ee;
+  color: var(--ms-green);
+}
+
+.ms-hero {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.ms-eyebrow {
+  color: var(--ms-teal);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ms-hero h1,
+.ms-panel h2,
+.ms-panel h3 {
+  margin: 0;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.ms-hero h1 {
+  max-width: 920px;
+  font-size: 36px;
+}
+
+.ms-lead {
+  max-width: 940px;
+  margin: 0;
+  color: var(--ms-muted);
+  font-size: 17px;
+}
+
+.ms-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.82fr) minmax(0, 1.18fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.ms-panel {
+  border: 1px solid var(--ms-line);
+  border-radius: 8px;
+  background: var(--ms-panel);
+  padding: 18px;
+}
+
+.ms-panel > * + * { margin-top: 14px; }
+
+.ms-tag {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: #e8f4f2;
+  color: var(--ms-teal);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ms-tag.blue { background: #e8eeff; color: var(--ms-blue); }
+.ms-tag.amber { background: #fff2d6; color: #8a590f; }
+.ms-tag.rose { background: #ffe5eb; color: #a12f48; }
+.ms-tag.green { background: #e7f6ee; color: var(--ms-green); }
+
+.ms-field-list {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.ms-field-list li {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ms-line);
+}
+
+.ms-field-list li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.ms-field-list b {
+  color: var(--ms-slate);
+}
+
+.ms-muted {
+  color: var(--ms-muted);
+}
+
+.ms-controls {
+  display: grid;
+  gap: 12px;
+}
+
+.ms-control {
+  display: grid;
+  gap: 6px;
+}
+
+.ms-control-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.ms-control label {
+  color: var(--ms-slate);
+  font-weight: 900;
+}
+
+.ms-control output {
+  color: var(--ms-teal);
+  font-family: "Consolas", "Courier New", monospace;
+  font-weight: 900;
+  text-align: right;
+}
+
+.ms-control input[type="range"] {
+  width: 100%;
+  accent-color: var(--ms-teal);
+}
+
+.ms-control select {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--ms-line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 6px 8px;
+  color: var(--ms-ink);
+  font: inherit;
+}
+
+.ms-help {
+  color: var(--ms-muted);
+  font-size: 12px;
+}
+
+.ms-canvas-wrap {
+  position: relative;
+  min-height: 320px;
+  border: 1px solid var(--ms-line);
+  border-radius: 8px;
+  background: #0d1520;
+  overflow: hidden;
+}
+
+.ms-canvas {
+  display: block;
+  width: 100%;
+  height: 320px;
+}
+
+.ms-status {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  max-width: min(300px, calc(100% - 24px));
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.88);
+  color: #dbe7f4;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.ms-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.ms-metric {
+  min-height: 86px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  border: 1px solid var(--ms-line);
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 12px;
+}
+
+.ms-metric span {
+  color: var(--ms-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ms-metric strong {
+  color: var(--ms-slate);
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.ms-metric.good strong { color: var(--ms-green); }
+.ms-metric.warn strong { color: var(--ms-amber); }
+.ms-metric.bad strong { color: var(--ms-rose); }
+
+.ms-task {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid var(--ms-line);
+  padding-top: 14px;
+}
+
+.ms-checks {
+  display: grid;
+  gap: 8px;
+}
+
+.ms-checks label {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  color: var(--ms-slate);
+}
+
+.ms-note-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.ms-note {
+  border: 1px solid var(--ms-line);
+  border-radius: 8px;
+  background: var(--ms-panel);
+  padding: 14px;
+}
+
+.ms-note b {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--ms-slate);
+}
+
+.ms-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 860px) {
+  .ms-nav,
+  .ms-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ms-nav {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .ms-links {
+    justify-content: flex-start;
+  }
+
+  .ms-hero h1 {
+    font-size: 30px;
+  }
+}

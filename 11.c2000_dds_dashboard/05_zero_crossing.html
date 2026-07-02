@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C2000 DDS 過零偵測</title>
+  <link rel="stylesheet" href="../assets/learning/micro-sim.css">
+  <link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
+</head>
+<body>
+<div id="lesson-root"></div>
+<script>
+window.MICRO_LESSON = {
+  rootPrefix: "../",
+  section: "C2000 DDS",
+  eyebrow: "11-05 Zero Crossing",
+  title: "頻率是從過零點間隔估出來的",
+  intro: "過零偵測看似簡單，但零點附近訊號很小，雜訊很容易讓觸發點提前或延後。",
+  goal: "理解 acFreq 為什麼會受 noise 與 zero crossing 品質影響。",
+  action: "調高 noise，觀察頻率估測與 jitter。",
+  result: "noise 越高，過零點越不穩，頻率讀值越容易跳。",
+  why: "電網頻率偵測、同步控制與保護判斷都需要穩定 ZCD。",
+  task: "把 noise 調到 7%，描述頻率讀值為何不可信。",
+  checks: ["能指出過零點位置", "能說出雜訊造成提前/延後觸發", "能理解頻率來自週期時間"],
+  beginnerNote: "過零點就像計時起點；起點抖動，量出來的週期就抖。",
+  engineeringNote: "常見改善方式包含 hysteresis、低通濾波、PLL 或更穩定的同步訊號。",
+  nextNote: "下一頁專門看 jitterCount 與 hysteresis。",
+  sim: "dds-zcd",
+  fullHref: "index.html",
+  prevHref: "04_power_pf.html",
+  nextHref: "06_noise_jitter.html",
+  controls: [
+    { id: "freq", label: "交流頻率", min: 45, max: 65, step: 0.5, value: 60, unit: " Hz", help: "模擬外部交流頻率。" },
+    { id: "noise", label: "訊號雜訊", min: 0, max: 10, step: 0.5, value: 1.5, unit: " %", help: "零點附近最容易受雜訊影響。" }
+  ]
+};
+</script>
+<script src="../assets/learning/micro-sim.js"></script>
+<script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
+<script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
+</body>
+</html>

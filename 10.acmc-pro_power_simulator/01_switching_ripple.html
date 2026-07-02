@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ACMC-PRO 開關頻率與漣波</title>
+  <link rel="stylesheet" href="../assets/learning/micro-sim.css">
+  <link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
+</head>
+<body>
+<div id="lesson-root"></div>
+<script>
+window.MICRO_LESSON = {
+  rootPrefix: "../",
+  section: "ACMC-PRO",
+  eyebrow: "10-01 Ripple",
+  title: "只看 f_sw：開關頻率越低，漣波越大",
+  intro: "大型儀表板裡有很多參數，這頁先只留 f_sw 與負載。你要觀察的是正弦波上疊了多少高頻鋸齒。",
+  goal: "建立開關頻率與濾波壓力的因果關係。",
+  action: "把 f_sw 從 100kHz 降到 20kHz，再把負載拉高。",
+  result: "f_sw 降低或負載提高時，高頻紋波變明顯，濾波與控制難度上升。",
+  why: "這就是 SiC 元件常被拿來提高開關頻率、縮小濾波器的原因。",
+  task: "找一組漣波低於 45% 的條件，記下 f_sw 與負載。",
+  checks: ["能說出 f_sw 降低造成漣波變大的原因", "能分辨綠色理想正弦與藍色含漣波波形", "能記錄一組合格參數"],
+  beginnerNote: "不要先算電感公式，先看週期拉長後，電流每次充放電的幅度會變大。",
+  engineeringNote: "漣波只是第一關；高頻也會帶來開關損耗、EMI 與採樣點設計問題。",
+  nextNote: "下一頁看輕載時為什麼 ZVS 會失效。",
+  sim: "acmc-ripple",
+  fullHref: "index.html",
+  prevHref: "00_system_map.html",
+  nextHref: "02_zvs_light_load.html",
+  controls: [
+    { id: "fsw", label: "SiC 開關頻率", min: 20, max: 150, step: 5, value: 100, unit: " kHz", help: "降低到 20kHz 觀察高頻紋波。" },
+    { id: "load", label: "負載功率", min: 100, max: 2500, step: 50, value: 1200, unit: " W", help: "負載越高，電流擺幅也越明顯。" }
+  ]
+};
+</script>
+<script src="../assets/learning/micro-sim.js"></script>
+<script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
+<script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
+</body>
+</html>

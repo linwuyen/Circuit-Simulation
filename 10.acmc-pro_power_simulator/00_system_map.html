@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ACMC-PRO 系統地圖</title>
+  <link rel="stylesheet" href="../assets/learning/micro-sim.css">
+  <link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
+</head>
+<body>
+<div id="lesson-root"></div>
+<script>
+window.MICRO_LESSON = {
+  rootPrefix: "../",
+  section: "ACMC-PRO",
+  eyebrow: "10-00 System Map",
+  title: "先把整套雙迴路逆變器拆成四段",
+  intro: "這頁不急著調所有參數，只先建立能量流與控制流：PFC 建母線、PSFB 隔離升壓、SiC 逆變輸出，最後由 C2000 做採樣與保護。",
+  goal: "知道完整儀表板右側四個 stage 分別在負責什麼。",
+  action: "切換重點段落，從左到右追一次能量路徑。",
+  result: "每一段都有自己的輸入、輸出與失效模式，不要把系統看成單一黑盒。",
+  why: "實務 debug 時通常不是整機壞掉，而是其中一段條件不滿足。",
+  task: "用自己的話說出 PFC、PSFB、Inverter、DAQ 各自負責的一句話。",
+  checks: ["能指出 DC bus 是哪一段建立的", "能說出 PSFB 為什麼需要 ZVS", "能說出 DAQ/保護不是功率級但會決定是否停機"],
+  beginnerNote: "先看順序，不要先看公式。能量從左往右，控制與保護會回頭影響開關。",
+  engineeringNote: "每段都應該有可量測的狀態：電壓、電流、效率、鎖相、保護旗標。",
+  nextNote: "下一頁只看開關頻率如何影響輸出漣波。",
+  sim: "acmc-map",
+  fullHref: "index.html",
+  nextHref: "01_switching_ripple.html",
+  controls: [
+    { id: "stage", type: "select", label: "重點段落", value: "1", options: [
+      { value: "0", label: "PFC 前級" },
+      { value: "1", label: "PSFB 隔離升壓" },
+      { value: "2", label: "SiC 逆變輸出" },
+      { value: "3", label: "C2000 DAQ / 保護" }
+    ], help: "每次只追一段，不要同時看全部。" }
+  ]
+};
+</script>
+<script src="../assets/learning/micro-sim.js"></script>
+<script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
+<script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
+</body>
+</html>

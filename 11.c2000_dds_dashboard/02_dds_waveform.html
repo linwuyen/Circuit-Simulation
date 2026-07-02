@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C2000 DDS 波形與 ADC 範圍</title>
+  <link rel="stylesheet" href="../assets/learning/micro-sim.css">
+  <link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
+</head>
+<body>
+<div id="lesson-root"></div>
+<script>
+window.MICRO_LESSON = {
+  rootPrefix: "../",
+  section: "C2000 DDS",
+  eyebrow: "11-02 DDS",
+  title: "DDS 波形必須先安全地放進 ADC",
+  intro: "DDS 可以產生理想正弦，但進 ADC 前一定會經過縮放與偏壓。這頁只看 ADC 腳位是否超出 0 到 3.3V。",
+  goal: "知道 Vpeak 與 offset 如何決定 ADC 最低/最高電壓。",
+  action: "提高 Vpeak 或移動 offset，觀察 ADC 最低與最高值。",
+  result: "超出範圍時波形會削波，後面的 RMS 與功率都不可信。",
+  why: "這是電壓/電流感測電路設計的基本邊界。",
+  task: "找出一組不超出 0-3.3V 的最大 Vpeak。",
+  checks: ["能說出 ADC 腳位上下限", "能看出 offset 太高或太低的風險", "能找到不削波的參數"],
+  beginnerNote: "ADC 像只能量 0 到 3.3V 的尺，波形不能超出尺的範圍。",
+  engineeringNote: "實務還要留 transient、元件誤差與溫漂裕度，不可貼著上下限設計。",
+  nextNote: "下一頁看 RMS 怎麼從取樣點算出來。",
+  sim: "dds-wave",
+  fullHref: "index.html",
+  prevHref: "01_adc_offset.html",
+  nextHref: "03_rms_calculation.html",
+  controls: [
+    { id: "vpeak", label: "電壓峰值", min: 10, max: 180, step: 5, value: 120, unit: " V", help: "代表被縮放前的物理量。" },
+    { id: "offset", label: "ADC Offset", min: 0.8, max: 2.5, step: 0.05, value: 1.65, unit: " V", help: "中點不對會壓縮其中一邊空間。" }
+  ]
+};
+</script>
+<script src="../assets/learning/micro-sim.js"></script>
+<script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
+<script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
+</body>
+</html>

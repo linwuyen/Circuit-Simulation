@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ACMC-PRO 同步採樣與噪聲</title>
+  <link rel="stylesheet" href="../assets/learning/micro-sim.css">
+  <link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
+</head>
+<body>
+<div id="lesson-root"></div>
+<script>
+window.MICRO_LESSON = {
+  rootPrefix: "../",
+  section: "ACMC-PRO",
+  eyebrow: "10-03 Sampling",
+  title: "同步採樣 vs 隨機採樣",
+  intro: "SiC 開關瞬間 dv/dt 很大。如果 ADC 剛好在跳變瞬間取樣，後面再怎麼濾波都很痛苦。這頁只比較採樣策略。",
+  goal: "理解為什麼 C2000 常用 EPWM 事件精準觸發 ADC。",
+  action: "切換同步與隨機採樣，再調高 f_sw。",
+  result: "同步採樣避開跳變點，隨機採樣容易出現尖峰。",
+  why: "採樣點設計是電力控制穩定度與雜訊品質的關鍵。",
+  task: "切到隨機採樣，描述你看到的尖峰對 RMS 或電流環可能造成什麼影響。",
+  checks: ["能說出 dv/dt 與採樣噪聲的關係", "能比較同步與隨機波形差異", "能說出為什麼要用 EPWM 觸發 ADC"],
+  beginnerNote: "這不是 ADC 壞掉，而是你在最吵的瞬間拍照。",
+  engineeringNote: "先設好採樣點，再談數位濾波；濾波會帶來相位延遲。",
+  nextNote: "下一頁看併網 PLL 如何修正相位漂移。",
+  sim: "acmc-sampling",
+  fullHref: "index.html",
+  prevHref: "02_zvs_light_load.html",
+  nextHref: "04_pll_phase.html",
+  controls: [
+    { id: "mode", type: "select", label: "採樣模式", value: "sync", options: [
+      { value: "sync", label: "同步採樣", short: "SYNC" },
+      { value: "random", label: "隨機採樣", short: "RANDOM" }
+    ], help: "先切到隨機，再切回同步比較。" },
+    { id: "fsw", label: "SiC 開關頻率", min: 20, max: 150, step: 5, value: 100, unit: " kHz", help: "高頻開關下採樣點更重要。" }
+  ]
+};
+</script>
+<script src="../assets/learning/micro-sim.js"></script>
+<script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
+<script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
+</body>
+</html>

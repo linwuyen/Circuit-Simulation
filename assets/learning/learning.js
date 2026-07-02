@@ -39,7 +39,7 @@
   function moduleHeader(module) {
     return '<div class="module-head">'
       + '<div class="module-title"><div style="display:flex;gap:12px;align-items:flex-start"><span class="num">' + module.number + '</span><div><span class="tag">' + esc(module.tag) + '</span><h2 style="margin-top:7px">' + esc(module.title) + '</h2><p class="muted">' + esc(module.whyUseful) + '</p></div></div>'
-      + '<a class="button primary" href="' + module.entry + '">開啟原教材</a></div>'
+      + '<a class="button primary" href="' + module.entry + '">開啟入口</a></div>'
       + '<div class="concept-grid">'
       + '<div class="concept"><b>一句話先懂</b><p>' + esc(module.oneLine) + '</p></div>'
       + '<div class="concept"><b>生活比喻</b><p>' + esc(module.analogy) + '</p></div>'

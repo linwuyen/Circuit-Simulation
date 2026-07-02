@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C2000 DDS Noise 與 Jitter</title>
+  <link rel="stylesheet" href="../assets/learning/micro-sim.css">
+  <link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
+</head>
+<body>
+<div id="lesson-root"></div>
+<script>
+window.MICRO_LESSON = {
+  rootPrefix: "../",
+  section: "C2000 DDS",
+  eyebrow: "11-06 Jitter",
+  title: "Hysteresis 是過零偵測的防抖門檻",
+  intro: "如果只用 0 當門檻，雜訊會讓訊號在零點附近來回穿越。Hysteresis 讓訊號必須跨過一段範圍才算真的翻轉。",
+  goal: "觀察 noise、hysteresis 與 jitterCount 的關係。",
+  action: "先提高 noise，再增加 hysteresis。",
+  result: "hysteresis 足夠時，jitterCount 下降。",
+  why: "這能讓頻率估測、週期累積與保護判斷更穩。",
+  task: "在 noise = 6% 時，把 jitterCount 調到 0 或接近 0。",
+  checks: ["能說出 hysteresis 的作用", "能把 jitterCount 降低", "能說出過大 hysteresis 也可能造成延遲"],
+  beginnerNote: "Hysteresis 像門檻區，不讓訊號在邊界附近一直誤觸發。",
+  engineeringNote: "門檻太小抗噪差，太大會延遲或漏掉低振幅訊號。",
+  nextNote: "最後用校正實驗把 offset 與 noise 一起調到可交付。",
+  sim: "dds-jitter",
+  fullHref: "index.html",
+  prevHref: "05_zero_crossing.html",
+  nextHref: "07_calibration_lab.html",
+  controls: [
+    { id: "noise", label: "訊號雜訊", min: 0, max: 10, step: 0.5, value: 4, unit: " %", help: "先拉高來製造抖動。" },
+    { id: "hyst", label: "Hysteresis 門檻", min: 0, max: 60, step: 2, value: 20, unit: " count", help: "提高可以抑制誤觸發。" }
+  ]
+};
+</script>
+<script src="../assets/learning/micro-sim.js"></script>
+<script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
+<script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
+</body>
+</html>

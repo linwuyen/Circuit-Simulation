@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C2000 DDS ADC Offset</title>
+  <link rel="stylesheet" href="../assets/learning/micro-sim.css">
+  <link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
+</head>
+<body>
+<div id="lesson-root"></div>
+<script>
+window.MICRO_LESSON = {
+  rootPrefix: "../",
+  section: "C2000 DDS",
+  eyebrow: "11-01 Offset",
+  title: "AC 訊號為什麼要墊到 1.65V",
+  intro: "C2000 ADC 不能直接讀負電壓，所以交流訊號要先加 DC offset。問題是 offset 會漂，韌體不能永遠假設它剛好是 2048。",
+  goal: "比較固定扣 2048 與動態 LPF offset 校正。",
+  action: "把 offset 拉離 1.65V，再切換校正模式。",
+  result: "固定模式會讓 RMS 偏差變大，動態校正能把偏差拉回。",
+  why: "這對溫漂、板子誤差、運放 offset 都很實用。",
+  task: "把 offset 調到 1.95V，比較兩種模式的 Vrms。",
+  checks: ["能說出 1.65V 是 ADC 中點", "能看到固定扣 2048 的誤差", "能解釋動態 LPF 校正的用途"],
+  beginnerNote: "負半週不是消失，而是被整體往上搬到 ADC 可以讀的範圍。",
+  engineeringNote: "校正要慢到不吃掉 AC 訊號，又要快到能追溫漂。",
+  nextNote: "下一頁看 DDS 波形如何落在 ADC 範圍內。",
+  sim: "dds-offset",
+  fullHref: "index.html",
+  prevHref: "00_measurement_map.html",
+  nextHref: "02_dds_waveform.html",
+  controls: [
+    { id: "offset", label: "硬體偏壓 Offset", min: 1.0, max: 2.3, step: 0.05, value: 1.65, unit: " V", help: "偏離 1.65V 模擬漂移。" },
+    { id: "mode", type: "select", label: "校正模式", value: "dynamic", options: [
+      { value: "none", label: "固定扣 2048", short: "2048" },
+      { value: "dynamic", label: "動態 LPF 校正", short: "LPF" }
+    ], help: "先看固定，再切回動態。" }
+  ]
+};
+</script>
+<script src="../assets/learning/micro-sim.js"></script>
+<script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
+<script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
+</body>
+</html>

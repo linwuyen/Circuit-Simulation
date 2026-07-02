@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ACMC-PRO PLL 相位漂移</title>
+  <link rel="stylesheet" href="../assets/learning/micro-sim.css">
+  <link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
+</head>
+<body>
+<div id="lesson-root"></div>
+<script>
+window.MICRO_LESSON = {
+  rootPrefix: "../",
+  section: "ACMC-PRO",
+  eyebrow: "10-04 PLL",
+  title: "PLL 的工作：把相位誤差拉回來",
+  intro: "併網控制需要知道電網角度。SOGI-PLL 的目標不是讓波形漂亮，而是讓控制座標能跟著外部相位走。",
+  goal: "看懂 PLL 開啟與關閉時，相位漂移對輸出參考的影響。",
+  action: "加入外部市電相位漂移，切換 PLL ON/OFF。",
+  result: "PLL ON 時相位誤差被壓小；PLL OFF 時誤差直接存在。",
+  why: "AFE、併網逆變器與功率因數控制都依賴穩定相位。",
+  task: "把漂移調到 90 度，比較 PLL ON/OFF 的相位誤差。",
+  checks: ["能分辨市電相位與輸出參考", "能說出 PLL 的目的", "能理解相位錯會影響功率方向"],
+  beginnerNote: "PLL 像跟拍器，外部節奏變了，控制器要重新跟上。",
+  engineeringNote: "PLL 太慢會跟不上，太快會吃噪聲；這需要在暫態與抗噪之間取捨。",
+  nextNote: "下一頁看 OCP 與 DC offset 如何讓系統跳機。",
+  sim: "acmc-pll",
+  fullHref: "index.html",
+  prevHref: "03_sampling_noise.html",
+  nextHref: "05_ocp_trip.html",
+  controls: [
+    { id: "pll", type: "select", label: "PLL 狀態", value: "on", options: [
+      { value: "on", label: "啟用 SOGI-PLL", short: "ON" },
+      { value: "off", label: "關閉 PLL", short: "OFF" }
+    ], help: "關閉後漂移不會被追蹤。" },
+    { id: "drift", label: "外部市電相位漂移", min: -180, max: 180, step: 5, value: 45, unit: " deg", help: "模擬電網相位相對控制器偏移。" }
+  ]
+};
+</script>
+<script src="../assets/learning/micro-sim.js"></script>
+<script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
+<script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
+</body>
+</html>

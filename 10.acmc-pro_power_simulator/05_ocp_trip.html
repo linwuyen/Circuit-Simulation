@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ACMC-PRO OCP 保護鎖死</title>
+  <link rel="stylesheet" href="../assets/learning/micro-sim.css">
+  <link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
+</head>
+<body>
+<div id="lesson-root"></div>
+<script>
+window.MICRO_LESSON = {
+  rootPrefix: "../",
+  section: "ACMC-PRO",
+  eyebrow: "10-05 Protection",
+  title: "硬體保護不是警告，是鎖死",
+  intro: "OCP 門檻太低、負載太重或 DDS 直流偏壓太大，都可能讓硬體直接封鎖閘極。這頁練習看保護原因。",
+  goal: "理解 OCP 與 DC 偏壓造成 trip 的不同原因。",
+  action: "降低 OCP 或提高負載，再調整 DC 偏壓。",
+  result: "峰值電流超過 OCP 會跳 OCP；DC 偏壓太大會模擬磁飽和風險。",
+  why: "保護設計要能快速停機，也要能清楚告訴工程師停機原因。",
+  task: "各觸發一次 OCP 與 DC SAT，記錄門檻與原因。",
+  checks: ["能用峰值電流判斷 OCP", "能說出 DC offset 為什麼危險", "能說出 reset 前要先排除真故障"],
+  beginnerNote: "不要把跳機當成壞事；保護有動作代表它阻止更大的風險。",
+  engineeringNote: "真機應保存 trip reason、峰值、狀態機與復歸條件，避免盲目重啟。",
+  nextNote: "最後用整合實驗把幾個條件一起調到合格。",
+  sim: "acmc-trip",
+  fullHref: "index.html",
+  prevHref: "04_pll_phase.html",
+  nextHref: "06_full_system_lab.html",
+  controls: [
+    { id: "load", label: "負載功率", min: 100, max: 2500, step: 50, value: 1200, unit: " W", help: "提高負載會提高峰值電流。" },
+    { id: "ocp", label: "OCP 門檻", min: 1, max: 15, step: 0.5, value: 8.5, unit: " A", help: "門檻低於峰值電流就會跳機。" },
+    { id: "offset", label: "DDS 直流偏壓", min: -3, max: 3, step: 0.1, value: 0, unit: " V", help: "絕對值過大代表有磁飽和風險。" }
+  ]
+};
+</script>
+<script src="../assets/learning/micro-sim.js"></script>
+<script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
+<script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
+</body>
+</html>

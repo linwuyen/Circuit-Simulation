@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ACMC-PRO ZVS 輕載邊界</title>
+  <link rel="stylesheet" href="../assets/learning/micro-sim.css">
+  <link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
+</head>
+<body>
+<div id="lesson-root"></div>
+<script>
+window.MICRO_LESSON = {
+  rootPrefix: "../",
+  section: "ACMC-PRO",
+  eyebrow: "10-02 ZVS",
+  title: "輕載時 ZVS 為什麼會失效",
+  intro: "相移全橋要靠原邊電流的能量幫 MOSFET 的 Coss 充放電。負載太低時，能量不夠，原本的軟切換就會變硬切換。",
+  goal: "知道負載、死區時間與 ZVS 裕度的關係。",
+  action: "把負載慢慢降到 300W 以下，觀察 ZVS 能量比。",
+  result: "能量比小於 1 時，ZVS 沒有足夠裕度。",
+  why: "這會直接影響效率、溫升與輕載工作策略。",
+  task: "找出 ZVS 能量比剛好低於 1 的負載區間。",
+  checks: ["能說出 Coss 需要被充放電", "能找到輕載失效邊界", "能說出硬切換會提高損耗"],
+  beginnerNote: "把 ZVS 想成需要一點動能才能完成的換流動作；負載太輕就沒有足夠動能。",
+  engineeringNote: "實機會同時受死區、漏感/諧振電感、Coss、Vin、溫度與負載變化影響。",
+  nextNote: "下一頁看採樣點為什麼不能隨機放。",
+  sim: "acmc-zvs",
+  fullHref: "index.html",
+  prevHref: "01_switching_ripple.html",
+  nextHref: "03_sampling_noise.html",
+  controls: [
+    { id: "load", label: "負載功率", min: 50, max: 1800, step: 25, value: 600, unit: " W", help: "低於 300W 時特別注意。" },
+    { id: "deadtime", label: "死區時間", min: 40, max: 220, step: 10, value: 120, unit: " ns", help: "死區太短時換流時間不足。" }
+  ]
+};
+</script>
+<script src="../assets/learning/micro-sim.js"></script>
+<script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
+<script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
+</body>
+</html>

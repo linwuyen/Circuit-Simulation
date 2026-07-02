@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C2000 DDS 量測鏈地圖</title>
+  <link rel="stylesheet" href="../assets/learning/micro-sim.css">
+  <link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
+</head>
+<body>
+<div id="lesson-root"></div>
+<script>
+window.MICRO_LESSON = {
+  rootPrefix: "../",
+  section: "C2000 DDS",
+  eyebrow: "11-00 Measurement Map",
+  title: "先把電力量測拆成四段",
+  intro: "這組儀表板不是只顯示 Vrms、Irms、P、PF，而是把 DDS 訊號、ADC 偏壓、offset 校正、週期累積與顯示值串起來。",
+  goal: "知道從類比波形到顯示數字中間經過哪些步驟。",
+  action: "切換重點段落，追一次量測鏈。",
+  result: "任何一段錯，最後顯示的 RMS、功率或頻率都可能錯。",
+  why: "實機量測 debug 要沿著訊號鏈逐段排查，而不是只看最後數字。",
+  task: "用四句話描述 DDS、ADC、Offset、RMS/PF 各自做什麼。",
+  checks: ["能指出 ADC 看到的是 0-3.3V", "能說出 offset 校正的目的", "能說出 RMS/PF 需要週期累積"],
+  beginnerNote: "先把它想成透明電表：每個中間暫存器都能拿來 debug。",
+  engineeringNote: "量測鏈要同時關心類比範圍、採樣點、校正、週期判斷與顯示更新率。",
+  nextNote: "下一頁只看 ADC offset 為什麼是 1.65V。",
+  sim: "dds-map",
+  fullHref: "index.html",
+  nextHref: "01_adc_offset.html",
+  controls: [
+    { id: "stage", type: "select", label: "重點段落", value: "1", options: [
+      { value: "0", label: "DDS 產生 AC" },
+      { value: "1", label: "ADC 取樣" },
+      { value: "2", label: "Offset 校正" },
+      { value: "3", label: "RMS / PF 計算" }
+    ], help: "一次只看一段量測鏈。" }
+  ]
+};
+</script>
+<script src="../assets/learning/micro-sim.js"></script>
+<script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
+<script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
+</body>
+</html>

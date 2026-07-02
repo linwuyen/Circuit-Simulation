@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C2000 DDS 實功與功率因數</title>
+  <link rel="stylesheet" href="../assets/learning/micro-sim.css">
+  <link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
+</head>
+<body>
+<div id="lesson-root"></div>
+<script>
+window.MICRO_LESSON = {
+  rootPrefix: "../",
+  section: "C2000 DDS",
+  eyebrow: "11-04 Power Factor",
+  title: "同樣的 V 與 I，相位不同，實功不同",
+  intro: "Vrms 與 Irms 只能告訴你視在功率。真正做功多少，還要看電壓與電流的相位差。",
+  goal: "看懂相位差、實功 P 與 PF 的關係。",
+  action: "固定 Vrms/Irms，只調 phase。",
+  result: "phase 越接近 0，PF 越高；相位差越大，實功越低。",
+  why: "這是電表、PFC、AFE 與併網控制的核心判讀。",
+  task: "找出 PF 大於 0.9 的相位範圍。",
+  checks: ["能說出 P = V x I x cos(phi)", "能看出電壓電流同相時 PF 最高", "能分辨 W 與 VA"],
+  beginnerNote: "電壓與電流不同步時，有些能量只是在來回交換，沒有變成實功。",
+  engineeringNote: "相位方向、CT/電壓量測極性與取樣同步都會影響功率符號。",
+  nextNote: "下一頁看過零偵測如何回算頻率。",
+  sim: "dds-pf",
+  fullHref: "index.html",
+  prevHref: "03_rms_calculation.html",
+  nextHref: "05_zero_crossing.html",
+  controls: [
+    { id: "phase", label: "電流相位偏移", min: -90, max: 90, step: 5, value: 30, unit: " deg", help: "正負代表超前或落後。" },
+    { id: "vrms", label: "Vrms", min: 20, max: 240, step: 10, value: 120, unit: " V", help: "固定電壓有效值。" },
+    { id: "irms", label: "Irms", min: 1, max: 30, step: 1, value: 10, unit: " A", help: "固定電流有效值。" }
+  ]
+};
+</script>
+<script src="../assets/learning/micro-sim.js"></script>
+<script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
+<script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
+</body>
+</html>

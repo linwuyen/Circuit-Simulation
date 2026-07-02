@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C2000 DDS 校正整合實驗</title>
+  <link rel="stylesheet" href="../assets/learning/micro-sim.css">
+  <link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
+</head>
+<body>
+<div id="lesson-root"></div>
+<script>
+window.MICRO_LESSON = {
+  rootPrefix: "../",
+  section: "C2000 DDS",
+  eyebrow: "11-07 Lab",
+  title: "整合任務：讓電力量測結果可交付",
+  intro: "最後把 offset、noise 與校正模式一起看。目標不是波形漂亮，而是量測結果有可說明的可信度。",
+  goal: "把 offset 條件與 noise 條件同時調到合格。",
+  action: "製造 offset 漂移與 noise，再選擇校正模式並調整條件。",
+  result: "PASS 代表這組量測條件有基本可用性。",
+  why: "實務報告需要說明校正策略、噪聲條件與可接受範圍。",
+  task: "讓整體判定 PASS，並記錄 offset、noise、校正模式。",
+  checks: ["整體判定為 PASS", "能解釋為什麼需要動態校正", "能說出 noise 過高時下一步該查類比前端"],
+  beginnerNote: "先看紅色項目是哪個，再只調那一個參數。",
+  engineeringNote: "可交付量測要附上校正方法、測試條件、容許誤差與異常處理。",
+  nextNote: "回完整儀表板，把這些觀念對到實際暫存器與示波器。",
+  sim: "dds-cal-lab",
+  fullHref: "index.html",
+  prevHref: "06_noise_jitter.html",
+  controls: [
+    { id: "offset", label: "硬體 Offset", min: 1.0, max: 2.3, step: 0.05, value: 1.85, unit: " V", help: "偏離 1.65V 時固定扣 2048 會有風險。" },
+    { id: "noise", label: "訊號雜訊", min: 0, max: 10, step: 0.5, value: 3, unit: " %", help: "目標壓在 4% 以下。" },
+    { id: "mode", type: "select", label: "校正模式", value: "dynamic", options: [
+      { value: "none", label: "固定扣 2048", short: "2048" },
+      { value: "dynamic", label: "動態 LPF 校正", short: "LPF" }
+    ], help: "漂移存在時建議用動態校正。" }
+  ]
+};
+</script>
+<script src="../assets/learning/micro-sim.js"></script>
+<script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
+<script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
+</body>
+</html>
