@@ -1,0 +1,236 @@
+.clt-root {
+  --clt-bg: #ffffff;
+  --clt-ink: #172026;
+  --clt-muted: #667085;
+  --clt-line: #d9e1ec;
+  --clt-soft: #eef2f7;
+  --clt-teal: #0f8f83;
+  --clt-blue: #2f63d8;
+  --clt-slate: #243241;
+  font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif;
+  color: var(--clt-ink);
+}
+
+.clt-button {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 99990;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 10px 14px;
+  border: 1px solid rgba(23, 32, 38, 0.18);
+  border-radius: 999px;
+  background: var(--clt-slate);
+  color: #fff;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.25);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.clt-panel {
+  position: fixed;
+  right: 18px;
+  bottom: 72px;
+  z-index: 99989;
+  display: none;
+  width: min(430px, calc(100vw - 24px));
+  max-height: min(760px, calc(100vh - 92px));
+  overflow: auto;
+  border: 1px solid var(--clt-line);
+  border-radius: 10px;
+  background: var(--clt-bg);
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.24);
+}
+
+.clt-panel.is-open {
+  display: block;
+}
+
+.clt-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--clt-line);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+}
+
+.clt-head h2 {
+  margin: 3px 0 0;
+  font-size: 18px;
+  line-height: 1.25;
+  color: var(--clt-ink);
+}
+
+.clt-close {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--clt-line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--clt-muted);
+  cursor: pointer;
+}
+
+.clt-body {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px 16px;
+}
+
+.clt-tag {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 22px;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e8f4f2;
+  color: var(--clt-teal);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.clt-section {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--clt-line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.clt-section h3 {
+  margin: 0;
+  font-size: 13px;
+  color: var(--clt-slate);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.clt-section p {
+  margin: 0;
+  color: var(--clt-muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.clt-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.clt-link,
+.clt-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 8px 10px;
+  border: 1px solid var(--clt-line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--clt-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 900;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.clt-link.primary,
+.clt-action.primary {
+  border-color: var(--clt-slate);
+  background: var(--clt-slate);
+  color: #fff;
+}
+
+.clt-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--clt-line);
+  border-radius: 10px;
+  background: var(--clt-soft);
+}
+
+.clt-toggle button {
+  min-height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--clt-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.clt-toggle button.is-active {
+  background: #fff;
+  color: var(--clt-ink);
+  box-shadow: 0 2px 8px rgba(23, 32, 38, 0.08);
+}
+
+.clt-checks {
+  display: grid;
+  gap: 7px;
+}
+
+.clt-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--clt-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.clt-check input {
+  width: auto;
+  min-height: 0;
+  margin-top: 3px;
+  accent-color: var(--clt-teal);
+}
+
+.clt-engineering {
+  display: none;
+}
+
+.clt-root[data-mode="engineering"] .clt-engineering {
+  display: grid;
+}
+
+.cl-mode-beginner [data-advanced],
+.cl-mode-beginner .advanced {
+  display: none !important;
+}
+
+@media (max-width: 640px) {
+  .clt-button {
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .clt-panel {
+    right: 12px;
+    bottom: 64px;
+  }
+
+  .clt-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -13,6 +13,7 @@
   .diagnosis b { color: var(--emer2); }
   select { width: 100%; min-height: 36px; border: 1px solid var(--line); border-radius: 8px; background: #0b1220; color: var(--ink); padding: 7px 9px; }
 </style>
+<link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
 </head>
 <body>
 <header class="top">
@@ -271,5 +272,8 @@ fitAll();
 updateLabels();
 requestAnimationFrame(loop);
 </script>
+<script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
+<script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
 </body>
 </html>

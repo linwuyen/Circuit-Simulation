@@ -11,9 +11,18 @@
 | `beginner.html` | 初學者拆解路線：每個主題用一句話、生活比喻、最小操作、判讀與實務用途拆開。 |
 | `labs.html` | 實用實驗任務：用工程任務驅動操作，包含成功條件與實務用途。 |
 | `troubleshooting.html` | 故障速查表：從症狀反查原因、確認方式與修法。 |
+| `glossary.html` | 全域詞彙表：集中解釋跨主題關鍵字。 |
+| `search.html` | 全域搜尋：搜尋課程、實驗、故障、詞彙與實務提示。 |
 | `report.html` | 實驗報告產生器：把任務、參數、觀察與結論產生 Markdown 紀錄。 |
 
 這四個頁面的資料來源在 `assets/learning/curriculum.js`。之後要新增任務、故障案例或調整教學順序，優先改這個資料檔。
+
+正式教材頁面也注入了頁內教學助手：
+
+- `assets/learning/tutor.css`
+- `assets/learning/tutor.js`
+
+助手會依目前頁面路徑自動顯示該頁的教學目標、操作步驟、判讀方式、相關故障、詞彙與報告入口。`legacy/` 與 `originals/` 預設不注入。
 
 ## 使用方式
 
@@ -43,13 +52,26 @@ python -m http.server 8080
 ## 維護狀態
 
 - 正式教材的主要外部腳本已複製到 `assets/vendor/`，方便離線使用。
-- 新增的教學框架位於 `assets/learning/`，負責初學路線、實驗任務、故障速查與報告產生器。
+- 新增的教學框架位於 `assets/learning/`，負責初學路線、實驗任務、故障速查、搜尋、詞彙表、頁內教學助手與報告產生器。
 - `legacy/` 與 `originals/` 代表封存或備份內容，不是主要學習入口。
 - 這個資料夾已可用 Git 管理；第三方 vendor 檔案保留在版本控制內，因為它們支援離線開啟。
 
 ## 快速檢查
 
-可用下面的 PowerShell 檢查本地 `href/src` 是否缺檔：
+建議直接執行：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\validate-project.ps1
+```
+
+這會檢查：
+
+- 本地 `href/src` 是否缺檔。
+- `assets/learning/curriculum.js` 裡的動態連結是否存在。
+- 獨立 JavaScript 語法。
+- 正式教材頁是否已注入頁內教學助手。
+
+若只想手動檢查本地 `href/src` 是否缺檔，也可用下面的 PowerShell：
 
 ```powershell
 $root = (Get-Location).Path

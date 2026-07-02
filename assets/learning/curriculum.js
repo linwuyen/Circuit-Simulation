@@ -274,5 +274,37 @@
     }
   ];
 
-  global.CircuitCurriculum = { modules: modules };
+  const glossary = [
+    ["ADC", "Analog-to-Digital Converter，把類比電壓轉成數位 count。", "先確認輸入範圍、Vref、解析度與 offset。"],
+    ["AFE", "Active Front End，可控的雙向 AC/DC 功率級。", "重點看相位、電流波形、THD 與閉迴路穩定度。"],
+    ["Bode", "用頻率看系統增益與相位的圖。", "用來判斷頻寬、交越頻率與穩定裕度。"],
+    ["CAN/UDS", "車用通訊與診斷服務。", "看到 7F/NRC 時先查 session/security/routine 條件。"],
+    ["CCM", "Continuous Conduction Mode，電感電流不降到 0。", "Buck 常用設計區間，轉移關係較直觀。"],
+    ["CPHA/CPOL", "SPI 的取樣相位與時鐘極性。", "Mode 錯時常見資料位移一位或亂碼。"],
+    ["DAC", "Digital-to-Analog Converter，把數位碼轉成類比量。", "要同時檢查 code、Vref、輸出拓撲與校正。"],
+    ["DCM", "Discontinuous Conduction Mode，電感電流降到 0。", "輕載常見，控制模型會改變。"],
+    ["Duty", "PWM 高電位時間佔整個週期的比例。", "Buck 理想輸出約為 Vin × Duty。"],
+    ["ESR", "電容等效串聯電阻。", "輸出漣波常由 ESR 和電容充放電兩部分組成。"],
+    ["FAULT_LOCK", "故障鎖定狀態。", "安全系統不應默默自動復歸，要有明確條件。"],
+    ["FIFO", "First-In First-Out 緩衝。", "讓 CPU/ISR/DMA 有時間處理高速資料。"],
+    ["FOC", "Field-Oriented Control，把三相控制轉成 dq 軸控制。", "核心是 Clarke、Park、PI 與 SVPWM。"],
+    ["Ki", "PI 控制器的積分增益。", "能消除穩態誤差，但太大會降低穩定度。"],
+    ["Kp", "PI 控制器的比例增益。", "提高反應速度，但太大會震盪。"],
+    ["LSB", "最小可分辨數位步階。", "ADC/DAC 解析度常用 LSB 評估。"],
+    ["NRC", "UDS Negative Response Code，診斷拒絕原因。", "先解讀 NRC，再決定補 session、security 或條件。"],
+    ["Offset", "把訊號零點平移到 ADC 可讀範圍中間。", "雙向電流量測通常需要。"],
+    ["PI", "比例積分控制器。", "Kp 管即時反應，Ki 管長期誤差。"],
+    ["PWM", "Pulse Width Modulation，用開關占空比表示平均量。", "看 Duty、頻率、死區與濾波。"],
+    ["Ripple", "電流或電壓的週期性紋波。", "Buck 設計先估電感 ΔI，再估電容 ΔV。"],
+    ["SPI", "同步序列通訊，SCLK/MOSI/MISO/CS 四條線常見。", "除錯先查接線與 Mode，再查 FIFO/Overrun。"],
+    ["SVPWM", "Space Vector PWM，三相逆變器常用調變法。", "比 SPWM 有更高母線利用率，但有線性區邊界。"],
+    ["THD", "Total Harmonic Distortion，總諧波失真。", "用來量化波形品質。"],
+    ["dead-time", "上下臂都關閉的安全間隔。", "防直通，但會造成低速電流畸變。"],
+    ["dq", "跟著轉子旋轉的座標系。", "正確角度下，交流量會變成近似直流量。"],
+    ["overrun", "接收資料來不及讀，緩衝被覆蓋。", "提高 FIFO、縮短 ISR 或改 DMA。"],
+    ["過調變", "電壓命令超過 SVPWM 線性區。", "波形削頂，αβ 軌跡貼到六邊形。"],
+    ["預充", "先用電阻替 DC bus 電容充電，再合主接觸器。", "避免接觸器閉合瞬間突波。"]
+  ];
+
+  global.CircuitCurriculum = { modules: modules, glossary: glossary };
 })(window);

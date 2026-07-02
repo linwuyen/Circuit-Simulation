@@ -33,6 +33,7 @@
     .term-box span { color:var(--muted); font-size:13px; }
     @media (max-width:900px){ .module-grid, .glossary { grid-template-columns:1fr; } }
   </style>
+<link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
 </head>
 <body>
   <header>
@@ -137,5 +138,8 @@
     這組檔案都是純 HTML/CSS/JavaScript，直接雙擊 <code>index.html</code> 或用瀏覽器開啟即可，不需安裝或啟動伺服器。
     共用樣式在 <code>assets/spi.css</code>、共用腳本在 <code>assets/spi-lesson.js</code>。實機暫存器名稱與清旗順序以你的晶片 TRM 為準。
   </footer>
+<script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
+<script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
 </body>
 </html>

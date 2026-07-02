@@ -28,6 +28,8 @@
       ["beginner.html", "初學路線", "beginner"],
       ["labs.html", "實驗任務", "labs"],
       ["troubleshooting.html", "故障速查", "trouble"],
+      ["glossary.html", "詞彙表", "glossary"],
+      ["search.html", "搜尋", "search"],
       ["report.html", "報告產生器", "report"]
     ];
     return '<nav class="topnav"><a class="brand" href="index.html"><span class="brand-mark">SIM</span><span>電路模擬說明</span></a>'
