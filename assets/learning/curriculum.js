@@ -271,6 +271,60 @@
         ["THD 偏高", "調變、濾波或控制參數不佳。", "看波形是否削頂或有高頻殘留。", "降低命令、調濾波或重新調 PI。", "9.afe-tutorial/04-lab.html"],
         ["PI 調參後震盪", "Kp/Ki 太高或迴路相位裕度不足。", "做階躍並看是否衰減。", "降低增益並分開調電流/電壓環。", "9.afe-tutorial/03-control-loop.html"]
       ]
+    },
+    {
+      id: "acmc-pro",
+      number: "10",
+      tag: "ACMC",
+      title: "ACMC-PRO 雙迴路控制逆變器",
+      entry: "10.acmc-pro_power_simulator/index.html",
+      oneLine: "ACMC-PRO 把 PFC、相移全橋、SiC 逆變器、同步採樣、PLL 與硬體保護放在同一個系統中觀察。",
+      analogy: "像把整套電力電子實驗台縮到一張儀表板：左邊調條件，右邊看波形、保護與效率一起變化。",
+      whyUseful: "能練習從系統層判斷 ZVS、OCP、同步採樣、功率因數、DDS 解析度與 PLL 鎖相的實務取捨。",
+      lessons: [
+        ["index.html", "系統架構總覽", "先看 PFC、PSFB、Inverter、DAQ 四段如何串接。", "調負載功率與功因，看右側各 stage 指標變化。", "功率級不是單一方塊，而是一連串互相牽動的能量路徑。"],
+        ["index.html", "開關頻率與漣波", "理解 SiC 高頻開關為何能縮小濾波需求。", "把 f_sw 從 100kHz 降到 20kHz，觀察示波器高頻鋸齒。", "頻率越低，單週期能量擺幅越大，漣波越明顯。"],
+        ["index.html", "同步採樣與 EMI", "看 ADC 若採到開關瞬間會發生什麼。", "在同步與隨機採樣間切換，比較噪聲爆發。", "採樣點設計常比後端濾波更關鍵。"],
+        ["index.html", "SOGI-PLL 鎖相", "理解併網模式下相位追蹤的角色。", "關閉 PLL 或加入市電相位漂移，觀察 CH3 與輸出關係。", "鎖相品質會直接影響併網功率方向與穩定度。"],
+        ["index.html", "硬體保護鎖死", "看 DAC OCP 與 DC offset 如何觸發保護。", "降低 OCP 或提高直流偏壓，觀察 trip overlay 與 reset 流程。", "實務保護要快、明確，而且不能默默自動恢復。"]
+      ],
+      labs: [
+        ["acmc-zvs", "找出 ZVS 失效邊界", "10.acmc-pro_power_simulator/index.html", "慢慢降低 P_load，觀察 ZVS 狀態與效率何時惡化。", "能記錄大約低於哪個負載區間開始硬切換。", "用來理解 PSFB 輕載效率與熱設計風險。"],
+        ["acmc-sampling", "比較同步與隨機採樣", "10.acmc-pro_power_simulator/index.html", "維持同一組負載與頻率，只切換 ADC 採樣模式。", "能說出示波器中噪聲差異與原因。", "對應 C2000 EPWM 觸發 ADC 的實機設定。"],
+        ["acmc-protection", "觸發並復歸 OCP 保護", "10.acmc-pro_power_simulator/index.html", "調低 OCP 限制或提高負載，讓系統進入 trip，再按解除保護。", "能描述 trip reason、鎖死狀態與復歸條件。", "建立硬體保護測試流程。"]
+      ],
+      faults: [
+        ["ZVS 失效或效率下降", "負載太低，原邊電流不足以在死區時間內完成 Coss 充放電。", "看 ZVS 狀態、效率與負載功率。", "調整最小負載策略、死區、諧振電感或切換頻率。", "10.acmc-pro_power_simulator/index.html"],
+        ["ADC 波形噪聲突然變大", "採樣點落在 SiC 開關 dv/dt 瞬間。", "切回同步採樣並比較突波是否消失。", "用 EPWM SOCA/SOCB 固定在頂點或谷底採樣。", "10.acmc-pro_power_simulator/index.html"],
+        ["系統硬體跳機", "OCP 門檻太低、負載電流太高或 DDS 直流偏壓造成磁飽和。", "讀 trip reason，分別調 OCP、負載與 DC offset 驗證。", "先解除真故障，再設計明確 reset 與保護裕度。", "10.acmc-pro_power_simulator/index.html"]
+      ]
+    },
+    {
+      id: "c2000-dds",
+      number: "11",
+      tag: "DDS",
+      title: "C2000 電力測量與 DDS 儀表板",
+      entry: "11.c2000_dds_dashboard/index.html",
+      oneLine: "這個儀表板把 DDS 訊號、ADC 偏壓、動態 offset 校正、RMS、實功、功率因數與過零頻率計算串在一起。",
+      analogy: "像一台透明的電表：不只顯示 Vrms、Irms、P、PF，也把內部暫存器與計算過程攤開。",
+      whyUseful: "能直接練習 C2000 電力測量常見問題：偏壓錯、雜訊大、採樣率不足、過零抖動與校正策略。",
+      lessons: [
+        ["index.html", "DDS 訊號源", "先懂電壓峰值、頻率與 offset 如何組成 ADC 前端訊號。", "調 V_peak、freq、offset，看 ADC 實體視角波形。", "送進 ADC 的訊號必須落在 0 到 3.3V。"],
+        ["index.html", "電流相位與功率因數", "看電壓電流相位差如何影響實功與 PF。", "把 phase 從負到正調整，觀察 P 與 PF。", "同樣 Vrms/Irms 下，相位會決定真正做功多少。"],
+        ["index.html", "動態 offset 校正", "比較固定扣 2048 與 LPF 動態校正。", "改硬體 Offset，再切換校正模式。", "偏壓不是理想固定值，韌體需要估測與補償。"],
+        ["index.html", "RMS 與累積暫存器", "看 vSqrSum、pSum、nSamples 如何形成量測結果。", "改採樣頻率與頻率，看單週期點數變化。", "RMS 計算需要完整週期與穩定取樣。"],
+        ["index.html", "過零偵測與 Jitter", "理解頻率回算依賴乾淨的 zero crossing。", "提高 noise，觀察 ZCD 與 jitterCount。", "雜訊會讓過零點抖動，進而影響頻率與週期統計。"]
+      ],
+      labs: [
+        ["dds-offset", "故意製造 offset 誤差", "11.c2000_dds_dashboard/index.html", "把 Offset 調離 1.65V，先用無校正，再切回動態 LPF 校正。", "能說出 Vrms/PF 誤差如何被校正改善。", "對應實機 ADC 中點漂移與溫漂補償。"],
+        ["dds-pf", "量測不同功率因數", "11.c2000_dds_dashboard/index.html", "固定 V/I 峰值，只改 phase，記錄 P、PF 與波形相位。", "知道實功與視在功率的差別。", "用於 AC 電力計算與負載判讀。"],
+        ["dds-jitter", "觀察過零抖動", "11.c2000_dds_dashboard/index.html", "逐步提高 noise，觀察 acFreq、ZCD 與 jitterCount。", "能判斷何時頻率量測開始不可信。", "對應電網頻率偵測與濾波設計。"]
+      ],
+      faults: [
+        ["RMS 明顯偏差", "硬體 offset 漂移但韌體仍固定扣 2048。", "切換校正模式，觀察 v_offset 與 Vrms 是否恢復。", "使用動態 offset 估測，並校準 ADC 中點。", "11.c2000_dds_dashboard/index.html"],
+        ["頻率讀值跳動", "雜訊太大導致過零點抖動。", "看 jitterCount 與 ZCD 狀態是否頻繁變化。", "增加 hysteresis、濾波或改善類比前端雜訊。", "11.c2000_dds_dashboard/index.html"],
+        ["功率因數與預期不符", "電流相位方向定義、取樣同步或符號約定錯。", "改 phase 正負方向，確認 P 與 PF 的變化符合預期。", "統一電壓/電流方向定義並做已知負載校驗。", "11.c2000_dds_dashboard/index.html"]
+      ]
     }
   ];
 
@@ -283,6 +337,7 @@
     ["CPHA/CPOL", "SPI 的取樣相位與時鐘極性。", "Mode 錯時常見資料位移一位或亂碼。"],
     ["DAC", "Digital-to-Analog Converter，把數位碼轉成類比量。", "要同時檢查 code、Vref、輸出拓撲與校正。"],
     ["DCM", "Discontinuous Conduction Mode，電感電流降到 0。", "輕載常見，控制模型會改變。"],
+    ["DDS", "Direct Digital Synthesis，用相位累加與查表產生可控波形。", "看頻率、表格點數、相位與 DAC/ADC 取樣同步。"],
     ["Duty", "PWM 高電位時間佔整個週期的比例。", "Buck 理想輸出約為 Vin × Duty。"],
     ["ESR", "電容等效串聯電阻。", "輸出漣波常由 ESR 和電容充放電兩部分組成。"],
     ["FAULT_LOCK", "故障鎖定狀態。", "安全系統不應默默自動復歸，要有明確條件。"],
@@ -292,13 +347,20 @@
     ["Kp", "PI 控制器的比例增益。", "提高反應速度，但太大會震盪。"],
     ["LSB", "最小可分辨數位步階。", "ADC/DAC 解析度常用 LSB 評估。"],
     ["NRC", "UDS Negative Response Code，診斷拒絕原因。", "先解讀 NRC，再決定補 session、security 或條件。"],
+    ["OCP", "Over Current Protection，過電流保護。", "實務上常由比較器或硬體閘極封鎖快速處理。"],
     ["Offset", "把訊號零點平移到 ADC 可讀範圍中間。", "雙向電流量測通常需要。"],
+    ["PFC", "Power Factor Correction，讓輸入電流更接近與電壓同相的正弦。", "看 PF、THD、DC bus 與電流環品質。"],
     ["PI", "比例積分控制器。", "Kp 管即時反應，Ki 管長期誤差。"],
+    ["PLL", "Phase-Locked Loop，追蹤外部交流相位的控制迴路。", "併網與 AFE 常用來取得穩定角度。"],
+    ["PSFB", "Phase-Shift Full Bridge，相移全橋 DC-DC 拓撲。", "常搭配 ZVS 降低高壓高頻開關損耗。"],
     ["PWM", "Pulse Width Modulation，用開關占空比表示平均量。", "看 Duty、頻率、死區與濾波。"],
     ["Ripple", "電流或電壓的週期性紋波。", "Buck 設計先估電感 ΔI，再估電容 ΔV。"],
+    ["RMS", "Root Mean Square，交流有效值。", "電力測量會用平方累積與週期平均估 Vrms/Irms。"],
+    ["SOGI-PLL", "二階廣義積分器鎖相迴路。", "可產生正交訊號並讓 dq 軸追蹤電網相位。"],
     ["SPI", "同步序列通訊，SCLK/MOSI/MISO/CS 四條線常見。", "除錯先查接線與 Mode，再查 FIFO/Overrun。"],
     ["SVPWM", "Space Vector PWM，三相逆變器常用調變法。", "比 SPWM 有更高母線利用率，但有線性區邊界。"],
     ["THD", "Total Harmonic Distortion，總諧波失真。", "用來量化波形品質。"],
+    ["ZVS", "Zero Voltage Switching，讓開關在近零電壓時切換。", "輕載時常因能量不足而失效，造成效率與溫升惡化。"],
     ["dead-time", "上下臂都關閉的安全間隔。", "防直通，但會造成低速電流畸變。"],
     ["dq", "跟著轉子旋轉的座標系。", "正確角度下，交流量會變成近似直流量。"],
     ["overrun", "接收資料來不及讀，緩衝被覆蓋。", "提高 FIFO、縮短 ISR 或改 DMA。"],

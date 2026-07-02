@@ -80,7 +80,7 @@ if (-not $SkipNodeCheck) {
 Write-Section "Tutor injection"
 $formalPages = Get-ChildItem -Recurse -File -Filter *.html | Where-Object {
   $rel = $_.FullName.Substring($root.Length + 1)
-  $rel -match '^(0_buck_converter_|1_c2000_adc_calculator|2_code_artifact|3_foc_course|4_PI|5_spi|6\.10μs 高頻控制迴路模擬器|7\.28388d_bms_tutorial|8\.ad5543_simulator|9\.afe-tutorial)\\' -and
+  $rel -match '^(0_buck_converter_|1_c2000_adc_calculator|2_code_artifact|3_foc_course|4_PI|5_spi|6\.10μs 高頻控制迴路模擬器|7\.28388d_bms_tutorial|8\.ad5543_simulator|9\.afe-tutorial|10\.acmc-pro_power_simulator|11\.c2000_dds_dashboard)\\' -and
   $rel -notmatch '\\legacy\\|\\originals\\'
 }
 $missingTutor = @()

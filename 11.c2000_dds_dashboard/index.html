@@ -1,0 +1,799 @@
+﻿<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C2000 電力測量與 DDS 模擬儀表板</title>
+    <!-- Tailwind CSS local vendor -->
+    <script src="../assets/vendor/tailwindcss-cdn.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            gold: '#F59E0B',
+                            voltage: '#10B981', // 綠色代表電壓
+                            current: '#3B82F6', // 藍色代表電流
+                            power: '#EC4899',   // 粉色代表功率
+                            darkBg: '#0F172A',
+                            panelBg: '#1E293B'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 螢光示波器效果 */
+        .scope-glow {
+            box-shadow: inset 0 0 15px rgba(16, 185, 129, 0.15);
+        }
+        .digital-font {
+            font-family: 'Courier New', Courier, monospace;
+        }
+    </style>
+    <link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
+</head>
+<body class="bg-brand-darkBg text-slate-100 min-h-screen flex flex-col font-sans">
+
+    <!-- 頂部導航列 -->
+    <header class="border-b border-slate-700 bg-slate-900/80 backdrop-blur px-6 py-4 flex flex-wrap justify-between items-center gap-4">
+        <div class="flex items-center space-x-3">
+            <div class="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+            <h1 class="text-xl font-bold tracking-wider text-slate-100">C2000 電力測量與 DDS 訊號模擬儀表板</h1>
+            <span class="text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded">PML v1.02 基於過零檢測仿照版</span>
+        </div>
+        <div class="flex items-center space-x-4">
+            <span class="text-xs text-slate-400">執行狀態: <span class="text-emerald-400 font-bold" id="run-status">RUNNING</span></span>
+            <button id="btn-pause" class="bg-slate-800 hover:bg-slate-700 text-white text-xs px-3 py-1.5 rounded transition">
+                暫停暫存器更新
+            </button>
+        </div>
+    </header>
+
+    <!-- 主內容區 -->
+    <main class="flex-1 p-6 grid grid-cols-1 xl:grid-cols-4 gap-6">
+
+        <!-- 左側控制面板：模擬參數設定 -->
+        <section class="xl:col-span-1 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-6 flex flex-col justify-between">
+            <div class="space-y-6">
+                <div class="border-b border-slate-800 pb-3">
+                    <h2 class="text-sm font-semibold tracking-wider text-slate-400 uppercase">1. DDS 電流與電壓源設定</h2>
+                </div>
+
+                <!-- 電壓參數 -->
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-brand-voltage font-semibold">電壓峰值 (V_peak):</span>
+                        <span class="font-mono text-slate-300" id="val-vpeak">120.0 V</span>
+                    </div>
+                    <input type="range" id="input-vpeak" min="10" max="155" step="1" value="120" class="w-full accent-emerald-500">
+
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-400">電網交流頻率 (Hz):</span>
+                        <span class="font-mono text-slate-300" id="val-freq">60.0 Hz</span>
+                    </div>
+                    <input type="range" id="input-freq" min="45" max="65" step="0.1" value="60" class="w-full accent-slate-400">
+
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-400">硬體偏壓 Offset (DC 墊高):</span>
+                        <span class="font-mono text-slate-300" id="val-offset">1.65 V</span>
+                    </div>
+                    <input type="range" id="input-offset" min="1.0" max="2.3" step="0.05" value="1.65" class="w-full accent-slate-400">
+                </div>
+
+                <!-- 電流參數 -->
+                <div class="border-b border-slate-800 pb-3 pt-2">
+                    <h2 class="text-sm font-semibold tracking-wider text-slate-400 uppercase">2. 負載電流與相位差</h2>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-brand-current font-semibold">電流峰值 (I_peak):</span>
+                        <span class="font-mono text-slate-300" id="val-ipeak">15.0 A</span>
+                    </div>
+                    <input type="range" id="input-ipeak" min="1" max="30" step="0.5" value="15" class="w-full accent-blue-500">
+
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-brand-power font-semibold">相位偏移角 (Phase Lead/Lag):</span>
+                        <span class="font-mono text-slate-300" id="val-phase">30.0°</span>
+                    </div>
+                    <input type="range" id="input-phase" min="-90" max="90" step="1" value="30" class="w-full accent-pink-500">
+                </div>
+
+                <!-- ADC 參數 -->
+                <div class="border-b border-slate-800 pb-3 pt-2">
+                    <h2 class="text-sm font-semibold tracking-wider text-slate-400 uppercase">3. ADC 採樣與環境設定</h2>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-400">採樣頻率 (ISR 觸發):</span>
+                        <span class="font-mono text-slate-300" id="val-sampling">20.0 kHz</span>
+                    </div>
+                    <input type="range" id="input-sampling" min="5" max="40" step="1" value="20" class="w-full accent-yellow-500">
+
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-400">類比訊號雜訊比例 (Noise):</span>
+                        <span class="font-mono text-slate-300" id="val-noise">1.5 %</span>
+                    </div>
+                    <input type="range" id="input-noise" min="0" max="10" step="0.1" value="1.5" class="w-full accent-slate-400">
+                </div>
+
+                <!-- 軟體算法設定 -->
+                <div class="border-b border-slate-800 pb-3 pt-2">
+                    <h2 class="text-sm font-semibold tracking-wider text-slate-400 uppercase">4. 軟體補償校正模式</h2>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="cal-none" class="py-1.5 px-3 rounded text-xs bg-slate-800 border border-slate-700 hover:bg-slate-700 transition">無校正 (減2048)</button>
+                    <button id="cal-dynamic" class="py-1.5 px-3 rounded text-xs bg-emerald-600/30 border border-emerald-500 hover:bg-emerald-600/50 transition text-emerald-300 font-semibold">動態 LPF 校正</button>
+                </div>
+            </div>
+
+            <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-3 text-[11px] text-slate-400 space-y-1">
+                <span class="text-slate-300 font-semibold block mb-1">💡 實驗室測試提示：</span>
+                <p>1. 拖曳「直流偏壓 Offset」看看 ADC 訊號是如何整體上抬的。</p>
+                <p>2. 切換為「無校正」後，若偏壓不是 1.65V，你會發現量測出來的 RMS 直接偏差爆表！</p>
+                <p>3. 調大「雜訊比例」可觀察過零點偵測是否會抖動（Jitter）。</p>
+            </div>
+        </section>
+
+        <!-- 中間與右側：即時數據與示波器 -->
+        <section class="xl:col-span-3 space-y-6 flex flex-col justify-between">
+            
+            <!-- 數據結算儀表板 (類似 TI 液晶螢幕) -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <!-- V_rms -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
+                    <span class="text-[11px] text-slate-400 font-medium uppercase tracking-wider">V_rms_display</span>
+                    <div class="my-2">
+                        <span class="text-3xl font-bold font-mono text-brand-voltage" id="disp-vrms">0.00</span>
+                        <span class="text-xs text-slate-400 ml-1">V</span>
+                    </div>
+                    <span class="text-[10px] text-emerald-500/80">電壓均方根值 (有效值)</span>
+                </div>
+
+                <!-- I_rms -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
+                    <span class="text-[11px] text-slate-400 font-medium uppercase tracking-wider">I_rms_display</span>
+                    <div class="my-2">
+                        <span class="text-3xl font-bold font-mono text-brand-current" id="disp-irms">0.00</span>
+                        <span class="text-xs text-slate-400 ml-1">A</span>
+                    </div>
+                    <span class="text-[10px] text-blue-500/80">電流均方根值 (有效值)</span>
+                </div>
+
+                <!-- P (Active Power) -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
+                    <span class="text-[11px] text-slate-400 font-medium uppercase tracking-wider">P_display (實功)</span>
+                    <div class="my-2">
+                        <span class="text-3xl font-bold font-mono text-brand-power" id="disp-p">0.00</span>
+                        <span class="text-xs text-slate-400 ml-1">W</span>
+                    </div>
+                    <span class="text-[10px] text-pink-500/80">實時消耗有功功率</span>
+                </div>
+
+                <!-- PF (Power Factor) -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
+                    <span class="text-[11px] text-slate-400 font-medium uppercase tracking-wider">PF_display (功率因數)</span>
+                    <div class="my-2">
+                        <span class="text-3xl font-bold font-mono text-amber-500" id="disp-pf">1.000</span>
+                    </div>
+                    <span class="text-[10px] text-amber-500/80">實功與視在功率比值</span>
+                </div>
+
+                <!-- AC Frequency -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between col-span-2 md:col-span-1">
+                    <span class="text-[11px] text-slate-400 font-medium uppercase tracking-wider">acFreq (頻率)</span>
+                    <div class="my-2">
+                        <span class="text-3xl font-bold font-mono text-purple-400" id="disp-freq">0.00</span>
+                        <span class="text-xs text-slate-400 ml-1">Hz</span>
+                    </div>
+                    <span class="text-[10px] text-purple-400/80">過零點回算頻率</span>
+                </div>
+            </div>
+
+            <!-- 輔助量測數據與內部暫存器狀態 -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-900/60 border border-slate-800 rounded-2xl p-4 text-xs">
+                <div class="space-y-1">
+                    <span class="text-slate-400 block mb-1">【硬體偏壓動態校正】</span>
+                    <div class="flex justify-between">
+                        <span>目前動態偏移 (v_offset):</span>
+                        <span class="font-mono text-emerald-400 font-semibold" id="reg-voffset">2048.0</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>等效偏壓電壓 (Bias Volts):</span>
+                        <span class="font-mono text-slate-300" id="reg-voffset-v">1.65V</span>
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <span class="text-slate-400 block mb-1">【週期取樣統計】</span>
+                    <div class="flex justify-between">
+                        <span>單週期點數 (nSamples):</span>
+                        <span class="font-mono text-blue-400 font-semibold" id="reg-nsamples">333</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>期望點數範圍 (Min/Max):</span>
+                        <span class="font-mono text-slate-300" id="reg-nsamples-range">307 / 444</span>
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <span class="text-slate-400 block mb-1">【內部計算暫存器】</span>
+                    <div class="flex justify-between">
+                        <span>電壓平方和 (vSqrSum):</span>
+                        <span class="font-mono text-pink-400" id="reg-vsqrsum">---</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>實功累積和 (pSum):</span>
+                        <span class="font-mono text-pink-400" id="reg-psum">---</span>
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <span class="text-slate-400 block mb-1">【保護與狀態機制】</span>
+                    <div class="flex justify-between items-center">
+                        <span>過零偵測 (ZCD):</span>
+                        <span id="reg-zcd" class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400">WAITING</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>防抖動計數 (jitterCount):</span>
+                        <span class="font-mono text-yellow-500 font-semibold" id="reg-jitter">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 雙視角實時示波器 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1">
+                
+                <!-- 示波器 1: ADC 實體硬體視角 (0V ~ 3.3V) -->
+                <div class="bg-slate-950 border border-emerald-500/20 rounded-2xl p-4 flex flex-col scope-glow">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs font-semibold text-emerald-400 flex items-center space-x-1">
+                            <span class="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span>
+                            <span>A. ADC 實體硬體視角 (MCU Pin 實際讀取)</span>
+                        </span>
+                        <span class="text-[10px] text-slate-500">直觀展示 0V~3.3V 與中點偏置</span>
+                    </div>
+                    <div class="relative flex-1 min-h-[220px] bg-slate-950/90 rounded border border-slate-900 overflow-hidden">
+                        <canvas id="scope-adc" class="absolute inset-0 w-full h-full"></canvas>
+                    </div>
+                </div>
+
+                <!-- 示波器 2: DSP 軟體處理視角 (去除偏壓還原) -->
+                <div class="bg-slate-950 border border-blue-500/20 rounded-2xl p-4 flex flex-col scope-glow">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs font-semibold text-blue-400 flex items-center space-x-1">
+                            <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                            <span>B. DSP 軟體處理視角 (去除直流分量 AC 訊號)</span>
+                        </span>
+                        <span class="text-[10px] text-slate-500">已減去 Offset，還原有正有負</span>
+                    </div>
+                    <div class="relative flex-1 min-h-[220px] bg-slate-950/90 rounded border border-slate-900 overflow-hidden">
+                        <canvas id="scope-dsp" class="absolute inset-0 w-full h-full"></canvas>
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+    </main>
+
+    <!-- 頁尾說明 -->
+    <footer class="border-t border-slate-800 bg-slate-900/40 text-slate-500 text-center py-4 text-xs">
+        <p>© 2026 Texas Instruments C2000 Power Development Reference Tool. 模擬器基於數位雙生概念開發。</p>
+    </footer>
+
+    <!-- 模擬器核心 JavaScript -->
+    <script>
+        // --- 1. 初始化與全域配置 ---
+        let isRunning = true;
+        let calMode = 'dynamic'; // 'none' 或 'dynamic'
+
+        // 模擬的實體訊號與硬體參數
+        const param = {
+            vPeak: 120,       // 電壓峰值
+            freq: 60,         // 電壓與電流頻率
+            offsetV: 1.65,    // 1.65V 直流偏置
+            iPeak: 15,        // 電流峰值
+            phaseDeg: 30,     // 相位角 (度)
+            samplingHz: 20000,// 20kHz 採樣頻率
+            noisePct: 1.5,     // 雜訊比例
+        };
+
+        // DDS 相位累加器
+        let ddsPhase = 0;
+        let ddsStep = 0;
+
+        // TI PML 演算法結構體物件 (模仿 C 語言)
+        const pml = {
+            // 輸入與組態
+            v: 0,
+            i: 0,
+            sampleFreq: 20000,
+            threshold: 20, // 數位量化後的零交叉死區
+
+            // 輸出
+            vRms: 0,
+            iRms: 0,
+            vAvg: 0,
+            vEma: 2048, // 用於動態 LPF 的估算值，初始化為中值
+            acFreq: 60,
+            acFreqAvg: 60,
+            pRms: 0,
+            vaRms: 0,
+            powerFactor: 0,
+            zcd: 0,
+
+            // 內部累積暫存器
+            vSum: 0,
+            vSqrSum: 0,
+            iSqrSum: 0,
+            pSum: 0,
+            vaSumMul: 0,
+            nSamples: 0,
+            nSamplesMin: 307,
+            nSamplesMax: 444,
+            jitterCount: 0,
+            slewPowerUpdate: 0,
+            pRmsSumMul: 0,
+            acFreqSum: 0,
+            emaFilterMultiplier: 0.005, // K1 濾波係數
+        };
+
+        // 示波器圖表繪製緩衝區
+        const bufferSize = 400;
+        const waveHistory = {
+            analogV: new Float32Array(bufferSize), // 物理原始電壓 (帶偏壓)
+            adcV: new Float32Array(bufferSize),    // ADC 採樣後的數字 (無號數 0-4095)
+            dspV: new Float32Array(bufferSize),    // DSP 校正後的 AC 電壓 (有號數)
+            dspI: new Float32Array(bufferSize),    // DSP 校正後的 AC 電流 (有號數)
+            offsetV: new Float32Array(bufferSize), // 軟體動態估算出來的 Offset 線
+        };
+        let writePtr = 0;
+
+        // --- 2. 硬體與設定事件聯動 ---
+        const setupInputs = () => {
+            const inputs = [
+                { id: 'vpeak', param: 'vPeak', unit: ' V' },
+                { id: 'freq', param: 'freq', unit: ' Hz' },
+                { id: 'offset', param: 'offsetV', unit: ' V' },
+                { id: 'ipeak', param: 'iPeak', unit: ' A' },
+                { id: 'phase', param: 'phaseDeg', unit: '°' },
+                { id: 'sampling', param: 'samplingHz', unit: ' kHz', scale: 1000 },
+                { id: 'noise', param: 'noisePct', unit: ' %' }
+            ];
+
+            inputs.forEach(item => {
+                const slider = document.getElementById(`input-${item.id}`);
+                const valueLabel = document.getElementById(`val-${item.id}`);
+                
+                const update = () => {
+                    let val = parseFloat(slider.value);
+                    if (item.scale) {
+                        param[item.param] = val * item.scale;
+                        valueLabel.innerText = val.toFixed(1) + item.unit;
+                    } else {
+                        param[item.param] = val;
+                        valueLabel.innerText = val.toFixed(1) + item.unit;
+                    }
+                    // 更新 DDS 步長
+                    ddsStep = (2 * Math.PI * param.freq) / param.samplingHz;
+                    // 更新 PML 極限範圍 (例如 20kHz 採樣：60Hz 預計點數 333)
+                    pml.sampleFreq = param.samplingHz;
+                    pml.nSamplesMax = Math.round(param.samplingHz / 45); // 最小 45Hz 點數
+                    pml.nSamplesMin = Math.round(param.samplingHz / 65); // 最大 65Hz 點數
+                };
+
+                slider.addEventListener('input', update);
+                update(); // 初始化讀取
+            });
+
+            // 暫停與播放
+            const btnPause = document.getElementById('btn-pause');
+            const runStatus = document.getElementById('run-status');
+            btnPause.addEventListener('click', () => {
+                isRunning = !isRunning;
+                if (isRunning) {
+                    btnPause.innerText = '暫停暫存器更新';
+                    btnPause.className = "bg-slate-800 hover:bg-slate-700 text-white text-xs px-3 py-1.5 rounded transition";
+                    runStatus.innerText = 'RUNNING';
+                    runStatus.className = 'text-emerald-400 font-bold';
+                } else {
+                    btnPause.innerText = '恢復暫存器更新';
+                    btnPause.className = "bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded transition";
+                    runStatus.innerText = 'PAUSED';
+                    runStatus.className = 'text-yellow-500 font-bold';
+                }
+            });
+
+            // 校正模式切換
+            const btnNone = document.getElementById('cal-none');
+            const btnDynamic = document.getElementById('cal-dynamic');
+
+            btnNone.addEventListener('click', () => {
+                calMode = 'none';
+                btnNone.className = "py-1.5 px-3 rounded text-xs bg-red-600/30 border border-red-500 hover:bg-red-600/50 transition text-red-300 font-semibold";
+                btnDynamic.className = "py-1.5 px-3 rounded text-xs bg-slate-800 border border-slate-700 hover:bg-slate-700 transition text-slate-300";
+            });
+
+            btnDynamic.addEventListener('click', () => {
+                calMode = 'dynamic';
+                btnDynamic.className = "py-1.5 px-3 rounded text-xs bg-emerald-600/30 border border-emerald-500 hover:bg-emerald-600/50 transition text-emerald-300 font-semibold";
+                btnNone.className = "py-1.5 px-3 rounded text-xs bg-slate-800 border border-slate-700 hover:bg-slate-700 transition text-slate-300";
+            });
+        };
+
+        // --- 3. 模擬 DDS 與 ADC 硬體 ---
+        const runDDSAndADC = () => {
+            // A. 更新 DDS 相位
+            ddsPhase += ddsStep;
+            if (ddsPhase > 2 * Math.PI) {
+                ddsPhase -= 2 * Math.PI;
+            }
+
+            // B. 注入隨機白雜訊
+            const noise = (Math.random() - 0.5) * 2 * (param.noisePct / 100);
+
+            // C. 模擬實體電壓波 (帶有偏壓與雜訊)
+            // 物理電壓：-155V 到 +155V 範圍，假設硬體分壓成 ±1.2V，並加載 1.65V 偏置。
+            // 物理公式：V_sensor = Bias + V_ac_attenuated
+            const vAttenuatedRatio = 1.2 / 155; // 衰減比例
+            const vAnalogAC = param.vPeak * Math.sin(ddsPhase);
+            const vSensor = param.offsetV + (vAnalogAC * vAttenuatedRatio) + noise;
+
+            // D. 模擬實體電流波 (相對於電壓有相角偏移)
+            const phaseRad = (param.phaseDeg * Math.PI) / 180;
+            const iAnalogAC = param.iPeak * Math.sin(ddsPhase - phaseRad);
+            // 電流傳感器通常也有 1.65V 偏壓
+            const iAttenuatedRatio = 1.2 / 30; // 衰減比例
+            const iSensor = 1.65 + (iAnalogAC * iAttenuatedRatio) + (noise * 0.5);
+
+            // E. 12-bit ADC 數位量化 (0V ~ 3.3V 對應 0 ~ 4095)
+            const convertToADC = (volts) => {
+                let counts = Math.round((volts / 3.3) * 4095);
+                if (counts > 4095) counts = 4095;
+                if (counts < 0) counts = 0;
+                return counts;
+            };
+
+            const adcVCounts = convertToADC(vSensor);
+            const adcICounts = convertToADC(iSensor);
+
+            return {
+                analogV: vSensor,
+                adcV: adcVCounts,
+                adcI: adcICounts
+            };
+        };
+
+        // --- 4. TI PML 軟體電力分析核心演算法 ---
+        const runPML = (adcV, adcI) => {
+            // A. 直流偏壓校正 (Offset Correction)
+            let v_offset_counts = 2048; // 預設
+
+            if (calMode === 'dynamic') {
+                // 實時低通濾波器：動態追蹤直流中點 (對應 C2000 的 EMA 動態校正)
+                pml.vEma = pml.vEma * (1.0 - pml.emaFilterMultiplier) + adcV * pml.emaFilterMultiplier;
+                v_offset_counts = pml.vEma;
+            } else {
+                // 無動態校正，寫死為 12-bit 的中點 2048
+                v_offset_counts = 2048;
+                pml.vEma = 2048;
+            }
+
+            // B. 卸除偏壓，還原純交流成分 (AC Waveform)
+            // 電壓 ADC 物理刻度轉換：12-bit 轉回伏特
+            // 物理還原：AC電壓 = (ADC讀值 - Offset) * Gain
+            const vGain = 155 / (1.2 * (4095 / 3.3)); // 比例尺
+            pml.v = (adcV - v_offset_counts) * vGain;
+
+            // 電流也卸除 1.65V 偏壓 (電流通常也有偏置，假設固定為 2048 中點)
+            const iGain = 30 / (1.2 * (4095 / 3.3));
+            pml.i = (adcI - 2048) * iGain;
+
+            // C. 累積數據 (存錢筒)
+            pml.nSamples++;
+            pml.vSum += Math.abs(pml.v);
+            pml.vSqrSum += (pml.v * pml.v);
+            pml.iSqrSum += (pml.i * pml.i);
+            pml.pSum += (pml.v * pml.i);
+
+            // D. 過零檢測 (ZCD) 與 結算判定
+            // 判定基準：以經過校正後的電壓信號，如果大於閾值則視為正，反之為負。
+            pml.currSign = (pml.v > pml.threshold) ? 1 : 0;
+            pml.zcd = 0;
+
+            // ZCD 觸發條件：由負轉正的上升沿 (Rising Edge)
+            if ((pml.prevSign !== pml.currSign) && (pml.currSign === 1)) {
+                
+                // 防抖動：判斷點數是否在預設的電網頻率範圍合理區間內
+                if (pml.nSamples > pml.nSamplesMin) {
+                    pml.zcd = 1; // 觸發過零，開始月底結算！
+
+                    // 1. 週期頻率與開根號計算
+                    pml.inverse_nSamples = 1.0 / pml.nSamples;
+                    pml.vAvg = pml.vSum * pml.inverse_nSamples;
+                    pml.vRms = Math.sqrt(pml.vSqrSum * pml.inverse_nSamples);
+                    pml.iRms = Math.sqrt(pml.iSqrSum * pml.inverse_nSamples);
+
+                    // 2. 計算實功與視在功率
+                    // 為了使顯示更為穩定，比照 TI 原始碼進行 100 次週期平均。
+                    pml.pRmsSumMul += (pml.pSum * pml.inverse_nSamples);
+                    pml.vaSumMul += (pml.vRms * pml.iRms);
+                    
+                    pml.acFreq = pml.sampleFreq / pml.nSamples;
+                    pml.acFreqSum += pml.acFreq;
+
+                    pml.slewPowerUpdate++;
+
+                    // 當累積 100 次時，更新大面板數值
+                    if (pml.slewPowerUpdate >= 10) { // 網頁版調整為 10 次加速反應
+                        pml.pRms = pml.pRmsSumMul * 0.1;
+                        pml.pRmsSumMul = 0;
+                        
+                        pml.vaRms = pml.vaSumMul * 0.1;
+                        pml.vaSumMul = 0;
+
+                        pml.powerFactor = pml.vaRms > 0 ? (pml.pRms / pml.vaRms) : 0;
+                        if (pml.powerFactor > 1.0) pml.powerFactor = 1.0;
+                        if (pml.powerFactor < -1.0) pml.powerFactor = -1.0;
+
+                        pml.acFreqAvg = pml.acFreqSum * 0.1;
+                        pml.acFreqSum = 0;
+                        pml.slewPowerUpdate = 0;
+                    }
+
+                    // 3. 清空存錢筒以進入下一週期
+                    pml.nSamples = 0;
+                    pml.vSum = 0;
+                    pml.vSqrSum = 0;
+                    pml.iSqrSum = 0;
+                    pml.pSum = 0;
+                    pml.jitterCount = 0;
+                } else {
+                    // 若週期太短，視為雜訊引起的 Jitter (抖動)
+                    if (pml.jitterCount < 30) {
+                        pml.jitterCount++;
+                    }
+                    pml.nSamples = 0; // 重置這一次錯誤的採樣
+                }
+            }
+
+            // E. 安全防呆保護：如果電網斷線 (很久都沒有收到過零信號)
+            if (pml.nSamples > pml.nSamplesMax || pml.jitterCount > 25) {
+                pml.vRms = 0;
+                pml.iRms = 0;
+                pml.pRms = 0;
+                pml.vaRms = 0;
+                pml.powerFactor = 0;
+                pml.acFreq = 0;
+                pml.acFreqAvg = 0;
+                pml.nSamples = 0;
+                pml.jitterCount = 0;
+            }
+
+            pml.prevSign = pml.currSign;
+            return v_offset_counts;
+        };
+
+        // --- 5. 數據與界面渲染更新 ---
+        const updateUIElements = (offsetReg, hardwareData) => {
+            // 大面板顯示
+            document.getElementById('disp-vrms').innerText = pml.vRms.toFixed(2);
+            document.getElementById('disp-irms').innerText = pml.iRms.toFixed(2);
+            document.getElementById('disp-p').innerText = pml.pRms.toFixed(2);
+            document.getElementById('disp-pf').innerText = Math.abs(pml.powerFactor).toFixed(3);
+            document.getElementById('disp-freq').innerText = pml.acFreqAvg.toFixed(2);
+
+            // 暫存器監控顯示
+            document.getElementById('reg-voffset').innerText = offsetReg.toFixed(1);
+            document.getElementById('reg-voffset-v').innerText = ((offsetReg / 4095) * 3.3).toFixed(3) + ' V';
+            document.getElementById('reg-nsamples').innerText = pml.nSamples;
+            document.getElementById('reg-nsamples-range').innerText = `${pml.nSamplesMin} / ${pml.nSamplesMax}`;
+            document.getElementById('reg-vsqrsum').innerText = pml.vSqrSum.toFixed(0);
+            document.getElementById('reg-psum').innerText = pml.pSum.toFixed(0);
+            document.getElementById('reg-jitter').innerText = pml.jitterCount;
+
+            // ZCD 閃爍偵測
+            const zcdBadge = document.getElementById('reg-zcd');
+            if (pml.zcd === 1) {
+                zcdBadge.innerText = "DETECTED";
+                zcdBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500 text-slate-900 animate-pulse";
+                setTimeout(() => {
+                    zcdBadge.innerText = "WAITING";
+                    zcdBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400";
+                }, 150);
+            }
+        };
+
+        // --- 6. 雙通道示波器繪製 (純 HTML5 Canvas) ---
+        const canvasADC = document.getElementById('scope-adc');
+        const ctxADC = canvasADC.getContext('2d');
+        const canvasDSP = document.getElementById('scope-dsp');
+        const ctxDSP = canvasDSP.getContext('2d');
+
+        // 自適應 Canvas 尺寸大小
+        const resizeCanvases = () => {
+            const containerW = canvasADC.parentElement.clientWidth;
+            const containerH = canvasADC.parentElement.clientHeight;
+            
+            canvasADC.width = containerW;
+            canvasADC.height = containerH;
+            canvasDSP.width = containerW;
+            canvasDSP.height = containerH;
+        };
+        window.addEventListener('resize', resizeCanvases);
+        resizeCanvases();
+
+        // 繪製背景網格與示波器波形
+        const drawScopes = () => {
+            const drawGrid = (ctx, w, h) => {
+                ctx.fillStyle = "#020617"; // 極深背景
+                ctx.fillRect(0, 0, w, h);
+
+                ctx.strokeStyle = "rgba(51, 65, 85, 0.25)"; // 網格
+                ctx.lineWidth = 1;
+
+                // 垂直網格線
+                for (let x = 0; x < w; x += w / 10) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, h);
+                    ctx.stroke();
+                }
+                // 水平網格線
+                for (let y = 0; y < h; y += h / 8) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(w, y);
+                    ctx.stroke();
+                }
+            };
+
+            const w = canvasADC.width;
+            const h = canvasADC.height;
+
+            // --- 示波器 A: ADC 硬體實體視角 ---
+            drawGrid(ctxADC, w, h);
+            
+            // 繪置 1.65V 標準零線
+            const zeroY_ADC = h * (1 - 1.65 / 3.3);
+            ctxADC.strokeStyle = "rgba(245, 158, 11, 0.4)"; // 橘黃色代表基準線
+            ctxADC.setLineDash([5, 5]);
+            ctxADC.beginPath();
+            ctxADC.moveTo(0, zeroY_ADC);
+            ctxADC.lineTo(w, zeroY_ADC);
+            ctxADC.stroke();
+            ctxADC.setLineDash([]);
+            ctxADC.fillStyle = "rgba(245, 158, 11, 0.8)";
+            ctxADC.font = "10px monospace";
+            ctxADC.fillText("硬體中點 1.65V (2048)", 10, zeroY_ADC - 4);
+
+            // 繪置動態 Offset 追蹤線 (綠色虛線)
+            const dynamicOffsetAvg = waveHistory.offsetV[writePtr === 0 ? bufferSize - 1 : writePtr - 1];
+            const offsetVolts = (dynamicOffsetAvg / 4095) * 3.3;
+            const offsetAvgY = h * (1 - offsetVolts / 3.3);
+            ctxADC.strokeStyle = "rgba(16, 185, 129, 0.5)"; 
+            ctxADC.setLineDash([3, 3]);
+            ctxADC.beginPath();
+            ctxADC.moveTo(0, offsetAvgY);
+            ctxADC.lineTo(w, offsetAvgY);
+            ctxADC.stroke();
+            ctxADC.setLineDash([]);
+            ctxADC.fillStyle = "rgba(16, 185, 129, 0.8)";
+            ctxADC.fillText(`動態校正 Offset: ${(offsetVolts).toFixed(2)}V`, 10, offsetAvgY + 12);
+
+            // 繪製 ADC 採樣曲線
+            ctxADC.strokeStyle = "#34d399"; // 綠色發光
+            ctxADC.lineWidth = 2.5;
+            ctxADC.beginPath();
+            for (let i = 0; i < w; i++) {
+                // 將畫布的 x 軸映射到循環歷史緩衝區
+                const bufIdx = Math.floor((writePtr + i - w + bufferSize) % bufferSize);
+                const adcVal = waveHistory.adcV[bufIdx];
+                const vIn = (adcVal / 4095) * 3.3;
+                const plotY = h * (1 - vIn / 3.3);
+
+                if (i === 0) ctxADC.moveTo(i, plotY);
+                else ctxADC.lineTo(i, plotY);
+            }
+            ctxADC.stroke();
+
+            // --- 示波器 B: DSP 軟體處理視角 ---
+            drawGrid(ctxDSP, w, h);
+
+            // 繪製 AC 電流、電壓 0 線 (正中間)
+            const zeroY_DSP = h / 2;
+            ctxDSP.strokeStyle = "rgba(255, 255, 255, 0.15)";
+            ctxDSP.beginPath();
+            ctxDSP.moveTo(0, zeroY_DSP);
+            ctxDSP.lineTo(w, zeroY_DSP);
+            ctxDSP.stroke();
+
+            // 1. 繪製去偏置電壓
+            ctxDSP.strokeStyle = "#10b981"; // 綠色
+            ctxDSP.lineWidth = 2;
+            ctxDSP.beginPath();
+            for (let i = 0; i < w; i++) {
+                const bufIdx = Math.floor((writePtr + i - w + bufferSize) % bufferSize);
+                const dspV = waveHistory.dspV[bufIdx]; // -155 到 155
+                // 畫布中點為 0，上下延伸 160V 範圍
+                const plotY = zeroY_DSP - (dspV / 180) * (h / 2);
+
+                if (i === 0) ctxDSP.moveTo(i, plotY);
+                else ctxDSP.lineTo(i, plotY);
+            }
+            ctxDSP.stroke();
+
+            // 2. 繪製去偏置電流 (藍色)
+            ctxDSP.strokeStyle = "#3b82f6"; // 藍色
+            ctxDSP.lineWidth = 1.5;
+            ctxDSP.beginPath();
+            for (let i = 0; i < w; i++) {
+                const bufIdx = Math.floor((writePtr + i - w + bufferSize) % bufferSize);
+                const dspI = waveHistory.dspI[bufIdx]; // -30 到 30A
+                // 畫布中點為 0，上下延伸 35A 範圍
+                const plotY = zeroY_DSP - (dspI / 35) * (h / 2);
+
+                if (i === 0) ctxDSP.moveTo(i, plotY);
+                else ctxDSP.lineTo(i, plotY);
+            }
+            ctxDSP.stroke();
+
+            // 標示說明文字
+            ctxDSP.fillStyle = "rgba(16, 185, 129, 0.9)";
+            ctxDSP.fillText("V_ac 電壓波 (±155V)", 10, 20);
+            ctxDSP.fillStyle = "rgba(59, 130, 246, 0.9)";
+            ctxDSP.fillText("I_ac 電流波 (±30A)", 10, h - 10);
+        };
+
+        // --- 7. 主程式迴圈 (Simulation Core Loop) ---
+        // 模擬 20kHz 採樣：為了不讓網頁卡死，我們不需要實時真的跑 20000 次 setInterval，
+        // 而是透過主渲染時間，每次調用多點計算（模擬時間壓縮）。
+        const loop = () => {
+            if (isRunning) {
+                // 在每幀繪製時間片內，快速迭代多個採樣點，保持 DDS 步長與波形比例正確。
+                // 20kHz 的取樣率下，每 16.6ms 有大約 333 個點，此處我們每幀處理大約 20 個點。
+                const pointsPerFrame = 25; 
+                
+                for (let k = 0; k < pointsPerFrame; k++) {
+                    // 1. 跑 DDS 物理與 ADC 的硬體模擬
+                    const hw = runDDSAndADC();
+
+                    // 2. 跑 DSP (PML 演算法核心)
+                    const calculatedOffset = runPML(hw.adcV, hw.adcI);
+
+                    // 3. 將資料寫入循環緩衝區
+                    waveHistory.analogV[writePtr] = hw.analogV;
+                    waveHistory.adcV[writePtr] = hw.adcV;
+                    waveHistory.dspV[writePtr] = pml.v;
+                    waveHistory.dspI[writePtr] = pml.i;
+                    waveHistory.offsetV[writePtr] = calculatedOffset;
+
+                    writePtr = (writePtr + 1) % bufferSize;
+                }
+
+                // 4. 更新監控畫面
+                const latestOffset = waveHistory.offsetV[writePtr === 0 ? bufferSize - 1 : writePtr - 1];
+                updateUIElements(latestOffset, pml);
+            }
+
+            // 5. 示波器圖表渲染
+            drawScopes();
+
+            requestAnimationFrame(loop);
+        };
+
+        // 啟動專案
+        setupInputs();
+        loop();
+    </script>
+    <script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
+    <script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
+    <script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
+</body>
+</html>

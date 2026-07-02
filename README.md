@@ -4,7 +4,7 @@
 
 ## 建議學習模式
 
-初學者不要一開始直接打開完整模擬器。建議先用根目錄新增的四個教學入口：
+初學者不要一開始直接打開完整模擬器。建議先用根目錄新增的教學入口：
 
 | 頁面 | 用途 |
 |---|---|
@@ -15,7 +15,7 @@
 | `search.html` | 全域搜尋：搜尋課程、實驗、故障、詞彙與實務提示。 |
 | `report.html` | 實驗報告產生器：把任務、參數、觀察與結論產生 Markdown 紀錄。 |
 
-這四個頁面的資料來源在 `assets/learning/curriculum.js`。之後要新增任務、故障案例或調整教學順序，優先改這個資料檔。
+這些頁面的資料來源在 `assets/learning/curriculum.js`。之後要新增任務、故障案例或調整教學順序，優先改這個資料檔。
 
 正式教材頁面也注入了頁內教學助手：
 
@@ -48,6 +48,8 @@ python -m http.server 8080
 | 7 | F28388D BMS 教學 | `7.28388d_bms_tutorial/START_HERE.html` |
 | 8 | AD5543 DAC 教學 | `8.ad5543_simulator/index.html` |
 | 9 | AFE 入門拆解 | `9.afe-tutorial/START_HERE.html` |
+| 10 | ACMC-PRO 雙迴路控制逆變器 | `10.acmc-pro_power_simulator/index.html` |
+| 11 | C2000 電力測量與 DDS 儀表板 | `11.c2000_dds_dashboard/index.html` |
 
 ## 維護狀態
 
