@@ -2,6 +2,7 @@
   "use strict";
 
   const KEY = "circuit-learning-done-v1";
+  const QUIZ_KEY = "circuit-learning-quiz-v1";
   const modules = global.CircuitCurriculum.modules;
 
   function esc(value) {
@@ -17,8 +18,18 @@
     catch (e) { return {}; }
   }
 
+  function loadQuiz() {
+    try { return JSON.parse(localStorage.getItem(QUIZ_KEY) || "{}"); }
+    catch (e) { return {}; }
+  }
+
   function saveDone(done) {
     try { localStorage.setItem(KEY, JSON.stringify(done)); }
+    catch (e) {}
+  }
+
+  function saveQuiz(quiz) {
+    try { localStorage.setItem(QUIZ_KEY, JSON.stringify(quiz)); }
     catch (e) {}
   }
 
@@ -28,6 +39,8 @@
       ["beginner.html", "初學路線", "beginner"],
       ["labs.html", "實驗任務", "labs"],
       ["troubleshooting.html", "故障速查", "trouble"],
+      ["progress.html", "進度", "progress"],
+      ["quiz.html", "測驗", "quiz"],
       ["glossary.html", "詞彙表", "glossary"],
       ["search.html", "搜尋", "search"],
       ["report.html", "報告產生器", "report"]
@@ -61,6 +74,10 @@
       + '<div class="actions"><a class="button primary" href="' + module.entry.replace(/[^/]+$/, "") + lesson[0] + '">開啟這步</a>'
       + '<button class="button ' + (isDone ? "done" : "") + '" data-done="' + id + '">' + (isDone ? "已完成" : "標記完成") + '</button></div>'
       + '</article>';
+  }
+
+  function lessonHref(module, lesson) {
+    return module.entry.replace(/[^/]+$/, "") + lesson[0];
   }
 
   function renderBeginner(rootId) {
@@ -116,6 +133,204 @@
         return '<article class="fault-row"><div><b>主題</b><span class="tag">' + esc(m.tag) + '</span></div><div><b>症狀</b><p>' + esc(f[0]) + '</p></div><div><b>可能原因</b><p>' + esc(f[1]) + '</p></div><div><b>確認與修法</b><p>' + esc(f[2]) + '<br>' + esc(f[3]) + '</p></div><div><a class="button primary" href="' + f[4] + '">開啟</a></div></article>';
       }).join("") + '</section>';
     bindSearch("faultSearch", "faultTable", ".fault-row");
+  }
+
+  function moduleProgress(module, done) {
+    const lessonDone = module.lessons.filter((lesson, index) => done[module.id + ":lesson:" + index]).length;
+    const labDone = module.labs.filter(lab => done[module.id + ":lab:" + lab[0]]).length;
+    const total = module.lessons.length + module.labs.length;
+    return { lessonDone, labDone, total, done: lessonDone + labDone, percent: total ? Math.round((lessonDone + labDone) / total * 100) : 0 };
+  }
+
+  function nextItem(module, done) {
+    for (let i = 0; i < module.lessons.length; i++) {
+      if (!done[module.id + ":lesson:" + i]) {
+        return { label: "下一步：" + module.lessons[i][1], href: lessonHref(module, module.lessons[i]) };
+      }
+    }
+    for (const lab of module.labs) {
+      if (!done[module.id + ":lab:" + lab[0]]) {
+        return { label: "下一個實驗：" + lab[1], href: lab[2] };
+      }
+    }
+    return { label: "複習測驗", href: "quiz.html?module=" + encodeURIComponent(module.id) };
+  }
+
+  function buildQuizQuestions() {
+    const lessonAnswers = modules.flatMap(m => m.lessons.map(l => l[4]));
+    const labAnswers = modules.flatMap(m => m.labs.map(l => l[4]));
+    const faultAnswers = modules.flatMap(m => m.faults.map(f => f[1]));
+    const questions = [];
+
+    function choices(correct, pool) {
+      const out = [correct];
+      for (const item of pool) {
+        if (out.length >= 4) break;
+        if (item && item !== correct && !out.includes(item)) out.push(item);
+      }
+      return out.map((text, index) => ({ text, correct: index === 0 }))
+        .sort((a, b) => a.text.length % 7 - b.text.length % 7);
+    }
+
+    modules.forEach(module => {
+      module.lessons.forEach((lesson, index) => {
+        questions.push({
+          id: module.id + ":lesson:" + index,
+          module,
+          kind: "課程判讀",
+          title: lesson[1],
+          prompt: "在「" + lesson[1] + "」這一步，最重要的判讀是什麼？",
+          choices: choices(lesson[4], lessonAnswers),
+          explain: "目標：" + lesson[2] + " 操作：" + lesson[3],
+          href: lessonHref(module, lesson)
+        });
+      });
+      module.labs.forEach(lab => {
+        questions.push({
+          id: module.id + ":lab:" + lab[0],
+          module,
+          kind: "實驗成功條件",
+          title: lab[1],
+          prompt: "完成「" + lab[1] + "」時，最合理的成功條件是哪一個？",
+          choices: choices(lab[4], labAnswers),
+          explain: "任務：" + lab[3] + " 實務用途：" + lab[5],
+          href: lab[2]
+        });
+      });
+      module.faults.forEach((fault, index) => {
+        questions.push({
+          id: module.id + ":fault:" + index,
+          module,
+          kind: "故障判斷",
+          title: fault[0],
+          prompt: "看到「" + fault[0] + "」時，最可能的原因是哪一個？",
+          choices: choices(fault[1], faultAnswers),
+          explain: "確認：" + fault[2] + " 修法：" + fault[3],
+          href: fault[4]
+        });
+      });
+    });
+    return questions;
+  }
+
+  function renderProgress(rootId) {
+    const root = document.getElementById(rootId);
+    const done = loadDone();
+    const quiz = loadQuiz();
+    const questions = buildQuizQuestions();
+    const totals = modules.reduce((acc, module) => {
+      const p = moduleProgress(module, done);
+      acc.items += p.total;
+      acc.done += p.done;
+      acc.lessons += module.lessons.length;
+      acc.labs += module.labs.length;
+      return acc;
+    }, { items: 0, done: 0, lessons: 0, labs: 0 });
+    const answered = questions.filter(q => quiz[q.id]).length;
+    const correct = questions.filter(q => quiz[q.id] && quiz[q.id].correct).length;
+    const nextModule = modules.find(module => moduleProgress(module, done).percent < 100) || modules[0];
+    const next = nextItem(nextModule, done);
+
+    root.innerHTML = nav("progress")
+      + '<section class="hero"><div class="eyebrow">Progress</div><h1>學習進度總表</h1><p class="lead">把目前完成的課程、實驗與測驗集中看。初學者不需要一次讀完全部，照下一步建議往前推就好。</p></section>'
+      + '<section class="metric-grid">'
+      + '<div class="metric"><span class="tag green">完成率</span><h3>' + totals.done + ' / ' + totals.items + '</h3><p>課程步驟與實驗任務。</p></div>'
+      + '<div class="metric"><span class="tag blue">課程</span><h3>' + totals.lessons + ' 步</h3><p>以「目標、操作、判讀」拆解。</p></div>'
+      + '<div class="metric"><span class="tag amber">實驗</span><h3>' + totals.labs + ' 個</h3><p>用成功條件驗證是否會操作。</p></div>'
+      + '<div class="metric"><span class="tag rose">測驗</span><h3>' + correct + ' / ' + answered + '</h3><p>已答題中的正確數。</p></div>'
+      + '</section>'
+      + '<section class="panel progress-next"><div><span class="tag">NEXT</span><h2>' + esc(nextModule.title) + '</h2><p class="muted">' + esc(next.label) + '</p></div><div class="actions"><a class="button primary" href="' + next.href + '">繼續學習</a><a class="button" href="quiz.html?module=' + encodeURIComponent(nextModule.id) + '">做本章測驗</a><button class="button" id="resetProgress" type="button">清除進度</button></div></section>'
+      + '<section class="module-grid" style="margin-top:18px">' + modules.map(module => {
+        const p = moduleProgress(module, done);
+        const n = nextItem(module, done);
+        return '<article class="module"><div class="module-head"><div class="module-title"><div style="display:flex;gap:12px;align-items:flex-start"><span class="num">' + module.number + '</span><div><span class="tag">' + esc(module.tag) + '</span><h2 style="margin-top:7px">' + esc(module.title) + '</h2><p class="muted">' + p.lessonDone + ' / ' + module.lessons.length + ' 課程，' + p.labDone + ' / ' + module.labs.length + ' 實驗</p></div></div><strong class="progress-percent">' + p.percent + '%</strong></div><div class="progress-bar"><span style="width:' + p.percent + '%"></span></div><div class="actions"><a class="button primary" href="' + n.href + '">' + esc(n.label) + '</a><a class="button" href="quiz.html?module=' + encodeURIComponent(module.id) + '">測驗</a><a class="button" href="' + module.entry + '">入口</a></div></div></article>';
+      }).join("") + '</section>';
+
+    document.getElementById("resetProgress").addEventListener("click", () => {
+      if (!confirm("確定清除課程、實驗與測驗進度？")) return;
+      try {
+        localStorage.removeItem(KEY);
+        localStorage.removeItem(QUIZ_KEY);
+      } catch (e) {}
+      location.reload();
+    });
+  }
+
+  function renderQuiz(rootId) {
+    const root = document.getElementById(rootId);
+    const query = new URLSearchParams(location.search);
+    const questions = buildQuizQuestions();
+    const initialModule = query.get("module") || "all";
+
+    root.innerHTML = nav("quiz")
+      + '<section class="hero"><div class="eyebrow">Check Yourself</div><h1>判斷測驗</h1><p class="lead">這不是背題庫，而是確認你能把「現象、原因、操作、成功條件」對起來。答錯會顯示解釋與對應頁面。</p></section>'
+      + '<section class="toolbar quiz-toolbar"><select id="quizModule"><option value="all">全部主題</option>' + modules.map(m => '<option value="' + m.id + '">' + m.number + ' ' + esc(m.title) + '</option>').join("") + '</select><select id="quizStatus"><option value="all">全部題目</option><option value="missed">只看未答/答錯</option><option value="wrong">只看答錯</option></select><input class="search" id="quizSearch" placeholder="搜尋題目、主題或關鍵字"><span class="muted" id="quizCount"></span></section>'
+      + '<section class="metric-grid" id="quizMetrics"></section>'
+      + '<section class="quiz-list" id="quizList"></section>';
+
+    const moduleSelect = document.getElementById("quizModule");
+    const statusSelect = document.getElementById("quizStatus");
+    const search = document.getElementById("quizSearch");
+    const count = document.getElementById("quizCount");
+    const metrics = document.getElementById("quizMetrics");
+    const list = document.getElementById("quizList");
+    if (modules.some(m => m.id === initialModule)) moduleSelect.value = initialModule;
+
+    function render() {
+      const quiz = loadQuiz();
+      const moduleId = moduleSelect.value;
+      const status = statusSelect.value;
+      const term = search.value.trim().toLowerCase();
+      let visible = questions.filter(q => moduleId === "all" || q.module.id === moduleId);
+      if (status === "missed") visible = visible.filter(q => !quiz[q.id] || !quiz[q.id].correct);
+      if (status === "wrong") visible = visible.filter(q => quiz[q.id] && !quiz[q.id].correct);
+      if (term) visible = visible.filter(q => (q.prompt + " " + q.title + " " + q.kind + " " + q.module.title + " " + q.explain).toLowerCase().includes(term));
+
+      const scope = questions.filter(q => moduleId === "all" || q.module.id === moduleId);
+      const answered = scope.filter(q => quiz[q.id]).length;
+      const correct = scope.filter(q => quiz[q.id] && quiz[q.id].correct).length;
+      const wrong = scope.filter(q => quiz[q.id] && !quiz[q.id].correct).length;
+      count.textContent = visible.length + " / " + scope.length + " 題";
+      metrics.innerHTML = '<div class="metric"><span class="tag green">答對</span><h3>' + correct + '</h3><p>本範圍答對題數。</p></div>'
+        + '<div class="metric"><span class="tag amber">已答</span><h3>' + answered + ' / ' + scope.length + '</h3><p>完成越多，越能確認理解。</p></div>'
+        + '<div class="metric"><span class="tag rose">需複習</span><h3>' + wrong + '</h3><p>答錯題目建議回對應頁。</p></div>';
+      list.innerHTML = visible.map(q => quizCard(q, quiz[q.id])).join("") || '<div class="empty">這個篩選條件下沒有題目。</div>';
+      bindQuizChoices();
+    }
+
+    function quizCard(q, answer) {
+      const answered = !!answer;
+      const correct = answered && answer.correct;
+      return '<article class="quiz-card ' + (answered ? (correct ? "is-correct" : "is-wrong") : "") + '">'
+        + '<div class="quiz-head"><span class="tag">' + esc(q.kind) + ' · ' + esc(q.module.tag) + '</span><strong>' + (answered ? (correct ? "答對" : "需複習") : "未答") + '</strong></div>'
+        + '<h3>' + esc(q.prompt) + '</h3>'
+        + '<div class="quiz-options">' + q.choices.map(choice => {
+          const selected = answer && answer.choice === choice.text;
+          return '<button class="quiz-option ' + (selected ? "selected" : "") + '" type="button" data-question="' + esc(q.id) + '" data-choice="' + esc(choice.text) + '">' + esc(choice.text) + '</button>';
+        }).join("") + '</div>'
+        + (answered ? '<div class="quiz-explain"><b>' + (correct ? "解釋" : "正解") + '</b><p>' + esc(q.explain) + '</p><a class="button" href="' + q.href + '">回到對應頁</a></div>' : '')
+        + '</article>';
+    }
+
+    function bindQuizChoices() {
+      list.querySelectorAll("[data-question]").forEach(button => {
+        button.addEventListener("click", () => {
+          const id = button.getAttribute("data-question");
+          const choice = button.getAttribute("data-choice");
+          const q = questions.find(item => item.id === id);
+          const selected = q.choices.find(item => item.text === choice);
+          const quiz = loadQuiz();
+          quiz[id] = { choice, correct: !!(selected && selected.correct), at: new Date().toISOString() };
+          saveQuiz(quiz);
+          render();
+        });
+      });
+    }
+
+    moduleSelect.addEventListener("change", render);
+    statusSelect.addEventListener("change", render);
+    search.addEventListener("input", render);
+    render();
   }
 
   function renderReport(rootId) {
@@ -259,6 +474,8 @@
     renderBeginner,
     renderLabs,
     renderTrouble,
+    renderProgress,
+    renderQuiz,
     renderReport,
     nav
   };

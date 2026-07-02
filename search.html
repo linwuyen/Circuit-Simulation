@@ -14,6 +14,15 @@
 (function(){
   function esc(v){return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
   const rows = [];
+  [
+    ["學習工具", "Guide", "初學者拆解路線", "每個主題用一句話、比喻、最小操作與判讀拆開。", "beginner.html"],
+    ["學習工具", "Labs", "實用實驗任務", "用工程任務驅動操作，包含成功條件與實務用途。", "labs.html"],
+    ["學習工具", "Debug", "故障速查表", "從症狀反查原因、確認方式與修法。", "troubleshooting.html"],
+    ["學習工具", "Progress", "學習進度總表", "查看課程、實驗、測驗完成狀態與下一步建議。", "progress.html"],
+    ["學習工具", "Quiz", "判斷測驗", "確認能把現象、原因、操作與成功條件對起來。", "quiz.html"],
+    ["學習工具", "Glossary", "全域詞彙表", "集中解釋跨主題關鍵字。", "glossary.html"],
+    ["學習工具", "Report", "實驗報告產生器", "把任務、參數、觀察與工程結論整理成 Markdown。", "report.html"]
+  ].forEach(r => rows.push({type:r[0], tag:r[1], title:r[2], body:r[3], href:r[4]}));
   CircuitCurriculum.modules.forEach(m => {
     rows.push({type:"主題", tag:m.tag, title:m.title, body:m.oneLine + " " + m.whyUseful, href:m.entry});
     const base = m.entry.replace(/[^/]+$/, "");
