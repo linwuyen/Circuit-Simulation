@@ -3,333 +3,51 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="電路、韌體與電力電子互動式教學教材。">
 <title>電路模擬說明 · 教材總入口</title>
 <style>
-:root {
-  --bg: #f6f8fb;
-  --panel: #ffffff;
-  --ink: #172026;
-  --muted: #667085;
-  --line: #d9e1ec;
-  --teal: #0f8f83;
-  --blue: #2f63d8;
-  --amber: #b7791f;
-  --rose: #c2415b;
-  --slate: #243241;
-}
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  min-height: 100vh;
-  font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif;
-  color: var(--ink);
-  background: var(--bg);
-}
-.shell {
-  width: min(1180px, calc(100% - 36px));
-  margin: 0 auto;
-  padding: 34px 0 48px;
-}
-.top {
-  display: grid;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-.eyebrow {
-  color: var(--teal);
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-h1 {
-  margin: 0;
-  max-width: 840px;
-  font-size: clamp(30px, 4vw, 48px);
-  line-height: 1.15;
-}
-.lead {
-  max-width: 900px;
-  margin: 0;
-  color: var(--muted);
-  font-size: 17px;
-  line-height: 1.75;
-}
-.mode-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 14px;
-  margin: 22px 0;
-}
-.mode {
-  display: grid;
-  gap: 9px;
-  min-height: 150px;
-  padding: 17px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
-  color: inherit;
-  text-decoration: none;
-  box-shadow: 0 8px 24px rgba(23, 32, 38, 0.06);
-}
-.mode:hover {
-  border-color: #b7c2d2;
-  transform: translateY(-1px);
-}
-.mode strong {
-  font-size: 20px;
-}
-.mode p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.65;
-}
-.mode .tag {
-  width: fit-content;
-}
-.section-head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  margin: 26px 0 12px;
-}
-.section-head h2 {
-  margin: 0;
-  font-size: 22px;
-}
-.section-head p {
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 14px;
-}
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
-  gap: 14px;
-}
-.card {
-  display: grid;
-  gap: 10px;
-  min-height: 190px;
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
-  color: inherit;
-  text-decoration: none;
-  box-shadow: 0 8px 24px rgba(23, 32, 38, 0.06);
-}
-.card:hover {
-  border-color: #b7c2d2;
-  transform: translateY(-1px);
-}
-.meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.num {
-  display: inline-grid;
-  width: 34px;
-  height: 34px;
-  place-items: center;
-  border-radius: 8px;
-  background: #edf2f7;
-  color: var(--slate);
-  font-weight: 900;
-}
-.tag {
-  padding: 3px 8px;
-  border-radius: 8px;
-  background: #e8f4f2;
-  color: var(--teal);
-  font-size: 12px;
-  font-weight: 800;
-}
-.card h2 {
-  margin: 0;
-  font-size: 20px;
-  line-height: 1.25;
-}
-.card p {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.65;
-  font-size: 14px;
-}
-.links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: auto;
-}
-.links span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 30px;
-  padding: 5px 9px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-.notice {
-  margin-top: 18px;
-  padding: 16px 18px;
-  border: 1px solid var(--line);
-  border-left: 4px solid var(--blue);
-  border-radius: 8px;
-  background: var(--panel);
-  color: var(--muted);
-  line-height: 1.7;
-}
-.notice a { color: var(--blue); font-weight: 800; }
-@media (max-width: 640px) {
-  .shell { width: min(100% - 24px, 1180px); padding-top: 24px; }
-}
+:root{--bg:#f5f7fb;--panel:#fff;--ink:#172026;--muted:#667085;--line:#d9e1ec;--teal:#0f8f83;--blue:#2f63d8;--amber:#9a6700;--shadow:0 8px 24px rgba(23,32,38,.06)}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:system-ui,-apple-system,"Segoe UI","Noto Sans TC","Microsoft JhengHei",sans-serif;color:var(--ink);background:var(--bg);line-height:1.65}
+a{color:inherit}.shell{width:min(1180px,calc(100% - 32px));margin:auto;padding:34px 0 52px}.eyebrow{color:var(--teal);font-size:13px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}h1{margin:6px 0 10px;font-size:clamp(30px,4vw,48px);line-height:1.15}.lead{max-width:900px;margin:0;color:var(--muted);font-size:17px}.notice{margin:22px 0;padding:15px 18px;border:1px solid #f0d58c;border-left:4px solid var(--amber);border-radius:10px;background:#fffaf0;color:#654c12}.mode-grid,.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:20px}.mode,.card{display:grid;gap:9px;padding:17px;border:1px solid var(--line);border-radius:10px;background:var(--panel);text-decoration:none;box-shadow:var(--shadow);transition:.15s}.mode:hover,.card:hover{border-color:#aebacd;transform:translateY(-2px)}.mode strong,.card h2{margin:0;font-size:20px}.mode p,.card p{margin:0;color:var(--muted);font-size:14px}.tag{width:max-content;padding:3px 8px;border-radius:999px;background:#e8f4f2;color:var(--teal);font-size:12px;font-weight:900}.section-head{margin:32px 0 10px}.section-head h2{margin:0;font-size:24px}.section-head p{margin:3px 0 0;color:var(--muted)}.meta{display:flex;justify-content:space-between;align-items:center;gap:12px}.num{display:grid;place-items:center;width:36px;height:36px;border-radius:9px;background:#edf2f7;font-weight:900}.links{display:flex;flex-wrap:wrap;gap:7px;margin-top:auto}.links span{padding:4px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:12px;font-weight:700}.footer{margin-top:30px;color:var(--muted);font-size:13px}@media(max-width:540px){.shell{width:min(100% - 22px,1180px);padding-top:22px}.mode-grid,.grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <main class="shell">
-  <section class="top">
-    <div class="eyebrow">Circuit Simulation Learning Pack</div>
-    <h1>電路模擬說明教材總入口</h1>
-    <p class="lead">這裡集中管理電源、ADC、FOC、SPI、BMS、DAC 與 AFE 的互動式教學頁。初學者建議先走「初學路線」或「實驗任務」，熟悉後再進各主題完整教材。</p>
-  </section>
-
-  <section class="mode-grid" aria-label="學習模式">
-    <a class="mode" href="beginner.html">
-      <span class="tag">BEGINNER</span>
-      <strong>初學者拆解路線</strong>
-      <p>每個主題拆成一句話、生活比喻、最小操作、判讀與實務用途。</p>
-    </a>
-    <a class="mode" href="labs.html">
-      <span class="tag">LABS</span>
-      <strong>實用實驗任務</strong>
-      <p>用工程任務驅動學習：調參、達成條件、留下可交付紀錄。</p>
-    </a>
-    <a class="mode" href="troubleshooting.html">
-      <span class="tag">DEBUG</span>
-      <strong>故障速查表</strong>
-      <p>從看到的症狀反查可能原因、確認方式、修法與對應模擬頁。</p>
-    </a>
-    <a class="mode" href="progress.html">
-      <span class="tag">PROGRESS</span>
-      <strong>學習進度總表</strong>
-      <p>集中查看課程、實驗、測驗完成狀態，並取得下一步建議。</p>
-    </a>
-    <a class="mode" href="quiz.html">
-      <span class="tag">QUIZ</span>
-      <strong>判斷測驗</strong>
-      <p>用題目確認你能把現象、原因、操作與成功條件對起來。</p>
-    </a>
-    <a class="mode" href="search.html">
-      <span class="tag">SEARCH</span>
-      <strong>全域搜尋</strong>
-      <p>搜尋課程、實驗任務、故障症狀、詞彙與實務提示。</p>
-    </a>
-    <a class="mode" href="glossary.html">
-      <span class="tag">WORDS</span>
-      <strong>全域詞彙表</strong>
-      <p>集中解釋 ADC、PWM、Offset、死區、UDS、THD 等跨主題關鍵字。</p>
-    </a>
-    <a class="mode" href="report.html">
-      <span class="tag">REPORT</span>
-      <strong>實驗報告產生器</strong>
-      <p>把任務、參數、觀察與工程結論整理成 Markdown 或列印紀錄。</p>
-    </a>
-  </section>
-
-  <div class="section-head">
-    <div>
-      <h2>完整主題教材</h2>
-      <p>已經知道要學哪個主題時，直接從這裡進入。</p>
-    </div>
-  </div>
-
-  <section class="grid" aria-label="教材清單">
-    <a class="card" href="0_buck_converter_/index.html">
-      <div class="meta"><span class="num">0</span><span class="tag">Buck</span></div>
-      <h2>降壓轉換器 Buck</h2>
-      <p>從切換、電感三角波、電容電壓漣波一路到 CCM/DCM 與反向設計工具。</p>
-      <div class="links"><span>index.html</span><span>設計小幫手</span></div>
-    </a>
-    <a class="card" href="1_c2000_adc_calculator/index.html">
-      <div class="meta"><span class="num">1</span><span class="tag">ADC</span></div>
-      <h2>C2000 ADC 參數計算</h2>
-      <p>把電流、母線電壓、Offset、分壓與韌體縮放拆成循序教學與完整計算器。</p>
-      <div class="links"><span>標準入口</span><span>0_index.html</span></div>
-    </a>
-    <a class="card" href="2_code_artifact/index.html">
-      <div class="meta"><span class="num">2</span><span class="tag">Inverter</span></div>
-      <h2>電力電子拓撲</h2>
-      <p>逆變器、半橋、PWM、SPWM、全橋、LC 濾波、三相 SVPWM 與 THD 量測。</p>
-      <div class="links"><span>課程</span><span>完整工具</span></div>
-    </a>
-    <a class="card" href="3_foc_course/index.html">
-      <div class="meta"><span class="num">3</span><span class="tag">FOC</span></div>
-      <h2>FOC 從零到診斷</h2>
-      <p>Clarke、Park、dq 控制、解耦、ADC 增益、死區、過調變與 L9 結業診斷頁。</p>
-      <div class="links"><span>課程地圖</span><span>故障字典</span></div>
-    </a>
-    <a class="card" href="4_PI/index.html">
-      <div class="meta"><span class="num">4</span><span class="tag">PI</span></div>
-      <h2>PI 控制器波德圖</h2>
-      <p>從 Bode 圖、積分器與 PI 控制器，走到 LC Plant、開迴路穩定度與挑戰任務。</p>
-      <div class="links"><span>Chart.js 本地化</span><span>挑戰任務</span></div>
-    </a>
-    <a class="card" href="5_spi/index.html">
-      <div class="meta"><span class="num">5</span><span class="tag">SPI</span></div>
-      <h2>SPI 初學者課程</h2>
-      <p>線路、全雙工、Clock、CPOL/CPHA、FIFO、Overrun、接線與實機除錯。</p>
-      <div class="links"><span>新版課程</span><span>舊版封存</span></div>
-    </a>
-    <a class="card" href="6.10μs 高頻控制迴路模擬器/index.html">
-      <div class="meta"><span class="num">6</span><span class="tag">10μs</span></div>
-      <h2>高頻控制迴路</h2>
-      <p>把 10μs 控制週期拆成 EPWM、ADC、CPU1、FSI、DAC 與完整時序模擬。</p>
-      <div class="links"><span>教學版</span><span>完整模擬器</span></div>
-    </a>
-    <a class="card" href="7.28388d_bms_tutorial/START_HERE.html">
-      <div class="meta"><span class="num">7</span><span class="tag">BMS</span></div>
-      <h2>F28388D BMS 教學</h2>
-      <p>量測、比較、決定、致動、回報、多核協同、失效安全與整合實驗。</p>
-      <div class="links"><span>START_HERE</span><span>legacy 封存</span></div>
-    </a>
-    <a class="card" href="8.ad5543_simulator/index.html">
-      <div class="meta"><span class="num">8</span><span class="tag">AD5543</span></div>
-      <h2>AD5543 DAC 教學</h2>
-      <p>比例旋鈕、二進位碼、R-2R、TIA/RFB、輸出極性、轉移函數與 SPI 設計。</p>
-      <div class="links"><span>9 課</span><span>設計計算機</span></div>
-    </a>
-    <a class="card" href="9.afe-tutorial/START_HERE.html">
-      <div class="meta"><span class="num">9</span><span class="tag">AFE</span></div>
-      <h2>AFE 入門拆解</h2>
-      <p>觀念地圖、波形判讀、控制迴路、實驗工作台與教練版模擬器。</p>
-      <div class="links"><span>START_HERE</span><span>文件已補齊</span></div>
-    </a>
-    <a class="card" href="10.acmc-pro_power_simulator/00_system_map.html">
-      <div class="meta"><span class="num">10</span><span class="tag">ACMC</span></div>
-      <h2>ACMC-PRO 雙迴路控制逆變器</h2>
-      <p>先用 7 個小頁拆解 PFC、PSFB、SiC 逆變、同步採樣、PLL、OCP 與整合任務。</p>
-      <div class="links"><span>教學拆解版</span><span>完整儀表板</span></div>
-    </a>
-    <a class="card" href="11.c2000_dds_dashboard/00_measurement_map.html">
-      <div class="meta"><span class="num">11</span><span class="tag">DDS</span></div>
-      <h2>C2000 電力測量與 DDS 儀表板</h2>
-      <p>用 8 個小頁拆解 DDS、ADC offset、RMS、實功、PF、過零偵測、jitter 與校正實驗。</p>
-      <div class="links"><span>教學拆解版</span><span>量測儀表板</span></div>
-    </a>
-  </section>
-
-  <section class="notice">
-    建議初學者先用 <a href="beginner.html">初學者拆解路線</a> 建立直覺，再用 <a href="labs.html">實用實驗任務</a> 練操作，接著用 <a href="progress.html">學習進度總表</a> 追蹤下一步，最後用 <a href="quiz.html">判斷測驗</a> 確認是否真的會判讀；卡住時查 <a href="troubleshooting.html">故障速查表</a>。正式入口都已整理成本地相對連結；封存檔位於各子資料夾的 <code>legacy</code> 或 <code>originals</code>。專案說明請看 <a href="README.md">README.md</a>。
-  </section>
+<section>
+<div class="eyebrow">Circuit Simulation Learning Pack</div>
+<h1>電路模擬說明教材總入口</h1>
+<p class="lead">用互動操作理解電力電子、ADC、FOC、PI、SPI、BMS、DAC、AFE 與數位量測。建議先看初學路線，再做實驗與測驗。</p>
+</section>
+<section class="notice" aria-label="模型限制">
+<strong>工程模型說明：</strong>頁面中的數值會區分「公式計算」與「教學指標」。教學指標只用來觀察趨勢，不可直接作為元件選型、保護門檻或安全驗證依據。
+</section>
+<section class="mode-grid" aria-label="學習工具">
+<a class="mode" href="beginner.html"><span class="tag">BEGINNER</span><strong>初學者拆解路線</strong><p>每頁只改一個變數，先建立因果直覺。</p></a>
+<a class="mode" href="labs.html"><span class="tag">LABS</span><strong>實用實驗任務</strong><p>以成功條件驅動操作與工程判讀。</p></a>
+<a class="mode" href="troubleshooting.html"><span class="tag">DEBUG</span><strong>故障速查表</strong><p>從症狀反查原因、確認方式與修法。</p></a>
+<a class="mode" href="progress.html"><span class="tag">PROGRESS</span><strong>學習進度</strong><p>查看完成率、下一步與備份進度。</p></a>
+<a class="mode" href="quiz.html"><span class="tag">QUIZ</span><strong>判斷測驗</strong><p>確認能否把現象、原因與成功條件對起來。</p></a>
+<a class="mode" href="search.html"><span class="tag">SEARCH</span><strong>全域搜尋</strong><p>搜尋課程、故障、詞彙與實務提示。</p></a>
+<a class="mode" href="glossary.html"><span class="tag">WORDS</span><strong>全域詞彙表</strong><p>快速查閱跨主題工程名詞。</p></a>
+<a class="mode" href="report.html"><span class="tag">REPORT</span><strong>實驗報告產生器</strong><p>把參數、觀察與結論匯出為 Markdown。</p></a>
+</section>
+<div class="section-head"><h2>完整主題教材</h2><p>清單由單一課程資料來源自動產生，避免首頁與課程設定不同步。</p></div>
+<section class="grid" id="moduleGrid" aria-live="polite"></section>
+<p class="footer">純 HTML/CSS/JavaScript，可離線使用。公式仍應以元件 datasheet、控制器文件與實測結果交叉驗證。</p>
 </main>
+<script src="assets/learning/curriculum.js"></script>
+<script>
+(function(){
+  "use strict";
+  const root=document.getElementById("moduleGrid");
+  const modules=(window.CircuitCurriculum&&window.CircuitCurriculum.modules)||[];
+  const esc=s=>String(s??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"})[c]);
+  root.innerHTML=modules.map(m=>{
+    const lessonCount=Array.isArray(m.lessons)?m.lessons.length:0;
+    const labCount=Array.isArray(m.labs)?m.labs.length:0;
+    return `<a class="card" href="${esc(m.entry)}"><div class="meta"><span class="num">${esc(m.number)}</span><span class="tag">${esc(m.tag)}</span></div><h2>${esc(m.title)}</h2><p>${esc(m.oneLine)}</p><div class="links"><span>${lessonCount} 個課程步驟</span><span>${labCount} 個實驗</span></div></a>`;
+  }).join("")||"<p>課程資料載入失敗，請確認 assets/learning/curriculum.js。</p>";
+})();
+</script>
 </body>
 </html>
