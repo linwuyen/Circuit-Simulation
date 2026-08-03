@@ -4,6 +4,10 @@
 
 這是一組純 HTML、CSS 與 JavaScript 的互動式電路、韌體與電力電子教材。根目錄的 `index.html` 是總入口，課程資料集中在 `assets/learning/curriculum.js`。
 
+## 公開內容界線
+
+此 repository 只放可公開的通用教材。任何公司專案、實際產品原理圖、內部型號、韌體快照、量測紀錄或未公開設計資料，都必須存放在獨立的 private repository，不得以隱藏連結、前端密碼或未列入導覽的目錄方式放在公開 Git 歷史中。
+
 ## 學習入口
 
 | 頁面 | 用途 |
