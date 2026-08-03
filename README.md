@@ -1,101 +1,65 @@
 # 電路模擬說明
 
-這個資料夾是一組純 HTML/CSS/JavaScript 的互動式電路與韌體教學教材。根目錄的 `index.html` 是總入口，各子資料夾保留自己的課程入口與模擬器。
+> 🌐 線上教材：`https://linwuyen.github.io/Circuit-Simulation/`
 
-## 建議學習模式
+這是一組純 HTML、CSS 與 JavaScript 的互動式電路、韌體與電力電子教材。根目錄的 `index.html` 是總入口，課程資料集中在 `assets/learning/curriculum.js`。
 
-初學者不要一開始直接打開完整模擬器。建議先用根目錄新增的教學入口：
+## 學習入口
 
 | 頁面 | 用途 |
 |---|---|
-| `beginner.html` | 初學者拆解路線：每個主題用一句話、生活比喻、最小操作、判讀與實務用途拆開。 |
-| `labs.html` | 實用實驗任務：用工程任務驅動操作，包含成功條件與實務用途。 |
-| `troubleshooting.html` | 故障速查表：從症狀反查原因、確認方式與修法。 |
-| `progress.html` | 學習進度總表：集中查看課程、實驗、測驗完成狀態與下一步建議。 |
-| `quiz.html` | 判斷測驗：確認能把現象、原因、操作與成功條件對起來。 |
-| `glossary.html` | 全域詞彙表：集中解釋跨主題關鍵字。 |
-| `search.html` | 全域搜尋：搜尋課程、實驗、故障、詞彙與實務提示。 |
-| `report.html` | 實驗報告產生器：把任務、參數、觀察與結論產生 Markdown 紀錄。 |
+| `beginner.html` | 依「目標、操作、判讀」拆解每個主題。 |
+| `labs.html` | 以工程任務與成功條件驅動學習。 |
+| `troubleshooting.html` | 從症狀反查原因、確認方式與修法。 |
+| `progress.html` | 查看完成率、下一步及匯出／匯入進度。 |
+| `quiz.html` | 檢查現象、原因與成功條件是否能對應。 |
+| `glossary.html` | 跨主題工程詞彙。 |
+| `search.html` | 搜尋課程、實驗、故障與詞彙。 |
+| `report.html` | 產生可交付的 Markdown 實驗紀錄。 |
 
-這些頁面的資料來源在 `assets/learning/curriculum.js`。之後要新增任務、故障案例或調整教學順序，優先改這個資料檔。
+## 工程模型界線
 
-正式教材頁面也注入了頁內教學助手：
+教材中的輸出分成兩類：
 
-- `assets/learning/tutor.css`
-- `assets/learning/tutor.js`
-- `assets/learning/micro-sim.css`
-- `assets/learning/micro-sim.js`
+1. **公式計算**：由 `assets/learning/engineering-models.js` 的 pure functions 計算，並由 Node 測試驗證典型值與邊界條件。
+2. **教學指標**：只用來呈現趨勢，畫面會明確標示為 heuristic／教學模型，不可直接用於元件選型、保護門檻、安全驗證或量產設計。
 
-助手會依目前頁面路徑自動顯示該頁的教學目標、操作步驟、判讀方式、相關故障、詞彙與報告入口。`legacy/` 與 `originals/` 預設不注入。
+即使是公式計算，也必須確認拓撲、工作模式、元件 datasheet、控制器規格與實測條件。當 Buck 進入 DCM、ADC 飽和或輸入超出模型適用範圍時，頁面會顯示警告，而不是延用失效公式。
 
-第 10、11 組資訊量較大，已拆成微型教學模擬頁。每頁只保留一個觀念、一組少量控制項、即時判讀指標與小任務，最後再回到完整儀表板。
+## 教材主題
 
-## 使用方式
+課程清單由 `assets/learning/curriculum.js` 產生，包含 Buck、C2000 ADC、電力電子拓撲、FOC、PI、SPI、10 μs 控制迴路、F28388D BMS、AD5543、AFE、ACMC 與 C2000 DDS／電力測量。
 
-直接用瀏覽器開啟 `index.html`。大多數教材不需要安裝套件或啟動伺服器；若瀏覽器對本機檔案權限較嚴格，可在根目錄執行：
+## 本機執行
+
+大多數頁面可直接開啟。若瀏覽器限制本機檔案權限，可在根目錄執行：
 
 ```text
 python -m http.server 8080
 ```
 
-然後開 `http://localhost:8080/`。
+然後開啟 `http://localhost:8080/`。
 
-## 教材入口
+## 驗證
 
-| 編號 | 主題 | 入口 |
-|---|---|---|
-| 0 | Buck 降壓轉換器 | `0_buck_converter_/index.html` |
-| 1 | C2000 ADC 參數計算 | `1_c2000_adc_calculator/index.html` |
-| 2 | 電力電子拓撲 / 逆變器 | `2_code_artifact/index.html` |
-| 3 | FOC 從零到診斷 | `3_foc_course/index.html` |
-| 4 | PI 控制器波德圖 | `4_PI/index.html` |
-| 5 | SPI 初學者課程 | `5_spi/index.html` |
-| 6 | 10μs 高頻控制迴路 | `6.10μs 高頻控制迴路模擬器/index.html` |
-| 7 | F28388D BMS 教學 | `7.28388d_bms_tutorial/START_HERE.html` |
-| 8 | AD5543 DAC 教學 | `8.ad5543_simulator/index.html` |
-| 9 | AFE 入門拆解 | `9.afe-tutorial/START_HERE.html` |
-| 10 | ACMC-PRO 雙迴路控制逆變器 | `10.acmc-pro_power_simulator/00_system_map.html` |
-| 11 | C2000 電力測量與 DDS 儀表板 | `11.c2000_dds_dashboard/00_measurement_map.html` |
+需要 Node.js 18 以上：
 
-## 維護狀態
-
-- 正式教材的主要外部腳本已複製到 `assets/vendor/`，方便離線使用。
-- 新增的教學框架位於 `assets/learning/`，負責初學路線、實驗任務、故障速查、進度總表、判斷測驗、搜尋、詞彙表、頁內教學助手與報告產生器。
-- 微型教學模擬頁共用 `micro-sim.css` 與 `micro-sim.js`；各頁只設定 `window.MICRO_LESSON`，避免重複維護互動畫布與任務 UI。
-- `legacy/` 與 `originals/` 代表封存或備份內容，不是主要學習入口。
-- 這個資料夾已可用 Git 管理；第三方 vendor 檔案保留在版本控制內，因為它們支援離線開啟。
-
-## 快速檢查
-
-建議直接執行：
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\validate-project.ps1
+```text
+node tools/validate-project.mjs
+node --test tests/*.test.mjs
 ```
 
-這會檢查：
+GitHub Actions 會在 push 與 pull request 自動執行相同檢查，包括：
 
-- 本地 `href/src` 是否缺檔。
-- `assets/learning/curriculum.js` 裡的動態連結是否存在。
-- 獨立 JavaScript 語法。
-- 正式教材頁是否已注入頁內教學助手。
+- 本地 `href`、`src` 與 CSS `url()` 是否缺檔。
+- 課程資料中的入口、課程、實驗與故障連結是否存在。
+- JavaScript 語法。
+- 工程模型單元測試。
+- 公開內容不得包含私人教材名稱或前端假密碼。
 
-若只想手動檢查本地 `href/src` 是否缺檔，也可用下面的 PowerShell：
+## 維護原則
 
-```powershell
-$root = (Get-Location).Path
-Get-ChildItem -Recurse -Filter *.html | ForEach-Object {
-  $file = $_.FullName
-  $dir = Split-Path -Parent $file
-  $text = Get-Content -Raw -Encoding UTF8 -LiteralPath $file
-  [regex]::Matches($text, '(?:href|src)\s*=\s*["'']([^"'']+)["'']', 'IgnoreCase') |
-    ForEach-Object {
-      $ref = $_.Groups[1].Value
-      if ($ref -match '^(#|javascript:|mailto:|tel:|data:|blob:|https?://)') { return }
-      $clean = ($ref -split '[?#]')[0]
-      if ($clean -and -not (Test-Path -LiteralPath (Join-Path $dir $clean))) {
-        [pscustomobject]@{ File = $file.Substring($root.Length + 1); Ref = $ref }
-      }
-    }
-}
-```
+- 新增課程時，優先更新 `assets/learning/curriculum.js`，不要在首頁複製另一份清單。
+- 計算公式放在 `assets/learning/engineering-models.js`，UI 只負責輸入、顯示與警告。
+- 新公式必須附適用條件、單位與至少一個單元測試。
+- `legacy/` 與 `originals/` 只作歷史備查，不視為正式教材入口。
