@@ -2,628 +2,231 @@
   "use strict";
 
   const lesson = window.MICRO_LESSON;
-  if (!lesson) return;
-
   const root = document.getElementById("lesson-root");
-  const stateKey = "micro-sim-checks-v1:" + location.pathname;
-  const controlState = {};
+  if (!lesson || !root) return;
 
-  function esc(value) {
-    return String(value == null ? "" : value)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-
-  function fmt(value, digits) {
-    if (typeof value !== "number" || !Number.isFinite(value)) return String(value);
-    return value.toFixed(digits == null ? (Math.abs(value) >= 10 ? 1 : 2) : digits);
-  }
-
-  function clamp(value, min, max) {
-    return Math.max(min, Math.min(max, value));
-  }
+  const stateKey = "micro-sim-checks-v2:" + location.pathname;
+  const values = {};
+  const esc = value => String(value == null ? "" : value)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const fmt = (value, digits) => Number.isFinite(value) ? value.toFixed(digits == null ? (Math.abs(value) >= 10 ? 1 : 2) : digits) : "—";
+  const radians = degrees => degrees * Math.PI / 180;
 
   function loadChecks() {
     try { return JSON.parse(localStorage.getItem(stateKey) || "{}"); }
-    catch (e) { return {}; }
+    catch (error) { return {}; }
   }
 
   function saveChecks(checks) {
     try { localStorage.setItem(stateKey, JSON.stringify(checks)); }
-    catch (e) {}
+    catch (error) {}
   }
 
   function link(href, label, cls) {
-    if (!href) return "";
-    return '<a class="' + (cls || "ms-link") + '" href="' + esc(href) + '">' + esc(label) + '</a>';
+    return href ? '<a class="' + (cls || "ms-link") + '" href="' + esc(href) + '">' + esc(label) + '</a>' : "";
   }
 
-  function render() {
+  function renderShell() {
     const checks = loadChecks();
     const controls = (lesson.controls || []).map(control => {
       if (control.type === "select") {
-        return '<div class="ms-control"><div class="ms-control-row"><label for="ctrl-' + esc(control.id) + '">' + esc(control.label) + '</label><output id="out-' + esc(control.id) + '"></output></div>'
-          + '<select id="ctrl-' + esc(control.id) + '" data-control="' + esc(control.id) + '">' + control.options.map(option => '<option value="' + esc(option.value) + '">' + esc(option.label) + '</option>').join("") + '</select>'
-          + '<div class="ms-help">' + esc(control.help || "") + '</div></div>';
+        return '<div class="ms-control"><div class="ms-control-row"><label for="ctrl-' + esc(control.id) + '">' + esc(control.label) + '</label><output id="out-' + esc(control.id) + '"></output></div><select id="ctrl-' + esc(control.id) + '" data-control="' + esc(control.id) + '">' + (control.options || []).map(option => '<option value="' + esc(option.value) + '">' + esc(option.label) + '</option>').join("") + '</select><div class="ms-help">' + esc(control.help || "") + '</div></div>';
       }
-      return '<div class="ms-control"><div class="ms-control-row"><label for="ctrl-' + esc(control.id) + '">' + esc(control.label) + '</label><output id="out-' + esc(control.id) + '"></output></div>'
-        + '<input id="ctrl-' + esc(control.id) + '" data-control="' + esc(control.id) + '" type="range" min="' + esc(control.min) + '" max="' + esc(control.max) + '" step="' + esc(control.step || 1) + '" value="' + esc(control.value) + '">'
-        + '<div class="ms-help">' + esc(control.help || "") + '</div></div>';
+      return '<div class="ms-control"><div class="ms-control-row"><label for="ctrl-' + esc(control.id) + '">' + esc(control.label) + '</label><output id="out-' + esc(control.id) + '"></output></div><input id="ctrl-' + esc(control.id) + '" data-control="' + esc(control.id) + '" type="range" min="' + esc(control.min) + '" max="' + esc(control.max) + '" step="' + esc(control.step || 1) + '" value="' + esc(control.value) + '"><div class="ms-help">' + esc(control.help || "") + '</div></div>';
     }).join("");
 
     root.innerHTML = '<div class="ms-shell">'
-      + '<nav class="ms-nav"><a class="ms-brand" href="' + esc((lesson.rootPrefix || "../") + "index.html") + '"><span class="ms-mark">SIM</span><span>電路模擬說明</span></a>'
-      + '<div class="ms-links">'
-      + link(lesson.prevHref, "上一頁")
-      + link(lesson.nextHref, "下一頁")
-      + link(lesson.fullHref || "index.html", "完整儀表板")
-      + link((lesson.rootPrefix || "../") + "beginner.html", "初學路線")
+      + '<nav class="ms-nav"><a class="ms-brand" href="' + esc((lesson.rootPrefix || "../") + "index.html") + '"><span class="ms-mark">SIM</span><span>電路模擬說明</span></a><div class="ms-links">'
+      + link(lesson.prevHref, "上一頁") + link(lesson.nextHref, "下一頁") + link(lesson.fullHref || "index.html", "完整儀表板") + link((lesson.rootPrefix || "../") + "beginner.html", "初學路線")
       + '</div></nav>'
       + '<section class="ms-hero"><div class="ms-eyebrow">' + esc(lesson.eyebrow || lesson.section || "Lesson") + '</div><h1>' + esc(lesson.title) + '</h1><p class="ms-lead">' + esc(lesson.intro) + '</p></section>'
-      + '<section class="ms-grid">'
-      + '<aside class="ms-panel"><span class="ms-tag">' + esc(lesson.section || "教學") + '</span><h2>這頁只練一件事</h2><ul class="ms-field-list">'
-      + '<li><b>目標</b><span>' + esc(lesson.goal) + '</span></li>'
-      + '<li><b>操作</b><span>' + esc(lesson.action) + '</span></li>'
-      + '<li><b>判讀</b><span>' + esc(lesson.result) + '</span></li>'
-      + '<li><b>實用</b><span>' + esc(lesson.why) + '</span></li>'
-      + '</ul><div class="ms-task"><h3>小任務</h3><p class="ms-muted">' + esc(lesson.task) + '</p><div class="ms-checks">'
-      + (lesson.checks || []).map((item, index) => '<label><input type="checkbox" data-check="' + index + '"' + (checks[index] ? " checked" : "") + '><span>' + esc(item) + '</span></label>').join("")
-      + '</div></div></aside>'
-      + '<section class="ms-panel"><h2>互動模擬</h2><div class="ms-controls">' + controls + '</div><div class="ms-canvas-wrap"><canvas class="ms-canvas" id="lessonCanvas"></canvas><div class="ms-status" id="simStatus"></div></div><div class="ms-metrics" id="metricGrid"></div><div class="ms-actions">'
-      + link(lesson.nextHref, "下一頁", "ms-button primary")
-      + link(lesson.fullHref || "index.html", "開啟完整儀表板", "ms-button")
-      + '</div></section></section>'
-      + '<section class="ms-note-grid">'
-      + '<article class="ms-note"><b>初學者先看</b><span>' + esc(lesson.beginnerNote || "只改一個控制項，先看波形方向與數字變化，不急著背公式。") + '</span></article>'
-      + '<article class="ms-note"><b>工程判斷</b><span>' + esc(lesson.engineeringNote || "把現象連到限制條件：量測範圍、時間預算、保護門檻或穩定度。") + '</span></article>'
-      + '<article class="ms-note"><b>下一步</b><span>' + esc(lesson.nextNote || "完成小任務後，再回完整儀表板，把多個變因一起驗證。") + '</span></article>'
-      + '</section></div>';
+      + '<section class="ms-grid"><aside class="ms-panel"><span class="ms-tag">' + esc(lesson.section || "教學") + '</span><h2>這頁只練一件事</h2><ul class="ms-field-list">'
+      + '<li><b>目標</b><span>' + esc(lesson.goal) + '</span></li><li><b>操作</b><span>' + esc(lesson.action) + '</span></li><li><b>判讀</b><span>' + esc(lesson.result) + '</span></li><li><b>實用</b><span>' + esc(lesson.why) + '</span></li></ul>'
+      + '<div class="ms-task"><h3>小任務</h3><p class="ms-muted">' + esc(lesson.task) + '</p><div class="ms-checks">' + (lesson.checks || []).map((item, index) => '<label><input type="checkbox" data-check="' + index + '"' + (checks[index] ? " checked" : "") + '><span>' + esc(item) + '</span></label>').join("") + '</div></div></aside>'
+      + '<section class="ms-panel"><h2>互動模擬</h2><div class="ms-controls">' + controls + '</div><div class="ms-canvas-wrap"><canvas class="ms-canvas" id="lessonCanvas" aria-label="互動模擬圖"></canvas><div class="ms-status" id="simStatus" aria-live="polite"></div></div><div class="ms-metrics" id="metricGrid"></div><div class="ms-actions">' + link(lesson.nextHref, "下一頁", "ms-button primary") + link(lesson.fullHref || "index.html", "開啟完整儀表板", "ms-button") + '</div></section></section>'
+      + '<section class="ms-note-grid"><article class="ms-note"><b>初學者先看</b><span>' + esc(lesson.beginnerNote || "一次只改一個控制項。") + '</span></article><article class="ms-note"><b>工程判斷</b><span>' + esc(lesson.engineeringNote || "確認適用條件、單位與限制。") + '</span></article><article class="ms-note"><b>下一步</b><span>' + esc(lesson.nextNote || "回完整儀表板驗證多變因。") + '</span></article></section></div>';
 
-    for (const control of lesson.controls || []) {
+    (lesson.controls || []).forEach(control => {
       const element = document.getElementById("ctrl-" + control.id);
-      if (!element) continue;
+      if (!element) return;
       element.value = control.value;
       element.addEventListener("input", update);
-    }
-
-    root.querySelectorAll("[data-check]").forEach(input => {
-      input.addEventListener("change", () => {
-        const stored = loadChecks();
-        stored[input.getAttribute("data-check")] = input.checked;
-        saveChecks(stored);
-      });
+      element.addEventListener("change", update);
     });
-
-    update();
+    root.querySelectorAll("[data-check]").forEach(input => input.addEventListener("change", () => {
+      const checksNow = loadChecks();
+      checksNow[input.dataset.check] = input.checked;
+      saveChecks(checksNow);
+    }));
   }
 
   function readValues() {
-    for (const control of lesson.controls || []) {
+    (lesson.controls || []).forEach(control => {
       const element = document.getElementById("ctrl-" + control.id);
-      if (!element) continue;
-      const value = control.type === "select" ? element.value : Number(element.value);
-      controlState[control.id] = value;
+      if (!element) return;
+      values[control.id] = control.type === "select" ? element.value : Number(element.value);
       const out = document.getElementById("out-" + control.id);
-      if (out) {
-        if (control.type === "select") {
-          const option = (control.options || []).find(item => String(item.value) === String(value));
-          out.textContent = option ? option.short || option.label : value;
-        } else {
-          out.textContent = fmt(value, control.digits) + (control.unit || "");
-        }
-      }
-    }
-    return controlState;
+      if (!out) return;
+      if (control.type === "select") {
+        const option = (control.options || []).find(item => String(item.value) === String(values[control.id]));
+        out.textContent = option ? option.short || option.label : values[control.id];
+      } else out.textContent = fmt(values[control.id], control.digits) + (control.unit || "");
+    });
+    return values;
   }
 
   function update() {
-    const values = readValues();
-    const canvas = document.getElementById("lessonCanvas");
+    const sim = SIMS[lesson.sim] || SIMS.generic;
+    const result = sim(readValues());
     const status = document.getElementById("simStatus");
     const metrics = document.getElementById("metricGrid");
-    if (!canvas || !status || !metrics) return;
-    const sim = SIMS[lesson.sim] || SIMS.generic;
-    const result = sim(values);
-    status.textContent = result.status || "";
+    status.textContent = (result.modelType ? "[" + result.modelType + "] " : "") + (result.status || "");
     metrics.innerHTML = (result.metrics || []).map(metric => '<article class="ms-metric ' + esc(metric.kind || "") + '"><span>' + esc(metric.label) + '</span><strong>' + esc(metric.value) + '</strong><small class="ms-muted">' + esc(metric.note || "") + '</small></article>').join("");
-    draw(canvas, result.draw || (() => {}));
+    draw(document.getElementById("lessonCanvas"), result.draw || function () {});
   }
 
   function draw(canvas, painter) {
-    const rect = canvas.getBoundingClientRect();
-    const width = Math.max(320, Math.floor(rect.width));
+    if (!canvas) return;
+    const width = Math.max(320, Math.floor(canvas.getBoundingClientRect().width));
     const height = 320;
     const scale = window.devicePixelRatio || 1;
-    canvas.width = width * scale;
-    canvas.height = height * scale;
+    canvas.width = width * scale; canvas.height = height * scale;
     const ctx = canvas.getContext("2d");
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    ctx.clearRect(0, 0, width, height);
-    drawGrid(ctx, width, height);
+    ctx.fillStyle = "#0d1520"; ctx.fillRect(0, 0, width, height);
+    ctx.strokeStyle = "rgba(148,163,184,.15)"; ctx.lineWidth = 1;
+    for (let x = 0; x <= width; x += width / 10) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke(); }
+    for (let y = 0; y <= height; y += height / 8) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
     painter(ctx, width, height);
   }
 
-  function drawGrid(ctx, width, height) {
-    ctx.fillStyle = "#0d1520";
-    ctx.fillRect(0, 0, width, height);
-    ctx.strokeStyle = "rgba(148, 163, 184, 0.16)";
-    ctx.lineWidth = 1;
-    for (let x = 0; x <= width; x += width / 10) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
-      ctx.stroke();
-    }
-    for (let y = 0; y <= height; y += height / 8) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
-    }
-    ctx.strokeStyle = "rgba(255,255,255,0.24)";
-    ctx.beginPath();
-    ctx.moveTo(0, height / 2);
-    ctx.lineTo(width, height / 2);
-    ctx.stroke();
-  }
-
   function line(ctx, points, color, width) {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = width || 2;
-    ctx.beginPath();
-    for (let i = 0; i < points.length; i++) {
-      const p = points[i];
-      if (i === 0) ctx.moveTo(p[0], p[1]);
-      else ctx.lineTo(p[0], p[1]);
-    }
+    ctx.strokeStyle = color; ctx.lineWidth = width || 2; ctx.beginPath();
+    points.forEach((point, index) => index ? ctx.lineTo(point[0], point[1]) : ctx.moveTo(point[0], point[1]));
     ctx.stroke();
   }
 
-  function sinePoints(width, height, amp, phase, ripple, cycles) {
+  function sinePoints(width, height, amplitude, phase, ripple, cycles) {
     const points = [];
-    const n = Math.floor(width);
-    for (let x = 0; x <= n; x++) {
-      const t = x / n;
+    for (let x = 0; x <= width; x++) {
+      const t = x / width;
       const base = Math.sin(t * Math.PI * 2 * (cycles || 2) + (phase || 0));
       const tri = 2 * Math.abs(2 * ((t * 24) % 1) - 1) - 1;
-      points.push([x, height / 2 - base * amp - tri * (ripple || 0)]);
+      points.push([x, height / 2 - base * amplitude - tri * (ripple || 0)]);
     }
     return points;
   }
 
   function drawBoxes(ctx, width, height, labels, activeIndex) {
-    const gap = 18;
-    const boxW = (width - gap * (labels.length + 1)) / labels.length;
-    const y = height / 2 - 42;
+    const gap = 16, boxWidth = (width - gap * (labels.length + 1)) / labels.length, y = height / 2 - 42;
     labels.forEach((label, index) => {
-      const x = gap + index * (boxW + gap);
+      const x = gap + index * (boxWidth + gap);
       ctx.fillStyle = index === activeIndex ? "#123f3b" : "#142033";
       ctx.strokeStyle = index === activeIndex ? "#22c5b7" : "#334155";
-      ctx.lineWidth = 2;
-      roundRect(ctx, x, y, boxW, 84, 8);
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = "#dbe7f4";
-      ctx.font = "700 13px system-ui";
-      wrapText(ctx, label, x + 12, y + 32, boxW - 24, 17);
-      if (index < labels.length - 1) {
-        ctx.strokeStyle = "#64748b";
-        ctx.beginPath();
-        ctx.moveTo(x + boxW + 4, y + 42);
-        ctx.lineTo(x + boxW + gap - 6, y + 42);
-        ctx.stroke();
-      }
+      ctx.lineWidth = 2; ctx.fillRect(x, y, boxWidth, 84); ctx.strokeRect(x, y, boxWidth, 84);
+      ctx.fillStyle = "#dbe7f4"; ctx.font = "700 13px system-ui"; ctx.textAlign = "center";
+      const parts = String(label).split(" "); parts.slice(0, 3).forEach((part, lineIndex) => ctx.fillText(part, x + boxWidth / 2, y + 28 + lineIndex * 18));
+      ctx.textAlign = "left";
     });
   }
 
-  function roundRect(ctx, x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
+  function sampledSine(peak, phase, count) {
+    return Array.from({ length: count }, (_, index) => peak * Math.sin(2 * Math.PI * index / count + phase));
   }
 
-  function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-    const words = String(text).split("");
-    let lineText = "";
-    for (const word of words) {
-      const test = lineText + word;
-      if (ctx.measureText(test).width > maxWidth && lineText) {
-        ctx.fillText(lineText, x, y);
-        lineText = word;
-        y += lineHeight;
-      } else {
-        lineText = test;
-      }
-    }
-    if (lineText) ctx.fillText(lineText, x, y);
+  function rms(samples) {
+    return Math.sqrt(samples.reduce((sum, value) => sum + value * value, 0) / Math.max(1, samples.length));
+  }
+
+  function powerMetrics(v, i) {
+    const count = Math.min(v.length, i.length);
+    const vrms = rms(v.slice(0, count)), irms = rms(i.slice(0, count));
+    const watts = count ? v.slice(0, count).reduce((sum, value, index) => sum + value * i[index], 0) / count : 0;
+    const va = vrms * irms;
+    return { vrms, irms, watts, va, pf: va ? clamp(watts / va, -1, 1) : 0 };
   }
 
   const SIMS = {
-    generic() {
-      return {
-        status: "這頁用來建立觀念，不需要複雜模型。",
-        metrics: [{ label: "狀態", value: "READY", kind: "good", note: "先閱讀左側目標，再開完整儀表板。" }],
-        draw(ctx, w, h) {
-          drawBoxes(ctx, w, h, ["輸入", "處理", "輸出", "判讀"], 1);
-        }
-      };
-    },
+    generic() { return { modelType: "教學示意", status: "這頁用來建立觀念，不代表完整物理模型。", metrics: [{ label: "狀態", value: "READY", kind: "good", note: "確認適用條件後再使用數字" }], draw(ctx, w, h) { drawBoxes(ctx, w, h, ["輸入", "處理", "輸出", "判讀"], 1); } }; },
 
-    "acmc-map"(v) {
-      const active = Number(v.stage || 1);
-      return {
-        status: "從左到右看能量路徑：前級整流與 PFC、隔離 DC-DC、逆變輸出、最後量測與保護。",
-        metrics: [
-          { label: "DC bus", value: "390 V", kind: "good", note: "PFC 後的穩定母線" },
-          { label: "隔離輸出", value: "550 V", kind: "good", note: "PSFB 升壓後供逆變器" },
-          { label: "重點段落", value: ["PFC", "PSFB", "INV", "DAQ"][active], kind: "good", note: "一次只追一段" }
-        ],
-        draw(ctx, w, h) {
-          drawBoxes(ctx, w, h, ["PFC 前級", "PSFB 隔離升壓", "SiC 逆變輸出", "C2000 DAQ/保護"], active);
-        }
-      };
-    },
+    "acmc-map"(v) { const active = Number(v.stage || 1); return { modelType: "系統方塊圖", status: "由左到右追能量與保護路徑。", metrics: [{ label: "DC bus", value: "390 V", kind: "good", note: "教材名目值" }, { label: "隔離輸出", value: "550 V", kind: "good", note: "教材名目值" }, { label: "重點", value: ["PFC", "PSFB", "INV", "DAQ"][active] || "PFC", kind: "good", note: "非即時模擬" }], draw(ctx, w, h) { drawBoxes(ctx, w, h, ["PFC", "PSFB", "SiC INV", "DAQ 保護"], active); } }; },
 
     "acmc-ripple"(v) {
-      const fsw = Number(v.fsw || 100);
-      const load = Number(v.load || 1200);
-      const ripple = clamp(38 * (100 / fsw) * Math.sqrt(load / 1200), 8, 86);
-      const kind = ripple < 35 ? "good" : ripple < 58 ? "warn" : "bad";
-      return {
-        status: ripple < 35 ? "漣波在容易濾掉的範圍。" : "漣波偏大，濾波器與控制器壓力會上升。",
-        metrics: [
-          { label: "估計漣波", value: fmt(ripple, 1) + " %", kind, note: "相對高頻紋波指標" },
-          { label: "開關週期", value: fmt(1000 / fsw, 2) + " us", kind: "good", note: "fsw 越高週期越短" },
-          { label: "負載功率", value: fmt(load, 0) + " W", kind: load < 300 ? "warn" : "good", note: "也會影響 ZVS" }
-        ],
-        draw(ctx, w, h) {
-          line(ctx, sinePoints(w, h, 88, 0, ripple, 2), "#22d3ee", 2);
-          line(ctx, sinePoints(w, h, 88, 0, 0, 2), "rgba(16,185,129,0.72)", 2);
-        }
-      };
+      const fsw = Number(v.fsw || 100), load = Number(v.load || 1200);
+      const index = clamp(32 * (100 / fsw) * Math.sqrt(load / 1200), 5, 100);
+      return { modelType: "Heuristic 趨勢指標", status: "沒有 L、C、Vbus 與調變工作點，因此只顯示相對漣波指標，不是百分比設計值。", metrics: [{ label: "相對漣波指標", value: fmt(index, 1) + " / 100", kind: index < 35 ? "good" : index < 60 ? "warn" : "bad", note: "僅比較趨勢" }, { label: "開關週期", value: fmt(1000 / fsw, 2) + " µs", kind: "good", note: "由頻率直接計算" }, { label: "負載", value: fmt(load, 0) + " W", kind: "good", note: "提高時電流壓力通常增加" }], draw(ctx, w, h) { line(ctx, sinePoints(w, h, 86, 0, index * .5, 2), "#22d3ee", 2); line(ctx, sinePoints(w, h, 86, 0, 0, 2), "#34d399", 2); } };
     },
 
     "acmc-zvs"(v) {
-      const load = Number(v.load || 1200);
-      const deadtime = Number(v.deadtime || 120);
-      const ratio = (load / 300) * (deadtime / 120);
-      const margin = clamp(ratio, 0, 3);
-      const ok = ratio >= 1;
-      return {
-        status: ok ? "原邊能量足以完成 Coss 充放電，ZVS 有機會成立。" : "能量不足，會轉成硬切換，效率與溫升惡化。",
-        metrics: [
-          { label: "ZVS 能量比", value: fmt(ratio, 2) + "x", kind: ok ? "good" : "bad", note: "大於 1 才算有裕度" },
-          { label: "負載區間", value: load < 300 ? "輕載" : "正常", kind: load < 300 ? "warn" : "good", note: "輕載最容易失效" },
-          { label: "死區時間", value: fmt(deadtime, 0) + " ns", kind: deadtime < 80 ? "warn" : "good", note: "太短不易完成換流" }
-        ],
-        draw(ctx, w, h) {
-          const cx = w / 2, cy = h / 2 + 20, radius = 92;
-          ctx.strokeStyle = "#334155";
-          ctx.lineWidth = 18;
-          ctx.beginPath();
-          ctx.arc(cx, cy, radius, Math.PI, Math.PI * 2);
-          ctx.stroke();
-          ctx.strokeStyle = ok ? "#34d399" : "#fb7185";
-          ctx.beginPath();
-          ctx.arc(cx, cy, radius, Math.PI, Math.PI + Math.PI * clamp(margin / 2, 0, 1));
-          ctx.stroke();
-          ctx.fillStyle = "#dbe7f4";
-          ctx.font = "900 34px Consolas";
-          ctx.textAlign = "center";
-          ctx.fillText(ok ? "ZVS OK" : "HARD", cx, cy - 10);
-          ctx.font = "700 14px system-ui";
-          ctx.fillText("能量比 " + fmt(ratio, 2) + "x", cx, cy + 20);
-          ctx.textAlign = "left";
-        }
-      };
+      const load = Number(v.load || 1200), deadtime = Number(v.deadtime || 120);
+      const margin = clamp((load / 300) * clamp(deadtime / 120, .3, 1.7), 0, 3), ok = margin >= 1;
+      return { modelType: "Heuristic 換流裕度", status: "真正 ZVS 必須比較 Llk／Lm 儲能與 MOSFET Coss，並確認 dead-time 內能完成換流。", metrics: [{ label: "換流裕度指標", value: fmt(margin, 2) + " x", kind: ok ? "good" : "bad", note: "不是實際能量比" }, { label: "負載區間", value: load < 300 ? "輕載" : "正常", kind: load < 300 ? "warn" : "good", note: "輕載通常較困難" }, { label: "Dead-time", value: fmt(deadtime, 0) + " ns", kind: deadtime < 80 ? "warn" : "good", note: "過長也會增加損失" }], draw(ctx, w, h) { ctx.fillStyle = ok ? "#34d399" : "#fb7185"; ctx.font = "900 38px Consolas"; ctx.textAlign = "center"; ctx.fillText(ok ? "ZVS MARGIN" : "HARD SWITCH", w / 2, h / 2); ctx.font = "700 15px system-ui"; ctx.fillText("teaching index " + fmt(margin, 2), w / 2, h / 2 + 34); ctx.textAlign = "left"; } };
     },
 
     "acmc-sampling"(v) {
-      const sync = String(v.mode) === "sync";
-      const fsw = Number(v.fsw || 100);
-      const spike = sync ? 4 : clamp(fsw * 0.65, 12, 100);
-      return {
-        status: sync ? "採樣點避開開關跳變，ADC 波形乾淨。" : "隨機採樣可能剛好撞到高 dv/dt，突波被帶進計算。",
-        metrics: [
-          { label: "噪聲指標", value: fmt(spike, 0), kind: sync ? "good" : "bad", note: "越低越好" },
-          { label: "採樣策略", value: sync ? "同步" : "隨機", kind: sync ? "good" : "bad", note: "EPWM 觸發優先" },
-          { label: "fsw", value: fmt(fsw, 0) + " kHz", kind: "good", note: "越高越需要精準採樣點" }
-        ],
-        draw(ctx, w, h) {
-          const points = sinePoints(w, h, 78, 0, 0, 2);
-          if (!sync) {
-            for (let i = 24; i < points.length; i += 43) {
-              points[i][1] -= 36 + (i % 3) * 12;
-              if (points[i + 1]) points[i + 1][1] += 22;
-            }
-          }
-          line(ctx, points, sync ? "#34d399" : "#fb7185", 2);
-          for (let x = 30; x < w; x += 52) {
-            ctx.fillStyle = sync ? "#22d3ee" : "#f59e0b";
-            ctx.beginPath();
-            ctx.arc(x, h / 2 - Math.sin((x / w) * Math.PI * 4) * 78, 3, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-      };
+      const sync = String(v.mode) === "sync", fsw = Number(v.fsw || 100), noiseIndex = sync ? 4 : clamp(fsw * .65, 12, 100);
+      return { modelType: "Heuristic 噪聲指標", status: sync ? "採樣點避開開關邊緣。" : "非同步採樣可能撞到高 dv/dt／di/dt。", metrics: [{ label: "噪聲指標", value: fmt(noiseIndex, 0) + " / 100", kind: sync ? "good" : "bad", note: "不是 ADC ENOB 或實測 RMS" }, { label: "採樣策略", value: sync ? "EPWM 同步" : "非同步", kind: sync ? "good" : "bad", note: "實機需找安靜窗" }, { label: "fsw", value: fmt(fsw, 0) + " kHz", kind: "good", note: "頻率越高可用窗越短" }], draw(ctx, w, h) { const points = sinePoints(w, h, 78, 0, 0, 2); if (!sync) for (let i = 24; i < points.length; i += 43) points[i][1] -= 45; line(ctx, points, sync ? "#34d399" : "#fb7185", 2); } };
     },
 
     "acmc-pll"(v) {
-      const enabled = String(v.pll) === "on";
-      const drift = Number(v.drift || 0);
-      const error = enabled ? clamp(Math.abs(drift) * 0.08, 0, 6) : Math.abs(drift);
-      return {
-        status: enabled ? "PLL 會把相位誤差拉回來，輸出參考能跟著市電走。" : "PLL 關閉時，外部相位漂移會直接變成控制誤差。",
-        metrics: [
-          { label: "相位誤差", value: fmt(error, 1) + " deg", kind: error < 8 ? "good" : error < 30 ? "warn" : "bad", note: "越低越穩" },
-          { label: "PLL", value: enabled ? "LOCK" : "OFF", kind: enabled ? "good" : "warn", note: "併網通常需要" },
-          { label: "外部漂移", value: fmt(drift, 0) + " deg", kind: Math.abs(drift) > 90 ? "warn" : "good", note: "測試追相能力" }
-        ],
-        draw(ctx, w, h) {
-          const phase = drift * Math.PI / 180;
-          line(ctx, sinePoints(w, h, 70, phase, 0, 2), "#a78bfa", 2);
-          line(ctx, sinePoints(w, h, 70, enabled ? phase * 0.08 : 0, 0, 2), "#22d3ee", 2);
-        }
-      };
+      const enabled = String(v.pll) === "on", drift = Number(v.drift || 0), residual = enabled ? Math.abs(drift) * .08 : Math.abs(drift);
+      return { modelType: "Heuristic 閉迴路示意", status: enabled ? "PLL 以簡化比例顯示殘餘相位誤差。" : "PLL 關閉時，相位漂移直接保留。", metrics: [{ label: "殘餘相位誤差", value: fmt(residual, 1) + "°", kind: residual < 8 ? "good" : residual < 30 ? "warn" : "bad", note: "非 SOGI/PI 動態模型" }, { label: "PLL", value: enabled ? "LOCK 示意" : "OFF", kind: enabled ? "good" : "warn", note: "需以實際鎖相時間驗證" }, { label: "外部漂移", value: fmt(drift, 0) + "°", kind: "good", note: "輸入條件" }], draw(ctx, w, h) { line(ctx, sinePoints(w, h, 70, radians(drift), 0, 2), "#a78bfa", 2); line(ctx, sinePoints(w, h, 70, radians(enabled ? drift * .08 : 0), 0, 2), "#22d3ee", 2); } };
     },
 
     "acmc-trip"(v) {
-      const load = Number(v.load || 1200);
-      const ocp = Number(v.ocp || 8.5);
-      const offset = Number(v.offset || 0);
-      const peak = load / 220 * 1.42;
-      const trip = peak > ocp || Math.abs(offset) > 1.5;
-      const reason = peak > ocp ? "OCP" : Math.abs(offset) > 1.5 ? "DC SAT" : "READY";
-      return {
-        status: trip ? "保護應該鎖死，先排除真故障，再允許 reset。" : "負載與偏壓仍在保護門檻內。",
-        metrics: [
-          { label: "峰值電流", value: fmt(peak, 1) + " A", kind: peak > ocp ? "bad" : "good", note: "與 OCP 比較" },
-          { label: "保護原因", value: reason, kind: trip ? "bad" : "good", note: "鎖死原因要明確" },
-          { label: "DC 偏壓", value: fmt(offset, 1) + " V", kind: Math.abs(offset) > 1.5 ? "bad" : "good", note: "過大可能磁飽和" }
-        ],
-        draw(ctx, w, h) {
-          line(ctx, sinePoints(w, h, 72, 0, trip ? 22 : 5, 2), trip ? "#fb7185" : "#34d399", 2);
-          if (trip) {
-            ctx.fillStyle = "rgba(127, 29, 29, 0.82)";
-            ctx.fillRect(36, 84, w - 72, 148);
-            ctx.strokeStyle = "#fb7185";
-            ctx.strokeRect(36, 84, w - 72, 148);
-            ctx.fillStyle = "#fff";
-            ctx.font = "900 30px Consolas";
-            ctx.textAlign = "center";
-            ctx.fillText("TRIP LOCK", w / 2, 145);
-            ctx.font = "700 14px system-ui";
-            ctx.fillText("Reason: " + reason, w / 2, 178);
-            ctx.textAlign = "left";
-          }
-        }
-      };
+      const load = Number(v.load || 1200), ocp = Number(v.ocp || 8.5), offset = Number(v.offset || 0);
+      const peak = load / 220 * Math.SQRT2, trip = peak > ocp || Math.abs(offset) > 1.5, reason = peak > ocp ? "OCP" : Math.abs(offset) > 1.5 ? "DC SAT" : "READY";
+      return { modelType: "估算＋門檻邏輯", status: "峰值電流假設 220 Vrms、PF=1、純電阻負載；真正 OCP 需使用回授比例與瞬時波形。", metrics: [{ label: "估計峰值電流", value: fmt(peak, 1) + " A", kind: peak > ocp ? "bad" : "good", note: "P/220×√2" }, { label: "保護原因", value: reason, kind: trip ? "bad" : "good", note: "門檻示意" }, { label: "DC 偏壓", value: fmt(offset, 1) + " V", kind: Math.abs(offset) > 1.5 ? "bad" : "good", note: "需換算到真實磁通" }], draw(ctx, w, h) { line(ctx, sinePoints(w, h, 72, 0, trip ? 20 : 4, 2), trip ? "#fb7185" : "#34d399", 2); if (trip) { ctx.fillStyle = "rgba(127,29,29,.82)"; ctx.fillRect(40, 90, w - 80, 130); ctx.fillStyle = "#fff"; ctx.font = "900 30px Consolas"; ctx.textAlign = "center"; ctx.fillText("TRIP " + reason, w / 2, 160); ctx.textAlign = "left"; } } };
     },
 
     "acmc-lab"(v) {
-      const fsw = Number(v.fsw || 100);
-      const load = Number(v.load || 1200);
-      const sync = String(v.mode) === "sync";
-      const ocp = Number(v.ocp || 8.5);
-      const ripple = 38 * (100 / fsw) * Math.sqrt(load / 1200);
-      const zvs = load >= 300;
-      const peak = load / 220 * 1.42;
-      const pass = ripple < 45 && zvs && sync && peak < ocp;
-      return {
-        status: pass ? "這組參數同時通過漣波、ZVS、同步採樣與 OCP 裕度。" : "至少一個條件不合格，請逐項調整。",
-        metrics: [
-          { label: "整體判定", value: pass ? "PASS" : "CHECK", kind: pass ? "good" : "warn", note: "四項條件一起看" },
-          { label: "漣波", value: fmt(ripple, 1) + " %", kind: ripple < 45 ? "good" : "bad", note: "目標 < 45%" },
-          { label: "OCP 裕度", value: fmt(ocp - peak, 1) + " A", kind: ocp > peak ? "good" : "bad", note: "必須大於 0" }
-        ],
-        draw(ctx, w, h) {
-          drawBoxes(ctx, w, h, [
-            ripple < 45 ? "Ripple OK" : "Ripple 高",
-            zvs ? "ZVS OK" : "ZVS 失效",
-            sync ? "Sync OK" : "採樣噪聲",
-            ocp > peak ? "OCP OK" : "OCP Trip"
-          ], pass ? 3 : 0);
-        }
-      };
+      const fsw = Number(v.fsw || 100), load = Number(v.load || 1200), sync = String(v.mode) === "sync", ocp = Number(v.ocp || 8.5);
+      const rippleIndex = 32 * (100 / fsw) * Math.sqrt(load / 1200), zvs = load >= 300, peak = load / 220 * Math.SQRT2, pass = rippleIndex < 45 && zvs && sync && peak < ocp;
+      return { modelType: "Heuristic 綜合練習", status: "PASS 只代表四個教材條件同時成立，不是設計驗證。", metrics: [{ label: "教材判定", value: pass ? "PASS" : "CHECK", kind: pass ? "good" : "warn", note: "不可取代實測" }, { label: "漣波指標", value: fmt(rippleIndex, 1), kind: rippleIndex < 45 ? "good" : "bad", note: "相對指標" }, { label: "OCP 估計裕度", value: fmt(ocp - peak, 1) + " A", kind: ocp > peak ? "good" : "bad", note: "基於 220V/PF=1" }], draw(ctx, w, h) { drawBoxes(ctx, w, h, [rippleIndex < 45 ? "Ripple OK" : "Ripple 高", zvs ? "ZVS 指標 OK" : "輕載", sync ? "Sync OK" : "採樣風險", ocp > peak ? "OCP OK" : "OCP Trip"], pass ? 3 : 0); } };
     },
 
-    "dds-map"(v) {
-      const active = Number(v.stage || 1);
-      return {
-        status: "量測鏈要從類比訊號一路追到暫存器與顯示值，任何一段錯都會讓結果失真。",
-        metrics: [
-          { label: "ADC 範圍", value: "0-4095", kind: "good", note: "對應 0-3.3V" },
-          { label: "Offset", value: "1.65 V", kind: "good", note: "讓 AC 有正負空間" },
-          { label: "重點段落", value: ["Signal", "ADC", "Offset", "RMS/PF"][active], kind: "good", note: "一次追一段" }
-        ],
-        draw(ctx, w, h) {
-          drawBoxes(ctx, w, h, ["DDS 產生 AC", "ADC 取樣", "Offset 校正", "RMS/PF 計算"], active);
-        }
-      };
-    },
+    "dds-map"(v) { const active = Number(v.stage || 1); return { modelType: "量測鏈方塊圖", status: "由訊號、ADC、Offset 到 RMS/PF 逐段追蹤。", metrics: [{ label: "ADC code", value: "0–4095", kind: "good", note: "12-bit 範例" }, { label: "Offset", value: "1.65 V", kind: "good", note: "範例中點" }, { label: "重點", value: ["Signal", "ADC", "Offset", "RMS/PF"][active] || "Signal", kind: "good", note: "非即時模型" }], draw(ctx, w, h) { drawBoxes(ctx, w, h, ["DDS", "ADC", "Offset", "RMS PF"], active); } }; },
 
     "dds-offset"(v) {
-      const offset = Number(v.offset || 1.65);
-      const mode = String(v.mode || "dynamic");
-      const err = Math.abs(offset - 1.65);
-      const vrms = mode === "dynamic" ? 84.85 * (1 + err * 0.02) : 84.85 * (1 + err * 0.35);
-      const kind = Math.abs(vrms - 84.85) < 2 ? "good" : Math.abs(vrms - 84.85) < 8 ? "warn" : "bad";
-      return {
-        status: mode === "dynamic" ? "動態 LPF 會估測偏壓，漂移造成的 RMS 誤差明顯下降。" : "固定扣 2048 假設 offset 永遠是 1.65V，漂移時會直接造成誤差。",
-        metrics: [
-          { label: "估測 Vrms", value: fmt(vrms, 2) + " V", kind, note: "理想約 84.85V" },
-          { label: "Offset 漂移", value: fmt(err, 2) + " V", kind: err < 0.12 ? "good" : "warn", note: "偏離 1.65V" },
-          { label: "校正模式", value: mode === "dynamic" ? "LPF" : "2048", kind: mode === "dynamic" ? "good" : "warn", note: "動態估測較實用" }
-        ],
-        draw(ctx, w, h) {
-          const raw = sinePoints(w, h, 58, 0, 0, 2).map(p => [p[0], p[1] - (offset - 1.65) * 70]);
-          line(ctx, raw, "#34d399", 2);
-          line(ctx, sinePoints(w, h, 58, 0, 0, 2), mode === "dynamic" ? "#22d3ee" : "#f59e0b", 2);
-        }
-      };
+      const offset = Number(v.offset || 1.65), dynamic = String(v.mode || "dynamic") === "dynamic", residualV = dynamic ? (offset - 1.65) * .05 : offset - 1.65;
+      const signalVrms = 84.8528, measured = Math.sqrt(signalVrms * signalVrms + Math.pow(residualV * 50, 2));
+      return { modelType: "簡化殘餘 DC 模型", status: dynamic ? "動態估測大幅降低殘餘 DC。" : "固定扣值會把 offset 漂移留在 RMS 計算中。", metrics: [{ label: "估計 Vrms", value: fmt(measured, 2) + " V", kind: Math.abs(measured - signalVrms) < 2 ? "good" : "warn", note: "sqrt(Vac²+Vdc²) 示意" }, { label: "殘餘 offset", value: fmt(residualV, 3) + " V", kind: Math.abs(residualV) < .05 ? "good" : "warn", note: "ADC 端" }, { label: "校正", value: dynamic ? "LPF 動態" : "固定 2048", kind: dynamic ? "good" : "warn", note: "LPF 頻寬仍需設計" }], draw(ctx, w, h) { const shift = residualV * 80; line(ctx, sinePoints(w, h, 58, 0, 0, 2).map(p => [p[0], p[1] - shift]), dynamic ? "#22d3ee" : "#f59e0b", 2); } };
     },
 
     "dds-wave"(v) {
-      const vpeak = Number(v.vpeak || 120);
-      const offset = Number(v.offset || 1.65);
-      const scaled = vpeak / 155 * 1.25;
-      const min = offset - scaled;
-      const max = offset + scaled;
-      const ok = min >= 0 && max <= 3.3;
-      return {
-        status: ok ? "ADC 腳位仍在 0-3.3V 內。" : "訊號超出 ADC 範圍，會削波或量測錯誤。",
-        metrics: [
-          { label: "ADC 最低", value: fmt(min, 2) + " V", kind: min >= 0 ? "good" : "bad", note: "不可低於 0V" },
-          { label: "ADC 最高", value: fmt(max, 2) + " V", kind: max <= 3.3 ? "good" : "bad", note: "不可高於 3.3V" },
-          { label: "峰值", value: fmt(vpeak, 0) + " V", kind: ok ? "good" : "warn", note: "已縮放到 ADC 端" }
-        ],
-        draw(ctx, w, h) {
-          const center = h - (offset / 3.3) * h;
-          const amp = scaled / 3.3 * h;
-          line(ctx, sinePoints(w, h, amp, 0, 0, 2).map(p => [p[0], p[1] + center - h / 2]), ok ? "#34d399" : "#fb7185", 2);
-          ctx.strokeStyle = "#f59e0b";
-          ctx.setLineDash([6, 6]);
-          ctx.beginPath();
-          ctx.moveTo(0, center);
-          ctx.lineTo(w, center);
-          ctx.stroke();
-          ctx.setLineDash([]);
-        }
-      };
+      const vpeak = Number(v.vpeak || 120), offset = Number(v.offset || 1.65), scaleVPerV = 1.25 / 155, scaled = vpeak * scaleVPerV, min = offset - scaled, max = offset + scaled, ok = min >= 0 && max <= 3.3;
+      return { modelType: "線性縮放公式", status: ok ? "ADC 腳位仍在 0–3.3V。" : "訊號超出 ADC 範圍，會削波。", metrics: [{ label: "ADC 最低", value: fmt(min, 2) + " V", kind: min >= 0 ? "good" : "bad", note: "不可低於 0V" }, { label: "ADC 最高", value: fmt(max, 2) + " V", kind: max <= 3.3 ? "good" : "bad", note: "不可高於 3.3V" }, { label: "縮放增益", value: fmt(scaleVPerV, 6) + " V/V", kind: "good", note: "教材固定比例" }], draw(ctx, w, h) { const center = h - offset / 3.3 * h, amp = scaled / 3.3 * h; line(ctx, sinePoints(w, h, amp, 0, 0, 2).map(p => [p[0], p[1] + center - h / 2]), ok ? "#34d399" : "#fb7185", 2); } };
     },
 
     "dds-rms"(v) {
-      const vpeak = Number(v.vpeak || 120);
-      const samples = Number(v.samples || 333);
-      const ideal = vpeak / Math.sqrt(2);
-      const sampleErr = samples < 120 ? 5.5 : samples < 220 ? 2.2 : 0.6;
-      const measured = ideal * (1 + sampleErr / 100);
-      return {
-        status: samples >= 220 ? "單週期取樣點數足夠，RMS 誤差小。" : "取樣點數偏少，週期統計比較容易受相位與雜訊影響。",
-        metrics: [
-          { label: "理想 Vrms", value: fmt(ideal, 2) + " V", kind: "good", note: "Vpeak / sqrt(2)" },
-          { label: "估測 Vrms", value: fmt(measured, 2) + " V", kind: sampleErr < 2 ? "good" : "warn", note: "含取樣誤差" },
-          { label: "單週期點數", value: fmt(samples, 0), kind: samples >= 220 ? "good" : "warn", note: "越多越穩" }
-        ],
-        draw(ctx, w, h) {
-          line(ctx, sinePoints(w, h, 82, 0, 0, 2), "#22d3ee", 2);
-          const count = clamp(Math.floor(samples / 12), 8, 70);
-          ctx.fillStyle = "#f59e0b";
-          for (let i = 0; i < count; i++) {
-            const x = i / (count - 1) * w;
-            const y = h / 2 - Math.sin((x / w) * Math.PI * 4) * 82;
-            ctx.beginPath();
-            ctx.arc(x, y, 3, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-      };
+      const vpeak = Number(v.vpeak || 120), samples = Math.max(4, Math.round(Number(v.samples || 333))), data = sampledSine(vpeak, 0, samples), measured = rms(data), ideal = vpeak / Math.SQRT2, errorPct = (measured - ideal) / ideal * 100;
+      return { modelType: "離散 RMS 公式", status: "對完整一週期的 coherent sampling，點數本身不會固定造成正偏差；實務誤差主要來自窗長、非整週期、noise、量化與 offset。", metrics: [{ label: "理想 Vrms", value: fmt(ideal, 4) + " V", kind: "good", note: "Vpeak/√2" }, { label: "離散計算", value: fmt(measured, 4) + " V", kind: "good", note: "sqrt(mean(x²))" }, { label: "數值誤差", value: fmt(errorPct, 6) + " %", kind: Math.abs(errorPct) < .01 ? "good" : "warn", note: "完整一週期" }], draw(ctx, w, h) { line(ctx, sinePoints(w, h, 82, 0, 0, 2), "#22d3ee", 2); const count = clamp(Math.floor(samples / 10), 8, 70); ctx.fillStyle = "#f59e0b"; for (let i = 0; i < count; i++) { const x = i / (count - 1) * w, y = h / 2 - Math.sin(x / w * Math.PI * 4) * 82; ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill(); } } };
     },
 
     "dds-pf"(v) {
-      const phase = Number(v.phase || 30);
-      const vrms = Number(v.vrms || 120);
-      const irms = Number(v.irms || 10);
-      const pf = Math.cos(phase * Math.PI / 180);
-      const p = vrms * irms * pf;
-      return {
-        status: Math.abs(phase) < 10 ? "電壓電流接近同相，實功接近視在功率。" : "相位差變大時，同樣 V/I 下真正做功比例下降。",
-        metrics: [
-          { label: "實功 P", value: fmt(p, 0) + " W", kind: pf > 0.85 ? "good" : "warn", note: "V x I x cos(phi)" },
-          { label: "PF", value: fmt(pf, 3), kind: pf > 0.9 ? "good" : pf > 0.75 ? "warn" : "bad", note: "功率因數" },
-          { label: "視在功率", value: fmt(vrms * irms, 0) + " VA", kind: "good", note: "V x I" }
-        ],
-        draw(ctx, w, h) {
-          line(ctx, sinePoints(w, h, 75, 0, 0, 2), "#34d399", 2);
-          line(ctx, sinePoints(w, h, 75, phase * Math.PI / 180, 0, 2), "#60a5fa", 2);
-        }
-      };
+      const phase = Number(v.phase || 30), vrmsSet = Number(v.vrms || 120), irmsSet = Number(v.irms || 10), count = 720;
+      const voltage = sampledSine(vrmsSet * Math.SQRT2, 0, count), current = sampledSine(irmsSet * Math.SQRT2, radians(phase), count), p = powerMetrics(voltage, current), dpf = Math.cos(radians(phase));
+      return { modelType: "取樣功率公式", status: "純正弦條件下 Total PF 與 DPF 相同；失真電流時必須用 P/(Vrms×Irms)，不能只用 cosφ。", metrics: [{ label: "實功 P", value: fmt(p.watts, 1) + " W", kind: Math.abs(p.pf) > .85 ? "good" : "warn", note: "mean(v[n]×i[n])" }, { label: "Total PF", value: fmt(p.pf, 4), kind: Math.abs(p.pf) > .9 ? "good" : "warn", note: "P/(Vrms×Irms)" }, { label: "DPF", value: fmt(dpf, 4), kind: "good", note: "cosφ；只看基波相位" }], draw(ctx, w, h) { line(ctx, sinePoints(w, h, 75, 0, 0, 2), "#34d399", 2); line(ctx, sinePoints(w, h, 75, radians(phase), 0, 2), "#60a5fa", 2); } };
     },
 
     "dds-zcd"(v) {
-      const freq = Number(v.freq || 60);
-      const noise = Number(v.noise || 1.5);
-      const jitter = noise * 0.18;
-      return {
-        status: noise < 3 ? "過零點清楚，頻率回算穩定。" : "雜訊接近零點時，ZCD 可能提早或延後觸發。",
-        metrics: [
-          { label: "頻率估測", value: fmt(freq + jitter, 2) + " Hz", kind: noise < 3 ? "good" : "warn", note: "受 jitter 影響" },
-          { label: "Jitter", value: fmt(jitter, 2) + " Hz", kind: noise < 3 ? "good" : "warn", note: "雜訊越大越糟" },
-          { label: "Noise", value: fmt(noise, 1) + " %", kind: noise < 3 ? "good" : noise < 7 ? "warn" : "bad", note: "接近零點最敏感" }
-        ],
-        draw(ctx, w, h) {
-          const pts = sinePoints(w, h, 80, 0, noise * 1.5, 2);
-          line(ctx, pts, noise < 3 ? "#34d399" : "#f59e0b", 2);
-          ctx.strokeStyle = "#fb7185";
-          ctx.lineWidth = 2;
-          for (let x = w / 4; x < w; x += w / 4) {
-            ctx.beginPath();
-            ctx.moveTo(x, h / 2 - 35);
-            ctx.lineTo(x, h / 2 + 35);
-            ctx.stroke();
-          }
-        }
-      };
+      const freq = Number(v.freq || 60), noisePct = Number(v.noise || 1.5), normalizedNoise = noisePct / 100, jitterS = normalizedNoise / (2 * Math.PI * freq), jitterUs = jitterS * 1e6, periodS = 1 / freq, worstFrequency = 1 / Math.max(1e-9, periodS + 2 * jitterS);
+      return { modelType: "零交越斜率近似", status: "jitter 以時間表示；頻率誤差由兩次 crossing 的時間誤差推導。", metrics: [{ label: "時間 jitter", value: fmt(jitterUs, 1) + " µs", kind: jitterUs < 100 ? "good" : "warn", note: "Vnoise/(2πfVpk) 近似" }, { label: "名目週期", value: fmt(periodS * 1000, 3) + " ms", kind: "good", note: "1/f" }, { label: "最差單週期估頻", value: fmt(worstFrequency, 3) + " Hz", kind: jitterUs < 100 ? "good" : "warn", note: "未平均" }], draw(ctx, w, h) { line(ctx, sinePoints(w, h, 80, 0, noisePct * 1.5, 2), noisePct < 3 ? "#34d399" : "#f59e0b", 2); ctx.strokeStyle = "#fb7185"; for (let x = w / 4; x < w; x += w / 4) { ctx.beginPath(); ctx.moveTo(x, h / 2 - 35); ctx.lineTo(x, h / 2 + 35); ctx.stroke(); } } };
     },
 
     "dds-jitter"(v) {
-      const noise = Number(v.noise || 4);
-      const hyst = Number(v.hyst || 20);
-      const count = Math.max(0, Math.round(noise * 2.8 - hyst / 8));
-      return {
-        status: count === 0 ? "Hysteresis 足以擋掉零點附近抖動。" : "過零偵測仍在抖，頻率與週期統計要小心。",
-        metrics: [
-          { label: "jitterCount", value: String(count), kind: count === 0 ? "good" : count < 10 ? "warn" : "bad", note: "越低越好" },
-          { label: "Hysteresis", value: fmt(hyst, 0) + " count", kind: hyst >= 20 ? "good" : "warn", note: "太小擋不住噪聲" },
-          { label: "Noise", value: fmt(noise, 1) + " %", kind: noise < 3 ? "good" : noise < 7 ? "warn" : "bad", note: "測試邊界" }
-        ],
-        draw(ctx, w, h) {
-          line(ctx, sinePoints(w, h, 76, 0, noise * 2, 2), count === 0 ? "#34d399" : "#fb7185", 2);
-          ctx.strokeStyle = "rgba(245,158,11,0.9)";
-          ctx.setLineDash([4, 4]);
-          ctx.beginPath();
-          ctx.moveTo(0, h / 2 - hyst * 0.8);
-          ctx.lineTo(w, h / 2 - hyst * 0.8);
-          ctx.moveTo(0, h / 2 + hyst * 0.8);
-          ctx.lineTo(w, h / 2 + hyst * 0.8);
-          ctx.stroke();
-          ctx.setLineDash([]);
-        }
-      };
+      const noise = Number(v.noise || 4), hyst = Number(v.hyst || 20), eventIndex = Math.max(0, Math.round(noise * 2.8 - hyst / 8));
+      return { modelType: "Heuristic 事件指標", status: "此值只比較 noise 與 hysteresis 趨勢，不代表真實中斷次數。", metrics: [{ label: "重複觸發指標", value: String(eventIndex), kind: eventIndex === 0 ? "good" : eventIndex < 10 ? "warn" : "bad", note: "需用實機 capture 驗證" }, { label: "Hysteresis", value: fmt(hyst, 0) + " count", kind: hyst >= 20 ? "good" : "warn", note: "過大也會產生相位延遲" }, { label: "Noise", value: fmt(noise, 1) + " %", kind: noise < 3 ? "good" : "warn", note: "教材輸入" }], draw(ctx, w, h) { line(ctx, sinePoints(w, h, 76, 0, noise * 2, 2), eventIndex === 0 ? "#34d399" : "#fb7185", 2); ctx.strokeStyle = "#f59e0b"; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(0, h / 2 - hyst * .8); ctx.lineTo(w, h / 2 - hyst * .8); ctx.moveTo(0, h / 2 + hyst * .8); ctx.lineTo(w, h / 2 + hyst * .8); ctx.stroke(); ctx.setLineDash([]); } };
     },
 
     "dds-cal-lab"(v) {
-      const offset = Number(v.offset || 1.65);
-      const noise = Number(v.noise || 1.5);
-      const mode = String(v.mode || "dynamic");
-      const offsetOk = mode === "dynamic" || Math.abs(offset - 1.65) < 0.08;
-      const noiseOk = noise < 4;
-      const pass = offsetOk && noiseOk;
-      return {
-        status: pass ? "這組量測條件可交付：offset 與 noise 都在可控範圍。" : "量測條件仍不穩，請先處理 offset 或 noise。",
-        metrics: [
-          { label: "整體判定", value: pass ? "PASS" : "CHECK", kind: pass ? "good" : "warn", note: "校正與雜訊一起看" },
-          { label: "Offset 條件", value: offsetOk ? "OK" : "NG", kind: offsetOk ? "good" : "bad", note: "固定模式怕漂移" },
-          { label: "Noise 條件", value: noiseOk ? "OK" : "NG", kind: noiseOk ? "good" : "bad", note: "目標 < 4%" }
-        ],
-        draw(ctx, w, h) {
-          drawBoxes(ctx, w, h, [
-            offsetOk ? "Offset OK" : "Offset 漂移",
-            noiseOk ? "Noise OK" : "Noise 高",
-            mode === "dynamic" ? "LPF 校正" : "固定扣 2048",
-            pass ? "可交付" : "需調整"
-          ], pass ? 3 : 0);
-        }
-      };
+      const offset = Number(v.offset || 1.65), noise = Number(v.noise || 1.5), dynamic = String(v.mode || "dynamic") === "dynamic", offsetOk = dynamic || Math.abs(offset - 1.65) < .08, noiseOk = noise < 4, pass = offsetOk && noiseOk;
+      return { modelType: "教學驗收規則", status: "PASS 代表教材門檻成立，不代表儀器準確度或校正可追溯性。", metrics: [{ label: "教材判定", value: pass ? "PASS" : "CHECK", kind: pass ? "good" : "warn", note: "需另做 uncertainty budget" }, { label: "Offset", value: offsetOk ? "OK" : "NG", kind: offsetOk ? "good" : "bad", note: dynamic ? "動態估測" : "固定扣值" }, { label: "Noise", value: noiseOk ? "OK" : "NG", kind: noiseOk ? "good" : "bad", note: "教材門檻 <4%" }], draw(ctx, w, h) { drawBoxes(ctx, w, h, [offsetOk ? "Offset OK" : "Offset 漂移", noiseOk ? "Noise OK" : "Noise 高", dynamic ? "LPF" : "固定值", pass ? "教材 PASS" : "需調整"], pass ? 3 : 0); } };
     }
   };
 
-  render();
+  renderShell();
+  update();
   window.addEventListener("resize", update);
 })();
