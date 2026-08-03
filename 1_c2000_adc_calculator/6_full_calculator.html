@@ -2,48 +2,39 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>第6課 · 實戰計算器</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 6 課 · 實戰計算器</title>
 <link rel="stylesheet" href="assets/style.css">
 <style>
-  .frame{ width:100%; border:1px solid var(--line); border-radius:12px; background:#fff;
-    height:1600px; }
-  @media (max-width:900px){ .frame{ height:2400px; } }
+.frame{width:100%;min-height:900px;border:1px solid var(--line);border-radius:12px;background:#fff}.frame-note{margin:12px 0;color:#64748b;font-size:13px}.open-link{display:inline-flex;padding:8px 12px;border:1px solid var(--line);border-radius:8px;text-decoration:none;font-weight:700}
 </style>
 <link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
 </head>
 <body data-lesson="6">
-<div class="wrap" style="max-width:1360px;">
-  <div id="topnav"></div>
-
-  <div class="hero">
-    <div class="badge">6</div>
-    <div>
-      <h1>🧮 實戰計算器（綜合驗證工具）</h1>
-      <p class="sub">前 5 課的概念全部整合在這一頁。現在每個欄位你都看得懂了——這才是工程師日常用的版本。</p>
-    </div>
-  </div>
-
-  <div class="block recap">
-    <h2>🎓 你已經學會的</h2>
-    <ul>
-      <li>第1課 ADC：count、LSB、飽和 → 對應下方「MCU ADC 規格」。</li>
-      <li>第2~3課 電流鏈：Shunt、Gain、Offset → 對應「電流路徑」與左側電流參數。</li>
-      <li>第4課 電壓鏈：分壓、發熱 → 對應「母線電壓路徑」。</li>
-      <li>第5課 韌體：K 係數、量測範圍、C code → 對應「韌體參數」。</li>
-    </ul>
-    <p style="margin:10px 0 0;font-size:13px;color:#065f46;">
-      想單獨開這個工具：直接開
-      <a href="c2000_adc_calculator.html" target="_blank">c2000_adc_calculator.html</a>。</p>
-  </div>
-
-  <iframe class="frame" src="c2000_adc_calculator.html" title="C2000 ADC 完整計算器"></iframe>
-
-  <div id="botnav"></div>
-  <footer>第 6 課 · 實戰計算器 · 內嵌原始單頁工具</footer>
+<div class="wrap" style="max-width:1360px">
+<div id="topnav"></div>
+<div class="hero"><div class="badge">6</div><div><h1>🧮 實戰計算器</h1><p class="sub">整合 ADC、電流鏈、分壓、量化、功耗與韌體 scaling；計算核心與單元測試共用。</p></div></div>
+<div class="block recap"><h2>使用前確認</h2><ul><li>ADC LSB 使用 Vref / 2<sup>N</sup>。</li><li>分壓功耗由實際分壓電流計算。</li><li>畫面會分開顯示飽和、電壓餘裕與每顆串聯電阻的工作電壓。</li></ul><a class="open-link" href="c2000_adc_calculator.html" target="_blank" rel="noopener">另開完整計算器</a></div>
+<p class="frame-note">同源頁面載入後會自動依內容調整高度；若瀏覽器限制 iframe，請使用上方另開連結。</p>
+<iframe id="calculatorFrame" class="frame" src="c2000_adc_calculator.html" title="C2000 ADC 完整計算器"></iframe>
+<div id="botnav"></div><footer>第 6 課 · 實戰計算器</footer>
 </div>
-
 <script src="assets/lessons.js"></script>
+<script>
+(function(){
+  const frame=document.getElementById("calculatorFrame");
+  function resize(){
+    try{
+      const doc=frame.contentDocument;
+      if(!doc)return;
+      const height=Math.max(doc.documentElement.scrollHeight,doc.body?doc.body.scrollHeight:0);
+      if(height)frame.style.height=(height+24)+"px";
+      if(window.ResizeObserver&&doc.body){new ResizeObserver(resize).observe(doc.body);}
+    }catch(error){frame.style.height="1200px";}
+  }
+  frame.addEventListener("load",resize);
+})();
+</script>
 <script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
 <script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
 <script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
