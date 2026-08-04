@@ -11,7 +11,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -21,8 +21,17 @@ jobs:
         with:
           node-version: 20
 
+      - name: Install test dependencies
+        run: npm install --no-audit --no-fund
+
       - name: Validate links, curriculum and JavaScript
         run: node tools/validate-project.mjs
 
-      - name: Run engineering model tests
-        run: node --test tests/*.test.mjs
+      - name: Run engineering and learning tests
+        run: npm test
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser smoke tests
+        run: npm run test:e2e
