@@ -29,11 +29,15 @@ function walk(dir) {
   return output;
 }
 
+function htmlMarkupOnly(text) {
+  return text.replace(/<script\b([^>]*)>[\s\S]*?<\/script>/gi, (match, attributes) => `<script${attributes}></script>`);
+}
+
 function localTarget(file, reference) {
   const trimmed = reference.trim();
   if (!trimmed || /^(#|javascript:|mailto:|tel:|data:|blob:|https?:|\/\/)/i.test(trimmed)) return null;
   const withoutSuffix = trimmed.split(/[?#]/, 1)[0];
-  if (!withoutSuffix) return null;
+  if (!withoutSuffix || withoutSuffix.includes("${")) return null;
   let decoded = withoutSuffix;
   try { decoded = decodeURIComponent(withoutSuffix); } catch (error) {}
   if (decoded.startsWith("/Circuit-Simulation/")) decoded = decoded.slice("/Circuit-Simulation/".length);
@@ -43,9 +47,14 @@ function localTarget(file, reference) {
 
 function checkReferences(file, text) {
   const refs = [];
-  for (const match of text.matchAll(/(?:href|src)\s*=\s*["']([^"']+)["']/gi)) refs.push(match[1]);
-  if (file.endsWith(".css") || file.endsWith(".html")) {
+  if (file.endsWith(".html")) {
+    const markup = htmlMarkupOnly(text);
+    for (const match of markup.matchAll(/(?:href|src)\s*=\s*["']([^"']+)["']/gi)) refs.push(match[1]);
+    for (const match of markup.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/gi)) refs.push(match[1]);
+  } else if (file.endsWith(".css")) {
     for (const match of text.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/gi)) refs.push(match[1]);
+  } else {
+    return;
   }
   for (const ref of refs) {
     const target = localTarget(file, ref);
@@ -56,7 +65,8 @@ function checkReferences(file, text) {
 function checkDuplicateIds(file, text) {
   if (!file.endsWith(".html")) return;
   const seen = new Set();
-  for (const match of text.matchAll(/\bid\s*=\s*["']([^"']+)["']/gi)) {
+  const markup = htmlMarkupOnly(text);
+  for (const match of markup.matchAll(/\bid\s*=\s*["']([^"']+)["']/gi)) {
     const id = match[1];
     if (seen.has(id)) failures.push(`${relative(file)} -> duplicate id ${id}`);
     seen.add(id);
