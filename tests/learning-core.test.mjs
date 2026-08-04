@@ -45,6 +45,13 @@ test("lesson IDs remain stable when curriculum order changes", () => {
   assert.equal(firstIds.a, "buck.lesson.a");
 });
 
+test("nested lesson paths remain inside their module directory", () => {
+  const raw = sampleCurriculum();
+  raw.modules[0].lessons = [["course/01_intro.html", "Intro", "goal", "action", "result"]];
+  const curriculum = schema.normalizeCurriculum(raw);
+  assert.equal(curriculum.moduleById.buck.lessons[0].href, "buck/course/01_intro.html");
+});
+
 test("legacy index completion migrates to stable IDs", () => {
   const migrated = schema.migrateLegacyDone(sampleCurriculum(), {
     "buck:lesson:1": true,
