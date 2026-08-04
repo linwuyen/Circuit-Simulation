@@ -27,6 +27,13 @@
     return value.replace(/[^/]+$/, "");
   }
 
+  function resolveLessonHref(base, href) {
+    const value = text(href);
+    if (!value || /^(?:https?:|data:|#|\/)/i.test(value)) return value;
+    if (base && value.startsWith(base)) return value;
+    return base + value;
+  }
+
   function normalizeLesson(moduleId, base, raw, index) {
     const source = Array.isArray(raw) ? {
       href: raw[0],
@@ -40,7 +47,7 @@
     return {
       id: moduleId + ".lesson." + localId,
       localId,
-      href: href && !href.includes("/") ? base + href : href,
+      href: resolveLessonHref(base, href),
       title: text(source.title, "未命名課程"),
       objective: text(source.objective || source.goal),
       action: text(source.action),
