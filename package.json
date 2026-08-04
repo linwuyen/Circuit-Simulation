@@ -1,0 +1,11 @@
+{
+  "name": "circuit-simulation-learning-pack",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.54.2"
+  }
+}
