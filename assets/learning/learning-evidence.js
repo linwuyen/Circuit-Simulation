@@ -50,6 +50,7 @@
       events: [],
       benchmark: {},
       migrations: {},
+      identityAliases: {},
       updatedAt: now()
     };
   }
@@ -62,6 +63,7 @@
     state.events = Array.isArray(state.events) ? state.events : [];
     state.benchmark = state.benchmark && typeof state.benchmark === "object" ? state.benchmark : {};
     state.migrations = state.migrations && typeof state.migrations === "object" ? state.migrations : {};
+    state.identityAliases = state.identityAliases && typeof state.identityAliases === "object" ? state.identityAliases : {};
     return state;
   }
 
@@ -110,6 +112,56 @@
   function pushEvent(state, event) {
     state.events.push({ at: now(), ...event });
     if (state.events.length > MAX_EVENTS) state.events.splice(0, state.events.length - MAX_EVENTS);
+  }
+
+  function strongest(values) {
+    return values.filter(Boolean).sort((a, b) => {
+      const levelDelta = Number(b.level || 0) - Number(a.level || 0);
+      if (levelDelta) return levelDelta;
+      return Date.parse(b.at || 0) - Date.parse(a.at || 0);
+    })[0] || null;
+  }
+
+  function reconcileAliases(items) {
+    const list = Array.isArray(items) ? items : [];
+    if (!list.length) return load();
+    const state = load();
+    let changed = false;
+
+    list.forEach(item => {
+      if (!item || !item.id) return;
+      const aliases = Array.from(new Set([item.id, ...(Array.isArray(item.legacyIds) ? item.legacyIds : [])].filter(Boolean)));
+      const existing = strongest(aliases.map(id => state.evidence[id]));
+      const report = aliases.map(id => state.reports[id]).find(Boolean) || null;
+      aliases.forEach(alias => {
+        if (state.identityAliases[alias] !== item.id) {
+          state.identityAliases[alias] = item.id;
+          changed = true;
+        }
+        if (existing && state.evidence[alias] !== existing) {
+          state.evidence[alias] = clone({ ...existing, canonicalId: item.id });
+          changed = true;
+        }
+        if (report && !state.reports[alias]) {
+          state.reports[alias] = clone(report);
+          changed = true;
+        }
+      });
+      if (existing && !state.evidence[item.id]) {
+        state.evidence[item.id] = clone({ ...existing, canonicalId: item.id });
+        changed = true;
+      }
+      if (report && !state.reports[item.id]) {
+        state.reports[item.id] = clone(report);
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      pushEvent(state, { type: "identity-reconcile", aliases: Object.keys(state.identityAliases).length });
+      save(state);
+    }
+    return state;
   }
 
   function evidenceLevel(state, itemId) {
@@ -216,6 +268,7 @@
     Object.assign(state.questions, payload.questions || {});
     Object.assign(state.reports, payload.reports || {});
     Object.assign(state.benchmark, payload.benchmark || {});
+    Object.assign(state.identityAliases, payload.identityAliases || {});
     pushEvent(state, { type: "import", fromVersion: payload.version || "unknown" });
     return save(state);
   }
@@ -235,6 +288,7 @@
     normalizeState,
     load,
     save,
+    reconcileAliases,
     evidenceLevel,
     recordEvidence,
     recordStep,
