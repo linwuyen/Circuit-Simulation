@@ -5,10 +5,10 @@ const require = createRequire(import.meta.url);
 const Assessment = require('../assets/learning/learning-assessment.js');
 
 const base = [{
-  id: 'concept-x', moduleId: 'buck', competency: 'buck.current-ripple.relationship', prompt: 'A',
+  id: 'buck-ripple-inductance-transfer', moduleId: 'buck', competency: 'buck.current-ripple.relationship', prompt: 'Vin、Vout 與 fsw 不變，L 加倍後 ΔI？',
   options: [
-    { id: 'ok', text: 'ok', correct: true, feedback: 'yes' },
-    { id: 'bad', text: 'bad', correct: false, feedback: 'no', misconception: 'wrong model' }
+    { id: 'ok', text: '約減半', correct: true, feedback: 'yes' },
+    { id: 'bad', text: '約加倍', correct: false, feedback: 'no', misconception: 'wrong model' }
   ]
 }];
 const expanded = () => Assessment.expandQuestions(base);
@@ -60,7 +60,7 @@ test('retention schedule advances 1d then 7d', () => {
   assert.ok(Date.parse(m.nextReviewAt) >= t0 + Assessment.DAY_MS + 7 * Assessment.DAY_MS);
 });
 
-test('paired benchmark uses the same competency denominator', () => {
+test('paired benchmark uses the same competency denominator and reports uncertainty', () => {
   const questions = expanded(), state = { questions: {} }, a = questions[0], b = questions[1];
   Assessment.recordAttempt(state, a, a.options.find(x => !x.correct), { at: '2026-08-01T00:00:00Z', confidence: 0.9 });
   Assessment.recordAttempt(state, b, b.options.find(x => x.correct), { at: '2026-08-01T00:01:00Z', confidence: 0.7 });
@@ -70,8 +70,21 @@ test('paired benchmark uses the same competency denominator', () => {
   assert.equal(summary.transferAccuracy, 100);
   assert.equal(summary.deltaPoints, 100);
   assert.equal(summary.calibration.n, 2);
+  assert.equal(summary.evidenceGrade, 'VERY LOW');
+  assert.ok(summary.baselineInterval.low <= summary.baselineInterval.high);
 });
 
 test('competency prerequisites remain explicit', () => {
   assert.deepEqual(Assessment.prerequisitesFor('buck.ccm-dcm.boundary'), ['buck.current-ripple.relationship']);
+});
+
+test('transfer variants are genuinely parameterized and change representation', () => {
+  const questions = expanded();
+  const [a,b,c,d] = questions;
+  assert.equal(a.transferDepth, 0);
+  assert.notEqual(b.seed, c.seed);
+  assert.notEqual(b.prompt, c.prompt);
+  assert.notEqual(c.representation, b.representation);
+  assert.equal(d.assessmentRole, 'retention');
+  assert.ok(!c.prompt.startsWith('另一個未見情境：'));
 });

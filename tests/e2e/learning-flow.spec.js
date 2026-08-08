@@ -41,7 +41,7 @@ test('worksheet requires a committed prediction and persists revisions', async (
   await page.fill('#parameters', 'Vin=24 V, Vout=12 V, L=100 µH, fsw=100 kHz');
   await page.click('#commitPrediction');
   await expect(page.locator('#predictionStatus')).toContainText('preregistered');
-  await page.fill('#observation', '漣波由一點二安培下降到零點六安培且仍維持三角波。');
+  await page.fill('#observation', '漣波由1.2 A下降到0.6 A且仍維持三角波。');
   await page.fill('#explanation', '電感電流斜率由電感兩端電壓除以電感值決定所以L加倍時漣波約減半。');
   await page.fill('#limitations', '此判斷忽略電感直流電阻開關壓降與量測頻寬限制。');
   await page.fill('#transfer', '若開關頻率加倍而其他條件固定則預期漣波也約減半並需重新實測。');
