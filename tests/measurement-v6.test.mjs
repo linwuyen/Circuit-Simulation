@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const Assessment = require('../assets/learning/learning-assessment.js');
+const Bindings = require('../assets/learning/competency-bindings.js');
 const Oracles = require('../assets/learning/lab-oracles.js');
 const Registry = require('../assets/learning/model-registry.js');
 const Challenges = require('../assets/learning/engineering-challenges.js');
+Bindings.install(Assessment);
 
 test('independent oracle rejects a deliberately corrupted production model', () => {
   const badRegistry = {
@@ -64,14 +66,25 @@ test('Bayesian diagnostic information gain comes from entropy reduction', () => 
   assert.ok(efficient.efficiency > wasteful.efficiency);
 });
 
-test('coverage distinguishes taught, measured and independently verified competencies', () => {
+test('coverage binds legacy curriculum competencies to the canonical assessed competency', () => {
   const base = [{ id:'buck-ripple-inductance-transfer', moduleId:'buck', competency:'buck.current-ripple.relationship', prompt:'x', options:[{id:'ok',text:'ok',correct:true},{id:'bad',text:'bad'}] }];
   const questions = Assessment.expandQuestions(base);
-  const curriculum = { modules:[{ id:'buck', title:'Buck', lessons:[{id:'l1',competency:'buck.current-ripple.relationship'},{id:'l2',competency:'buck.other'}], labs:[{id:'buck.lab.buck-ripple',competency:'buck.current-ripple.relationship'}] }] };
+  const curriculum = { modules:[{
+    id:'buck', title:'Buck',
+    lessons:[{id:'buck.lesson.current-ripple',competency:'buck.電流漣波'},{id:'l2',competency:'buck.other'}],
+    labs:[{id:'buck.lab.buck-ripple',competency:'buck.lab.設計一組-20-電流漣波'}]
+  }] };
   const coverage = Assessment.coverageSummary(curriculum, questions);
   const ripple = coverage.rows.find(row => row.competency === 'buck.current-ripple.relationship');
+  const legacyLesson = coverage.rows.find(row => row.competency === 'buck.電流漣波');
+  const legacyLab = coverage.rows.find(row => row.competency === 'buck.lab.設計一組-20-電流漣波');
   const other = coverage.rows.find(row => row.competency === 'buck.other');
+  assert.equal(ripple.lesson, true);
+  assert.equal(ripple.lab, true);
+  assert.equal(ripple.oracle, true);
   assert.equal(ripple.status, 'verified');
+  assert.equal(legacyLesson, undefined);
+  assert.equal(legacyLab, undefined);
   assert.equal(other.status, 'taught');
   assert.equal(coverage.verified, 1);
 });
