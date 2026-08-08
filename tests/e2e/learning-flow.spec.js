@@ -24,28 +24,32 @@ test('lab link keeps the full lab id and selects the exact worksheet', async ({ 
 
 test('simulator interaction becomes machine evidence in the matching worksheet', async ({ page }) => {
   await page.goto('/0_buck_converter_/2_current_ripple.html');
+  await expect(page.locator('.clt-root')).toBeAttached();
   await page.locator('#ind').evaluate(el => {
     el.value = '4.4';
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
   });
-  await page.waitForTimeout(350);
+  await page.waitForTimeout(400);
   await page.goto('/report.html?labId=buck.lab.buck-ripple');
-  await expect(page.locator('#reportBrief')).toContainText(/Machine evidence：\s*[1-9]/);
+  await expect(page.locator('#machineEvidence')).toContainText(/Machine: [1-9]/);
 });
 
-test('worksheet requires meaningful engineering evidence and persists', async ({ page }) => {
+test('worksheet requires a committed prediction and persists revisions', async ({ page }) => {
   await page.goto('/report.html');
-  await page.fill('#prediction', '增加 L，電流漣波會下降，因為 di/dt 變小。');
+  await page.fill('#prediction', '增加L會讓電流漣波下降因為電感電流斜率變小。');
   await page.fill('#parameters', 'Vin=24 V, Vout=12 V, L=100 µH, fsw=100 kHz');
-  await page.fill('#observation', '漣波由 1.2 A 降到 0.6 A，波形仍為三角波。');
-  await page.fill('#explanation', '電感電流斜率由 vL/L 決定，因此 L 加倍時斜率與漣波約減半。');
-  await page.fill('#limitations', '忽略電感 DCR、開關壓降與量測頻寬。');
-  await page.fill('#transfer', '將 fsw 加倍後漣波也約減半，方向一致。');
+  await page.click('#commitPrediction');
+  await expect(page.locator('#predictionStatus')).toContainText('preregistered');
+  await page.fill('#observation', '漣波由一點二安培下降到零點六安培且仍維持三角波。');
+  await page.fill('#explanation', '電感電流斜率由電感兩端電壓除以電感值決定所以L加倍時漣波約減半。');
+  await page.fill('#limitations', '此判斷忽略電感直流電阻開關壓降與量測頻寬限制。');
+  await page.fill('#transfer', '若開關頻率加倍而其他條件固定則預期漣波也約減半並需重新實測。');
   await page.click('#completeReport');
   await expect(page.locator('#reportMessage')).toContainText('完成');
   await page.reload();
-  await expect(page.locator('#prediction')).toHaveValue(/增加 L/);
+  await expect(page.locator('#prediction')).toHaveValue(/增加L/);
+  await expect(page.locator('#predictionStatus')).toContainText('preregistered');
 });
 
 test('quiz exposes misconception feedback and progress survives reload', async ({ page }) => {
