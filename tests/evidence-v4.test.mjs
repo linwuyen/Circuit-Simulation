@@ -34,3 +34,15 @@ test('report and evidence are persisted in the same v4 state', () => {
   assert.equal(state.reports['adc.lab.divider'].prediction.includes('下降'), true);
   assert.equal(state.evidence['adc.lab.divider'].level, 3);
 });
+
+test('legacy aliases preserve evidence when a derived title identity changes', () => {
+  Evidence._resetForTests();
+  Evidence.recordEvidence('buck.lesson.current-ripple', 2, 'practice');
+  Evidence.reconcileAliases([{ id: 'buck.lesson.current-ripple', legacyIds: ['buck.lesson.2-current-ripple'] }]);
+  assert.equal(Evidence.load().evidence['buck.lesson.2-current-ripple'].level, 2);
+
+  Evidence.reconcileAliases([{ id: 'buck.lesson.inductor-ripple-design', legacyIds: ['buck.lesson.2-current-ripple'] }]);
+  const state = Evidence.load();
+  assert.equal(state.evidence['buck.lesson.inductor-ripple-design'].level, 2);
+  assert.equal(state.identityAliases['buck.lesson.2-current-ripple'], 'buck.lesson.inductor-ripple-design');
+});
