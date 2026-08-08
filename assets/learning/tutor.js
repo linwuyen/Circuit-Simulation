@@ -3,166 +3,104 @@
 
   const STORE_MODE = "circuit-tutor-mode-v1";
   const rootPrefix = global.CIRCUIT_ROOT_PREFIX || "";
-  const modules = (global.CircuitCurriculum && global.CircuitCurriculum.modules) || [];
-  const glossary = (global.CircuitCurriculum && global.CircuitCurriculum.glossary) || [];
 
-  function esc(value) {
-    return String(value == null ? "" : value)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-
-  function slug(value) {
-    return String(value == null ? "" : value)
-      .normalize("NFKC")
-      .toLowerCase()
-      .replace(/\.[a-z0-9]+$/i, "")
-      .replace(/[^\p{L}\p{N}]+/gu, "-")
-      .replace(/^-+|-+$/g, "") || "item";
-  }
+  const esc = value => String(value == null ? "" : value)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
   function currentPath() {
-    let p = decodeURIComponent(location.pathname).replace(/\\/g, "/");
-    p = p.replace(/^\/[A-Za-z]:\//, "");
-    return p.replace(/^\/+/, "");
+    let path = decodeURIComponent(location.pathname).replace(/\\/g, "/");
+    path = path.replace(/^\/[A-Za-z]:\//, "");
+    return path.replace(/^\/+/, "");
   }
 
   function endsWithRef(ref) {
     return currentPath().toLowerCase().endsWith(String(ref || "").replace(/\\/g, "/").toLowerCase());
   }
 
-  function baseOf(entry) {
-    return entry.replace(/[^/]+$/, "");
+  function rel(path) { return rootPrefix + path; }
+
+  function loadScript(src, globalName) {
+    return new Promise(resolve => {
+      if (globalName && global[globalName]) return resolve(global[globalName]);
+      const absolute = rel(src);
+      const existing = [...document.scripts].find(script => String(script.src || "").endsWith(src));
+      if (existing) {
+        if (globalName && global[globalName]) return resolve(global[globalName]);
+        existing.addEventListener("load", () => resolve(globalName ? global[globalName] : true), { once: true });
+        existing.addEventListener("error", () => resolve(null), { once: true });
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = absolute;
+      script.dataset.circuitTutorDependency = "1";
+      script.onload = () => resolve(globalName ? global[globalName] : true);
+      script.onerror = () => resolve(null);
+      document.head.appendChild(script);
+    });
   }
 
-  function stableItemId(ctx) {
-    if (ctx.kind === "lesson") return ctx.module.id + ".lesson." + slug(ctx.item[1]);
-    if (ctx.kind === "lab") return ctx.module.id + ".lab." + slug(ctx.item[0] || ctx.item[1]);
-    if (ctx.kind === "fault") return ctx.module.id + ".fault." + slug(ctx.item[0]);
-    return ctx.module.id;
+  async function dependencies() {
+    if (!global.CircuitCurriculum) await loadScript("assets/learning/curriculum.js", "CircuitCurriculum");
+    await loadScript("assets/learning/curriculum-schema-v3.js", "CircuitSchema");
+    await loadScript("assets/learning/engineering-models.js", "CircuitModels");
+    await loadScript("assets/learning/model-registry.js", "CircuitModelRegistry");
+    await loadScript("assets/learning/lab-oracles.js", "CircuitLabOracles");
+    await loadScript("assets/learning/learning-evidence.js", "CircuitEvidence");
+    return {
+      Schema: global.CircuitSchema,
+      raw: global.CircuitCurriculum,
+      Evidence: global.CircuitEvidence,
+      Registry: global.CircuitModelRegistry,
+      Oracles: global.CircuitLabOracles
+    };
   }
 
-  function fullLabId(module, lab) {
-    return module.id + ".lab." + slug(lab[0] || lab[1]);
-  }
-
-  function findContext() {
-    for (const module of modules) {
-      const base = baseOf(module.entry);
-      if (endsWithRef(module.entry)) return { module, kind: "module", ref: module.entry };
-      for (let i = 0; i < module.lessons.length; i++) {
-        const lesson = module.lessons[i];
-        const ref = base + lesson[0];
-        if (endsWithRef(ref)) return { module, kind: "lesson", item: lesson, index: i, ref };
-      }
-      for (const lab of module.labs) {
-        if (endsWithRef(lab[2])) return { module, kind: "lab", item: lab, ref: lab[2] };
-      }
-      for (const fault of module.faults) {
-        if (endsWithRef(fault[4])) return { module, kind: "fault", item: fault, ref: fault[4] };
-      }
+  function findContext(curriculum) {
+    for (const module of curriculum.modules) {
+      if (endsWithRef(module.entry)) return { module, kind: "module", item: module, ref: module.entry };
+      for (const lesson of module.lessons) if (endsWithRef(lesson.href)) return { module, kind: "lesson", item: lesson, ref: lesson.href };
+      for (const lab of module.labs) if (endsWithRef(lab.href)) return { module, kind: "lab", item: lab, ref: lab.href };
+      for (const fault of module.faults) if (endsWithRef(fault.href)) return { module, kind: "fault", item: fault, ref: fault.href };
     }
-    for (const module of modules) {
+    for (const module of curriculum.modules) {
       const folder = module.entry.split("/")[0] + "/";
-      if (currentPath().toLowerCase().includes(folder.toLowerCase())) return { module, kind: "module", ref: module.entry };
+      if (currentPath().toLowerCase().includes(folder.toLowerCase())) return { module, kind: "module", item: module, ref: module.entry };
     }
     return null;
-  }
-
-  function rel(path) {
-    return rootPrefix + path;
-  }
-
-  function ensureEvidence(done) {
-    if (global.CircuitEvidence) return done(global.CircuitEvidence);
-    const existing = document.querySelector('script[data-circuit-evidence]');
-    if (existing) {
-      existing.addEventListener("load", () => done(global.CircuitEvidence));
-      existing.addEventListener("error", () => done(null));
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = rel("assets/learning/learning-evidence.js");
-    script.dataset.circuitEvidence = "1";
-    script.onload = () => done(global.CircuitEvidence);
-    script.onerror = () => done(null);
-    document.head.appendChild(script);
   }
 
   function setMode(mode, root) {
     try { localStorage.setItem(STORE_MODE, mode); } catch (_) {}
     root.dataset.mode = mode;
     document.documentElement.classList.toggle("cl-mode-beginner", mode === "beginner");
-    root.querySelectorAll("[data-clt-mode]").forEach(button => {
-      button.classList.toggle("is-active", button.dataset.cltMode === mode);
-    });
+    root.querySelectorAll("[data-clt-mode]").forEach(button => button.classList.toggle("is-active", button.dataset.cltMode === mode));
   }
 
   function contextTitle(ctx) {
-    if (ctx.kind === "lesson") return ctx.item[1];
-    if (ctx.kind === "lab") return ctx.item[1];
-    if (ctx.kind === "fault") return ctx.item[0];
-    return ctx.module.title;
+    if (ctx.kind === "fault") return ctx.item.symptom;
+    return ctx.item.title || ctx.module.title;
   }
 
-  function labsForRef(module, ref) {
-    return (module.labs || []).filter(lab => lab[2] === ref);
-  }
-
-  function nearestLab(module, ref) {
-    const exact = labsForRef(module, ref)[0];
-    return exact || module.labs[0] || null;
-  }
+  function labsForRef(module, ref) { return (module.labs || []).filter(lab => lab.href === ref); }
+  function nearestLab(module, ref) { return labsForRef(module, ref)[0] || module.labs[0] || null; }
 
   function contextMain(ctx) {
-    if (ctx.kind === "lesson") {
-      return {
-        tag: "這頁任務",
-        goal: ctx.item[2],
-        action: ctx.item[3],
-        result: ctx.item[4],
-        reportLab: nearestLab(ctx.module, ctx.ref)
-      };
-    }
-    if (ctx.kind === "lab") {
-      return {
-        tag: "實驗任務",
-        goal: ctx.item[3],
-        action: "依頁面控制項調整參數，直到達成成功條件。",
-        result: ctx.item[4],
-        reportLab: ctx.item
-      };
-    }
-    if (ctx.kind === "fault") {
-      return {
-        tag: "故障判讀",
-        goal: "先辨識症狀，再查原因與修法。",
-        action: ctx.item[2],
-        result: ctx.item[3],
-        reportLab: nearestLab(ctx.module, ctx.ref)
-      };
-    }
+    if (ctx.kind === "lesson") return { tag: "這頁任務", goal: ctx.item.objective, action: ctx.item.action, result: ctx.item.expectedObservation, reportLab: nearestLab(ctx.module, ctx.ref) };
+    if (ctx.kind === "lab") return { tag: "實驗任務", goal: ctx.item.task, action: "依頁面控制項調整參數，直到達成成功條件。", result: ctx.item.success, reportLab: ctx.item };
+    if (ctx.kind === "fault") return { tag: "故障判讀", goal: "先辨識症狀，再建立可否證原因。", action: ctx.item.verify, result: ctx.item.fix, reportLab: nearestLab(ctx.module, ctx.ref) };
     const first = ctx.module.lessons[0];
-    return {
-      tag: "主題總覽",
-      goal: ctx.module.oneLine,
-      action: first ? first[3] : "先選一個最小模擬頁操作。",
-      result: first ? first[4] : ctx.module.whyUseful,
-      reportLab: ctx.module.labs[0] || null
-    };
+    return { tag: "主題總覽", goal: ctx.module.oneLine, action: first ? first.action : "先選一個最小模擬頁操作。", result: first ? first.expectedObservation : ctx.module.whyUseful, reportLab: ctx.module.labs[0] || null };
   }
 
   function relatedFaults(module) {
-    return module.faults.slice(0, 3).map(f => '<li><a href="' + rel(f[4]) + '">' + esc(f[0]) + '</a><span>' + esc(f[1]) + '</span></li>').join("");
+    return module.faults.slice(0, 3).map(fault => '<li><a href="' + rel(fault.href) + '">' + esc(fault.symptom) + '</a><span>' + esc(fault.cause) + '</span></li>').join("");
   }
 
-  function glossaryHits(module) {
+  function glossaryHits(curriculum, module) {
+    const glossary = curriculum.glossary || [];
     const haystack = [module.title, module.oneLine, module.whyUseful].join(" ").toLowerCase();
-    const hits = glossary.filter(g => haystack.includes(String(g[0]).toLowerCase())).slice(0, 5);
-    const fallback = glossary.slice(0, 5);
-    return (hits.length ? hits : fallback).map(g => '<li><b>' + esc(g[0]) + '</b><span>' + esc(g[1]) + '</span></li>').join("");
+    const hits = glossary.filter(term => haystack.includes(String(term[0]).toLowerCase())).slice(0, 5);
+    return (hits.length ? hits : glossary.slice(0, 5)).map(term => '<li><b>' + esc(term[0]) + '</b><span>' + esc(term[1]) + '</span></li>').join("");
   }
 
   function snapshotPage() {
@@ -180,118 +118,79 @@
       const text = String(node.textContent || "").replace(/\s+/g, " ").trim();
       if (text && !metrics.includes(text)) metrics.push(text.slice(0, 240));
     });
-    return {
-      path: currentPath(),
-      controls,
-      metrics: metrics.slice(0, 20)
-    };
+    return { path: currentPath(), controls, metrics: metrics.slice(0, 20) };
   }
 
-  function bindMachineEvidence(ctx, Evidence) {
+  function bindMachineEvidence(ctx, Evidence, Registry, Oracles) {
     if (!Evidence) return;
-    const itemId = stableItemId(ctx);
-    const labIds = labsForRef(ctx.module, ctx.ref).map(lab => fullLabId(ctx.module, lab));
+    const itemId = ctx.item.id || ctx.module.id;
+    const labs = labsForRef(ctx.module, ctx.ref);
     let timer = null;
     const capture = () => {
       clearTimeout(timer);
       timer = setTimeout(() => {
         const snapshot = snapshotPage();
-        Evidence.recordMachine(itemId, "simulator", snapshot);
-        labIds.forEach(id => Evidence.recordMachine(id, "simulator", snapshot));
-      }, 180);
+        Evidence.recordMachine(itemId, "simulator", snapshot, null);
+        labs.forEach(lab => {
+          const verification = Oracles && Registry ? Oracles.verify(lab.id, snapshot, Registry) : null;
+          Evidence.recordMachine(lab.id, "simulator", snapshot, verification && verification.supported ? verification : null);
+        });
+      }, 160);
     };
-    document.addEventListener("input", event => {
-      if (!event.target.closest || event.target.closest(".clt-root")) return;
-      capture();
-    }, true);
-    document.addEventListener("change", event => {
-      if (!event.target.closest || event.target.closest(".clt-root")) return;
-      capture();
-    }, true);
+    document.addEventListener("input", event => { if (!event.target.closest || !event.target.closest(".clt-root")) capture(); }, true);
+    document.addEventListener("change", event => { if (!event.target.closest || !event.target.closest(".clt-root")) capture(); }, true);
   }
 
-  function render(ctx, Evidence) {
+  function addCSS() {
+    if (document.getElementById("clt-list-css")) return;
+    const style = document.createElement("style");
+    style.id = "clt-list-css";
+    style.textContent = ".clt-mini-list{display:grid;gap:8px;margin:0;padding:0;list-style:none}.clt-mini-list li{display:grid;gap:2px;padding-top:7px;border-top:1px solid #edf1f6}.clt-mini-list li:first-child{border-top:0;padding-top:0}.clt-mini-list a{color:#2f63d8;font-weight:900;text-decoration:none}.clt-mini-list span,.clt-muted{color:#667085;font-size:12px;line-height:1.45}.clt-proof{padding:8px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0}.clt-proof b{display:block}";
+    document.head.appendChild(style);
+  }
+
+  function render(ctx, curriculum, Evidence, Registry, Oracles) {
     const main = contextMain(ctx);
-    let mode = "beginner";
-    try { mode = localStorage.getItem(STORE_MODE) || "beginner"; } catch (_) {}
-    const itemId = stableItemId(ctx);
+    const itemId = ctx.item.id || ctx.module.id;
     const evidence = Evidence ? Evidence.getEvidence(itemId) : {};
     const checks = evidence.steps || {};
-    const reportLabId = main.reportLab ? fullLabId(ctx.module, main.reportLab) : "";
-    const steps = [
-      ["read", "讀完「一句話先懂」與本頁目標。"],
-      ["operate", main.action],
-      ["interpret", "用判讀結果寫一句工程結論。"]
-    ];
-    const checkHtml = steps.map(step => '<label class="clt-check"><input type="checkbox" data-clt-check="' + esc(step[0]) + '"' + (checks[step[0]] ? " checked" : "") + '><span>' + esc(step[1]) + '</span></label>').join("");
-
+    const reportLab = main.reportLab;
+    const reportLabId = reportLab ? reportLab.id : "";
+    let mode = "beginner";
+    try { mode = localStorage.getItem(STORE_MODE) || "beginner"; } catch (_) {}
+    const steps = [["read","讀完一句話先懂與本頁目標。"],["operate",main.action],["interpret","用判讀結果寫一句工程結論。"]];
     const root = document.createElement("div");
     root.className = "clt-root";
     root.dataset.mode = mode;
-    root.innerHTML = '<button class="clt-button" type="button" aria-expanded="false">教學助手</button>'
-      + '<aside class="clt-panel" aria-label="教學助手">'
-      + '<div class="clt-head"><div><span class="clt-tag">' + esc(ctx.module.tag) + '</span><h2>' + esc(contextTitle(ctx)) + '</h2></div><button class="clt-close" type="button" aria-label="關閉">×</button></div>'
-      + '<div class="clt-body">'
-      + '<div class="clt-toggle"><button type="button" data-clt-mode="beginner">新手模式</button><button type="button" data-clt-mode="engineering">工程模式</button></div>'
-      + '<section class="clt-section"><h3>一句話先懂</h3><p>' + esc(ctx.module.oneLine) + '</p></section>'
-      + '<section class="clt-section"><h3>' + esc(main.tag) + '</h3><p><b>目標：</b>' + esc(main.goal) + '</p><p><b>操作：</b>' + esc(main.action) + '</p><p><b>判讀：</b>' + esc(main.result) + '</p></section>'
-      + '<section class="clt-section"><h3>本頁驗收</h3><div class="clt-checks">' + checkHtml + '</div><p class="clt-muted">Evidence ID: ' + esc(itemId) + '</p><p class="clt-muted">Simulator snapshots: ' + Number(evidence.machineCount || 0) + '</p></section>'
-      + '<section class="clt-section clt-engineering"><h3>相關故障</h3><ul class="clt-mini-list">' + relatedFaults(ctx.module) + '</ul></section>'
-      + '<section class="clt-section clt-engineering"><h3>相關詞彙</h3><ul class="clt-mini-list">' + glossaryHits(ctx.module) + '</ul></section>'
-      + '<div class="clt-grid">'
-      + '<a class="clt-link primary" href="' + rel(ctx.module.entry) + '">主題入口</a>'
-      + '<a class="clt-link" href="' + rel("labs.html") + '">實驗任務</a>'
-      + '<a class="clt-link" href="' + rel("troubleshooting.html") + '">故障速查</a>'
-      + '<a class="clt-link" href="' + rel("glossary.html") + '">詞彙表</a>'
-      + '<a class="clt-link" href="' + rel("search.html") + '">搜尋</a>'
-      + '<a class="clt-link" href="' + rel("report.html" + (reportLabId ? "?labId=" + encodeURIComponent(reportLabId) : "")) + '">寫工作單</a>'
-      + '</div></div></aside>';
+    root.innerHTML = '<button class="clt-button" type="button" aria-expanded="false">教學助手</button><aside class="clt-panel" aria-label="教學助手"><div class="clt-head"><div><span class="clt-tag">' + esc(ctx.module.tag) + '</span><h2>' + esc(contextTitle(ctx)) + '</h2></div><button class="clt-close" type="button" aria-label="關閉">×</button></div><div class="clt-body"><div class="clt-toggle"><button type="button" data-clt-mode="beginner">新手模式</button><button type="button" data-clt-mode="engineering">工程模式</button></div><section class="clt-section"><h3>一句話先懂</h3><p>' + esc(ctx.module.oneLine) + '</p></section><section class="clt-section"><h3>' + esc(main.tag) + '</h3><p><b>目標：</b>' + esc(main.goal) + '</p><p><b>操作：</b>' + esc(main.action) + '</p><p><b>判讀：</b>' + esc(main.result) + '</p></section><section class="clt-section"><h3>本頁驗收</h3><div class="clt-checks">' + steps.map(step => '<label class="clt-check"><input type="checkbox" data-clt-check="' + step[0] + '"' + (checks[step[0]] ? " checked" : "") + '><span>' + esc(step[1]) + '</span></label>').join("") + '</div><div class="clt-proof"><b>Canonical Evidence ID</b><code>' + esc(itemId) + '</code><span class="clt-muted">Simulator snapshots: ' + Number(evidence.machineCount || 0) + '</span></div></section><section class="clt-section clt-engineering"><h3>相關故障</h3><ul class="clt-mini-list">' + relatedFaults(ctx.module) + '</ul></section><section class="clt-section clt-engineering"><h3>相關詞彙</h3><ul class="clt-mini-list">' + glossaryHits(curriculum, ctx.module) + '</ul></section><div class="clt-grid"><a class="clt-link primary" href="' + rel(ctx.module.entry) + '">主題入口</a><a class="clt-link" href="' + rel("labs.html") + '">實驗任務</a><a class="clt-link" href="' + rel("troubleshooting.html") + '">故障速查</a><a class="clt-link" href="' + rel("glossary.html") + '">詞彙表</a><a class="clt-link" href="' + rel("search.html") + '">搜尋</a><a class="clt-link" href="' + rel("report.html" + (reportLabId ? "?labId=" + encodeURIComponent(reportLabId) : "")) + '">寫工作單</a></div></div></aside>';
     document.body.appendChild(root);
     setMode(mode, root);
 
     if (Evidence) {
       Evidence.recordEvidence(itemId, 1, "tutor-view", { path: currentPath() });
-      labsForRef(ctx.module, ctx.ref).forEach(lab => Evidence.recordEvidence(fullLabId(ctx.module, lab), 1, "lab-view", { path: currentPath() }));
+      labsForRef(ctx.module, ctx.ref).forEach(lab => Evidence.recordEvidence(lab.id, 1, "lab-view", { path: currentPath() }));
     }
 
-    const button = root.querySelector(".clt-button");
-    const panel = root.querySelector(".clt-panel");
-    const close = root.querySelector(".clt-close");
-    button.addEventListener("click", () => {
-      panel.classList.toggle("is-open");
-      button.setAttribute("aria-expanded", panel.classList.contains("is-open") ? "true" : "false");
-    });
-    close.addEventListener("click", () => {
-      panel.classList.remove("is-open");
-      button.setAttribute("aria-expanded", "false");
-    });
-    root.querySelectorAll("[data-clt-mode]").forEach(modeButton => {
-      modeButton.addEventListener("click", () => setMode(modeButton.dataset.cltMode, root));
-    });
-    root.querySelectorAll("[data-clt-check]").forEach(box => {
-      box.addEventListener("change", () => {
-        if (Evidence) Evidence.recordStep(itemId, box.dataset.cltCheck, box.checked);
-      });
-    });
-    bindMachineEvidence(ctx, Evidence);
+    const button = root.querySelector(".clt-button"), panel = root.querySelector(".clt-panel");
+    button.addEventListener("click", () => { panel.classList.toggle("is-open"); button.setAttribute("aria-expanded", panel.classList.contains("is-open") ? "true" : "false"); });
+    root.querySelector(".clt-close").addEventListener("click", () => { panel.classList.remove("is-open"); button.setAttribute("aria-expanded", "false"); });
+    root.querySelectorAll("[data-clt-mode]").forEach(modeButton => modeButton.addEventListener("click", () => setMode(modeButton.dataset.cltMode, root)));
+    root.querySelectorAll("[data-clt-check]").forEach(box => box.addEventListener("change", () => { if (Evidence) Evidence.recordStep(itemId, box.dataset.cltCheck, box.checked); }));
+    bindMachineEvidence(ctx, Evidence, Registry, Oracles);
   }
 
-  function addMiniListCSS() {
-    if (document.getElementById("clt-list-css")) return;
-    const style = document.createElement("style");
-    style.id = "clt-list-css";
-    style.textContent = ".clt-mini-list{display:grid;gap:8px;margin:0;padding:0;list-style:none}.clt-mini-list li{display:grid;gap:2px;padding-top:7px;border-top:1px solid #edf1f6}.clt-mini-list li:first-child{border-top:0;padding-top:0}.clt-mini-list a{color:#2f63d8;font-weight:900;text-decoration:none}.clt-mini-list span,.clt-muted{color:#667085;font-size:12px;line-height:1.45}";
-    document.head.appendChild(style);
-  }
-
-  function init() {
-    if (!modules.length || document.querySelector(".clt-root")) return;
-    const ctx = findContext();
+  async function init() {
+    if (document.querySelector(".clt-root")) return;
+    const deps = await dependencies();
+    if (!deps.Schema || !deps.raw) return;
+    const curriculum = deps.Schema.normalizeCurriculum(deps.raw);
+    const ctx = findContext(curriculum);
     if (!ctx) return;
-    addMiniListCSS();
-    ensureEvidence(Evidence => render(ctx, Evidence));
+    addCSS();
+    if (deps.Evidence) deps.Evidence.reconcileAliases(curriculum.modules.flatMap(module => [...module.lessons, ...module.labs, ...module.faults]));
+    render(ctx, curriculum, deps.Evidence, deps.Registry, deps.Oracles);
   }
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
   else init();
 })(window);
