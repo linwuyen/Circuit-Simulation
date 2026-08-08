@@ -6,22 +6,22 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function (root) {
   "use strict";
 
-  const KEY = "circuit-learning-state-v4";
+  const KEY = "circuit-learning-state-v5";
+  const V4_KEY = "circuit-learning-state-v4";
   const V3_KEY = "circuit-learning-state-v3";
   const V2_KEY = "circuit-learning-state-v2";
   const SCHEMA = "circuit-learning-state";
-  const VERSION = 4;
-  const MAX_EVENTS = 600;
-  const MAX_MACHINE_PER_ITEM = 30;
+  const VERSION = 5;
+  const MAX_EVENTS = 800;
+  const MAX_MACHINE_PER_ITEM = 40;
+  const STRENGTH = { none: 0, C: 1, B: 2, A: 3 };
   const memory = new Map();
 
   const now = () => new Date().toISOString();
-  const clone = value => JSON.parse(JSON.stringify(value));
+  const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
 
   function storage() {
-    try {
-      if (root && root.localStorage) return root.localStorage;
-    } catch (_) {}
+    try { if (root && root.localStorage) return root.localStorage; } catch (_) {}
     return {
       getItem(key) { return memory.has(key) ? memory.get(key) : null; },
       setItem(key, value) { memory.set(key, String(value)); },
@@ -35,9 +35,7 @@
       if (!raw) return fallback;
       const value = JSON.parse(raw);
       return value == null ? fallback : value;
-    } catch (_) {
-      return fallback;
-    }
+    } catch (_) { return fallback; }
   }
 
   function emptyState() {
@@ -47,6 +45,9 @@
       evidence: {},
       questions: {},
       reports: {},
+      predictions: {},
+      openResponses: {},
+      diagnosticGames: {},
       events: [],
       benchmark: {},
       migrations: {},
@@ -57,14 +58,21 @@
 
   function normalizeState(value) {
     const state = value && value.schema === SCHEMA && value.version === VERSION ? value : emptyState();
-    state.evidence = state.evidence && typeof state.evidence === "object" ? state.evidence : {};
-    state.questions = state.questions && typeof state.questions === "object" ? state.questions : {};
-    state.reports = state.reports && typeof state.reports === "object" ? state.reports : {};
+    for (const key of ["evidence", "questions", "reports", "predictions", "openResponses", "diagnosticGames", "benchmark", "migrations", "identityAliases"]) {
+      state[key] = state[key] && typeof state[key] === "object" ? state[key] : {};
+    }
     state.events = Array.isArray(state.events) ? state.events : [];
-    state.benchmark = state.benchmark && typeof state.benchmark === "object" ? state.benchmark : {};
-    state.migrations = state.migrations && typeof state.migrations === "object" ? state.migrations : {};
-    state.identityAliases = state.identityAliases && typeof state.identityAliases === "object" ? state.identityAliases : {};
     return state;
+  }
+
+  function copyLegacyState(target, source, label) {
+    if (!source || typeof source !== "object") return;
+    Object.assign(target.evidence, source.evidence || {});
+    Object.assign(target.questions, source.questions || {});
+    Object.assign(target.reports, source.reports || {});
+    Object.assign(target.identityAliases, source.identityAliases || {});
+    Object.assign(target.benchmark, source.benchmark || {});
+    target.migrations[label] = now();
   }
 
   function migrate() {
@@ -72,35 +80,33 @@
     if (current && current.version === VERSION) return normalizeState(current);
 
     const state = emptyState();
+    const v4 = read(V4_KEY, null);
     const v3 = read(V3_KEY, null);
-    if (v3 && v3.schema === SCHEMA) {
-      Object.assign(state.evidence, v3.evidence || {});
-      Object.assign(state.questions, v3.questions || {});
-      Object.assign(state.reports, v3.reports || {});
-      state.migrations.v3 = now();
-    } else {
-      const v2 = read(V2_KEY, null);
-      if (v2 && typeof v2 === "object") {
-        Object.entries(v2.completed || {}).forEach(([id, value]) => {
-          state.evidence[id] = {
-            level: value && value.evidence === "worksheet" ? 3 : 2,
-            source: value && value.evidence || "v2",
-            at: value && value.at || now(),
-            sources: [value && value.evidence || "v2"]
-          };
-        });
-        Object.assign(state.questions, v2.questions || {});
-        Object.assign(state.reports, v2.reports || {});
-        state.migrations.v2 = now();
-      }
+    const v2 = read(V2_KEY, null);
+
+    if (v4 && v4.schema === SCHEMA) copyLegacyState(state, v4, "v4");
+    else if (v3 && v3.schema === SCHEMA) copyLegacyState(state, v3, "v3");
+    else if (v2 && typeof v2 === "object") {
+      Object.entries(v2.completed || {}).forEach(([id, value]) => {
+        const verified = value && value.evidence === "worksheet";
+        state.evidence[id] = {
+          level: verified ? 3 : 2,
+          stage: verified ? "verified" : "practiced",
+          strength: verified ? "C" : "none",
+          source: value && value.evidence || "v2",
+          at: value && value.at || now(),
+          sources: [value && value.evidence || "v2"]
+        };
+      });
+      Object.assign(state.questions, v2.questions || {});
+      Object.assign(state.reports, v2.reports || {});
+      state.migrations.v2 = now();
     }
     save(state);
     return state;
   }
 
-  function load() {
-    return normalizeState(migrate());
-  }
+  function load() { return normalizeState(migrate()); }
 
   function save(state) {
     const normalized = normalizeState(state);
@@ -110,74 +116,31 @@
   }
 
   function pushEvent(state, event) {
-    state.events.push({ at: now(), ...event });
+    state.events.push({ id: "evt:" + Date.now() + ":" + Math.random().toString(36).slice(2, 8), at: now(), ...event });
     if (state.events.length > MAX_EVENTS) state.events.splice(0, state.events.length - MAX_EVENTS);
   }
 
-  function strongest(values) {
-    return values.filter(Boolean).sort((a, b) => {
-      const levelDelta = Number(b.level || 0) - Number(a.level || 0);
-      if (levelDelta) return levelDelta;
-      return Date.parse(b.at || 0) - Date.parse(a.at || 0);
-    })[0] || null;
-  }
+  const stageFromLevel = level => ["not-started", "viewed", "practiced", "verified", "retained"][Math.max(0, Math.min(4, Number(level) || 0))];
+  const evidenceLevel = (state, itemId) => Number(state && state.evidence && state.evidence[itemId] && state.evidence[itemId].level || 0);
+  const strongestStrength = (a, b) => (STRENGTH[a] || 0) >= (STRENGTH[b] || 0) ? (a || "none") : (b || "none");
 
-  function reconcileAliases(items) {
-    const list = Array.isArray(items) ? items : [];
-    if (!list.length) return load();
-    const state = load();
-    let changed = false;
-
-    list.forEach(item => {
-      if (!item || !item.id) return;
-      const aliases = Array.from(new Set([item.id, ...(Array.isArray(item.legacyIds) ? item.legacyIds : [])].filter(Boolean)));
-      const existing = strongest(aliases.map(id => state.evidence[id]));
-      const report = aliases.map(id => state.reports[id]).find(Boolean) || null;
-      aliases.forEach(alias => {
-        if (state.identityAliases[alias] !== item.id) {
-          state.identityAliases[alias] = item.id;
-          changed = true;
-        }
-        if (existing) {
-          const mirrored = { ...existing, canonicalId: item.id };
-          if (JSON.stringify(state.evidence[alias] || null) !== JSON.stringify(mirrored)) {
-            state.evidence[alias] = clone(mirrored);
-            changed = true;
-          }
-        }
-        if (report && !state.reports[alias]) {
-          state.reports[alias] = clone(report);
-          changed = true;
-        }
-      });
-    });
-
-    if (changed) {
-      pushEvent(state, { type: "identity-reconcile", aliases: Object.keys(state.identityAliases).length });
-      save(state);
-    }
-    return state;
-  }
-
-  function evidenceLevel(state, itemId) {
-    return Number(state && state.evidence && state.evidence[itemId] && state.evidence[itemId].level || 0);
-  }
-
-  function recordEvidence(itemId, level, source, data) {
+  function recordEvidence(itemId, level, source, data, meta) {
     if (!itemId) return null;
     const state = load();
     const current = state.evidence[itemId] || {};
-    const sources = Array.isArray(current.sources) ? current.sources.slice() : [];
-    if (source && !sources.includes(source)) sources.push(source);
+    const nextLevel = Math.max(Number(current.level || 0), Number(level || 0));
+    const strength = strongestStrength(current.strength, meta && meta.strength);
     state.evidence[itemId] = {
       ...current,
-      level: Math.max(Number(current.level || 0), Number(level || 0)),
+      level: nextLevel,
+      stage: meta && meta.stage || current.stage || stageFromLevel(nextLevel),
+      strength,
       source: source || current.source || "unknown",
-      sources,
+      sources: Array.from(new Set([...(current.sources || []), source || "unknown"])),
       data: data == null ? current.data : data,
       at: now()
     };
-    pushEvent(state, { type: "evidence", itemId, level: Number(level || 0), source: source || "unknown" });
+    pushEvent(state, { type: "evidence", itemId, level: nextLevel, strength, source: source || "unknown" });
     save(state);
     return clone(state.evidence[itemId]);
   }
@@ -188,10 +151,12 @@
     const current = state.evidence[itemId] || { level: 1 };
     const steps = { ...(current.steps || {}), [step]: !!checked };
     const practiced = !!(steps.operate || steps.interpret);
+    const level = Math.max(Number(current.level || 0), practiced ? 2 : 1);
     state.evidence[itemId] = {
       ...current,
       steps,
-      level: Math.max(Number(current.level || 0), practiced ? 2 : 1),
+      level,
+      stage: stageFromLevel(level),
       source: "tutor",
       sources: Array.from(new Set([...(current.sources || []), "tutor"])),
       at: now()
@@ -207,92 +172,236 @@
     return "{" + Object.keys(value).sort().map(key => JSON.stringify(key) + ":" + stableJson(value[key])).join(",") + "}";
   }
 
-  function recordMachine(itemId, source, snapshot) {
+  function recordMachine(itemId, source, snapshot, verification) {
     if (!itemId || !snapshot) return null;
     const state = load();
     const current = state.evidence[itemId] || {};
     const machine = Array.isArray(current.machine) ? current.machine.slice() : [];
-    const digest = stableJson(snapshot);
+    const record = { snapshot: clone(snapshot), verification: verification ? clone(verification) : null };
+    const digest = stableJson(record);
     const last = machine[machine.length - 1];
+    const capturedAt = now();
+
     if (!last || last.digest !== digest) {
-      machine.push({ at: now(), source: source || "simulator", digest, snapshot });
+      machine.push({ at: capturedAt, source: source || "simulator", digest, ...record });
       if (machine.length > MAX_MACHINE_PER_ITEM) machine.splice(0, machine.length - MAX_MACHINE_PER_ITEM);
     }
+
+    const verified = !!(verification && verification.passed === true);
+    const provenance = verified && verification.model ? clone(verification.model) : current.modelProvenance || null;
+    const strength = strongestStrength(current.strength, verified ? "B" : "none");
     state.evidence[itemId] = {
       ...current,
       level: Math.max(Number(current.level || 0), 2),
+      stage: current.stage || "practiced",
+      strength,
       source: source || "simulator",
       sources: Array.from(new Set([...(current.sources || []), source || "simulator"])),
       machine,
       machineCount: machine.length,
-      at: now()
+      machineVerified: verified || !!current.machineVerified,
+      modelProvenance: provenance,
+      firstMachineAt: current.firstMachineAt || capturedAt,
+      at: capturedAt
     };
-    pushEvent(state, { type: "machine", itemId, source: source || "simulator", machineCount: machine.length });
+    pushEvent(state, { type: verified ? "machine-verified" : "machine", itemId, source: source || "simulator", machineCount: machine.length });
     save(state);
     return clone(state.evidence[itemId]);
   }
 
   function machineEvents(itemId) {
-    const state = load();
-    const item = state.evidence[itemId] || {};
+    const item = load().evidence[itemId] || {};
     return clone(Array.isArray(item.machine) ? item.machine : []);
   }
 
-  function getEvidence(itemId) {
+  function getEvidence(itemId) { return clone(load().evidence[itemId] || {}); }
+
+  function commitPrediction(itemId, prediction) {
+    if (!itemId) throw new Error("prediction requires item id");
     const state = load();
-    return clone(state.evidence[itemId] || {});
+    const record = state.predictions[itemId] || { revisions: [] };
+    const revisions = Array.isArray(record.revisions) ? record.revisions : [];
+    const evidence = state.evidence[itemId] || {};
+    const revision = {
+      id: itemId + ":prediction:" + (revisions.length + 1),
+      revision: revisions.length + 1,
+      committedAt: now(),
+      prediction: String(prediction && prediction.prediction || "").trim(),
+      parameters: String(prediction && prediction.parameters || "").trim(),
+      confidence: Number(prediction && prediction.confidence || 0),
+      preRegistered: !evidence.firstMachineAt
+    };
+    if (!revision.prediction || !revision.parameters) throw new Error("預測與參數不可空白");
+    revisions.push(revision);
+    state.predictions[itemId] = { revisions, active: clone(revision) };
+    pushEvent(state, { type: "prediction-commit", itemId, revision: revision.revision, preRegistered: revision.preRegistered });
+    save(state);
+    return clone(revision);
+  }
+
+  function getPrediction(itemId) {
+    const record = load().predictions[itemId];
+    return record ? clone(record) : { revisions: [], active: null };
+  }
+
+  function predictionStatus(itemId) {
+    const state = load();
+    const record = state.predictions[itemId] || { revisions: [] };
+    const first = Array.isArray(record.revisions) ? record.revisions[0] : null;
+    const firstMachineAt = state.evidence[itemId] && state.evidence[itemId].firstMachineAt || null;
+    return {
+      committed: !!first,
+      first,
+      active: record.active || null,
+      firstMachineAt,
+      preRegistered: !!(first && first.preRegistered === true)
+    };
+  }
+
+  function reportRecord(value) {
+    if (!value) return { revisions: [], active: null, draft: null };
+    if (Array.isArray(value.revisions)) return { ...value, draft: value.draft || null };
+    return { revisions: [{ id: "legacy", at: value.updatedAt || now(), ...value }], active: value, draft: null };
   }
 
   function setReport(itemId, report) {
     const state = load();
-    state.reports[itemId] = { ...(report || {}), updatedAt: now() };
-    pushEvent(state, { type: "report", itemId });
+    const current = reportRecord(state.reports[itemId]);
+    if (report && report.draft) {
+      current.draft = { ...(current.draft || {}), ...report, updatedAt: now() };
+      delete current.draft.draft;
+      state.reports[itemId] = current;
+      save(state);
+      return clone(current.draft);
+    }
+    const revision = { id: itemId + ":report:" + (current.revisions.length + 1), revision: current.revisions.length + 1, at: now(), ...(report || {}) };
+    current.revisions.push(revision);
+    current.active = clone(revision);
+    current.draft = null;
+    state.reports[itemId] = current;
+    pushEvent(state, { type: "report", itemId, revision: revision.revision });
     save(state);
-    return clone(state.reports[itemId]);
+    return clone(revision);
   }
 
   function getReport(itemId) {
+    const record = reportRecord(load().reports[itemId]);
+    return clone(record.draft || record.active || {});
+  }
+
+  function getReportHistory(itemId) { return clone(reportRecord(load().reports[itemId]).revisions); }
+
+  function recordOpenResponse(taskId, result) {
     const state = load();
-    return clone(state.reports[itemId] || {});
+    const history = Array.isArray(state.openResponses[taskId]) ? state.openResponses[taskId] : [];
+    history.push({ id: taskId + ":" + now(), at: now(), ...(result || {}) });
+    state.openResponses[taskId] = history;
+    pushEvent(state, { type: "open-response", taskId, correct: !!(result && result.correct) });
+    save(state);
+    return clone(history[history.length - 1]);
+  }
+
+  function recordDiagnosticGame(gameId, result) {
+    const state = load();
+    const history = Array.isArray(state.diagnosticGames[gameId]) ? state.diagnosticGames[gameId] : [];
+    history.push({ id: gameId + ":" + now(), at: now(), ...(result || {}) });
+    state.diagnosticGames[gameId] = history;
+    pushEvent(state, { type: "diagnostic-game", gameId, solved: !!(result && result.solved) });
+    save(state);
+    return clone(history[history.length - 1]);
+  }
+
+  function strongestEvidence(values) {
+    return values.filter(Boolean).sort((a, b) => {
+      const level = Number(b.level || 0) - Number(a.level || 0);
+      if (level) return level;
+      const strength = (STRENGTH[b.strength] || 0) - (STRENGTH[a.strength] || 0);
+      if (strength) return strength;
+      return Date.parse(b.at || 0) - Date.parse(a.at || 0);
+    })[0] || null;
+  }
+
+  function reconcileAliases(items) {
+    const list = Array.isArray(items) ? items : [];
+    if (!list.length) return load();
+    const state = load();
+    let changed = false;
+    list.forEach(item => {
+      if (!item || !item.id) return;
+      const aliases = Array.from(new Set([item.id, ...(item.legacyIds || [])].filter(Boolean)));
+      const existing = strongestEvidence(aliases.map(id => state.evidence[id]));
+      const report = aliases.map(id => state.reports[id]).find(Boolean) || null;
+      const prediction = aliases.map(id => state.predictions[id]).find(Boolean) || null;
+      aliases.forEach(alias => {
+        if (state.identityAliases[alias] !== item.id) { state.identityAliases[alias] = item.id; changed = true; }
+        if (existing && !state.evidence[alias]) { state.evidence[alias] = { ...clone(existing), canonicalId: item.id }; changed = true; }
+        if (report && !state.reports[alias]) { state.reports[alias] = clone(report); changed = true; }
+        if (prediction && !state.predictions[alias]) { state.predictions[alias] = clone(prediction); changed = true; }
+      });
+    });
+    if (changed) { pushEvent(state, { type: "identity-reconcile" }); save(state); }
+    return state;
+  }
+
+  function unionById(a, b, fallbackKey) {
+    const map = new Map();
+    [...(a || []), ...(b || [])].forEach(item => {
+      const key = item && item.id || (fallbackKey ? fallbackKey(item) : stableJson(item));
+      if (!map.has(key)) map.set(key, clone(item));
+    });
+    return [...map.values()].sort((x, y) => Date.parse(x.at || x.committedAt || 0) - Date.parse(y.at || y.committedAt || 0));
   }
 
   function merge(payload) {
     if (!payload || payload.schema !== SCHEMA) throw new Error("不支援的學習狀態格式");
     const state = load();
-    Object.assign(state.evidence, payload.evidence || {});
-    Object.assign(state.questions, payload.questions || {});
-    Object.assign(state.reports, payload.reports || {});
-    Object.assign(state.benchmark, payload.benchmark || {});
+
+    Object.entries(payload.evidence || {}).forEach(([id, incoming]) => {
+      const current = state.evidence[id];
+      const strongest = strongestEvidence([current, incoming]);
+      const machine = unionById(current && current.machine, incoming && incoming.machine, item => item.digest);
+      state.evidence[id] = { ...clone(strongest || {}), machine, machineCount: machine.length };
+    });
+
+    Object.entries(payload.questions || {}).forEach(([id, incoming]) => {
+      const current = state.questions[id] || {};
+      const history = unionById(current.history, incoming && incoming.history);
+      state.questions[id] = { ...current, ...(incoming || {}), history, attempts: history.length, updatedAt: history.length ? history[history.length - 1].at : current.updatedAt };
+    });
+
+    Object.entries(payload.predictions || {}).forEach(([id, incoming]) => {
+      const current = state.predictions[id] || { revisions: [] };
+      const revisions = unionById(current.revisions, incoming && incoming.revisions);
+      state.predictions[id] = { revisions, active: revisions[revisions.length - 1] || null };
+    });
+
+    Object.entries(payload.reports || {}).forEach(([id, incoming]) => {
+      const current = reportRecord(state.reports[id]);
+      const other = reportRecord(incoming);
+      const revisions = unionById(current.revisions, other.revisions);
+      state.reports[id] = { revisions, active: revisions[revisions.length - 1] || null, draft: current.draft || other.draft || null };
+    });
+
+    Object.entries(payload.openResponses || {}).forEach(([id, items]) => { state.openResponses[id] = unionById(state.openResponses[id], items); });
+    Object.entries(payload.diagnosticGames || {}).forEach(([id, items]) => { state.diagnosticGames[id] = unionById(state.diagnosticGames[id], items); });
     Object.assign(state.identityAliases, payload.identityAliases || {});
     pushEvent(state, { type: "import", fromVersion: payload.version || "unknown" });
     return save(state);
   }
 
   function resetForTests() {
-    storage().removeItem(KEY);
-    storage().removeItem(V3_KEY);
-    storage().removeItem(V2_KEY);
+    [KEY, V4_KEY, V3_KEY, V2_KEY].forEach(key => storage().removeItem(key));
     memory.clear();
   }
 
   const api = {
-    KEY,
-    SCHEMA,
-    VERSION,
-    emptyState,
-    normalizeState,
-    load,
-    save,
-    reconcileAliases,
-    evidenceLevel,
-    recordEvidence,
-    recordStep,
-    recordMachine,
-    machineEvents,
-    getEvidence,
-    setReport,
-    getReport,
-    merge,
+    KEY, SCHEMA, VERSION, STRENGTH,
+    emptyState, normalizeState, load, save,
+    evidenceLevel, recordEvidence, recordStep, recordMachine, machineEvents, getEvidence,
+    commitPrediction, getPrediction, predictionStatus,
+    setReport, getReport, getReportHistory,
+    recordOpenResponse, recordDiagnosticGame,
+    reconcileAliases, merge,
     _resetForTests: resetForTests
   };
 
