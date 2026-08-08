@@ -138,23 +138,18 @@
           state.identityAliases[alias] = item.id;
           changed = true;
         }
-        if (existing && state.evidence[alias] !== existing) {
-          state.evidence[alias] = clone({ ...existing, canonicalId: item.id });
-          changed = true;
+        if (existing) {
+          const mirrored = { ...existing, canonicalId: item.id };
+          if (JSON.stringify(state.evidence[alias] || null) !== JSON.stringify(mirrored)) {
+            state.evidence[alias] = clone(mirrored);
+            changed = true;
+          }
         }
         if (report && !state.reports[alias]) {
           state.reports[alias] = clone(report);
           changed = true;
         }
       });
-      if (existing && !state.evidence[item.id]) {
-        state.evidence[item.id] = clone({ ...existing, canonicalId: item.id });
-        changed = true;
-      }
-      if (report && !state.reports[item.id]) {
-        state.reports[item.id] = clone(report);
-        changed = true;
-      }
     });
 
     if (changed) {
@@ -280,7 +275,7 @@
     memory.clear();
   }
 
-  return {
+  const api = {
     KEY,
     SCHEMA,
     VERSION,
@@ -300,4 +295,16 @@
     merge,
     _resetForTests: resetForTests
   };
+
+  try {
+    if (root && root.CircuitSchema && root.CircuitCurriculum) {
+      const curriculum = root.CircuitSchema.normalizeCurriculum(root.CircuitCurriculum);
+      const items = curriculum.modules.flatMap(module => [...module.lessons, ...module.labs, ...module.faults]);
+      reconcileAliases(items);
+    }
+  } catch (error) {
+    if (root && root.console && root.console.warn) root.console.warn("Unable to reconcile curriculum identities", error);
+  }
+
+  return api;
 });
