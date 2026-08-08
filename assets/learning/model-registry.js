@@ -1,6 +1,10 @@
 (function (root, factory) {
   "use strict";
-  const api = factory(root.CircuitModels || {});
+  let models = root.CircuitModels || null;
+  if (!models && typeof module === "object" && module.exports && typeof require === "function") {
+    models = require("./engineering-models.js");
+  }
+  const api = factory(models || {});
   if (typeof module === "object" && module.exports) module.exports = api;
   root.CircuitModelRegistry = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function (Models) {
