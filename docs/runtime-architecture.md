@@ -1,28 +1,30 @@
 # Learning runtime architecture
 
-V3 remains the only production renderer. V5 is the only production learning-state schema.
+V3 remains the only production renderer. V5 remains the durable learning-state schema. V6 changes **measurement semantics**, not the storage key.
 
 ```text
 assets/learning/curriculum.js
         ↓ raw curriculum facts
 assets/learning/curriculum-schema-v3.js
-        ↓ normalization + identity aliases
+        ↓ normalization + canonical identity
 assets/learning/quiz-bank.js
-        ↓ misconception-aware base questions
+        ↓ misconception-aware baseline questions
 assets/learning/engineering-models.js
-        ↓ canonical pure calculations
+        ↓ production teaching/calculation models
 assets/learning/model-registry.js
         ↓ executable/versioned models + IO units + boundaries
 assets/learning/lab-oracles.js
-        ↓ structured model-backed lab acceptance
+        ├─ production model execution
+        └─ independent hand-derived reference implementation
+                     ↓ agreement + acceptance
 assets/learning/learning-evidence.js
-        ↓ circuit-learning-state-v5 + prediction/report revisions + semantic merge
+        ↓ circuit-learning-state-v5 + immutable histories
 assets/learning/learning-assessment.js
-        ↓ unseen first-attempt transfer + spaced retention + calibration
+        ↓ true-transfer generation + reasoning rubric + CI + coverage
 assets/learning/engineering-challenges.js
-        ↓ numeric open-response + diagnostic games
+        ↓ seeded numeric tasks + Bayesian diagnostic inference
 assets/learning/learning-v3.js
-        ↓ renderers and progression policy
+        ↓ V6 rendering and progression policy
 index / beginner / labs / troubleshooting / progress / quiz / search / report
 
 lesson / simulator page
@@ -36,144 +38,154 @@ lab-oracles.js + learning-evidence.js
 ## Canonical ownership
 
 - Curriculum facts: `curriculum.js`.
-- Normalization and current/legacy identity relationships: `curriculum-schema-v3.js`.
-- Durable evidence identity reconciliation and V2/V3/V4 migration: `learning-evidence.js`.
-- Formal engineering calculations: `engineering-models.js`.
-- Model metadata, versions, IO units and execution entrypoints: `model-registry.js`.
-- Structured lab acceptance: `lab-oracles.js`.
-- Baseline, unseen transfer, calibration and spaced retention: `learning-assessment.js`.
-- Numeric generation tasks and information-gain diagnostic games: `engineering-challenges.js`.
-- Page rendering and progression policy: `learning-v3.js`.
-- Lesson/simulator event bridging: `tutor.js`, which consumes normalized curriculum rather than positional arrays.
+- Normalization and identity relationships: `curriculum-schema-v3.js`.
+- Durable evidence, aliases and V2/V3/V4 migration: `learning-evidence.js`.
+- Production engineering calculations: `engineering-models.js`.
+- Production model metadata/version/IO/execution: `model-registry.js`.
+- Independent reference-backed lab acceptance: `lab-oracles.js`.
+- Baseline, seeded transfer, spaced retention, uncertainty, coverage and reasoning rubric: `learning-assessment.js`.
+- Seeded numeric generation and Bayesian diagnostics: `engineering-challenges.js`.
+- Rendering and progression policy: `learning-v3.js`.
+- Lesson/simulator bridge: `tutor.js`.
 
 No production page owns a second learning-state store.
 
-## V5 evidence ownership
+## Measurement independence
 
-`circuit-learning-state-v5` contains:
+A-grade machine evidence must not be established by the same implementation that generated the teaching output.
 
-- `evidence`: viewed/practiced/verified stage plus evidence strength;
-- `questions`: immutable attempt histories including confidence and elapsed time;
+```text
+normalized input
+      ├─ production calculation
+      └─ independent reference calculation
+                 ↓
+          field agreement check
+                 ↓
+             lab acceptance
+```
+
+`lab-oracles.js` owns reference implementations that do **not** call `CircuitModels` or `ModelRegistry` internally. The oracle still executes the production model through the registry, but compares it with the independent reference before applying acceptance.
+
+A verification record contains:
+
+- oracle version;
+- production model ID/version/output;
+- independent reference ID/version/output;
+- normalized input;
+- agreement failures, if any;
+- acceptance target/measured value/pass-fail.
+
+Current independent oracles cover Buck current ripple and ADC divider. All other simulators remain interaction evidence until an independent reference and acceptance rule exist.
+
+## V5 state under V6 semantics
+
+`circuit-learning-state-v5` remains the schema because V6 data fits the existing revision/event containers:
+
+- `evidence`: stage, strength, machine records and provenance;
+- `questions`: immutable attempts including seed, transfer depth, representation, confidence and elapsed time;
 - `predictions`: immutable Prediction Commit revisions;
-- `reports`: drafts plus committed report revisions;
-- `openResponses`: numeric generated-answer history;
-- `diagnosticGames`: diagnostic-test sequences and efficiency scores;
-- `events`: bounded audit trail;
-- `identityAliases`: canonical ↔ legacy identity reconciliation;
-- `migrations`: V2/V3/V4 migration markers.
+- `reports`: drafts plus committed revisions, including reasoning rubric;
+- `openResponses`: seeded numeric histories;
+- `diagnosticGames`: Bayesian test sequences and posterior/entropy results;
+- `events`, `identityAliases`, `migrations`.
 
-### Stage and evidence strength are separate
+Changing the storage version solely for new optional fields would create migration cost without a schema break.
 
-Stage answers “how far did the learner progress?” Evidence strength answers “how trustworthy is the verification?”
+## Evidence strength
 
-- **C**: human reasoning only, or post-hoc prediction;
-- **B**: preregistered prediction plus machine interaction;
-- **A**: preregistered prediction + structured machine oracle pass + human reasoning.
+Stage and evidence strength remain separate.
 
-A simulator interaction is therefore not automatically machine verification.
+- **C**: human-only or post-hoc evidence after reasoning rubric pass;
+- **B**: preregistered prediction + machine interaction + reasoning rubric pass;
+- **A**: preregistered prediction + independent reference agreement + oracle acceptance + reasoning rubric pass.
+
+Historical V5 machine records without `independentValidated` do not automatically become A under V6.
 
 ## Prediction integrity
 
-For strong lab evidence, Prediction must be committed before the first simulator snapshot.
+The first Prediction revision is immutable and must exist before the first simulator event to count as preregistered. Event order, rather than millisecond timestamp ties alone, determines whether the prediction was already present when machine evidence first appeared.
+
+## Deterministic reasoning rubric
+
+Report completion evaluates five dimensions, each 0–2:
+
+1. Claim;
+2. Evidence;
+3. Mechanism;
+4. Boundary;
+5. Transfer.
+
+A report needs at least 8/10 and must contain Claim, Evidence and Mechanism. Buck ripple and ADC divider add deterministic domain checks. The rubric is intentionally rule-based rather than free-form AI scoring so regression behavior remains reproducible.
+
+## True-transfer generation
+
+Baseline A remains authored. Transfer/retention variants are deterministic functions of:
 
 ```text
-predictionCommittedAt < firstMachineAt
+family ID + role + variant ID + transfer depth → seed → parameters/context/representation
 ```
 
-The first prediction revision is immutable. Later prediction revisions are allowed but remain visibly post-observation revisions. Report completion preserves the prediction revision used for the evidence claim.
+High-quality generators exist for the benchmark Buck/ADC/SPI families. A generated question stores `seed`, `transferDepth` and `representation` in the attempt. When no generator exists, `nextQuestion()` returns no assessment rather than fabricating a prompt-prefix clone; the missing measurement appears in coverage.
 
-## Assessment validity
+Wrong transfer variants cannot be retried into transfer evidence. A new unseen seed/variant is required.
 
-Assessment uses question families and unseen variants.
+## Retention
+
+Retention starts at `transferPassedAt` and follows 1d → 7d → 30d → 90d. A failed due review reduces the stage. Mainline progression requires transfer, not permanent R4.
+
+## Benchmark uncertainty
+
+Benchmarking is paired: baseline and transfer use the same competency denominator. V6 adds:
+
+- 95% Wilson intervals for baseline and transfer accuracy;
+- conservative delta interval;
+- evidence grade based on paired `N`;
+- confidence calibration alongside correctness.
+
+Small-N results must be displayed as uncertain rather than as precise performance claims.
+
+## Measurement coverage
+
+`coverageSummary()` joins curriculum and assessment metadata into competency rows:
+
+- lesson/taught;
+- lab/practiced;
+- independent oracle;
+- seeded transfer;
+- seeded retention;
+- status: `taught`, `practiced`, `measured`, or `verified`.
+
+The Progress page exposes this matrix. `unmeasured`/`taught` is a valid state and must not be visually conflated with mastery.
+
+## Parameterized numeric generation
+
+Numeric challenge templates are instantiated by deterministic seed. Seed 0 is reserved as a stable regression vector; subsequent attempts use different parameters. Evidence stores seed, parameters, entered unit, normalized answer and relative error.
+
+## Bayesian diagnostic engine
+
+Diagnostic games define hypothesis priors and per-test likelihoods for the observed result. Each selected measurement updates the posterior by Bayes' rule.
 
 ```text
-variant A first attempt → baseline
-            ↓
-recovery may occur
-            ↓
-unseen transfer variant first attempt
-            ├─ correct → transfer pass
-            └─ wrong   → that variant can never become transfer evidence
-                         next unseen variant required
+H_before = entropy(prior/posterior)
+posterior ∝ prior × P(observed result | cause)
+IG = H_before - H_after
 ```
 
-Retention starts at `transferPassedAt`, not at the first correct answer.
+UI and stored results expose posterior, entropy change and information gain in bits. Efficiency combines correct root-cause selection, posterior concentration, entropy reduction and test cost. Hand-authored `informationGain: 5` scores are not permitted.
 
-```text
-transfer pass
-   ↓ 1 day
-R1
-   ↓ 7 days
-R2
-   ↓ 30 days
-R3
-   ↓ 90 days
-R4
-```
+## Stable identity and semantic import
 
-A failed due review reduces the retention stage. Mainline progression requires transfer, not permanent R4 retention.
-
-Benchmarking is paired: baseline and transfer percentages use the same competency denominator and always expose paired sample size `N`. Confidence calibration is reported alongside correctness.
-
-## Machine verification and model provenance
-
-A structured oracle stores:
-
-- model ID;
-- model semantic version;
-- exact normalized inputs;
-- model outputs;
-- acceptance target;
-- measured value;
-- pass/fail result.
-
-This makes evidence reproducible. A future model-version change can identify evidence that was verified under an older model instead of silently treating every historical snapshot as equivalent.
-
-Current structured oracles cover the Buck ripple lab and ADC divider lab. Other simulator pages remain interaction evidence until a canonical model and acceptance rule are explicit.
-
-## Stable identity policy
-
-- Tutor never derives IDs from display text; it consumes `CircuitSchema.normalizeCurriculum()` and uses `item.id` directly.
-- New curriculum entries use object form and explicit immutable IDs.
-- Legacy positional arrays remain readable for compatibility.
-- V5 mirrors evidence, predictions and reports across canonical IDs and available legacy aliases.
-- If both title and path semantics are intentionally replaced, the change must include an explicit migration alias.
-- IDs describe identity, not display text.
-
-## Semantic import merge
-
-Imported state never shallow-overwrites current state.
-
-- evidence keeps the stronger/newer claim;
-- machine snapshots union by digest;
-- question attempts union by event ID;
-- prediction/report revisions are preserved;
-- open-response and diagnostic-game histories are unioned.
-
-This prevents an old backup from silently downgrading newer local evidence.
-
-## Model ownership
-
-A formal model must have:
-
-- `id` and semantic version;
-- executable pure function;
-- input/output units;
-- assumptions;
-- invalid conditions;
-- references;
-- test IDs.
-
-Heuristic cards may remain non-executable, but must say so. `micro-sim.js` remains legacy visualization/heuristic code and is not an allowed source for new formal engineering calculations.
+Tutor consumes normalized `item.id`; new/touched curriculum items should use explicit immutable IDs. Legacy arrays remain readable and V5 aliases preserve evidence/prediction/report identity. Import remains semantic: stronger/newer evidence is retained and event/revision histories are unioned rather than shallow-overwritten.
 
 ## Change rules
 
-1. Add or change a formal model only in canonical model modules.
-2. New/touched curriculum items should receive explicit IDs; preserve aliases during renames.
-3. Assessment changes require tests for first-attempt eligibility and time origin.
-4. Lab verification changes require oracle unit tests and browser flow tests.
-5. A Prediction-integrity change must prove simulator-first activity is marked post-hoc.
-6. Benchmark metrics must use paired denominators and expose N.
-7. Imports must preserve stronger/newer evidence and immutable histories.
-8. Keep source reviewable; minified artifacts are generated outputs only.
-9. Production entry pages may not reintroduce V2 learning runtime dependencies.
+1. Production calculation and independent verification may share equations, but must not share the same executable calculation path.
+2. Independent reference changes require corruption tests plus metamorphic invariants.
+3. Reasoning rubric changes require positive and fluent-nonsense negative fixtures.
+4. Transfer changes require proof that seeds/representations/parameters differ; prompt-prefix clones are forbidden.
+5. A family without a high-quality generator stays a coverage gap.
+6. Benchmark changes must keep paired denominators, `N`, confidence intervals and evidence grade.
+7. Diagnostic IG must derive from probability/entropy updates, never an arbitrary score constant.
+8. A-grade evidence requires preregistration, independent agreement, acceptance and reasoning pass.
+9. Keep V5 storage compatibility unless a real schema incompatibility appears.
+10. Production pages may not reintroduce legacy learning runtimes or parallel persistence.
