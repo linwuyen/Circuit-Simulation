@@ -443,18 +443,27 @@
   function evaluateReasoning(labId, draft, context) {
     const verification=context&&context.verification||null, scores=genericReasoning(draft||{},verification);
     if(labId==="buck.lab.buck-ripple"){
-      scores.claim=has(draft.prediction,["l","電感","fsw","頻率"])&&has(draft.prediction,["減","降","反比","小"])?2:scores.claim;
-      const measured=verification&&verification.acceptance&&verification.acceptance.measured;
-      scores.evidence=verification&&verification.passed&&hasNumber(draft.observation)&&(has(draft.observation,["20%","0.2","δi","漣波"])||Number.isFinite(measured))?2:scores.evidence;
-      scores.mechanism=has(draft.explanation,["di/dt","伏秒","反比"])&&has(draft.explanation,["l","電感","fsw","頻率"])?2:scores.mechanism;
-      scores.boundary=has(draft.limitations,["dcm","pulse","burst","dcr","壓降","非理想"])?2:scores.boundary;
-      scores.transfer=has(draft.transfer,["fsw","頻率","l","電感"])&&has(draft.transfer,["加倍","減半","提高","降低","增加","減少"])?2:scores.transfer;
+      const claimDomain=has(draft.prediction,["l","電感","fsw","頻率"])&&has(draft.prediction,["減","降","反比","小"]);
+      const evidenceDomain=hasNumber(draft.observation)&&has(draft.observation,["20%","0.2","δi","漣波","電流"]);
+      const mechanismDomain=has(draft.explanation,["di/dt","伏秒","反比"])&&has(draft.explanation,["l","電感","fsw","頻率"]);
+      const boundaryDomain=has(draft.limitations,["dcm","pulse","burst","dcr","壓降","非理想"]);
+      const transferDomain=has(draft.transfer,["fsw","頻率","l","電感"])&&has(draft.transfer,["加倍","減半","提高","降低","增加","減少"]);
+      scores.claim=claimDomain?2:0;
+      scores.evidence=verification&&verification.passed&&evidenceDomain?2:evidenceDomain?1:0;
+      scores.mechanism=mechanismDomain?2:0;
+      scores.boundary=boundaryDomain?2:0;
+      scores.transfer=transferDomain?2:0;
     } else if(labId==="adc.lab.adc-divider"){
-      scores.claim=has(draft.prediction,["rtop","rbot","分壓","adc","母線"])&&has(draft.prediction,["增","減","升","降","高","低"])?2:scores.claim;
-      scores.evidence=verification&&verification.passed&&hasNumber(draft.observation)&&has(draft.observation,["v","電壓","adc"])?2:scores.evidence;
-      scores.mechanism=has(draft.explanation,["分壓","ohm","歐姆","串聯","電阻"])&&has(draft.explanation,["電流","電壓","比例"])?2:scores.mechanism;
-      scores.boundary=has(draft.limitations,["loading","取樣","箝位","容差","功耗","工作電壓","vref"])?2:scores.boundary;
-      scores.transfer=has(draft.transfer,["vbus","母線","rtop","rbot","電阻"])&&has(draft.transfer,["增加","減少","提高","降低","改"])?2:scores.transfer;
+      const claimDomain=has(draft.prediction,["rtop","rbot","分壓","adc","母線"])&&has(draft.prediction,["增","減","升","降","高","低"]);
+      const evidenceDomain=hasNumber(draft.observation)&&has(draft.observation,["v","電壓","adc"]);
+      const mechanismDomain=has(draft.explanation,["分壓","ohm","歐姆","串聯","電阻"])&&has(draft.explanation,["電流","電壓","比例"]);
+      const boundaryDomain=has(draft.limitations,["loading","取樣","箝位","容差","功耗","工作電壓","vref"]);
+      const transferDomain=has(draft.transfer,["vbus","母線","rtop","rbot","電阻"])&&has(draft.transfer,["增加","減少","提高","降低","改"]);
+      scores.claim=claimDomain?2:0;
+      scores.evidence=verification&&verification.passed&&evidenceDomain?2:evidenceDomain?1:0;
+      scores.mechanism=mechanismDomain?2:0;
+      scores.boundary=boundaryDomain?2:0;
+      scores.transfer=transferDomain?2:0;
     }
     const total=Object.values(scores).reduce((s,v)=>s+v,0), essential=scores.claim>=1&&scores.evidence>=1&&scores.mechanism>=1;
     return{scores,total,max:10,passed:essential&&total>=8,essential};
