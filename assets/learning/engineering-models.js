@@ -52,7 +52,7 @@
       ccmValleyA,
       formulaValid: mode !== "DCM",
       warning: mode === "DCM"
-        ? "已進入 DCM；Vout = Vin × Duty 與對稱三角波假設不再成立，圖形只顯示電流不得低於 0 的邊界。"
+        ? "已進入 DCM；Vout = Vin × Duty 與對稱三角波假設不再成立。"
         : ""
     };
   }
@@ -143,6 +143,86 @@
     };
   }
 
+  function calculateSpiTiming(input) {
+    const sclkHz = positive(input.sclkHz, "sclkHz");
+    const bits = Math.trunc(positive(input.bits, "bits"));
+    const fifoDepthWords = Math.trunc(positive(input.fifoDepthWords == null ? 1 : input.fifoDepthWords, "fifoDepthWords"));
+    const serviceLatencyS = Math.max(0, finite(input.serviceLatencyS, 0));
+    const frameTimeS = bits / sclkHz;
+    const wordRateHz = 1 / frameTimeS;
+    const fifoDeadlineS = frameTimeS * fifoDepthWords;
+    return {
+      sclkHz,
+      bits,
+      frameTimeS,
+      wordRateHz,
+      fifoDepthWords,
+      fifoDeadlineS,
+      serviceLatencyS,
+      overrunRisk: serviceLatencyS > fifoDeadlineS,
+      serviceMarginS: fifoDeadlineS - serviceLatencyS
+    };
+  }
+
+  function calculatePwmAverage(input) {
+    const busV = finite(input.busV, 0);
+    const duty = clamp(finite(input.duty, 0), 0, 1);
+    const topology = input.topology || "buck";
+    const averageV = topology === "half-bridge" ? busV * (2 * duty - 1) : busV * duty;
+    return { busV, duty, topology, averageV };
+  }
+
+  function piControllerStep(input) {
+    const error = finite(input.error, 0);
+    const kp = finite(input.kp, 0);
+    const ki = finite(input.ki, 0);
+    const dtS = positive(input.dtS, "dtS");
+    const previousIntegral = finite(input.previousIntegral, 0);
+    const minOutput = finite(input.minOutput, -Infinity);
+    const maxOutput = finite(input.maxOutput, Infinity);
+    const rawIntegral = previousIntegral + ki * error * dtS;
+    const rawOutput = kp * error + rawIntegral;
+    const output = clamp(rawOutput, minOutput, maxOutput);
+    const saturated = output !== rawOutput;
+    const integral = saturated && input.antiWindup !== false
+      ? clamp(rawIntegral, minOutput - kp * error, maxOutput - kp * error)
+      : rawIntegral;
+    return { error, kp, ki, dtS, previousIntegral, integral, rawOutput, output, saturated };
+  }
+
+  function calculateDacCode(input) {
+    const bits = Math.trunc(positive(input.bits, "bits"));
+    const fullScaleV = positive(input.fullScaleV, "fullScaleV");
+    const targetV = finite(input.targetV, 0);
+    const bipolar = !!input.bipolar;
+    const maxCode = Math.pow(2, bits) - 1;
+    const minV = bipolar ? -fullScaleV : 0;
+    const maxV = fullScaleV;
+    const clampedV = clamp(targetV, minV, maxV);
+    const normalized = bipolar ? (clampedV + fullScaleV) / (2 * fullScaleV) : clampedV / fullScaleV;
+    const code = clamp(Math.round(normalized * maxCode), 0, maxCode);
+    return { bits, fullScaleV, targetV, bipolar, minV, maxV, maxCode, code, clampedV };
+  }
+
+  function calculateDdsPhaseIncrement(input) {
+    const outputHz = Math.max(0, finite(input.outputHz, 0));
+    const sampleHz = positive(input.sampleHz, "sampleHz");
+    const phaseBits = Math.trunc(positive(input.phaseBits, "phaseBits"));
+    const modulus = Math.pow(2, phaseBits);
+    const increment = Math.round(outputHz / sampleHz * modulus);
+    const realizedHz = increment / modulus * sampleHz;
+    return {
+      outputHz,
+      sampleHz,
+      phaseBits,
+      modulus,
+      increment,
+      realizedHz,
+      frequencyErrorHz: realizedHz - outputHz,
+      nyquistViolation: outputHz >= sampleHz / 2
+    };
+  }
+
   function rcCutoffHz(resistanceOhm, capacitanceF) {
     const r = positive(resistanceOhm, "resistanceOhm");
     const c = positive(capacitanceF, "capacitanceF");
@@ -187,6 +267,11 @@
     quantizeAdc,
     calculateCurrentChain,
     calculateDivider,
+    calculateSpiTiming,
+    calculatePwmAverage,
+    piControllerStep,
+    calculateDacCode,
+    calculateDdsPhaseIncrement,
     rcCutoffHz,
     rms,
     realPower,

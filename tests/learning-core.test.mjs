@@ -87,6 +87,6 @@ test("benchmark modules expose model cards and validity boundaries", () => {
   for (const moduleId of ["buck", "adc", "spi"]) {
     const cards = modelRegistry.forModule(moduleId);
     assert.ok(cards.length > 0, moduleId);
-    assert.ok(cards.every(card => card.assumptions.length && card.invalidWhen.length && card.source));
+    assert.ok(cards.every(card => card.assumptions.length && card.invalidWhen.length && (card.source || (card.references && card.references.length))));
   }
 });

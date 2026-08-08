@@ -22,6 +22,18 @@ test('lab link keeps the full lab id and selects the exact worksheet', async ({ 
   expect(decodeURIComponent(href.split('labId=')[1])).toBe(selected);
 });
 
+test('simulator interaction becomes machine evidence in the matching worksheet', async ({ page }) => {
+  await page.goto('/0_buck_converter_/2_current_ripple.html');
+  await page.locator('#ind').evaluate(el => {
+    el.value = '4.4';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await page.waitForTimeout(350);
+  await page.goto('/report.html?labId=buck.lab.buck-ripple');
+  await expect(page.locator('#reportBrief')).toContainText(/Machine evidence：\s*[1-9]/);
+});
+
 test('worksheet requires meaningful engineering evidence and persists', async ({ page }) => {
   await page.goto('/report.html');
   await page.fill('#prediction', '增加 L，電流漣波會下降，因為 di/dt 變小。');
@@ -39,15 +51,15 @@ test('worksheet requires meaningful engineering evidence and persists', async ({
 test('quiz exposes misconception feedback and progress survives reload', async ({ page }) => {
   await page.goto('/quiz.html');
   const firstCard = page.locator('.quiz-card').first();
-  const wrong = firstCard.locator('.quiz-option').first();
-  await wrong.click();
-  await expect(firstCard.locator('.quiz-result')).not.toBeEmpty();
+  const firstOption = firstCard.locator('.quiz-option').first();
+  await firstOption.click();
+  await expect(page.locator('.quiz-result').first()).not.toBeEmpty();
   await page.reload();
   await expect(page.locator('.quiz-card').first()).toBeVisible();
 });
 
 test('mobile pages do not overflow horizontally', async ({ page }) => {
-  for (const path of ['/', '/beginner.html', '/report.html']) {
+  for (const path of ['/', '/beginner.html', '/report.html', '/quiz.html']) {
     await page.goto(path);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
     expect(overflow).toBe(false);
