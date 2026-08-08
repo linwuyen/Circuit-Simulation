@@ -5,71 +5,73 @@ const require = createRequire(import.meta.url);
 const Assessment = require('../assets/learning/learning-assessment.js');
 
 const base = [{
-  id: 'concept-x',
-  moduleId: 'buck',
-  competency: 'buck.current-ripple.relationship',
-  prompt: 'A',
+  id: 'concept-x', moduleId: 'buck', competency: 'buck.current-ripple.relationship', prompt: 'A',
   options: [
     { id: 'ok', text: 'ok', correct: true, feedback: 'yes' },
     { id: 'bad', text: 'bad', correct: false, feedback: 'no', misconception: 'wrong model' }
   ]
 }];
+const expanded = () => Assessment.expandQuestions(base);
 
-function twoVariants() {
-  const q = Assessment.expandQuestions(base);
-  if (q.length === 1) {
-    q.push({ ...q[0], id: 'concept-x-b', variantId: 'B' });
-  }
-  return q;
-}
-
-test('first wrong answer never permanently locks mastery', () => {
-  const questions = twoVariants();
-  const state = { questions: {} };
-  const a = questions[0];
-  const b = questions[1];
+test('wrong transfer variant cannot be washed into a transfer pass by retrying', () => {
+  const questions = expanded(), state = { questions: {} }, a = questions[0], b = questions[1], c = questions[2];
   const t0 = Date.parse('2026-08-01T00:00:00Z');
-
-  Assessment.recordAttempt(state, a, a.options.find(x => !x.correct), new Date(t0).toISOString());
-  Assessment.recordAttempt(state, a, a.options.find(x => x.correct), new Date(t0 + 1000).toISOString());
+  Assessment.recordAttempt(state, a, a.options.find(x => x.correct), new Date(t0).toISOString());
+  Assessment.recordAttempt(state, b, b.options.find(x => !x.correct), new Date(t0 + 1000).toISOString());
   Assessment.recordAttempt(state, b, b.options.find(x => x.correct), new Date(t0 + 2000).toISOString());
+  assert.equal(Assessment.mastery(a.familyId, state, questions, t0 + 3000).transfer, false);
+  Assessment.recordAttempt(state, c, c.options.find(x => x.correct), new Date(t0 + 4000).toISOString());
+  assert.equal(Assessment.mastery(a.familyId, state, questions, t0 + 5000).transfer, true);
+});
 
-  const m = Assessment.mastery(a.familyId, state, questions, t0 + 3000);
+test('first wrong baseline can recover and later pass unseen transfer', () => {
+  const questions = expanded(), state = { questions: {} }, a = questions[0], b = questions[1];
+  Assessment.recordAttempt(state, a, a.options.find(x => !x.correct), '2026-08-01T00:00:00Z');
+  Assessment.recordAttempt(state, a, a.options.find(x => x.correct), '2026-08-01T00:00:01Z');
+  Assessment.recordAttempt(state, b, b.options.find(x => x.correct), '2026-08-01T00:00:02Z');
+  const m = Assessment.mastery(a.familyId, state, questions, Date.parse('2026-08-01T00:00:03Z'));
   assert.equal(m.recovery, true);
   assert.equal(m.transfer, true);
-  assert.equal(m.retained, false);
 });
 
-test('retention requires delayed retrieval rather than two immediate clicks', () => {
-  const questions = twoVariants();
-  const state = { questions: {} };
-  const a = questions[0];
-  const b = questions[1];
+test('retention clock starts at transfer pass, not first correct answer', () => {
+  const questions = expanded(), state = { questions: {} }, a = questions[0], b = questions[1], d = questions[3];
+  const old = Date.parse('2026-07-01T00:00:00Z'), transferAt = Date.parse('2026-08-01T00:00:00Z');
+  Assessment.recordAttempt(state, a, a.options.find(x => x.correct), new Date(old).toISOString());
+  Assessment.recordAttempt(state, b, b.options.find(x => x.correct), new Date(transferAt).toISOString());
+  Assessment.recordAttempt(state, d, d.options.find(x => x.correct), new Date(transferAt + 1000).toISOString());
+  assert.equal(Assessment.mastery(a.familyId, state, questions, transferAt + 2000).retained, false);
+  const fresh = { questions: JSON.parse(JSON.stringify(state.questions)) };
+  fresh.questions[a.familyId].history = fresh.questions[a.familyId].history.filter(x => x.variantId !== 'D');
+  Assessment.recordAttempt(fresh, d, d.options.find(x => x.correct), new Date(transferAt + Assessment.DAY_MS + 1000).toISOString());
+  const m = Assessment.mastery(a.familyId, fresh, questions, transferAt + Assessment.DAY_MS + 2000);
+  assert.equal(m.retained, true);
+  assert.equal(m.retentionStage, 1);
+});
+
+test('retention schedule advances 1d then 7d', () => {
+  const questions = expanded(), state = { questions: {} }, a = questions[0], b = questions[1], d = questions[3];
   const t0 = Date.parse('2026-08-01T00:00:00Z');
-  const correctA = a.options.find(x => x.correct);
-  const correctB = b.options.find(x => x.correct);
-
-  Assessment.recordAttempt(state, a, correctA, new Date(t0).toISOString());
-  Assessment.recordAttempt(state, b, correctB, new Date(t0 + 1000).toISOString());
-  assert.equal(Assessment.mastery(a.familyId, state, questions, t0 + 2000).retained, false);
-
-  Assessment.recordAttempt(state, a, correctA, new Date(t0 + Assessment.RETENTION_MS + 1000).toISOString());
-  assert.equal(Assessment.mastery(a.familyId, state, questions, t0 + Assessment.RETENTION_MS + 2000).retained, true);
+  Assessment.recordAttempt(state, a, a.options.find(x => x.correct), new Date(t0).toISOString());
+  Assessment.recordAttempt(state, b, b.options.find(x => x.correct), new Date(t0 + 1000).toISOString());
+  Assessment.recordAttempt(state, d, d.options.find(x => x.correct), new Date(t0 + 1000 + Assessment.DAY_MS).toISOString());
+  const m = Assessment.mastery(a.familyId, state, questions, t0 + Assessment.DAY_MS + 2000);
+  assert.equal(m.retentionStage, 1);
+  assert.ok(Date.parse(m.nextReviewAt) >= t0 + Assessment.DAY_MS + 7 * Assessment.DAY_MS);
 });
 
-test('benchmark separates baseline from transfer first-attempt accuracy', () => {
-  const questions = twoVariants();
-  const state = { questions: {} };
-  const a = questions[0];
-  const b = questions[1];
-  Assessment.recordAttempt(state, a, a.options.find(x => !x.correct), '2026-08-01T00:00:00Z');
-  Assessment.recordAttempt(state, b, b.options.find(x => x.correct), '2026-08-01T00:01:00Z');
+test('paired benchmark uses the same competency denominator', () => {
+  const questions = expanded(), state = { questions: {} }, a = questions[0], b = questions[1];
+  Assessment.recordAttempt(state, a, a.options.find(x => !x.correct), { at: '2026-08-01T00:00:00Z', confidence: 0.9 });
+  Assessment.recordAttempt(state, b, b.options.find(x => x.correct), { at: '2026-08-01T00:01:00Z', confidence: 0.7 });
   const summary = Assessment.benchmarkSummary(state, questions, Date.parse('2026-08-01T00:02:00Z'));
+  assert.equal(summary.pairedN, 1);
   assert.equal(summary.baselineAccuracy, 0);
   assert.equal(summary.transferAccuracy, 100);
   assert.equal(summary.deltaPoints, 100);
+  assert.equal(summary.calibration.n, 2);
 });
 
-test('competency prerequisites form a DAG edge for DCM reasoning', () => {
+test('competency prerequisites remain explicit', () => {
   assert.deepEqual(Assessment.prerequisitesFor('buck.ccm-dcm.boundary'), ['buck.current-ripple.relationship']);
 });
