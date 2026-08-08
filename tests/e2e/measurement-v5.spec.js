@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }) => {
 
 test('prediction commit precedes simulator and produces A-strength verified evidence', async ({ page }) => {
   await page.goto('/report.html?labId=buck.lab.buck-ripple');
-  await page.locator('#prediction').fill('L 增加，電流漣波下降');
+  await page.locator('#prediction').fill('L增加時電流漣波會下降因為電感電流斜率變小。');
   await page.locator('#parameters').fill('Vin=12 V, Vout=3.3 V, L=12 µH, fsw=500 kHz, Iout=2 A');
   await page.locator('#commitPrediction').click();
   await expect(page.locator('#predictionStatus')).toContainText('preregistered');
@@ -19,10 +19,10 @@ test('prediction commit precedes simulator and produces A-strength verified evid
 
   await page.goto('/report.html?labId=buck.lab.buck-ripple');
   await expect(page.locator('#machineEvidence')).toContainText(/structured pass [1-9]/);
-  await page.locator('#observation').fill('ΔI 約 0.399 A，約為 2 A 負載的 20%，工作模式維持 CCM。');
-  await page.locator('#explanation').fill('由電感伏秒平衡，ΔI 與 L 及 fsw 成反比，所以提高 L 會降低三角波漣波。');
-  await page.locator('#limitations').fill('忽略 MOSFET 壓降、電感 DCR 與控制器 pulse skipping，進 DCM 後此 CCM 模型失效。');
-  await page.locator('#transfer').fill('若 fsw 加倍而其他條件不變，預期 ΔI 約再減半，需用新參數重新驗證。');
+  await page.locator('#observation').fill('電感電流漣波約零點四安培且約為負載電流百分之二十並維持CCM。');
+  await page.locator('#explanation').fill('由電感伏秒平衡可知漣波與電感值及開關頻率成反比所以提高電感值會降低三角波漣波。');
+  await page.locator('#limitations').fill('此模型忽略MOSFET壓降電感直流電阻與脈衝跳週期且進入DCM後不再適用。');
+  await page.locator('#transfer').fill('若開關頻率加倍而其他條件不變則預期漣波約減半並需要以新參數重新驗證。');
   await page.locator('#completeReport').click();
   await expect(page.locator('#reportMessage')).toContainText('Evidence strength A');
 });
@@ -33,7 +33,7 @@ test('simulator-first workflow is explicitly marked post-hoc', async ({ page }) 
   await page.locator('#ind').evaluate(el => { el.value = '8'; el.dispatchEvent(new Event('input', { bubbles: true })); });
   await page.waitForTimeout(400);
   await page.goto('/report.html?labId=buck.lab.buck-ripple');
-  await page.locator('#prediction').fill('L 增加，電流漣波下降');
+  await page.locator('#prediction').fill('L增加時電流漣波會下降。');
   await page.locator('#parameters').fill('Vin=12 V, Vout=3.3 V, L=8 µH, fsw=500 kHz');
   await page.locator('#commitPrediction').click();
   await expect(page.locator('#predictionStatus')).toContainText('事後補寫');
