@@ -24,7 +24,7 @@ test.beforeEach(async ({ page }) => {
   await page.evaluate(() => localStorage.clear());
 });
 
-test('FOC has an official seeded transfer and retention family behind the prerequisite DAG', async ({ page }) => {
+test('FOC has a seeded family and the prerequisite DAG changes sequencing eligibility', async ({ page }) => {
   const family = await page.evaluate(() => {
     const curriculum = CircuitSchema.normalizeCurriculum(CircuitCurriculum);
     return CircuitAssessment.expandQuestions(CircuitQuizBank.getQuestions(curriculum))
@@ -35,12 +35,21 @@ test('FOC has an official seeded transfer and retention family behind the prereq
   expect(new Set(family.slice(1).map(q => q.seed)).size).toBe(3);
   expect(new Set(family.slice(1).map(q => q.prompt)).size).toBe(3);
 
-  await page.goto('/quiz.html?module=foc');
-  await expect(page.locator('#mainContent')).toContainText('先補前置能力');
-  await expect(page.locator('#mainContent')).toContainText('inverter.shoot-through.safety');
+  const before = await page.evaluate(() => {
+    const curriculum = CircuitSchema.normalizeCurriculum(CircuitCurriculum);
+    const questions = CircuitAssessment.expandQuestions(CircuitQuizBank.getQuestions(curriculum));
+    return CircuitAssessment.moduleUnlocked('foc', CircuitEvidence.load(), questions, Date.now());
+  });
+  expect(before).toBe(false);
 
-  await page.goto('/');
   await seedTransfer(page, 'inv-shoot-through-safety');
+  const after = await page.evaluate(() => {
+    const curriculum = CircuitSchema.normalizeCurriculum(CircuitCurriculum);
+    const questions = CircuitAssessment.expandQuestions(CircuitQuizBank.getQuestions(curriculum));
+    return CircuitAssessment.moduleUnlocked('foc', CircuitEvidence.load(), questions, Date.now());
+  });
+  expect(after).toBe(true);
+
   await page.goto('/quiz.html?module=foc');
   await expect(page.locator('#mainContent')).toContainText('foc.park.frame');
   await expect(page.locator('[data-current-question]')).toHaveCount(1);
@@ -58,14 +67,16 @@ test('Bayesian diagnostic coverage expands to ten real engineering scenarios', a
   await expect(game.locator('.game-score')).toContainText('Root cause 正確');
 });
 
-test('progress exposes 12 external anchors, adaptive evidence labels and V8 verified coverage', async ({ page }) => {
+test('progress exposes 12 external anchors and distinguishes A-path availability from mastery', async ({ page }) => {
   await page.goto('/progress.html');
   await expect(page.locator('.v8-validity-summary')).toContainText('12/12 golden anchors pass');
   await expect(page.locator('#externalAnchorMatrix + .fault-table .fault-row')).toHaveCount(12);
   await expect(page.locator('#adaptiveV8')).toContainText('Psychometric evidence');
   const foc = page.locator('#coverageMatrix .fault-row').filter({ hasText: 'foc.park.frame' });
   await expect(foc).toHaveCount(1);
-  await expect(foc).toContainText('verified');
+  await expect(foc).toContainText('✓ / ✓');
+  await expect(foc).toContainText('— / —');
+  await expect(foc).toContainText('practiced');
 });
 
 test('lesson Tutor writes typed observable provenance into independent oracle evidence', async ({ page }) => {
@@ -84,9 +95,7 @@ test('lesson Tutor writes typed observable provenance into independent oracle ev
   expect(typed.verification.observableContract.labId).toBe('pi.lab.pi-ki');
 });
 
-test('V8 open-response tasks render outside the original three benchmark modules after prerequisites', async ({ page }) => {
-  await page.goto('/');
-  await seedTransfer(page, 'adc-levels-vs-codes');
+test('V8 open-response tasks render outside the original three benchmark modules', async ({ page }) => {
   await page.goto('/quiz.html?module=pi');
   await expect(page.locator('[data-numeric-answer="pi-open-crossover"]')).toHaveCount(1);
   await expect(page.locator('#mainContent')).toContainText('0 dB crossover');
