@@ -45,6 +45,8 @@
     await loadScript("assets/learning/engineering-models.js", "CircuitModels");
     await loadScript("assets/learning/model-registry.js", "CircuitModelRegistry");
     await loadScript("assets/learning/lab-oracles.js", "CircuitLabOracles");
+    await loadScript("assets/learning/observables-v8.js", "CircuitTypedObservables");
+    if (global.CircuitTypedObservables && global.CircuitLabOracles) global.CircuitTypedObservables.install(global.CircuitLabOracles);
     await loadScript("assets/learning/learning-evidence.js", "CircuitEvidence");
     return {
       Schema: global.CircuitSchema,
