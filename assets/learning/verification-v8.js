@@ -7,6 +7,28 @@
   const mutationSummary=Mutation&&Oracles&&Registry?Mutation.run(Oracles,Registry):null;
   const curriculum=Schema.normalizeCurriculum(raw),esc=value=>String(value==null?"":value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c]);
   const moduleLabel=id=>(curriculum.modules.find(m=>m.id===id)||{title:id}).title;
+  const v8CoverageBindings={
+    "inverter.shoot-through.safety":{moduleId:"inverter",labId:"inverter.lab.inv-shoot"},
+    "foc.park.frame":{moduleId:"foc",labId:"foc.lab.foc-park"},
+    "pi.integrator.crossover":{moduleId:"pi",labId:"pi.lab.pi-ki"},
+    "loop10us.deadline.budget":{moduleId:"loop10us",labId:"loop10us.lab.loop-budget"},
+    "bms.failsafe.convergence":{moduleId:"bms",labId:"bms.lab.bms-failsafe"},
+    "ad5543.code.mapping":{moduleId:"ad5543",labId:"ad5543.lab.dac-code"},
+    "afe.phase.power":{moduleId:"afe",labId:"afe.lab.afe-phase"},
+    "acmc.protection.boundary":{moduleId:"acmc-pro",labId:"acmc-pro.lab.acmc-protection"},
+    "dds.phase.power":{moduleId:"c2000-dds",labId:"c2000-dds.lab.dds-pf"}
+  };
+  if(!Assessment.__v8CoverageInstalled){
+    const baseCoverage=Assessment.coverageSummary.bind(Assessment);
+    Assessment.coverageSummary=function(curr,qs,oracleIds){
+      const summary=baseCoverage(curr,qs,oracleIds),rows=(summary.rows||[]).map(row=>({...row})),by=new Map(rows.map(row=>[row.competency,row]));
+      Object.entries(v8CoverageBindings).forEach(([competency,binding])=>{const row=by.get(competency)||{competency,lesson:false,lab:false,oracle:false,transfer:false,retention:false,moduleId:binding.moduleId};row.moduleId=binding.moduleId;row.lab=true;row.oracle=!!(Oracles&&Oracles.supports&&Oracles.supports(binding.labId));row.status=row.oracle&&row.transfer&&row.retention?"verified":row.transfer&&row.retention?"measured":"practiced";by.set(competency,row);});
+      const outRows=[...by.values()].map(row=>({...row,status:row.oracle&&row.transfer&&row.retention?"verified":row.transfer&&row.retention?"measured":row.lab?"practiced":row.lesson?"taught":"unmeasured"}));
+      const moduleRows=(curr&&curr.modules||[]).map(module=>{const items=outRows.filter(row=>row.moduleId===module.id),measured=items.filter(row=>row.transfer&&row.retention).length,verified=items.filter(row=>row.oracle&&row.transfer&&row.retention).length;return{moduleId:module.id,title:module.title,total:items.length,measured,verified,coveragePct:items.length?Math.round(measured/items.length*100):0};});
+      return{...summary,total:outRows.length,measured:outRows.filter(row=>row.transfer&&row.retention).length,verified:outRows.filter(row=>row.oracle&&row.transfer&&row.retention).length,rows:outRows,moduleRows};
+    };
+    Object.defineProperty(Assessment,"__v8CoverageInstalled",{value:true,enumerable:false});
+  }
   const summaryHtml=()=>`<section class="notice v8-validity-summary"><strong>V8 external validity：</strong>${anchorSummary.passed}/${anchorSummary.total} golden anchors pass · ${anchorSummary.modules}/12 modules anchored${mutationSummary?` · mutation FDR ${mutationSummary.detected}/${mutationSummary.total} (${Math.round(mutationSummary.rate*100)}%)`:""}。A 仍不等於硬體認證；External Anchor 是另一個獨立維度。</section>`;
   function questions(){return Assessment.expandQuestions(Quiz.getQuestions(curriculum));}
   function state(){const s=Evidence.load();Assessment.normalizeFamilyState(s,questions());Evidence.save(s);return s;}
@@ -21,5 +43,5 @@
   function annotateReport(){addAfterHero(summaryHtml());}
   function wrap(name,after){const original=Learning[name];if(typeof original!=="function"||original.__v8Wrapped)return;const wrapped=function(){const value=original.apply(this,arguments);after();return value;};wrapped.__v8Wrapped=true;Learning[name]=wrapped;}
   wrap("renderHome",annotateHome);wrap("renderLabs",annotateLabs);wrap("renderProgress",annotateProgress);wrap("renderQuiz",annotateQuiz);wrap("renderTrouble",annotateTrouble);wrap("renderReport",annotateReport);
-  global.CircuitVerificationV8={version:"8.0.0",anchorSummary,mutationSummary,questions,adaptive:()=>Assessment.rankNextTasks(state(),questions(),Date.now(),30)};
+  global.CircuitVerificationV8={version:"8.0.0",anchorSummary,mutationSummary,v8CoverageBindings,questions,adaptive:()=>Assessment.rankNextTasks(state(),questions(),Date.now(),30)};
 })(window);
