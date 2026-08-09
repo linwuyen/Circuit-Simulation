@@ -67,7 +67,7 @@ test('Bayesian diagnostic coverage expands to ten real engineering scenarios', a
   await expect(game.locator('.game-score')).toContainText('Root cause 正確');
 });
 
-test('progress exposes 12 external anchors and distinguishes A-path availability from mastery', async ({ page }) => {
+test('progress exposes 12 external anchors and complete measurement capability coverage', async ({ page }) => {
   await page.goto('/progress.html');
   await expect(page.locator('.v8-validity-summary')).toContainText('12/12 golden anchors pass');
   await expect(page.locator('#externalAnchorMatrix + .fault-table .fault-row')).toHaveCount(12);
@@ -75,8 +75,7 @@ test('progress exposes 12 external anchors and distinguishes A-path availability
   const foc = page.locator('#coverageMatrix .fault-row').filter({ hasText: 'foc.park.frame' });
   await expect(foc).toHaveCount(1);
   await expect(foc).toContainText('✓ / ✓');
-  await expect(foc).toContainText('— / —');
-  await expect(foc).toContainText('practiced');
+  await expect(foc).toContainText('verified');
 });
 
 test('lesson Tutor writes typed observable provenance into independent oracle evidence', async ({ page }) => {
