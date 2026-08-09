@@ -2,195 +2,262 @@
 
 > 線上教材：`https://linwuyen.github.io/Circuit-Simulation/`
 
-這是一套以「預測 → 操作 → 獨立驗證 → 因果解釋 → 真遷移 → 間隔取回」為核心的電路、韌體與電力電子學習系統。真正 KPI 不是完成頁數，而是面對未見過的工程條件時，**第一次判斷是否正確、證據是否可獨立驗證、信心是否校準、隔一段時間後是否仍能取回**。
+這是一套以「**預測 → 操作 → 獨立驗證 → 因果解釋 → 未見遷移 → 間隔取回 → 外部錨定**」為核心的電路、韌體與電力電子學習系統。
+
+真正 KPI 不是完成頁數，而是：面對沒看過的工程條件時，**第一次判斷是否正確、證據是否可獨立驗證、信心是否校準、隔一段時間後是否仍能取回，以及教材模型是否有外部可追溯依據**。
 
 ## 公開內容界線
 
 此 repository 只保存可公開的通用教材。公司專案、產品原理圖、內部型號、韌體快照、量測紀錄或未公開設計資料不得進入公開 Git 歷史。
 
-## Production 架構
+## Production truth
 
-V3 仍是唯一 production renderer；V5 仍是 durable learning-state schema。**V6 是 measurement-validity semantics**，刻意不再增加一個不相容的 localStorage schema。
+- **V3**：唯一 production renderer。
+- **V5**：唯一 durable learning-state schema，key 為 `circuit-learning-state-v5`。
+- **V6**：measurement-validity semantics；independent oracle、deterministic reasoning、true transfer、uncertainty、Bayesian diagnosis。
+- **V7**：lab verification closure；38/38 lab 有 contract，12/12 module 有 A-capable independent path。
+- **V8**：external validity + real engineering transfer；12/12 module 正式 transfer/retention、12 external anchors、12 numeric open-response、10 Bayesian diagnostic cases、typed observables、mutation FDR、cross-module competency graph 與 evidence-based adaptive sequencing。
+
+V6/V7/V8 都**沒有**另造新的 persistence schema；避免為版本號本身製造遷移成本。
+
+詳細文件：
+
+- [`docs/runtime-architecture.md`](docs/runtime-architecture.md)
+- [`docs/verification-v7.md`](docs/verification-v7.md)
+- [`docs/measurement-v8.md`](docs/measurement-v8.md)
+
+## 核心架構
 
 ```text
 curriculum.js
       ↓
 curriculum-schema-v3.js
       ↓ normalized curriculum + canonical identity
-quiz-bank.js
-      ↓
+quiz-bank.js + assessment-v8.js
+      ↓ 12-module baseline / unseen transfer / retention
 engineering-models.js
       ↓ production teaching/calculation model
 model-registry.js
-      ↓ executable model + semantic version + IO units
+      ↓ executable model + semantic version + units
 lab-oracles.js
-      ↓ independent hand-derived reference + production/reference agreement
+      ↓ independent reference / black-box comparison / state invariant
+observables-v8.js
+      ↓ typed inputs / outputs / state contract
+external-anchors-v8.js
+      ↓ public source provenance + stable golden vectors
 learning-evidence.js   ← circuit-learning-state-v5
       ↓ immutable Prediction / report / attempt evidence
 learning-assessment.js
-      ↓ seeded true-transfer + reasoning rubric + Wilson CI + coverage
-engineering-challenges.js
-      ↓ seeded numeric generation + Bayesian diagnostic inference
+      ↓ first-attempt semantics + spaced retention + Wilson CI
+engineering-challenges.js + engineering-challenges-v8.js
+      ↓ 12 seeded numeric tasks + 10 Bayesian diagnostic cases
+mutation-v8.js
+      ↓ injected engineering faults + Fault Detection Rate
 learning-v3.js
-      ↓ V6 renderer / progression policy
+      ↓ production renderer / progression policy
+verification-v7.js + verification-v8.js
+      ↓ verification / coverage / external-validity policy
 Home / Beginner / Labs / Troubleshooting / Progress / Quiz / Search / Report
 
-Lesson / simulator pages
+Lesson / simulator page
       ↓
 tutor.js
-      ↓ normalized curriculum + canonical item ID
-      ↓
+      ↓ normalized canonical item ID
+      ↓ typed observable snapshot
 lab-oracles.js + learning-evidence.js
 ```
 
-詳細 ownership 見 [`docs/runtime-architecture.md`](docs/runtime-architecture.md)。
+## Evidence semantics
 
-## V6 的核心：不要讓模型自我證明
-
-V5 的 structured oracle 已能保存 model provenance，但 simulator 與 oracle 仍可能共用同一個 production implementation。V6 把「教學計算」與「驗證真相」拆成兩條實作路徑：
-
-```text
-same normalized inputs
-      ├─ production Model Registry
-      └─ independent reference implementation
-                    ↓
-               agreement check
-                    ↓
-             acceptance rule
-```
-
-目前 independent reference-backed oracle 覆蓋：
-
-- Buck 20% current-ripple lab；
-- ADC divider lab。
-
-A 級 evidence 必須同時滿足 production/reference agreement 與 acceptance rule。故意把 production model 算錯時，oracle regression test 必須失敗；沒有 independent reference 的 simulator 最多只能拿 B，不會假裝成 A。
-
-## Prediction integrity
-
-強 evidence 的第一個要求不是「有填 Prediction」，而是 Prediction **真的發生在看到結果之前**。
+強 evidence 的第一個要求是 Prediction **真的發生在看到結果之前**：
 
 ```text
 Prediction Commit
       ↓
 first simulator event
       ↓
-Observation
+Observation / independent verification
 ```
 
-- 第一版 Prediction 以 revision 保存，不可被事後文字覆蓋。
-- 若先操作 simulator 再補 Prediction，明確標為 **post-hoc**。
-- 後續仍可修訂，但 revision history 保留。
+第一版 Prediction 以 immutable revision 保存。先操作 simulator 再補 Prediction 會明確標為 post-hoc。
 
-## Stage 與 Evidence Strength 分離
+### Strength 與 Stage 分離
 
 | Strength | 意義 |
 |---|---|
 | C | human-only 或 post-hoc evidence |
-| B | preregistered Prediction + machine interaction + reasoning rubric pass |
-| A | preregistered Prediction + **independent oracle PASS** + reasoning rubric pass |
+| B | preregistered Prediction + machine interaction + reasoning pass |
+| A | preregistered Prediction + independent oracle PASS + domain reasoning gate |
 
-Stage 仍是 Viewed → Practiced → Verified → Retained；stage 與 evidence strength 是不同維度。
+Stage 仍是 Viewed → Practiced → Verified → Retained；Stage 與 Strength 是不同維度。
 
-## Deterministic Engineering Reasoning Rubric
+**A 不等於 hardware certification。** A 只代表「對公開教材/模型 contract 的獨立驗證」。實體硬體的 tolerance、parasitics、layout、thermal、timing、安全認證仍需真實量測與相應標準。
 
-工作單不再因為「文字夠長」就視為工程推理。完成時對五個 proposition 各評 0–2 分：
+## Independent verification
 
-1. **Claim**：預測是否有可檢驗方向；
-2. **Evidence**：觀察是否有數值/狀態且與 machine evidence 一致；
-3. **Mechanism**：是否指出公式、物理機制或時序因果；
-4. **Boundary**：是否知道模型在何處失效；
-5. **Transfer**：是否能對新條件提出可檢驗推論。
+V7/V8 對 12 個模組各保留至少一條 A-capable path，使用三種可審查方法：
 
-總分至少 8/10，且 Claim / Evidence / Mechanism 都必須存在。Buck ripple 與 ADC divider 有 domain-specific deterministic checks；流暢但無因果的 filler text 會被拒絕。
+1. **Registry ↔ independent reference**：production model 與手推 reference 分離。
+2. **Black-box page-output comparison**：獨立解析式直接驗頁面實際輸出。
+3. **State invariant**：安全/狀態機問題不用硬造數值 oracle。
 
-## True Transfer：不是改題目前綴
+沒有單一可辯護 ground truth 的 waveform diagnosis、開放式 tuning、procedural checklist、experiment record 等任務明確 **ceiling B**，不以假 oracle 充數。
 
-每個 assessment family 都保留 baseline A，但 B/C/Retention 由 deterministic seed 產生，並保存：
+## Deterministic engineering reasoning
 
-- `seed`；
-- `transferDepth`；
-- `representation`；
-- immutable first-attempt history。
+工作單不因「文字夠長」就算工程推理。核心 rubric 為：
 
-高品質 family 會改變參數、表示方式或情境，例如：
+1. Claim
+2. Evidence
+3. Mechanism
+4. Boundary
+5. Transfer
 
-- Buck ripple：L 參數題 → waveform inference → switched-inductor context；
-- Buck validity：model-selection transfer；
-- ADC：不同 bits / divider 數值 / Vref；
-- SPI：不同 frame timing、FIFO deadline、mode mismatch。
+總分至少 8/10，且 Claim / Evidence / Mechanism 為必要項。A-capable lab 再加 domain-specific fail-closed gate；流暢但無物理/時序因果的 filler text 不能取得 A。
 
-答錯的 seed/variant 永遠不能靠重試洗成 transfer pass；生成不了高品質 variant 時，系統直接顯示 coverage gap，不用低品質 prompt clone 補洞。
+## 12-module True Transfer
 
-## Spaced Retention
-
-Retention 從 `transferPassedAt` 開始：
+每個正式 competency family 至少具有：
 
 ```text
-Transfer PASS → 1d R1 → 7d R2 → 30d R3 → 90d R4
+Baseline A
+   ↓
+seeded unseen Transfer B/C
+   ↓
+1d R1 → 7d R2 → 30d R3 → 90d R4
 ```
 
-到期 review 答錯會降低 retention stage；主線只要求 transfer，不會被 90 天等待阻塞。
+Transfer 不只換 prompt：V8 generator 同時保存 `seed`、`transferDepth`、`representation`、`parameters`，且 depth 必須真的改變工程條件和/或表示方式。
 
-## Benchmark：顯示不確定度，不製造假精準
+答錯的 first-attempt variant 永遠不能靠重試洗成 transfer pass；必須換下一個 unseen variant。
 
-首頁與 Progress 只比較同時具有 baseline 與 transfer first-attempt 的同一批 competency，並顯示：
+正式 family 已涵蓋全部 12 modules：Buck、ADC、SPI、Inverter、FOC、PI、10 µs loop、BMS、AD5543、AFE、ACMC Pro、C2000 DDS。
 
-- paired baseline / transfer accuracy；
-- 95% Wilson confidence interval；
-- delta percentage points 與保守區間；
-- paired sample size `N`；
-- evidence grade：VERY LOW / LOW / MODERATE / HIGH；
-- confidence calibration；
-- retention stage。
+## Open-response：從 recognition 走向 generation
 
-小樣本不再只顯示一個看似精準的百分比。
+Seeded numeric task 從原本 Buck / ADC / SPI 擴到 12 類，新增：
 
-## Measurement Coverage Matrix
+- FOC Park projection
+- PI integrator crossover
+- 10 µs timing margin
+- AD5543 code mapping
+- AFE displacement PF
+- DDS real power
+- Inverter dead-time lower bound
+- BMS/AFE divider voltage
+- ACMC sinusoidal peak-current teaching estimate
 
-`progress.html` 明確區分：
+每次答案保存 seed、parameters、unit、expected value、relative error 與 attempt history。
 
-- taught；
-- practiced；
-- measured（有 seeded transfer + retention）；
-- verified（另有 independent oracle）。
+## Bayesian diagnostic reasoning
 
-因此 **absence of failure 不等於 evidence of competence**。目前沒有 assessment coverage 的主題會明確顯示，而不是因為沒有紅燈就被當成 mastered。
+Diagnostic case 共 10 個，涵蓋：
 
-## Parameterized Numeric Open-response
+- SPI FIFO/service deadline
+- Buck DCM
+- ADC saturation
+- PI oscillation / loop margin
+- FOC angle / phase order
+- 10 µs worst-case jitter
+- BMS contactor actuation
+- DAC polarity / mapping
+- AFE current polarity / phase
+- ACMC transient OCP
 
-Buck / ADC / SPI 的 numeric task 由 seed 產生新參數，答案保存 seed、parameters、unit、relative error 與 attempt history。seed 0 保留固定 regression vector；後續 attempt 會換條件，避免背固定答案。
-
-## Bayesian Diagnostic Games
-
-Diagnostic game 不再人工填 `informationGain: 5`。每個 hypothesis 有 prior，每個 measurement 有 likelihood `P(result | cause)`：
+每個 measurement 都有 `P(result | cause)`；系統用 Bayes update 更新 posterior，再由 Shannon entropy reduction 計算 information gain：
 
 ```text
 prior hypotheses
       ↓ measurement result
-Bayes update
-      ↓
 posterior hypotheses
       ↓
 IG = H(before) - H(after)
 ```
 
-UI 顯示 entropy、實際 information gain（bits）與 posterior；效率分數同時考慮 root-cause correctness、posterior concentration、資訊增益與 test cost。
+目標不是猜 root cause，而是訓練「下一個量什麼最能縮小假設空間」。
 
-目前案例：
+## External Reality Anchors
 
-- SPI FIFO/service-deadline；
-- Buck DCM。
+V8 加入第三條 truth source：
 
-## Stable Identity / State Compatibility
+```text
+Teaching model
+      ↓
+Independent oracle
+      ↓
+External source + golden vector
+```
 
-Tutor 只使用 normalized canonical `item.id`；新建或大幅修改 curriculum item 使用 object form + explicit immutable ID。Legacy positional arrays 仍可讀，V5 state 仍負責 canonical ↔ legacy aliases、semantic import merge 與 V2/V3/V4 migration。
+12/12 modules 都有一個明確 scope 的 external anchor，保存：
 
-V6 沒有改 state schema key，因為 seed、rubric、oracle provenance 都能加入既有 V5 event/history 結構；避免為版本號本身製造遷移成本。
+- source description
+- HTTPS provenance URL
+- model/safety scope
+- stable input vector
+- expected output
+- tolerance
+- deterministic PASS/FAIL
 
-## Engineering Model Registry
+Anchor 使用公開 manufacturer/standards equation、datasheet transfer definition、SI dimensional law 或 safety contract。Runtime/CI 使用 repository 內的 golden vector，不在學習時依賴網路。
 
-正式模型仍由 `engineering-models.js` + `model-registry.js` 擁有。Executable registry 包含 Buck、ADC、SPI timing、PWM average、discrete PI、DAC mapping、DDS phase increment；FOC/BMS/AFE/ACMC 在沒有足夠假設與測試時只保留 heuristic card，不冒充精確模型。
+**External Anchor PASS 仍不等於 hardware certification。** 它只表示教材 contract 有一個額外、可追溯的外部錨點。
+
+## Typed Observables
+
+`observables-v8.js` 為 12 個 A-capable lab 定義 typed：
+
+```text
+inputs
+outputs
+state
+```
+
+Tutor 在 lesson page 載入 typed observable contract，再交給 V7 independent oracle。這降低 oracle 對散落 DOM 文案/regex 的依賴，同時保留 V7 acceptance semantics 與舊 snapshot 相容性。
+
+## Mutation Fault Detection Rate
+
+`mutation-v8.js` 對 12 條 A-capable path 注入代表性工程錯誤，例如：
+
+- gain/scale corruption
+- dq swap
+- Hz conversion error
+- timing-margin sign error
+- stuck contactor
+- DAC off-by-one
+- `sin` / `cos` PF error
+- wrong protection state
+- wrong real-power sign
+
+CI 要求 independent verification layer 抓到所有注入 fault。這個 FDR 比單純 code coverage 更接近「測試能不能抓工程錯誤」。
+
+## Coverage、Uncertainty 與 Psychometric Boundary
+
+Progress 明確區分 taught / practiced / measured / verified，並顯示 paired baseline/transfer、95% Wilson interval、paired N、confidence calibration 與 retention。
+
+V8 的 local psychometric signal 只在有資料時才顯示：
+
+- `<4` first attempts：`insufficient`
+- `4–7`：`provisional`
+- `>=8`：`usable`
+
+這只是單一 learner 的 local measurement-quality signal，**不是 population IRT，也不是標準化測驗效度證明**。
+
+## Evidence-based Adaptive Sequencing
+
+V8 的 next-task ranking 是 deterministic、可審查的 scheduling，不是 ML recommender：
+
+1. retention due
+2. unseen transfer 尚未通過
+3. transfer 已過但 retention 尚未建立
+4. maintenance
+
+再以 module importance、confidence uncertainty 與可用時間做次級排序。資料不足就顯示不足，不製造假精準。
+
+## Stable identity / state compatibility
+
+Tutor 只使用 normalized canonical `item.id`。Legacy positional curriculum arrays 仍可讀；V5 state 負責 canonical ↔ legacy aliases、semantic import merge 與 V2/V3/V4 migration。
+
+V8 不改 storage key，因此既有 Prediction、attempt、report、retention 與 evidence history 可延續。
 
 ## 驗證
 
@@ -202,30 +269,32 @@ npm run test:e2e
 
 CI 必須覆蓋：
 
-- syntax / links / resources / public-content guard；
-- V2/V3/V4 → V5 state migration 與 semantic merge；
-- Prediction preregistration / post-hoc；
-- wrong-variant cannot-wash transfer；
-- seeded parameter / representation transfer；
-- 1d/7d/30d/90d retention；
-- Wilson interval / paired denominator；
-- independent oracle disagreement detection；
-- oracle metamorphic invariants；
-- deterministic reasoning rejection/acceptance；
-- measurement coverage states；
-- parameterized numeric generation；
-- Bayesian entropy / posterior / information gain；
-- Chromium desktop/mobile end-to-end flows。
+- syntax / links / resources / public-content guard
+- state migration / semantic merge
+- Prediction preregistration / post-hoc
+- wrong-variant cannot-wash transfer
+- 12-module seeded transfer / retention
+- 1d/7d/30d/90d spaced retrieval
+- independent oracle disagreement / state invariants
+- deterministic reasoning fail-closed
+- Wilson uncertainty / paired denominator
+- 12 seeded numeric task families
+- 10 Bayesian diagnostic cases
+- 12 external anchors / golden vectors
+- typed observable provenance
+- 12-path engineering mutation campaign / FDR
+- prerequisite DAG / adaptive ranking / insufficient psychometric labeling
+- Chromium desktop/mobile end-to-end flows
 
-## 維護原則
+## 維護停止線
 
-1. Production model 可以教學，但不可單獨自我證明 A 級 evidence。
+1. Production model 可以教學，但不可單獨自我證明 A。
 2. Independent reference 不得呼叫 production calculation function。
 3. Prediction、attempt、report 保留 immutable history。
-4. Transfer 必須是 seeded unseen first attempt；無高品質 generator 就留下 coverage gap。
-5. A 級工作單必須通過 deterministic reasoning rubric。
-6. Benchmark 必須顯示 paired N 與 uncertainty。
-7. `unmeasured` 必須是合法狀態，不得被 UI 隱藏。
-8. Diagnostic information gain 必須由 probability update 計算。
+4. Transfer 必須是 unseen first attempt，且工程條件真的改變。
+5. `unmeasured` / `insufficient` 必須是合法狀態，不得被 UI 隱藏。
+6. Diagnostic information gain 必須由 probability update 計算。
+7. External anchor 必須保存 source、scope、golden vector 與 tolerance。
+8. A / Anchor 都不得被描述成硬體認證。
 9. 新公式附 units、assumptions、invalid conditions、reference、version 與 tests。
-10. 不以完成頁數當能力；優先看 independently verified transfer、calibration 與 retained performance。
+10. **V8 之後停止為框架本身擴版。新 infrastructure 必須能回答：「它會改善哪一個未見情境下的工程判斷、診斷或 retention 指標？」答不出來就不做。**
