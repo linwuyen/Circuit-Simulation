@@ -123,7 +123,7 @@
     return { path: currentPath(), controls, metrics: metrics.slice(0, 20) };
   }
 
-  function bindMachineEvidence(ctx, Evidence, Registry, Oracles) {
+  function bindMachineEvidence(ctx, Evidence) {
     if (!Evidence) return;
     const itemId = ctx.item.id || ctx.module.id;
     const labs = labsForRef(ctx.module, ctx.ref);
@@ -134,8 +134,7 @@
         const snapshot = snapshotPage();
         Evidence.recordMachine(itemId, "simulator", snapshot, null);
         labs.forEach(lab => {
-          const verification = Oracles && Registry ? Oracles.verify(lab.id, snapshot, Registry) : null;
-          Evidence.recordMachine(lab.id, "simulator", snapshot, verification && verification.supported ? verification : null);
+          if (lab.id !== itemId) Evidence.recordMachine(lab.id, "simulator", snapshot, null);
         });
       }, 160);
     };
@@ -178,7 +177,7 @@
     root.querySelector(".clt-close").addEventListener("click", () => { panel.classList.remove("is-open"); button.setAttribute("aria-expanded", "false"); });
     root.querySelectorAll("[data-clt-mode]").forEach(modeButton => modeButton.addEventListener("click", () => setMode(modeButton.dataset.cltMode, root)));
     root.querySelectorAll("[data-clt-check]").forEach(box => box.addEventListener("change", () => { if (Evidence) Evidence.recordStep(itemId, box.dataset.cltCheck, box.checked); }));
-    bindMachineEvidence(ctx, Evidence, Registry, Oracles);
+    bindMachineEvidence(ctx, Evidence);
   }
 
   async function init() {
