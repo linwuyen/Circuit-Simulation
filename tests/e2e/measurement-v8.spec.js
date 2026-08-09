@@ -1,14 +1,48 @@
 const { test, expect } = require('@playwright/test');
 
+async function seedTransfer(page, familyId) {
+  await page.evaluate((id) => {
+    const curriculum = CircuitSchema.normalizeCurriculum(CircuitCurriculum);
+    const questions = CircuitAssessment.expandQuestions(CircuitQuizBank.getQuestions(curriculum));
+    const family = questions.filter(q => q.familyId === id);
+    const baseline = family.find(q => q.assessmentRole === 'baseline');
+    const transfer = family.find(q => q.assessmentRole === 'transfer');
+    if (!baseline || !transfer) throw new Error(`family not found: ${id}`);
+    const state = CircuitEvidence.load();
+    CircuitAssessment.recordAttempt(state, baseline, baseline.options.find(o => o.correct), {
+      at: '2026-08-01T00:00:00.000Z', confidence: 0.7
+    });
+    CircuitAssessment.recordAttempt(state, transfer, transfer.options.find(o => o.correct), {
+      at: '2026-08-01T00:01:00.000Z', confidence: 0.7
+    });
+    CircuitEvidence.save(state);
+  }, familyId);
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => localStorage.clear());
 });
 
-test('FOC now has an official seeded transfer and retention family', async ({ page }) => {
+test('FOC has an official seeded transfer and retention family behind the prerequisite DAG', async ({ page }) => {
+  const family = await page.evaluate(() => {
+    const curriculum = CircuitSchema.normalizeCurriculum(CircuitCurriculum);
+    return CircuitAssessment.expandQuestions(CircuitQuizBank.getQuestions(curriculum))
+      .filter(q => q.familyId === 'foc-park-frame')
+      .map(q => ({ role: q.assessmentRole, variantId: q.variantId, seed: q.seed, representation: q.representation, prompt: q.prompt }));
+  });
+  expect(family.map(q => q.role)).toEqual(['baseline', 'transfer', 'transfer', 'retention']);
+  expect(new Set(family.slice(1).map(q => q.seed)).size).toBe(3);
+  expect(new Set(family.slice(1).map(q => q.prompt)).size).toBe(3);
+
+  await page.goto('/quiz.html?module=foc');
+  await expect(page.locator('#mainContent')).toContainText('先補前置能力');
+  await expect(page.locator('#mainContent')).toContainText('inverter.shoot-through.safety');
+
+  await page.goto('/');
+  await seedTransfer(page, 'inv-shoot-through-safety');
   await page.goto('/quiz.html?module=foc');
   await expect(page.locator('#mainContent')).toContainText('foc.park.frame');
-  await expect(page.locator('#mainContent')).toContainText('Park');
   await expect(page.locator('[data-current-question]')).toHaveCount(1);
   await expect(page.locator('#adaptiveV8')).toContainText('Adaptive next actions');
 });
@@ -50,8 +84,10 @@ test('lesson Tutor writes typed observable provenance into independent oracle ev
   expect(typed.verification.observableContract.labId).toBe('pi.lab.pi-ki');
 });
 
-test('V8 open-response tasks are available outside the original three benchmark modules', async ({ page }) => {
+test('V8 open-response tasks render outside the original three benchmark modules after prerequisites', async ({ page }) => {
+  await page.goto('/');
+  await seedTransfer(page, 'adc-levels-vs-codes');
   await page.goto('/quiz.html?module=pi');
-  await expect(page.locator('#mainContent')).toContainText('pi-open-crossover');
+  await expect(page.locator('[data-numeric-answer="pi-open-crossover"]')).toHaveCount(1);
   await expect(page.locator('#mainContent')).toContainText('0 dB crossover');
 });
