@@ -1,12 +1,13 @@
 (function(root){
   "use strict";
-  const Oracles=root.CircuitLabOracles,Contracts=root.CircuitLabVerificationContracts;
+  const Oracles=root.CircuitLabOracles,Contracts=root.CircuitLabVerificationContracts,Assessment=root.CircuitAssessment;
   if(!Oracles||!Contracts)throw new Error("OP AMP verification requires lab oracles + contracts");
   if(Oracles.__opampSlewOracleInstalled)return;
   const A={labId:"opamp.lab.opamp-sine",moduleId:"opamp",title:"OP AMP full-power bandwidth / slew margin",method:"independent-oracle",gradeCeiling:"A",modelScope:"large-signal sine slope identity",requires:["preregistered-prediction","machine-snapshot","independent-oracle","reasoning-gate"],reasoning:{}};
   const B1={labId:"opamp.lab.opamp-step",moduleId:"opamp",title:"OP AMP step slew and settling",method:"machine-contract",gradeCeiling:"B",modelScope:"combined first-order bandwidth + slew clamp teaching model",requires:["preregistered-prediction","machine-snapshot","reasoning-rubric"]};
   const B2={labId:"opamp.lab.opamp-diagnose",moduleId:"opamp",title:"OP AMP GBW / SR / settling diagnosis",method:"machine-contract",gradeCeiling:"B",modelScope:"diagnostic-judgment",requires:["preregistered-prediction","machine-snapshot","reasoning-rubric"]};
   [B1,A,B2].forEach(c=>{if(!Contracts.list.some(x=>x.labId===c.labId))Contracts.list.push(c);});
+  if(Assessment&&Array.isArray(Assessment.MEASUREMENT_ORACLE_LABS)&&!Assessment.MEASUREMENT_ORACLE_LABS.includes(A.labId))Assessment.MEASUREMENT_ORACLE_LABS.push(A.labId);
   const ours=Object.fromEntries([B1,A,B2].map(x=>[x.labId,x])),baseGet=Contracts.get.bind(Contracts),baseValidate=Contracts.validate.bind(Contracts),baseCoverage=Contracts.coverage.bind(Contracts),baseGate=Contracts.reasoningGate.bind(Contracts);
   Contracts.get=id=>ours[id]||baseGet(id);
   Contracts.validate=function(curriculum,oracleApi){return baseValidate(curriculum,oracleApi).filter(e=>!/^unclassified lab: opamp\.lab\./.test(e));};
