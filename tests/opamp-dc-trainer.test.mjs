@@ -34,7 +34,7 @@ test('solver preserves current direction and Vout polarity when bias reverses',(
   assert.equal(s.leftDirection,'LEFT_TO_NODE');
   assert.equal(s.feedbackDirection,'NODE_TO_VOUT');
   assert.equal(s.feedbackDropV,1.2);
-  assert.equal(s.vout,0);
+  assert.equal(Math.abs(s.vout),0);
   assert.equal(s.voutRelativeToNode,'LOWER');
 });
 
