@@ -16,7 +16,8 @@
     "ad5543.code.mapping":{moduleId:"ad5543",labId:"ad5543.lab.dac-code"},
     "afe.phase.power":{moduleId:"afe",labId:"afe.lab.afe-phase"},
     "acmc.protection.boundary":{moduleId:"acmc-pro",labId:"acmc-pro.lab.acmc-protection"},
-    "dds.phase.power":{moduleId:"c2000-dds",labId:"c2000-dds.lab.dds-pf"}
+    "dds.phase.power":{moduleId:"c2000-dds",labId:"c2000-dds.lab.dds-pf"},
+    "opamp.large-signal.slew-rate":{moduleId:"opamp",labId:"opamp.lab.opamp-sine"}
   };
   if(!Assessment.__v8CoverageInstalled){
     const baseCoverage=Assessment.coverageSummary.bind(Assessment);
