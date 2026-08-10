@@ -7,8 +7,8 @@ test.beforeEach(async ({ page }) => {
 
 test('all labs expose explicit verification contracts and honest grade ceilings', async ({ page }) => {
   await page.goto('/labs.html');
-  await expect(page.locator('#mainContent')).toContainText('38/38 labs classified');
-  await expect(page.locator('#mainContent')).toContainText('12/12 modules have an A path');
+  await expect(page.locator('#mainContent')).toContainText('41/41 labs classified');
+  await expect(page.locator('#mainContent')).toContainText('13/13 modules have an A path');
   await expect(page.locator('#labGrid')).toContainText('Independent oracle · ceiling A');
   await expect(page.locator('#labGrid')).toContainText('Machine + reasoning contract · ceiling B');
   await expect(page.locator('#labGrid')).toContainText('不設假 oracle；此任務 ceiling B');
@@ -16,11 +16,11 @@ test('all labs expose explicit verification contracts and honest grade ceilings'
 
 test('progress reports complete contract coverage without pretending all labs have ground truth', async ({ page }) => {
   await page.goto('/progress.html');
-  await expect(page.locator('#labContractMatrix')).toContainText('38/38 classified');
+  await expect(page.locator('#labContractMatrix')).toContainText('41/41 classified');
   await expect(page.locator('#labContractMatrix')).toContainText('A-capable');
   await expect(page.locator('#labContractMatrix')).toContainText('ground truth');
   const moduleCards=page.locator('#labContractMatrix .lab');
-  await expect(moduleCards).toHaveCount(12);
+  await expect(moduleCards).toHaveCount(13);
 });
 
 test('PI black-box oracle closes prediction to A-strength evidence', async ({ page }) => {
