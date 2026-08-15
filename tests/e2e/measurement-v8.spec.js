@@ -56,10 +56,10 @@ test('FOC has a seeded family and the prerequisite DAG changes sequencing eligib
   await expect(page.locator('#adaptiveV8')).toContainText('Adaptive next actions');
 });
 
-test('Bayesian diagnostic coverage expands to eleven real engineering scenarios', async ({ page }) => {
+test('Bayesian diagnostic coverage expands to fourteen real engineering scenarios', async ({ page }) => {
   await page.goto('/troubleshooting.html');
-  await expect(page.locator('#diagnosticGames .diagnostic-game')).toHaveCount(11);
-  await expect(page.locator('#diagnosticCoverageV8')).toContainText('11 Bayesian cases');
+  await expect(page.locator('#diagnosticGames .diagnostic-game')).toHaveCount(14);
+  await expect(page.locator('#diagnosticCoverageV8')).toContainText('14 Bayesian cases');
   const game = page.locator('[data-game="foc-angle-game"]');
   await game.locator('[data-test="lock-rotor"]').click();
   await expect(game.locator('.game-evidence')).toContainText('IG');
@@ -67,10 +67,10 @@ test('Bayesian diagnostic coverage expands to eleven real engineering scenarios'
   await expect(game.locator('.game-score')).toContainText('Root cause 正確');
 });
 
-test('progress exposes 13 external anchors and complete measurement capability coverage', async ({ page }) => {
+test('progress exposes 16 external anchors and complete measurement capability coverage', async ({ page }) => {
   await page.goto('/progress.html');
-  await expect(page.locator('.v8-validity-summary')).toContainText('13/13 golden anchors pass');
-  await expect(page.locator('#externalAnchorMatrix + .fault-table .fault-row')).toHaveCount(13);
+  await expect(page.locator('.v8-validity-summary')).toContainText('16/16 golden anchors pass');
+  await expect(page.locator('#externalAnchorMatrix + .fault-table .fault-row')).toHaveCount(16);
   await expect(page.locator('#adaptiveV8')).toContainText('Psychometric evidence');
   const foc = page.locator('#coverageMatrix .fault-row').filter({ hasText: 'foc.park.frame' });
   await expect(foc).toHaveCount(1);

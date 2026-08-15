@@ -5,11 +5,11 @@ test.beforeEach(async ({ page }) => {
   await page.evaluate(() => localStorage.clear());
 });
 
-test('home exposes the 13th OP AMP dynamic-response module', async ({ page }) => {
+test('home exposes the OP AMP dynamic-response module inside the expanded system', async ({ page }) => {
   await expect(page.locator('#mainContent')).toContainText('OP AMP Slew Rate / Dynamic Response');
-  await expect(page.locator('.v8-validity-summary')).toContainText('13/13 golden anchors pass');
-  await expect(page.locator('.v8-validity-summary')).toContainText('13/13 modules anchored');
-  await expect(page.locator('a[href="12_opamp_slew_rate/index.html"]')).toHaveCount(1);
+  await expect(page.locator('.v8-validity-summary')).toContainText('16/16 golden anchors pass');
+  await expect(page.locator('.v8-validity-summary')).toContainText('16/16 modules anchored');
+  await expect(page.locator('a[href="12_opamp_slew_rate/index.html"]')).toHaveCount(2);
 });
 
 test('sine lab calculates the full-power slope and records one independent PASS', async ({ page }) => {
@@ -58,7 +58,7 @@ test('OP AMP quiz exposes formal transfer and all three numeric generators', asy
 
 test('troubleshooting includes Bayesian OP AMP slew-vs-bandwidth diagnosis', async ({ page }) => {
   await page.goto('/troubleshooting.html');
-  await expect(page.locator('#diagnosticGames .diagnostic-game')).toHaveCount(11);
+  await expect(page.locator('#diagnosticGames .diagnostic-game')).toHaveCount(14);
   await expect(page.locator('#diagnosticCoverageV8')).toContainText('OP AMP');
   const game = page.locator('[data-game="opamp-slew-vs-bandwidth-game"]');
   await expect(game).toHaveCount(1);
@@ -71,8 +71,8 @@ test('troubleshooting includes Bayesian OP AMP slew-vs-bandwidth diagnosis', asy
 
 test('progress closes OP AMP coverage and external validity', async ({ page }) => {
   await page.goto('/progress.html');
-  await expect(page.locator('.v8-validity-summary')).toContainText('13/13 golden anchors pass');
-  await expect(page.locator('#externalAnchorMatrix + .fault-table .fault-row')).toHaveCount(13);
+  await expect(page.locator('.v8-validity-summary')).toContainText('16/16 golden anchors pass');
+  await expect(page.locator('#externalAnchorMatrix + .fault-table .fault-row')).toHaveCount(16);
   await expect(page.locator('#externalAnchorMatrix + .fault-table')).toContainText('OP AMP Slew Rate / Dynamic Response');
   const row = page.locator('#coverageMatrix .fault-row').filter({ hasText: 'opamp.large-signal.slew-rate' });
   await expect(row).toHaveCount(1);
