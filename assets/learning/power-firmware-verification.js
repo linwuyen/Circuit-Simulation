@@ -36,7 +36,25 @@
   };
   const oldSupports=Oracles.supports.bind(Oracles),oldVerify=Oracles.verify.bind(Oracles);
   Oracles.supports=id=>!!specs[id]||oldSupports(id);
-  Oracles.verify=function(labId,snapshot,registry){const spec=specs[labId];if(!spec)return oldVerify(labId,snapshot,registry);try{const typed=spec.typed(snapshot||{}),i=typed.inputs;if(!Object.values(i).filter(v=>typeof v==="number").every(Number.isFinite))return{supported:false,passed:false,reason:"insufficient-power-firmware-input"};const ref=spec.calc(i),failures=[];spec.compare.forEach(field=>{const p=typed.outputs[field],r=ref[field],abs=field.includes("Us")?.03:field==="speedup"||field.includes("Pct")?.03:.8,rel=field==="speedup"||field.includes("Pct")?.02:.005;if(!near(p,r,rel,abs))failures.push({field,production:p,reference:r});});const agreement={passed:failures.length===0,failures};const acceptance={passed:!!ref.pass,target:labId==="power-sync.lab.timing"?"same-cycle margin >= 1000 ns":labId==="protection.lab.trip-latency"?"hardware path <= 1000 ns and faster than software":"serial critical-path margin >= 2 us",measured:labId==="power-sync.lab.timing"?ref.marginNs:labId==="protection.lab.trip-latency"?ref.hardwareNs:ref.marginUs,unit:labId==="power-capstone.lab.integration-budget"?"us":"ns"};return{supported:true,passed:agreement.passed&&acceptance.passed,independentValidated:agreement.passed,oracleVersion:"power-fw-1.0",production:{id:"page-output:"+labId,version:"power-fw-sim-1",outputs:typed.outputs},reference:{id:"ref:"+labId,version:"1.0",outputs:ref},inputs:i,outputs:ref,agreement,acceptance,observableContract:typed};}catch(error){return{supported:true,passed:false,independentValidated:false,oracleVersion:"power-fw-1.0",reason:error.message};}};
+  Oracles.verify=function(labId,snapshot,registry){
+    const spec=specs[labId];if(!spec)return oldVerify(labId,snapshot,registry);
+    try{
+      const typed=spec.typed(snapshot||{}),i=typed.inputs;
+      if(!Object.values(i).every(Number.isFinite))return{supported:false,passed:false,independentValidated:false,reason:"insufficient-power-firmware-input"};
+      const ref=spec.calc(i),failures=[];
+      spec.compare.forEach(field=>{
+        const p=typed.outputs[field],r=ref[field];
+        const ratioField=field==="speedup"||field.includes("Pct");
+        const usField=field.includes("Us");
+        const abs=usField||ratioField?.03:.8;
+        const rel=ratioField?.02:.005;
+        if(!near(p,r,rel,abs))failures.push({field,production:p,reference:r});
+      });
+      const agreement={passed:failures.length===0,failures};
+      const acceptance={passed:!!ref.pass,target:labId==="power-sync.lab.timing"?"same-cycle margin >= 1000 ns":labId==="protection.lab.trip-latency"?"hardware path <= 1000 ns and faster than software":"serial critical-path margin >= 2 us",measured:labId==="power-sync.lab.timing"?ref.marginNs:labId==="protection.lab.trip-latency"?ref.hardwareNs:ref.marginUs,unit:labId==="power-capstone.lab.integration-budget"?"us":"ns"};
+      return{supported:true,passed:agreement.passed&&acceptance.passed,independentValidated:agreement.passed,oracleVersion:"power-fw-1.0",production:{id:"page-output:"+labId,version:"power-fw-sim-1",outputs:typed.outputs},reference:{id:"ref:"+labId,version:"1.0",outputs:ref},inputs:i,outputs:ref,agreement,acceptance,observableContract:typed};
+    }catch(error){return{supported:true,passed:false,independentValidated:false,oracleVersion:"power-fw-1.0",reason:error.message};}
+  };
 
   const byLab=Object.fromEntries(defs.map(x=>[x.labId,x])),oldGet=Contracts.get.bind(Contracts),oldValidate=Contracts.validate.bind(Contracts),oldCoverage=Contracts.coverage.bind(Contracts),oldGate=Contracts.reasoningGate.bind(Contracts);
   Contracts.get=id=>byLab[id]||oldGet(id);
