@@ -1,6 +1,19 @@
+const fs = require('fs');
+const path = require('path');
+
+const outputPath = path.resolve(process.cwd(), 'playwright-failures.jsonl');
+
 class CiDiagnosticReporter {
   printsToStdio() {
     return true;
+  }
+
+  onBegin() {
+    try {
+      fs.rmSync(outputPath, { force: true });
+    } catch (_) {
+      // Diagnostics must never change the test result.
+    }
   }
 
   onTestEnd(test, result) {
@@ -17,8 +30,14 @@ class CiDiagnosticReporter {
       message: error.message || '',
       stack: error.stack || ''
     };
+    const line = JSON.stringify(payload);
 
-    console.error('[PWFAIL]' + JSON.stringify(payload));
+    console.error('[PWFAIL]' + line);
+    try {
+      fs.appendFileSync(outputPath, line + '\n', 'utf8');
+    } catch (_) {
+      // Diagnostics must never change the test result.
+    }
   }
 }
 
