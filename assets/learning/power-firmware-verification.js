@@ -46,8 +46,9 @@
         const p=typed.outputs[field],r=ref[field];
         const ratioField=field==="speedup"||field.includes("Pct");
         const usField=field.includes("Us");
-        const abs=usField||ratioField?.03:.8;
-        const rel=ratioField?.02:.005;
+        let abs=.8,rel=.005;
+        if(usField||ratioField)abs=.03;
+        if(ratioField)rel=.02;
         if(!near(p,r,rel,abs))failures.push({field,production:p,reference:r});
       });
       const agreement={passed:failures.length===0,failures};
