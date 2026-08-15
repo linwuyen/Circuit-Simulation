@@ -4,22 +4,44 @@
 
 這是一套以「**預測 → 操作 → 獨立驗證 → 因果解釋 → 未見遷移 → 間隔取回 → 外部錨定**」為核心的電路、韌體與電力電子學習系統。
 
-真正 KPI 不是完成頁數，而是：面對沒看過的工程條件時，**第一次判斷是否正確、證據是否可獨立驗證、信心是否校準、隔一段時間後是否仍能取回，以及教材模型是否有外部可追溯依據**。
+真正 KPI 不是完成頁數，而是：面對沒看過的工程條件時，**第一次判斷是否正確、知道下一個該量什麼、能否建立可否證的因果鏈、證據是否可獨立驗證，以及隔一段時間後是否仍能取回並遷移到新情境**。
 
 ## 公開內容界線
 
-此 repository 只保存可公開的通用教材。公司專案、產品原理圖、內部型號、韌體快照、量測紀錄或未公開設計資料不得進入公開 Git 歷史。
+此 repository 只保存可公開、去產品化的通用教材。
+
+**禁止進入 public Git history：**
+
+- 公司產品名稱、內部型號、客戶規格
+- schematic、PCB net name、pin map
+- proprietary command / protocol payload
+- firmware snapshot、memory/register map
+- internal threshold、calibration constant、control coefficient
+- 公司量測紀錄、未公開設計資料
+
+**允許公開：**經過抽象化後可遷移的 engineering pattern，例如 sampling/actuation timing、scale/offset/unit chain、protection latency、state invariant、producer/consumer ownership、control-loop reasoning、fault isolation 與 debug methodology。
 
 ## Production truth
 
 - **V3**：唯一 production renderer。
 - **V5**：唯一 durable learning-state schema，key 為 `circuit-learning-state-v5`。
 - **V6**：measurement-validity semantics；independent oracle、deterministic reasoning、true transfer、uncertainty、Bayesian diagnosis。
-- **V7**：lab verification closure；當時 38/38 lab 有 contract，12/12 module 有 A-capable independent path。
-- **V8**：external validity + real engineering transfer；當時 12/12 module 正式 transfer/retention、12 external anchors、12 numeric open-response、10 Bayesian diagnostic cases、typed observables、mutation FDR、cross-module competency graph 與 evidence-based adaptive sequencing。
-- **OP AMP content extension**：不建立 V9 framework；沿用 V3/V5/V8，把 Slew Rate / Dynamic Response 加為第 13 模組。Current production 為 13 modules、41 labs、15 seeded numeric task families、11 Bayesian diagnostics、13 external anchors、13 A-capable paths 與 13-path mutation campaign。
+- **V7**：lab verification closure。
+- **V8**：external validity + real engineering transfer；typed observables、mutation FDR、competency graph 與 evidence-based adaptive sequencing。
+- **OP AMP extension**：在同一框架加入第 13 模組，不建立 V9。
+- **Power Electronics Firmware Engineer Path**：在同一 V3/V5/V8 contract 上加入 PWM/ADC Sync、Protection、Generic Capstone，將零散 module 收斂成職業能力主線；仍不建立 V9。
 
-V6/V7/V8 與後續內容擴充都**沒有**另造新的 persistence schema；避免為版本號本身製造遷移成本。
+### Current production
+
+- **16 modules**
+- **50 classified labs**
+- **16 modules with an A-capable independent path**
+- **21 seeded numeric task families**
+- **14 Bayesian diagnostic cases**
+- **16 external reality anchors**
+- **16 representative mutation paths**
+
+V6/V7/V8 與後續內容擴充都沒有另造 persistence schema；沒有真實 schema incompatibility 就不為版本號本身製造 migration cost。
 
 詳細文件：
 
@@ -27,51 +49,136 @@ V6/V7/V8 與後續內容擴充都**沒有**另造新的 persistence schema；避
 - [`docs/verification-v7.md`](docs/verification-v7.md)
 - [`docs/measurement-v8.md`](docs/measurement-v8.md)
 - [`docs/opamp-slew-rate.md`](docs/opamp-slew-rate.md)
+- [`docs/power-firmware-path.md`](docs/power-firmware-path.md)
 
-## 核心架構
+## Power Electronics Firmware Engineer Path
+
+首頁將課程整理成六層能力主線，而不是單純列 module：
 
 ```text
-curriculum.js + opamp-module.js
+1. Power Physics
       ↓
-curriculum-schema-v3.js
-      ↓ normalized curriculum + canonical identity
-quiz-bank.js + assessment-v8.js + opamp-assessment.js
-      ↓ 13-module baseline / unseen transfer / retention
-engineering-models.js
-      ↓ production teaching/calculation model
-model-registry.js
-      ↓ executable model + semantic version + units
-lab-oracles.js + opamp-verification.js
-      ↓ independent reference / black-box comparison / state invariant
-observables-v8.js + OP AMP typed oracle snapshot
-      ↓ typed inputs / outputs / state contract
-external-anchors-v8.js + opamp-external.js
-      ↓ public source provenance + stable golden vectors
-learning-evidence.js   ← circuit-learning-state-v5
-      ↓ immutable Prediction / report / attempt evidence
-learning-assessment.js
-      ↓ first-attempt semantics + spaced retention + Wilson CI
-engineering-challenges.js + engineering-challenges-v8.js + opamp-assessment.js
-      ↓ 15 seeded numeric tasks + 11 Bayesian diagnostic cases
-mutation-v8.js + OP AMP mutation extension
-      ↓ injected engineering faults + Fault Detection Rate
-learning-v3.js
-      ↓ production renderer / progression policy
-verification-v7.js + verification-v8.js + opamp-post.js
-      ↓ verification / coverage / external-validity policy
-Home / Beginner / Labs / Troubleshooting / Progress / Quiz / Search / Report
-
-Lesson / simulator page
+2. Sensing
       ↓
-tutor.js
-      ↓ normalized canonical item ID
-      ↓ typed observable snapshot
-lab-oracles.js + learning-evidence.js
+3. Timing & Control
+      ↓
+4. Protection & State
+      ↓
+5. Communication & Actuation
+      ↓
+6. System Integration
 ```
+
+對應的工程因果鏈是：
+
+```text
+Requirement
+   ↓
+Power Stage
+   ↓
+Sensing / Scaling
+   ↓
+ADC Sampling
+   ↓
+Control Law
+   ↓
+PWM / Actuation
+   ↓
+Protection / State
+   ↓
+Communication / Data Ownership
+   ↓
+Observation / Diagnosis
+```
+
+### Engineering Capability Ladder
+
+Progress page另外顯示 L0–L7：
+
+- **L0 Recognize**：辨認元件、訊號與狀態
+- **L1 Calculate**：算出量級與 unit
+- **L2 Predict**：操作前能預測方向
+- **L3 Measure**：知道下一個最有資訊量的 measurement
+- **L4 Diagnose**：由 evidence 收斂 root cause
+- **L5 Design**：由 requirement 反推 design contract
+- **L6 Integrate**：串起 sensing / control / protection / communication
+- **L7 Debug unknown system**：面對沒看過的系統仍能逐層證偽
+
+最高目標不是背公式，而是未知情境中的 first-attempt engineering judgment。
+
+## 16 Modules
+
+既有主題：
+
+- Buck
+- ADC / measurement scaling
+- Inverter
+- FOC
+- PI
+- SPI
+- 10 µs real-time loop
+- BMS
+- AD5543 DAC
+- AFE
+- ACMC Pro
+- C2000 DDS
+- OP AMP Slew Rate / Dynamic Response
+
+新增三個 system-level module：
+
+### PWM → ADC → ISR Synchronization
+
+核心 competency：`power-sync.sample-update.deadline`
+
+訓練：
+
+- PWM event → ADC SOC
+- acquisition / conversion latency
+- ISR / control deadline
+- switching-edge sample placement
+- PWM shadow load / one-cycle delay
+
+A-capable lab：`power-sync.lab.timing`
+
+Independent oracle 重新計算 period、sample instant、data-ready、control-done 與 same-cycle margin；A acceptance 要求 margin ≥ 1 µs。
+
+### Power Protection Architecture
+
+核心 competency：`protection.trip.latency`
+
+訓練：
+
+- comparator/filter/trip hardware path
+- ADC/ISR software protection path
+- filter / blanking latency tradeoff
+- fault latch / explicit re-arm
+- fail-closed startup sequence
+
+A-capable lab：`protection.lab.trip-latency`
+
+Independent oracle 分別累加 hardware 與 software serial path；A acceptance 要求 hardware path ≤ 1 µs 且快於 software path。
+
+### Programmable Power Converter Capstone
+
+核心 competency：`capstone.signal-chain.integration`
+
+這是一個**完全 generic** 的 power converter system，不對應任何公司產品。
+
+訓練：
+
+- requirement → command → control → PWM → plant → sensor → ADC signal chain
+- serial critical-path budget
+- background communication isolation
+- sensing / control / stale-data fault isolation
+- Power → Clock → Reset → Signal → Timing → Data → State → Control → Plant debug ladder
+
+A-capable lab：`power-capstone.lab.integration-budget`
+
+Independent oracle 只計算 serial sensing → control → PWM-commit critical path；A acceptance 要求 deterministic margin ≥ 2 µs。
 
 ## Evidence semantics
 
-強 evidence 的第一個要求是 Prediction **真的發生在看到結果之前**：
+強 evidence 的第一個要求是 Prediction 真正在看到結果之前發生：
 
 ```text
 Prediction Commit
@@ -93,23 +200,21 @@ Observation / independent verification
 
 Stage 仍是 Viewed → Practiced → Verified → Retained；Stage 與 Strength 是不同維度。
 
-**A 不等於 hardware certification。** A 只代表「對公開教材/模型 contract 的獨立驗證」。實體硬體的 tolerance、parasitics、layout、thermal、timing、安全認證仍需真實量測與相應標準。
+**A 不等於 hardware certification。** A 只代表對公開教材/模型 contract 的獨立驗證。
 
 ## Independent verification
 
-目前 13 個模組各保留至少一條 A-capable path，使用三種可審查方法：
+16 個模組各保留至少一條 A-capable path，使用可審查的方法：
 
-1. **Registry ↔ independent reference**：production model 與手推 reference 分離。
-2. **Black-box page-output comparison**：獨立解析式直接驗頁面實際輸出。
-3. **State invariant**：安全/狀態機問題不用硬造數值 oracle。
+1. **Registry ↔ independent reference**：production model 與 reference executable path 分離。
+2. **Black-box page-output comparison**：獨立解析式驗頁面實際輸出。
+3. **State invariant**：安全/狀態機問題不硬造數值 oracle。
 
-沒有單一可辯護 ground truth 的 waveform diagnosis、開放式 tuning、procedural checklist、experiment record 等任務明確 **ceiling B**，不以假 oracle 充數。
-
-OP AMP 的 A-capable path 為 `opamp.lab.opamp-sine`：頁面顯示的 required SR、worst-direction FPBW、slew margin 與 limited state 必須與獨立 `SRrequired=2πfVpk` implementation 一致，且 worst(`SR+`,`SR−`) / required SR 必須落在 1.2–1.5。
+沒有單一可辯護 ground truth 的 waveform diagnosis、open-ended tuning、procedural checklist、fault isolation strategy 等任務明確停在 **ceiling B**，不以假 oracle 充數。
 
 ## Deterministic engineering reasoning
 
-工作單不因「文字夠長」就算工程推理。核心 rubric 為：
+工作單不因文字夠長就算工程推理。核心 rubric：
 
 1. Claim
 2. Evidence
@@ -119,65 +224,52 @@ OP AMP 的 A-capable path 為 `opamp.lab.opamp-sine`：頁面顯示的 required 
 
 總分至少 8/10，且 Claim / Evidence / Mechanism 為必要項。A-capable lab 再加 domain-specific fail-closed gate；流暢但無物理/時序因果的 filler text 不能取得 A。
 
-OP AMP A-grade reasoning 必須能指出 `dV/dt` / Slew Rate 機制、`2πfVpk` 或 zero-crossing 最大斜率，以及至少一個 GBW / settling / output swing / load 模型邊界。
+## True Transfer / Retention
 
-## 13-module True Transfer
-
-每個正式 competency family 至少具有：
+正式 competency family 使用：
 
 ```text
 Baseline A
    ↓
-seeded unseen Transfer B/C
+seeded unseen Transfer
    ↓
-1d R1 → 7d R2 → 30d R3 → 90d R4
+R1 1d → R2 7d → R3 30d → R4 90d
 ```
 
-Transfer 不只換 prompt：generator 保存 `seed`、`transferDepth`、`representation`、`parameters`，且 depth 必須真的改變工程條件和/或表示方式。
+Transfer 不只換 prompt；generator 保存 `seed`、`transferDepth`、`representation`、`parameters`，且真的改變工程條件和/或表示方式。
 
-答錯的 first-attempt variant 永遠不能靠重試洗成 transfer pass；必須換下一個 unseen variant。
+答錯的 first-attempt variant 不能靠重試洗成 transfer pass，必須換下一個 unseen variant。
 
-正式 family 已涵蓋全部 13 modules：Buck、ADC、SPI、Inverter、FOC、PI、10 µs loop、BMS、AD5543、AFE、ACMC Pro、C2000 DDS、OP AMP Dynamic Response。
+三個新 power-firmware family 各具有 baseline + 3 unseen transfer + R1/R2/R3/R4。
 
-OP AMP transfer 會在 direct `SRrequired` calculation、reverse FPBW、scope-waveform interpretation 與 amplitude-dependent model selection 之間切換，不以 prompt clone 充數。
+## Open-response：Recognition → Generation
 
-## Open-response：從 recognition 走向 generation
+Current production 有 **21** 個 seeded numeric task family。
 
-Seeded numeric task 現為 15 類。V8 的 12 類之外，OP AMP 新增：
+Power firmware path 新增：
 
-- `opamp-open-required-sr`：由 Vpp + frequency 求最低 ideal SR
-- `opamp-open-fpbw`：由 worst-direction SR + Vpp 求 slew-only FPBW
-- `opamp-open-step-time`：由 ΔV + SR 求 pure-slew ramp 下界
+- `sync-open-margin`
+- `sync-open-period`
+- `protection-open-hw-latency`
+- `protection-open-speedup`
+- `capstone-open-margin`
+- `capstone-open-critical`
 
 每次答案保存 seed、parameters、unit、expected value、relative error 與 attempt history。
 
-## Bayesian diagnostic reasoning
+## Bayesian Diagnostic Reasoning
 
-Diagnostic case 現為 11 個，涵蓋：
+Current production 有 **14** 個 diagnostic case。
 
-- SPI FIFO/service deadline
-- Buck DCM
-- ADC saturation
-- PI oscillation / loop margin
-- FOC angle / phase order
-- 10 µs worst-case jitter
-- BMS contactor actuation
-- DAC polarity / mapping
-- AFE current polarity / phase
-- ACMC transient OCP
-- OP AMP Slew Rate vs small-signal bandwidth vs output rail
+Power firmware path 新增：
 
-每個 measurement 都有 `P(result | cause)`；系統用 Bayes update 更新 posterior，再由 Shannon entropy reduction 計算 information gain：
+- `sync-deadline-game`：fsw 提高後 stale duty / missed load deadline
+- `protection-path-game`：software flag 正確但 fault-to-PWM-off 太慢
+- `capstone-chain-game`：scale / control / stale-command system fault isolation
 
-```text
-prior hypotheses
-      ↓ measurement result
-posterior hypotheses
-      ↓
-IG = H(before) - H(after)
-```
+每個 measurement 都有 `P(result | cause)`；系統以 Bayes update 更新 posterior，再用 Shannon entropy reduction 計算 information gain。
 
-目標不是猜 root cause，而是訓練「下一個量什麼最能縮小假設空間」。
+目標不是猜 root cause，而是訓練「下一個量什麼最能縮小 hypothesis space」。
 
 ## External Reality Anchors
 
@@ -191,25 +283,15 @@ Independent oracle
 External source + golden vector
 ```
 
-13/13 modules 都有一個明確 scope 的 external anchor，保存：
+16/16 modules 都有明確 scope 的 external anchor，保存 source、HTTPS provenance URL、scope、stable vector、expected output、tolerance 與 deterministic PASS/FAIL。
 
-- source description
-- HTTPS provenance URL
-- model/safety scope
-- stable input vector
-- expected output
-- tolerance
-- deterministic PASS/FAIL
+新增 power-firmware anchors 使用公開的 TI C2000 ePWM/ADC-SOC、CMPSS/trip API contract，以及 SI period/time dimensional contract。Runtime/CI 使用 repository 內 golden vectors，不在學習時依賴網路。
 
-OP AMP anchor 使用 TI Precision Labs Slew Rate primary source，並在專用文件中以 ADI high-speed driver資料交叉核對；golden vector 為 10 Vpp / 100 kHz → required SR 約 3.14159 V/µs。
-
-Anchor 使用公開 manufacturer/standards equation、datasheet transfer definition、SI dimensional law 或 safety contract。Runtime/CI 使用 repository 內的 golden vector，不在學習時依賴網路。
-
-**External Anchor PASS 仍不等於 hardware certification。** 它只表示教材 contract 有一個額外、可追溯的外部錨點。
+**External Anchor PASS 仍不等於 hardware certification。**
 
 ## Typed Observables
 
-13 個 A-capable lab 都有 typed verification path：
+A-capable path 保留 typed：
 
 ```text
 inputs
@@ -217,64 +299,33 @@ outputs
 state
 ```
 
-V8 的既有 labs 使用 `observables-v8.js`；OP AMP sine lab 由 `opamp-verification.js` 直接產生 typed oracle snapshot。Tutor 繼續只擁有 simulator interaction evidence，independent oracle evidence 由 oracle browser bridge 單一擁有，避免 duplicate PASS inflation。
+Tutor 只擁有 simulator interaction evidence；independent oracle evidence 由 oracle browser bridge 單一擁有，避免 duplicate PASS inflation。
 
 ## Mutation Fault Detection Rate
 
-Mutation campaign 現對 13 條 A-capable path 注入代表性工程錯誤，例如：
+Current mutation campaign 對 **16** 條 A-capable path 注入代表性工程錯誤，包括 gain/scale corruption、dq swap、Hz conversion、timing-margin sign、stuck state、DAC off-by-one、PF sign/trig error、OP AMP missing `2π`，以及新加入的 sample deadline、protection filter latency、capstone margin faults。
 
-- gain/scale corruption
-- dq swap
-- Hz conversion error
-- timing-margin sign error
-- stuck contactor
-- DAC off-by-one
-- `sin` / `cos` PF error
-- wrong protection state
-- wrong real-power sign
-- OP AMP missing `2π` / wrong full-power slope
+CI 要求 independent verification layer 抓到所有 injected fault。這是 fault-detection metric，不是 code coverage theater。
 
-CI 要求 independent verification layer 抓到所有注入 fault。這個 FDR 比單純 code coverage 更接近「測試能不能抓工程錯誤」。
-
-## OP AMP Dynamic Response model boundary
-
-OP AMP waveform simulator 刻意保持可審查：
-
-1. closed-loop bandwidth 以 `GBW / gain` 建立一階 teaching pole；
-2. 正、負方向分別套 `SR+ / SR−` slope clamp；
-3. step 將 pure-slew lower bound 與後段 settling estimate 分開顯示；
-4. sine 以 `2πfVpk` 判斷 required large-signal slope。
-
-它不是 SPICE，也不是實體器件認證。真實 OP AMP 還可能受 output current、capacitive load stability、common-mode range、output swing、higher-order poles/zeros、overdrive recovery、temperature 與實際 PCB 寄生影響。
-
-## Coverage、Uncertainty 與 Psychometric Boundary
+## Coverage / Uncertainty / Adaptive Sequencing
 
 Progress 明確區分 taught / practiced / measured / verified，並顯示 paired baseline/transfer、95% Wilson interval、paired N、confidence calibration 與 retention。
 
-V8 的 local psychometric signal 只在有資料時才顯示：
+Local psychometric signal：
 
 - `<4` first attempts：`insufficient`
 - `4–7`：`provisional`
 - `>=8`：`usable`
 
-這只是單一 learner 的 local measurement-quality signal，**不是 population IRT，也不是標準化測驗效度證明**。
+這是單一 learner 的 local measurement-quality signal，不是 population IRT 或標準化測驗效度證明。
 
-## Evidence-based Adaptive Sequencing
-
-Next-task ranking 是 deterministic、可審查的 scheduling，不是 ML recommender：
-
-1. retention due
-2. unseen transfer 尚未通過
-3. transfer 已過但 retention 尚未建立
-4. maintenance
-
-再以 module importance、confidence uncertainty 與可用時間做次級排序。資料不足就顯示不足，不製造假精準。
+Adaptive ranking 保持 deterministic / reviewable：retention due → unseen transfer → retention establishment → maintenance，再以 module importance、confidence uncertainty 與時間預算排序。
 
 ## Stable identity / state compatibility
 
-Tutor 只使用 normalized canonical `item.id`。Legacy positional curriculum arrays 仍可讀；OP AMP 新內容直接使用 object + explicit immutable ID。V5 state 負責 canonical ↔ legacy aliases、semantic import merge 與 V2/V3/V4 migration。
+Tutor 只使用 normalized canonical `item.id`。新內容使用 object + explicit immutable ID。V5 state 負責 canonical ↔ legacy aliases、semantic import merge 與 V2/V3/V4 migration。
 
-OP AMP extension 不改 storage key，因此既有 Prediction、attempt、report、retention 與 evidence history 可延續。
+Power Firmware Path 不改 storage key，因此既有 Prediction、attempt、report、retention 與 evidence history 可延續。
 
 ## 驗證
 
@@ -290,17 +341,19 @@ CI 必須覆蓋：
 - state migration / semantic merge
 - Prediction preregistration / post-hoc
 - wrong-variant cannot-wash transfer
-- 13-module seeded transfer / retention
+- 16-module seeded transfer / retention
 - 1d/7d/30d/90d spaced retrieval
 - independent oracle disagreement / state invariants
 - deterministic reasoning fail-closed
 - Wilson uncertainty / paired denominator
-- 15 seeded numeric task families
-- 11 Bayesian diagnostic cases
-- 13 external anchors / golden vectors
+- 21 seeded numeric task families
+- 14 Bayesian diagnostic cases
+- 16 external anchors / golden vectors
 - typed observable provenance
-- 13-path engineering mutation campaign / FDR
-- OP AMP missing-`2π`, Vpp/Vpk, unit-scale and worst-direction Slew Rate guards
+- 16-path engineering mutation campaign / FDR
+- PWM/ADC same-cycle timing and shadow-delay guards
+- hardware/software protection latency boundary
+- generic capstone critical-path / background separation
 - prerequisite DAG / adaptive ranking / insufficient psychometric labeling
 - Chromium desktop/mobile end-to-end flows
 
@@ -313,6 +366,6 @@ CI 必須覆蓋：
 5. `unmeasured` / `insufficient` 必須是合法狀態，不得被 UI 隱藏。
 6. Diagnostic information gain 必須由 probability update 計算。
 7. External anchor 必須保存 source、scope、golden vector 與 tolerance。
-8. A / Anchor 都不得被描述成硬體認證。
+8. A / Anchor 都不得被描述成 hardware certification。
 9. 新公式附 units、assumptions、invalid conditions、reference、version 與 tests。
 10. **V8 之後停止為框架本身擴版。新 infrastructure 必須能回答：「它會改善哪一個未見情境下的工程判斷、診斷或 retention 指標？」答不出來就不做。**
