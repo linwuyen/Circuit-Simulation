@@ -9,7 +9,7 @@ test('home exposes the OP AMP dynamic-response module inside the expanded system
   await expect(page.locator('#mainContent')).toContainText('OP AMP Slew Rate / Dynamic Response');
   await expect(page.locator('.v8-validity-summary')).toContainText('16/16 golden anchors pass');
   await expect(page.locator('.v8-validity-summary')).toContainText('16/16 modules anchored');
-  await expect(page.locator('a[href="12_opamp_slew_rate/index.html"]')).toHaveCount(1);
+  await expect(page.locator('a[href="12_opamp_slew_rate/index.html"]')).toHaveCount(2);
 });
 
 test('sine lab calculates the full-power slope and records one independent PASS', async ({ page }) => {
