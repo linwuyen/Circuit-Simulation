@@ -4,10 +4,15 @@ import { createRequire } from 'node:module';
 const require=createRequire(import.meta.url);
 const T=require('../12_opamp_slew_rate/assets/opamp-dc-trainer.js');
 
-test('Level 0-5 skill graph follows the first-principles dependency chain',()=>{
-  assert.deepEqual(T.SKILL_ORDER,['UNIT_CONVERSION','VOLTAGE_DIFFERENCE','OHMS_LAW','CURRENT_DIRECTION','VIRTUAL_SHORT','KCL','FEEDBACK_DROP','VOUT_CALCULATION']);
-  assert.deepEqual(T.SKILL_GRAPH.VIRTUAL_SHORT.prerequisites,['CURRENT_DIRECTION']);
-  assert.deepEqual(T.SKILL_GRAPH.KCL.prerequisites,['VIRTUAL_SHORT']);
+test('Level 0-5 skill graph follows the causal first-principles dependency chain',()=>{
+  assert.equal(T.VERSION,'1.1.0');
+  assert.equal(T.STORAGE_KEY,'opamp-dc-reasoning-trainer-v2');
+  assert.deepEqual(T.SKILL_ORDER,['UNIT_CONVERSION','VIRTUAL_SHORT','VOLTAGE_DIFFERENCE','OHMS_LAW','CURRENT_DIRECTION','KCL','FEEDBACK_DROP','VOUT_CALCULATION']);
+  assert.deepEqual(T.SKILL_GRAPH.VIRTUAL_SHORT.prerequisites,['UNIT_CONVERSION']);
+  assert.deepEqual(T.SKILL_GRAPH.VOLTAGE_DIFFERENCE.prerequisites,['VIRTUAL_SHORT']);
+  assert.deepEqual(T.SKILL_GRAPH.OHMS_LAW.prerequisites,['VOLTAGE_DIFFERENCE']);
+  assert.deepEqual(T.SKILL_GRAPH.CURRENT_DIRECTION.prerequisites,['OHMS_LAW']);
+  assert.deepEqual(T.SKILL_GRAPH.KCL.prerequisites,['CURRENT_DIRECTION']);
   assert.deepEqual(T.SKILL_GRAPH.VOUT_CALCULATION.prerequisites,['FEEDBACK_DROP']);
   assert.equal(T.SKILL_GRAPH.VOUT_CALCULATION.level,5);
   assert.ok(!T.SKILL_ORDER.includes('SATURATION_CHECK'));
@@ -115,11 +120,12 @@ test('session injects prerequisite remediation and then retries the exact origin
   assert.equal(session.submit(1.2).correct,true);
 });
 
-test('full-feedback chain asks one reasoning step at a time and never embeds saturation logic',()=>{
+test('full-feedback chain matches the causal graph and never embeds saturation logic',()=>{
   const g=new T.QuestionGenerator('chain');
   const chain=g.fullFeedback(1);
   assert.equal(chain.length,8);
   assert.deepEqual(chain.map(q=>q.skill),['VIRTUAL_SHORT','VOLTAGE_DIFFERENCE','OHMS_LAW','CURRENT_DIRECTION','KCL','FEEDBACK_DROP','VOUT_CALCULATION','VOUT_CALCULATION']);
+  assert.equal(T.SKILL_ORDER.indexOf('VIRTUAL_SHORT')<T.SKILL_ORDER.indexOf('VOLTAGE_DIFFERENCE'),true);
   assert.ok(chain.every(q=>!q.prompt.toLowerCase().includes('saturation')));
   assert.ok(chain.every(q=>q.expected!==undefined));
 });
