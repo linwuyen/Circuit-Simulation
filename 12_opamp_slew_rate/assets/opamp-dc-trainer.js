@@ -5,17 +5,17 @@
 })(typeof globalThis!=="undefined"?globalThis:this,function(root){
   "use strict";
 
-  const VERSION="1.0.0";
-  const STORAGE_KEY="opamp-dc-reasoning-trainer-v1";
+  const VERSION="1.1.0";
+  const STORAGE_KEY="opamp-dc-reasoning-trainer-v2";
   const ERROR_TYPES=["ARITHMETIC","UNIT_CONVERSION","VOLTAGE_DIFFERENCE","OHMS_LAW","CURRENT_DIRECTION","VIRTUAL_SHORT","KCL","FEEDBACK_DROP","VOUT_POLARITY"];
-  const SKILL_ORDER=["UNIT_CONVERSION","VOLTAGE_DIFFERENCE","OHMS_LAW","CURRENT_DIRECTION","VIRTUAL_SHORT","KCL","FEEDBACK_DROP","VOUT_CALCULATION"];
+  const SKILL_ORDER=["UNIT_CONVERSION","VIRTUAL_SHORT","VOLTAGE_DIFFERENCE","OHMS_LAW","CURRENT_DIRECTION","KCL","FEEDBACK_DROP","VOUT_CALCULATION"];
   const SKILL_GRAPH={
     UNIT_CONVERSION:{level:0,label:"Unit conversion",prerequisites:[]},
-    VOLTAGE_DIFFERENCE:{level:1,label:"Voltage difference",prerequisites:["UNIT_CONVERSION"]},
-    OHMS_LAW:{level:2,label:"Ohm's Law",prerequisites:["VOLTAGE_DIFFERENCE"]},
-    CURRENT_DIRECTION:{level:3,label:"Current direction",prerequisites:["OHMS_LAW"]},
-    VIRTUAL_SHORT:{level:4,label:"Virtual short",prerequisites:["CURRENT_DIRECTION"]},
-    KCL:{level:5,label:"KCL",prerequisites:["VIRTUAL_SHORT"]},
+    VIRTUAL_SHORT:{level:1,label:"Virtual short",prerequisites:["UNIT_CONVERSION"]},
+    VOLTAGE_DIFFERENCE:{level:2,label:"Voltage difference",prerequisites:["VIRTUAL_SHORT"]},
+    OHMS_LAW:{level:3,label:"Ohm's Law",prerequisites:["VOLTAGE_DIFFERENCE"]},
+    CURRENT_DIRECTION:{level:4,label:"Current direction",prerequisites:["OHMS_LAW"]},
+    KCL:{level:5,label:"KCL",prerequisites:["CURRENT_DIRECTION"]},
     FEEDBACK_DROP:{level:5,label:"Feedback voltage drop",prerequisites:["KCL"]},
     VOUT_CALCULATION:{level:5,label:"Vout calculation",prerequisites:["FEEDBACK_DROP"]}
   };
@@ -120,10 +120,10 @@
       const i=pick(random,[10,20,25,30,40,50]),r=pick(random,difficulty>=2?[4.7,22,33,47]:[10,20,30,40]);
       return this.q({skill:"UNIT_CONVERSION",level:0,prompt:`${i} µA × ${r} kΩ = ? V`,answerType:"number",expected:Solver.unitMultiplyUaKohm(i,r),unit:"V",errorType:"UNIT_CONVERSION",signature:`uk:${i}:${r}`,highlight:"rf",meta:{currentUa:i,resistanceK:r},hints:["先不要想 OPA，只處理數字與單位。","µA × kΩ = mV；最後 mV → V。",`${i} × ${r} = ${round(i*r)} mV = ? V`]});
     }
-    voltageDifference(difficulty=0){const m=this.scenario(difficulty),s=Solver.solve(m);return this.q({skill:"VOLTAGE_DIFFERENCE",level:1,prompt:`VA = ${fmt(s.vminus)} V，VB = ${fmt(m.vleft)} V。求 VA − VB。`,answerType:"number",expected:s.leftDv,unit:"V",errorType:"VOLTAGE_DIFFERENCE",signature:m.signature(),highlight:"rleft",model:m,hints:["先固定順序：題目要 VA − VB。","ΔV = VA − VB。",`${fmt(s.vminus)} − ${fmt(m.vleft)} = ?`]});}
-    ohmsLaw(difficulty=0){const m=this.scenario(difficulty),s=Solver.solve(m),dv=Math.abs(s.leftDv);return this.q({skill:"OHMS_LAW",level:2,prompt:`電阻兩端 |ΔV| = ${fmt(dv)} V，R = ${fmt(m.rleftK)} kΩ。電流大小 = ? µA`,answerType:"number",expected:s.leftCurrentMagnitudeUa,unit:"µA",errorType:"OHMS_LAW",signature:m.signature(),highlight:"rleft",model:m,hints:["先只求 magnitude，不判方向。","I = |ΔV| / R。V / kΩ = mA。",`${fmt(dv)} ÷ ${fmt(m.rleftK)} kΩ = ? µA`]});}
-    currentDirection(difficulty=0){const m=this.scenario(difficulty),s=Solver.solve(m);const node=`Vnode (${fmt(s.vminus)} V)`,left=`Vleft (${fmt(m.vleft)} V)`;const expected=s.leftDirection;return this.q({skill:"CURRENT_DIRECTION",level:3,prompt:`Conventional current 經左側電阻往哪裡流？`,answerType:"choice",expected,choices:shuffled(this.random("dir"),[{value:"NODE_TO_LEFT",label:`${node} → ${left}`},{value:"LEFT_TO_NODE",label:`${left} → ${node}`}]),errorType:"CURRENT_DIRECTION",signature:m.signature(),highlight:"left-current",model:m,hints:["先不要算電流，只比較兩端電位。","Conventional current：較高電位 → 較低電位。",`${fmt(s.vminus)} V 與 ${fmt(m.vleft)} V，哪個比較高？`]});}
-    virtualShort(difficulty=0){const m=this.scenario(difficulty);return this.q({skill:"VIRTUAL_SHORT",level:4,prompt:`假設 OPA 處於負回授線性區，V+ = ${fmt(m.vplus)} V。V− ≈ ? V`,answerType:"number",expected:m.vplus,unit:"V",errorType:"VIRTUAL_SHORT",signature:m.signature(),highlight:"vminus",model:m,hints:["這題不是套 gain formula。","負回授且未飽和：V− ≈ V+。",`V+ = ${fmt(m.vplus)} V，所以 V− ≈ ?`]});}
+    voltageDifference(difficulty=0){const m=this.scenario(difficulty),s=Solver.solve(m);return this.q({skill:"VOLTAGE_DIFFERENCE",level:2,prompt:`VA = ${fmt(s.vminus)} V，VB = ${fmt(m.vleft)} V。求 VA − VB。`,answerType:"number",expected:s.leftDv,unit:"V",errorType:"VOLTAGE_DIFFERENCE",signature:m.signature(),highlight:"rleft",model:m,hints:["先固定順序：題目要 VA − VB。","ΔV = VA − VB。",`${fmt(s.vminus)} − ${fmt(m.vleft)} = ?`]});}
+    ohmsLaw(difficulty=0){const m=this.scenario(difficulty),s=Solver.solve(m),dv=Math.abs(s.leftDv);return this.q({skill:"OHMS_LAW",level:3,prompt:`電阻兩端 |ΔV| = ${fmt(dv)} V，R = ${fmt(m.rleftK)} kΩ。電流大小 = ? µA`,answerType:"number",expected:s.leftCurrentMagnitudeUa,unit:"µA",errorType:"OHMS_LAW",signature:m.signature(),highlight:"rleft",model:m,hints:["先只求 magnitude，不判方向。","I = |ΔV| / R。V / kΩ = mA。",`${fmt(dv)} ÷ ${fmt(m.rleftK)} kΩ = ? µA`]});}
+    currentDirection(difficulty=0){const m=this.scenario(difficulty),s=Solver.solve(m);const node=`Vnode (${fmt(s.vminus)} V)`,left=`Vleft (${fmt(m.vleft)} V)`;const expected=s.leftDirection;return this.q({skill:"CURRENT_DIRECTION",level:4,prompt:`Conventional current 經左側電阻往哪裡流？`,answerType:"choice",expected,choices:shuffled(this.random("dir"),[{value:"NODE_TO_LEFT",label:`${node} → ${left}`},{value:"LEFT_TO_NODE",label:`${left} → ${node}`}]),errorType:"CURRENT_DIRECTION",signature:m.signature(),highlight:"left-current",model:m,hints:["先不要算電流，只比較兩端電位。","Conventional current：較高電位 → 較低電位。",`${fmt(s.vminus)} V 與 ${fmt(m.vleft)} V，哪個比較高？`]});}
+    virtualShort(difficulty=0){const m=this.scenario(difficulty);return this.q({skill:"VIRTUAL_SHORT",level:1,prompt:`固定拓樸為負回授，且假設 OPA 在線性區。V+ = ${fmt(m.vplus)} V，V− ≈ ? V`,answerType:"number",expected:m.vplus,unit:"V",errorType:"VIRTUAL_SHORT",signature:m.signature(),highlight:"vminus",model:m,hints:["先確認前提：negative feedback + linear region。","只有此前提成立才使用 V− ≈ V+。",`V+ = ${fmt(m.vplus)} V，所以 V− ≈ ?`]});}
     fullFeedback(difficulty=0){
       const m=this.scenario(difficulty),s=Solver.solve(m),sig=m.signature();
       const leftChoices=[{value:"NODE_TO_LEFT",label:`V− → Vleft`},{value:"LEFT_TO_NODE",label:`Vleft → V−`}];
@@ -140,7 +140,7 @@
         this.q({skill:"VOUT_CALCULATION",level:5,prompt:`Step 8 · 最後求 ideal Vout。`,answerType:"number",expected:s.vout,unit:"V",errorType:"VOUT_POLARITY",signature:sig,highlight:"vout",model:m,hints:["用 V−、feedback drop 與剛才的方向組合。",s.voutRelativeToNode==="HIGHER"?"Vout = V− + |ΔVfb|。":"Vout = V− − |ΔVfb|。",`${fmt(s.vminus)} ${s.voutRelativeToNode==="HIGHER"?"+":"−"} ${fmt(s.feedbackDropV)} = ? V`]})
       ];
     }
-    forSkill(skill,difficulty=0){switch(skill){case"UNIT_CONVERSION":return[this.unitConversion(difficulty)];case"VOLTAGE_DIFFERENCE":return[this.voltageDifference(difficulty)];case"OHMS_LAW":return[this.ohmsLaw(difficulty)];case"CURRENT_DIRECTION":return[this.currentDirection(difficulty)];case"VIRTUAL_SHORT":return[this.virtualShort(difficulty)];default:return this.fullFeedback(difficulty);}}
+    forSkill(skill,difficulty=0){switch(skill){case"UNIT_CONVERSION":return[this.unitConversion(difficulty)];case"VIRTUAL_SHORT":return[this.virtualShort(difficulty)];case"VOLTAGE_DIFFERENCE":return[this.voltageDifference(difficulty)];case"OHMS_LAW":return[this.ohmsLaw(difficulty)];case"CURRENT_DIRECTION":return[this.currentDirection(difficulty)];default:return this.fullFeedback(difficulty);}}
   }
 
   class AnswerEvaluator{
