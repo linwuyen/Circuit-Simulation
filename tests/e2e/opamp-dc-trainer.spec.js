@@ -50,7 +50,7 @@ test('mastery persists locally and hinted answers are tracked', async ({ page })
   await page.locator('[data-trainer-answer]').fill(String(expected));
   await page.locator('[data-trainer-submit]').click();
   await page.waitForTimeout(550);
-  const before=await page.evaluate(() => JSON.parse(localStorage.getItem('opamp-dc-reasoning-trainer-v1')).skills.UNIT_CONVERSION);
+  const before=await page.evaluate(() => JSON.parse(localStorage.getItem('opamp-dc-reasoning-trainer-v2')).skills.UNIT_CONVERSION);
   expect(before.attempts).toBe(1);
   expect(before.hint_count).toBe(1);
   expect(before.clean_streak).toBe(0);
