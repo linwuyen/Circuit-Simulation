@@ -37,6 +37,8 @@ body.cl-theme-1617{
   --card:var(--ui-panel);
   --panel:var(--ui-panel);
   --panel2:var(--ui-panel-2);
+  --surface:var(--ui-panel);
+  --surface-2:var(--ui-panel-3);
   --ink:var(--ui-text);
   --text:var(--ui-text);
   --muted:var(--ui-muted);
@@ -276,6 +278,37 @@ body.cl-theme-1617 canvas{
 body.cl-theme-1617 svg{max-width:100%}
 body.cl-theme-1617 hr{border-color:var(--ui-line) !important}
 body.cl-theme-1617 .foot,body.cl-theme-1617 footer{color:var(--ui-muted) !important}
+
+/* BMS legacy surfaces use a second token family and CSS-driven SVG fills. */
+body.cl-theme-1617 .progress-strip{
+  background:var(--ui-panel-3) !important;
+  border-color:var(--ui-line) !important;
+}
+body.cl-theme-1617 .progress-strip .dot{
+  background:var(--ui-panel) !important;
+  border-color:var(--ui-line) !important;
+  color:var(--ui-muted) !important;
+}
+body.cl-theme-1617 .progress-strip .dot.current{
+  border-color:var(--ui-accent) !important;
+  color:var(--ui-accent) !important;
+  box-shadow:0 0 0 3px rgba(88,214,255,.12) !important;
+}
+body.cl-theme-1617 .fsm-svg .node rect{
+  fill:var(--ui-panel-3) !important;
+  stroke:var(--ui-line) !important;
+}
+body.cl-theme-1617 .fsm-svg .node.current rect{
+  fill:#10364a !important;
+  stroke:var(--ui-accent) !important;
+}
+body.cl-theme-1617 .fsm-svg .node.current[data-s="FAULT"] rect{
+  fill:rgba(255,143,112,.12) !important;
+  stroke:var(--ui-warn) !important;
+}
+body.cl-theme-1617 .fsm-svg .node text{fill:var(--ui-muted) !important}
+body.cl-theme-1617 .fsm-svg .node.current text{fill:var(--ui-accent) !important}
+body.cl-theme-1617 .fsm-svg .node.current[data-s="FAULT"] text{fill:var(--ui-warn) !important}
 
 /* Tutor uses the same design language instead of a light floating island. */
 .clt-root{
