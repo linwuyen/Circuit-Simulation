@@ -4,6 +4,21 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
+const shellPages = [
+  'index.html',
+  'beginner.html',
+  'labs.html',
+  'progress.html',
+  'quiz.html',
+  'search.html',
+  'glossary.html',
+  'troubleshooting.html',
+  'report.html'
+];
+const referencePages = [
+  '16_control_transforms/index.html',
+  '17_power_topology_control/index.html'
+];
 
 function formalCurriculumPages() {
   const file = path.join(repoRoot, 'assets', 'learning', 'curriculum.js');
@@ -39,12 +54,12 @@ function asUrlPath(ref) {
   return '/' + ref.split('/').map(encodeURIComponent).join('/');
 }
 
-const pages = formalCurriculumPages();
+const pages = [...new Set([...shellPages, ...formalCurriculumPages()])];
 
 test.describe('Module 0-15 visual language audit', () => {
-  test('formal curriculum pages contain no legacy pale surfaces', async ({ page }, testInfo) => {
+  test('learning shell and formal curriculum pages contain no legacy pale surfaces', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop', 'Run the expensive full-site surface audit once on desktop.');
-    test.setTimeout(240000);
+    test.setTimeout(300000);
 
     const failures = [];
     let currentRef = '';
@@ -84,7 +99,7 @@ test.describe('Module 0-15 visual language audit', () => {
         };
 
         const suspects = [];
-        const classPattern = /(panel|card|block|metric|surface|box|callout|note|challenge|goal|recap|diagram|schematic|quiz|scope|workspace|status|route|scenario|lesson|module|step|flow-node|table-wrap|control|stat|viz|teach|trythis|takeaways|sim-shell|ms-|trainer)/i;
+        const classPattern = /(panel|card|block|metric|surface|box|callout|note|challenge|goal|recap|diagram|schematic|quiz|scope|workspace|status|route|scenario|lesson|module|step|flow-node|table-wrap|control|stat|viz|teach|trythis|takeaways|sim-shell|ms-|trainer|evidence|progress|report)/i;
         const tags = new Set(['INPUT', 'SELECT', 'TEXTAREA', 'DETAILS', 'TABLE', 'BUTTON']);
 
         for (const el of document.querySelectorAll('body *')) {
@@ -126,6 +141,17 @@ test.describe('Module 0-15 visual language audit', () => {
     }
 
     failures.push(...pageErrors.slice(0, 20));
-    expect(failures, `16/17 theme audit found ${failures.length} page-level issue(s) across ${pages.length} formal Module 0-15 pages:\n\n${failures.join('\n\n')}`).toEqual([]);
+    expect(failures, `16/17 theme audit found ${failures.length} page-level issue(s) across ${pages.length} learning-shell + Module 0-15 pages:\n\n${failures.join('\n\n')}`).toEqual([]);
+  });
+
+  test('Modules 16 and 17 remain independent visual references', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'Reference isolation check runs once on desktop.');
+    for (const ref of referencePages) {
+      const response = await page.goto(asUrlPath(ref), { waitUntil: 'domcontentloaded' });
+      expect(response && response.ok(), `${ref} should load`).toBeTruthy();
+      await page.waitForTimeout(100);
+      const themed = await page.evaluate(() => document.body.classList.contains('cl-theme-1617'));
+      expect(themed, `${ref} must not receive the Module 0-15 compatibility theme`).toBe(false);
+    }
   });
 });
