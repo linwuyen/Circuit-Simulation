@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Fourier、Laplace、Z 變換與數位電源控制的互動式橋接教材。從白話直覺一路連到 C2000、SFRA 與控制迴路除錯。">
+  <title>Fourier / Laplace / Z · Control Transform Bridge</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
+</head>
+<body>
+  <header class="topbar">
+    <a class="home-link" href="../index.html">← 教材總入口</a>
+    <div class="topbar-title">Control Transform Bridge</div>
+    <div class="badge">Module 16 · 直覺 → 實機</div>
+  </header>
+
+  <main>
+    <section class="hero" id="transform-family">
+      <div>
+        <p class="eyebrow">先懂現象，再碰公式，最後落到 C2000</p>
+        <h1>Fourier、Laplace、Z<br><span>其實是同一家族</span></h1>
+        <p class="lead">這頁不是要你背三套積分。目標是建立一個工程直覺：<strong>同一個動態系統，只是換不同座標看它。</strong>你會一路看到時間波形、pole、Bode、取樣、delay、PI、SFRA，最後落成 MCU 裡的差分方程。</p>
+        <div class="equation-row">
+          <code>s = σ + jω</code>
+          <code>Fourier: s = jω</code>
+          <code>z = e<sup>sT<sub>s</sub></sup></code>
+          <code>DTFT: |z| = 1</code>
+        </div>
+        <div class="read-path" aria-label="學習路徑">
+          <span>① 白話直覺</span><b>→</b><span>② 動手看現象</span><b>→</b><span>③ 數學原因</span><b>→</b><span>④ C2000 / Debug</span>
+        </div>
+      </div>
+      <div class="hero-map" aria-label="transform family map">
+        <div class="map-node hot">x(t)<small>真實世界：電壓、電流隨時間變</small></div>
+        <div class="map-arrow">→ Laplace：把微分變代數 →</div>
+        <div class="map-node">X(s)<small>s-plane：看 pole / zero 與自然動態</small></div>
+        <div class="map-arrow down">↓ s = jω：只沿著頻率軸觀察</div>
+        <div class="map-node accent">X(jω)<small>Fourier / Bode：每個頻率被放大多少、慢幾度</small></div>
+        <div class="map-arrow down">↓ sampling：MCU 每隔 Ts 看一次</div>
+        <div class="map-node">X(z)<small>z-plane：每一拍之間怎麼演化</small></div>
+        <div class="map-arrow down">↓ |z| = 1：離散頻率響應</div>
+        <div class="map-node accent">X(e<sup>jΩ</sup>)<small>DTFT：unit circle 上看頻率</small></div>
+      </div>
+    </section>
+
+    <section class="panel mental-model" id="mental-model">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">先建立腦內模型</p>
+          <h2>三種變換，各自在回答什麼問題？</h2>
+        </div>
+      </div>
+      <div class="concept-grid">
+        <article class="concept-card">
+          <span class="layer-tag intuition">白話</span>
+          <h3>Laplace：這個系統天生會怎麼動？</h3>
+          <p>像敲一下彈簧：它會慢慢停、一直震，還是越震越大？Laplace 把「微分方程」換成 pole / zero，讓穩定、速度、振盪直接看得到。</p>
+          <code>微分 → ×s　　積分 → ÷s</code>
+        </article>
+        <article class="concept-card">
+          <span class="layer-tag intuition">白話</span>
+          <h3>Fourier：拿不同頻率去敲，它怎麼回？</h3>
+          <p>10 Hz、100 Hz、1 kHz 一個一個丟進去，看輸出放大幾倍、落後幾度。Bode plot 就是把所有頻率的結果排成一張圖。</p>
+          <code>s = jω</code>
+        </article>
+        <article class="concept-card">
+          <span class="layer-tag intuition">白話</span>
+          <h3>Z：MCU 每一拍看一次，狀態怎麼變？</h3>
+          <p>類比世界連續流動，MCU 卻是 sample → compute → update。Z-transform 把「上一拍」變成 z⁻¹，最後就能直接寫成 C code。</p>
+          <code>z⁻¹ = one-sample delay</code>
+        </article>
+      </div>
+      <div class="bridge-callout">
+        <b>一句話：</b>Laplace 看<strong>自然動態</strong>；Fourier 看<strong>頻率響應</strong>；Z 看<strong>取樣後每一拍的動態</strong>。三者不是三門分離的數學，而是同一個 LTI 系統的不同觀察方式。
+      </div>
+    </section>
+
+    <section class="panel" id="pole-map">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">A-CAPABLE LAB · ONE POLE, THREE VIEWS</p>
+          <h2>拖一顆 pole，看「穩不穩」為什麼會跨域保持一致</h2>
+        </div>
+        <div class="status stable" id="stabilityBadge">STABLE</div>
+      </div>
+
+      <div class="teaching-grid">
+        <article><span class="layer-tag intuition">① 白話直覺</span><p id="polePlain">如果一個擾動每過一段時間都變小，最後自然會消失，所以系統穩定。</p></article>
+        <article><span class="layer-tag math">② 數學原因</span><p id="poleMath">σ&lt;0 時 e<sup>σt</sup> 會衰減；取樣後每拍倍率 |z|=e<sup>σTs</sup>&lt;1。</p></article>
+        <article><span class="layer-tag firmware">③ MCU 世界</span><p>連續 pole λ<sub>s</sub> 經取樣後變成 z=e<sup>λsTs</sup>。狀態空間的 exact ZOH 也有 A<sub>d</sub>=e<sup>ATs</sup>。</p></article>
+        <article><span class="layer-tag debug">④ Debug 問法</span><p>看到振鈴時，不先亂調 Kp。先問：pole 靠近穩定邊界嗎？sampling / delay 是否把離散 pole 推向 unit circle？</p></article>
+      </div>
+
+      <div class="preset-row" aria-label="pole presets">
+        <button type="button" class="secondary" data-pole-preset="stable">衰減振盪</button>
+        <button type="button" class="secondary" data-pole-preset="marginal">純振盪 / Fourier 軸</button>
+        <button type="button" class="secondary" data-pole-preset="unstable">成長振盪</button>
+      </div>
+
+      <div class="controls three">
+        <label>σ（衰減 / 成長）
+          <input id="sigma" type="range" min="-1500" max="500" step="10" value="-250">
+          <output id="sigmaOut"></output>
+        </label>
+        <label>ω（振盪 rad/s）
+          <input id="omega" type="range" min="0" max="12000" step="100" value="3000">
+          <output id="omegaOut"></output>
+        </label>
+        <label>取樣週期 T<sub>s</sub>
+          <input id="sampleUs" type="range" min="2" max="100" step="1" value="10">
+          <output id="sampleOut"></output>
+        </label>
+      </div>
+
+      <div class="viz-grid">
+        <article class="viz-card">
+          <div class="viz-title">時間響應：你實際看到的振鈴</div>
+          <canvas id="timeCanvas" width="560" height="300"></canvas>
+          <p class="hint" id="timeHint"></p>
+        </article>
+        <article class="viz-card">
+          <div class="viz-title">s-plane：連續時間的座標</div>
+          <canvas id="sCanvas" width="560" height="300"></canvas>
+          <p class="hint">左半平面：Re(s) &lt; 0 → 衰減 → 穩定。jω 軸就是 Fourier 的觀察線。</p>
+        </article>
+        <article class="viz-card">
+          <div class="viz-title">z-plane：每一拍的座標</div>
+          <canvas id="zCanvas" width="560" height="300"></canvas>
+          <p class="hint" id="zHint"></p>
+        </article>
+      </div>
+
+      <div class="formula-strip">
+        <div><span>s</span><strong id="sValue"></strong></div>
+        <div><span>z = e<sup>sT<sub>s</sub></sup></span><strong id="zValue"></strong></div>
+        <div data-metric="z-magnitude"><span>|z|</span><strong id="zMag"></strong></div>
+        <div><span>對應規則</span><strong>Re(s)&lt;0 ⇔ |z|&lt;1</strong></div>
+      </div>
+      <div class="deep-note">
+        <b>為什麼 ω 不影響 |z|？</b>
+        <p>因為 z=e<sup>(σ+jω)Ts</sup>=e<sup>σTs</sup>·e<sup>jωTs</sup>。前半段決定半徑，後半段只是旋轉角度。所以 σ 決定「往內縮或往外長」，ω 決定「每拍轉多少角度」。</p>
+      </div>
+      <p class="hint">正式驗證項目：工作單會把頁面顯示的 |z| 與獨立解析式 exp(σT<sub>s</sub>) 比對；兩者不是共用同一段 simulator 計算。</p>
+    </section>
+
+    <section class="panel" id="delay-lab">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">DEMO 2 · DIGITAL DELAY</p>
+          <h2>「只是晚一點更新 PWM」為什麼會吃掉 phase margin？</h2>
+        </div>
+      </div>
+
+      <div class="teaching-grid">
+        <article><span class="layer-tag intuition">① 白話直覺</span><p>如果輸入已經轉到下一個角度，你卻還用舊資料做反應，就像方向盤永遠慢半拍；頻率越高，同樣 10 µs 代表的「角度落後」越大。</p></article>
+        <article><span class="layer-tag math">② 數學原因</span><p>純延遲 e<sup>−sTd</sup> 在 jω 軸上 magnitude=1，但 phase=−ωTd，所以它不太改增益，卻會直接從 phase margin 扣分。</p></article>
+        <article><span class="layer-tag firmware">③ C2000 實機</span><p>真正 latency 要從 ePWM SOC 算到 ADC acquisition / conversion、ADCINT、ISR、control compute，再到 CMPA shadow 真正 load。</p></article>
+        <article><span class="layer-tag debug">④ Debug 問法</span><p>模型 PM 60°、SFRA 只剩 30°？先量 GPIO ISR timing、確認 PWM load event，再查 ADC filter / ZOH，而不是先亂改補償器。</p></article>
+      </div>
+
+      <div class="firmware-timeline" aria-label="C2000 control latency chain">
+        <div><b>ePWM SOC</b><small>決定 sample instant</small></div><span>→</span>
+        <div><b>ADC S+H / EOC</b><small>資料此時才 ready</small></div><span>→</span>
+        <div><b>ADCINT / ISR</b><small>含 latency + jitter</small></div><span>→</span>
+        <div><b>PI / Filter</b><small>CPU / CLA execution</small></div><span>→</span>
+        <div><b>PWM Shadow Load</b><small>這時 plant 才真的吃到新 duty</small></div>
+      </div>
+
+      <div class="two-col">
+        <div>
+          <div class="controls stack">
+            <label>交越頻率 f<sub>c</sub>
+              <input id="fc" type="range" min="500" max="30000" step="500" value="10000">
+              <output id="fcOut"></output>
+            </label>
+            <label>總延遲 T<sub>d</sub>（ADC + ISR + PWM commit）
+              <input id="delayUs" type="range" min="0" max="50" step="1" value="10">
+              <output id="delayOut"></output>
+            </label>
+          </div>
+          <div class="big-number"><span id="phaseLoss">−36.0°</span><small>delay 造成的 phase lag</small></div>
+          <div class="phase-budget">
+            <div class="budget-track"><div id="budgetFill" class="budget-fill"></div></div>
+            <div class="budget-labels"><span>0°</span><span>−45°</span><span>−90°</span><span>−180°</span></div>
+          </div>
+          <div class="metric-grid">
+            <div><span>crossover 週期</span><strong id="crossoverPeriod">—</strong></div>
+            <div><span>delay / 週期</span><strong id="delayCycleRatio">—</strong></div>
+          </div>
+          <p class="callout" id="delayInterpretation"></p>
+        </div>
+        <div class="equation-card">
+          <h3>從「晚幾秒」翻成「慢幾度」</h3>
+          <div class="hero-equation">G<sub>d</sub>(s) = e<sup>−sT<sub>d</sub></sup></div>
+          <p>在 <strong>s = jω</strong> 上：</p>
+          <div class="math-list">
+            <code>|G<sub>d</sub>(jω)| = 1</code>
+            <code>∠G<sub>d</sub>(jω) = −ωT<sub>d</sub></code>
+            <code>phase[deg] = −360 f T<sub>d</sub></code>
+          </div>
+          <p id="delayRule">同樣的 delay，crossover 加倍，phase lag 也加倍。</p>
+          <div class="example-box"><b>預設例子</b><p>10 kHz 的一週期是 100 µs。delay 10 µs = 晚了 1/10 圈，所以就是 360°×0.1 = 36°。</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="pi-bode">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">DEMO 3 · PI = POLE + ZERO</p>
+          <h2>調 Kp / Ki，不是調兩個魔法數字，而是在移動頻率結構</h2>
+        </div>
+      </div>
+
+      <div class="teaching-grid">
+        <article><span class="layer-tag intuition">① 白話直覺</span><p>Ki 負責「誤差拖太久就越來越用力」，所以能消掉 steady-state error；Kp 負責「現在錯多少就立刻推多少」。</p></article>
+        <article><span class="layer-tag math">② 數學原因</span><p>PI 可重寫成 Kp(s+Ki/Kp)/s：一顆 pole 固定在 0，一顆 zero 在 ωz=Ki/Kp。調參其實是在移 zero 與整體 gain。</p></article>
+        <article><span class="layer-tag firmware">③ MCU 實作</span><p>離散化後會變成 u[n]=u[n−1]+b0·e[n]+b1·e[n−1]。z⁻¹ 最後就是上一拍變數。</p></article>
+        <article><span class="layer-tag debug">④ Debug 問法</span><p>先找 plant pole/zero、目標 crossover、需要補 phase 的頻帶，再決定 PI zero；不要只看 transient 然後盲調 Kp/Ki。</p></article>
+      </div>
+
+      <div class="controls two">
+        <label>Kp
+          <input id="kp" type="range" min="0.05" max="3" step="0.05" value="0.8">
+          <output id="kpOut"></output>
+        </label>
+        <label>Ki（1/s）
+          <input id="ki" type="range" min="50" max="8000" step="50" value="1200">
+          <output id="kiOut"></output>
+        </label>
+      </div>
+      <div class="two-col">
+        <article class="viz-card">
+          <div class="viz-title">PI frequency response</div>
+          <canvas id="bodeCanvas" width="760" height="380"></canvas>
+          <p class="hint">橘色虛線是 zero：ω<sub>z</sub> = Ki/Kp。zero 左移，從積分器行為轉向比例行為的交棒點會提早。</p>
+        </article>
+        <div>
+          <div class="equation-card compact">
+            <div class="hero-equation">G<sub>PI</sub>(s) = K<sub>p</sub> + K<sub>i</sub>/s</div>
+            <div class="hero-equation small">= K<sub>p</sub>(s + K<sub>i</sub>/K<sub>p</sub>)/s</div>
+          </div>
+          <div class="metric-grid">
+            <div><span>integrator pole</span><strong>s = 0</strong></div>
+            <div><span>zero ωz</span><strong id="wzOut"></strong></div>
+            <div><span>zero fz</span><strong id="fzOut"></strong></div>
+            <div><span>工程語言</span><strong>loop shaping</strong></div>
+          </div>
+          <div class="frequency-regions">
+            <div><span>f ≪ fz</span><strong id="piLowRegion">積分器主導</strong><small>高 DC gain、約 −90°</small></div>
+            <div><span>f ≫ fz</span><strong id="piHighRegion">Kp 主導</strong><small>幅值趨近 20log10(Kp)、phase → 0°</small></div>
+          </div>
+          <p class="callout" id="piInterpretation">真正的設計問題不是「Kp 要多少？」而是 plant 的 pole/zero 在哪、crossover 要放哪、需要在哪一段補 phase。</p>
+        </div>
+      </div>
+
+      <div class="code-bridge">
+        <div>
+          <span class="layer-tag math">s-domain</span>
+          <code>C(s)=Kp+Ki/s</code>
+        </div>
+        <b>→ discretize →</b>
+        <div>
+          <span class="layer-tag firmware">difference equation</span>
+          <code>u[n]=u[n−1]+b0·e[n]+b1·e[n−1]</code>
+        </div>
+        <b>→ C2000 →</b>
+        <pre><code>err = ref - fb;
+u += b0 * err + b1 * err_z1;
+err_z1 = err;
+EPwm1Regs.CMPA.bit.CMPA = duty;</code></pre>
+      </div>
+      <p class="hint">上面是結構示意，不代表任何特定 TI library 的係數定義。真正實作還要處理 saturation、anti-windup、Q-format/float、sample time 與 PWM update timing。</p>
+    </section>
+
+    <section class="panel" id="sfra-chain">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">MODEL → MEASUREMENT</p>
+          <h2>SFRA 不是「幫你畫 Bode」而已：它是在問模型到底漏了什麼</h2>
+        </div>
+        <button id="sweepButton" class="primary">▶ 開始 SFRA sweep</button>
+      </div>
+
+      <div class="teaching-grid">
+        <article><span class="layer-tag intuition">① 白話直覺</span><p>在迴路裡偷偷加一個很小的正弦擾動，掃很多頻率，看看系統每個頻率怎麼回。</p></article>
+        <article><span class="layer-tag math">② 頻域</span><p>量到的是複數比值：同時有 magnitude 與 phase。掃完整段頻率後，就是實機的 T(jω) / plant response。</p></article>
+        <article><span class="layer-tag firmware">③ 實機用途</span><p>模型預估 PM 60°，SFRA 只有 35°，代表「理論 plant + controller」之外還有你沒算進去的 dynamics。</p></article>
+        <article><span class="layer-tag debug">④ 優先排查</span><p>sampling delay → digital filter → PWM update → ZOH → sensor / AFE pole → plant parameter mismatch。</p></article>
+      </div>
+
+      <div class="sfra-grid">
+        <div class="chain-box">Injection<small>小訊號</small></div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-box">Controller<small>Gc</small></div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-box">Plant<small>Gp</small></div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-box">Response<small>Vout / Iout</small></div>
+      </div>
+      <div class="sweep-track"><div id="sweepDot" class="sweep-dot"></div></div>
+      <div class="formula-strip">
+        <div><span>掃描頻率</span><strong id="sweepFreq">—</strong></div>
+        <div><span>Model |T|</span><strong id="modelMag">—</strong></div>
+        <div><span>Measured |T|</span><strong id="measuredMag">—</strong></div>
+        <div><span>判讀</span><strong id="sweepVerdict">等待 sweep</strong></div>
+      </div>
+      <div class="diagnostic-grid">
+        <article><b>低頻就差很多</b><p>先查 sensor scaling、plant DC gain、load / operating point。</p></article>
+        <article><b>高頻 magnitude 提早掉</b><p>先查 ADC / analog filter、多出來的 pole、計算與 ZOH 模型。</p></article>
+        <article><b>magnitude 差不多但 phase 更差</b><p>這是 delay 的典型味道：sample age、ISR、PWM shadow load 優先。</p></article>
+        <article><b>某一段突然凸起 / 共振</b><p>查 LC resonance、ESR、機構寄生、未建模的二階 dynamics。</p></article>
+      </div>
+      <p class="hint">這裡的 sweep 是教學用合成 response，不是假裝連到實機。真正上板時，SFRA 的角色是把實測 T(jω) 與模型對上。</p>
+    </section>
+
+    <section class="panel" id="control-chain">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">THE WHOLE CHAIN</p>
+          <h2>最後全部收斂成同一條數位電源工作流</h2>
+        </div>
+        <button id="playChain" class="primary">▶ 逐步播放</button>
+      </div>
+      <div class="learning-chain" id="learningChain">
+        <div class="step" data-step="0"><b>1</b><span>微分方程</span><small>L·di/dt = V</small></div>
+        <div class="step" data-step="1"><b>2</b><span>Laplace</span><small>建立 G(s)</small></div>
+        <div class="step" data-step="2"><b>3</b><span>Fourier axis</span><small>s = jω → Bode</small></div>
+        <div class="step" data-step="3"><b>4</b><span>Compensator</span><small>pole / zero placement</small></div>
+        <div class="step" data-step="4"><b>5</b><span>Discretize</span><small>exact / Tustin / ZOH</small></div>
+        <div class="step" data-step="5"><b>6</b><span>Difference Eq.</span><small>u[n], e[n−1], z⁻¹</small></div>
+        <div class="step" data-step="6"><b>7</b><span>C2000 code</span><small>ADC → ISR → PWM</small></div>
+        <div class="step" data-step="7"><b>8</b><span>SFRA verify</span><small>模型 ↔ 實機</small></div>
+      </div>
+      <div class="chain-explain" id="chainExplain">點「逐步播放」，看每一層把上一層的問題轉成更容易量測與設計的形式。</div>
+      <div class="boundary-note"><b>重要邊界：</b><code>z=e<sup>sTs</sup></code> 是連續 mode / pole 的精確映射；把整個 controller transfer function 離散化時，還要選 ZOH、Tustin、Euler、matched pole-zero 等方法，不能把所有情況都當成單純代換。</div>
+    </section>
+
+    <section class="panel" id="self-check">
+      <div class="section-head"><div><p class="eyebrow">SELF CHECK</p><h2>三題確認你是真的打通，不是只看過</h2></div></div>
+      <div class="check-grid">
+        <article class="check-card"><h3>1. σ 從 −200 拉到 0，會發生什麼？</h3><button class="secondary reveal" type="button" data-answer="answer1">看答案</button><p id="answer1" class="answer" hidden>時間域不再衰減；s-plane pole 到 jω 軸；z-plane 半徑到 |z|=1。三個現象是同一件事。</p></article>
+        <article class="check-card"><h3>2. Td 不變，fc 從 5 kHz 加倍到 10 kHz？</h3><button class="secondary reveal" type="button" data-answer="answer2">看答案</button><p id="answer2" class="answer" hidden>phase lag 也加倍。因為 φ=−360fTd；同樣的時間延遲，在更快的波形上佔了更大的角度。</p></article>
+        <article class="check-card"><h3>3. Ki/Kp 變大，PI zero 往哪裡走？</h3><button class="secondary reveal" type="button" data-answer="answer3">看答案</button><p id="answer3" class="answer" hidden>ωz=Ki/Kp 變大，所以 zero 往高頻移；積分器主導的區域延伸到更高頻。</p></article>
+      </div>
+    </section>
+
+    <section class="summary">
+      <h2>最後真正要留下的是這個腦內模型</h2>
+      <div class="summary-grid">
+        <code>s = σ + jω</code>
+        <code>Fourier = Laplace @ s = jω</code>
+        <code>z = e<sup>sT<sub>s</sub></sup></code>
+        <code>DTFT = Z-transform @ |z| = 1</code>
+      </div>
+      <p>PI/PID、補償器、SFRA、ADC/PWM delay、數位濾波器最後都可以用同一種語言問：<strong>哪一顆 pole / zero、哪一段 gain、哪一段 delay，正在改變 loop gain 與 phase margin？</strong></p>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+  <script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
+  <script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/opamp-module.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/power-firmware-modules.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/control-transforms-module.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/curriculum-schema-v3.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/engineering-models.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/model-registry.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/learning-evidence.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/lab-oracles.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/lab-verification-contracts.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/opamp-verification.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/power-firmware-verification.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/control-transforms-verification.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
+</body>
+</html>
