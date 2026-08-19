@@ -6,6 +6,7 @@
   <meta name="description" content="Fourier、Laplace、Z 變換與數位電源控制的互動式橋接教材。">
   <title>Fourier / Laplace / Z · Control Transform Bridge</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
 </head>
 <body>
   <header class="topbar">
@@ -43,7 +44,7 @@
     <section class="panel" id="pole-map">
       <div class="section-head">
         <div>
-          <p class="eyebrow">LAB 1 · ONE POLE, THREE VIEWS</p>
+          <p class="eyebrow">A-CAPABLE LAB · ONE POLE, THREE VIEWS</p>
           <h2>拖一顆 pole，看時間域、s-plane、z-plane 同時改變</h2>
         </div>
         <div class="status stable" id="stabilityBadge">STABLE</div>
@@ -85,15 +86,16 @@
       <div class="formula-strip">
         <div><span>s</span><strong id="sValue"></strong></div>
         <div><span>z = e<sup>sT<sub>s</sub></sup></span><strong id="zValue"></strong></div>
-        <div><span>|z|</span><strong id="zMag"></strong></div>
+        <div data-metric="z-magnitude"><span>|z|</span><strong id="zMag"></strong></div>
         <div><span>對應規則</span><strong>Re(s)&lt;0 ⇔ |z|&lt;1</strong></div>
       </div>
+      <p class="hint">正式驗證項目：工作單會把頁面顯示的 |z| 與獨立解析式 exp(σT<sub>s</sub>) 比對；兩者不是共用同一段 simulator 計算。</p>
     </section>
 
     <section class="panel" id="delay-lab">
       <div class="section-head">
         <div>
-          <p class="eyebrow">LAB 2 · DIGITAL DELAY</p>
+          <p class="eyebrow">DEMO 2 · DIGITAL DELAY</p>
           <h2>「只是慢一拍」會直接吃掉多少 phase margin？</h2>
         </div>
       </div>
@@ -133,7 +135,7 @@
     <section class="panel" id="pi-bode">
       <div class="section-head">
         <div>
-          <p class="eyebrow">LAB 3 · PI = POLE + ZERO</p>
+          <p class="eyebrow">DEMO 3 · PI = POLE + ZERO</p>
           <h2>調 Kp / Ki，不是「調兩個魔法數字」</h2>
         </div>
       </div>
@@ -193,7 +195,7 @@
         <div><span>Measured |T|</span><strong id="measuredMag">—</strong></div>
         <div><span>判讀</span><strong id="sweepVerdict">等待 sweep</strong></div>
       </div>
-      <p class="hint">如果實測比模型多掉一段 phase，優先查 sampling、ADC filter、ISR latency、PWM shadow load、ZOH 等模型裡漏掉的 dynamics / delay。</p>
+      <p class="hint">這裡的 sweep 是教學用合成 response，不是假裝連到實機。真正上板時，SFRA 的角色是把實測 T(jω) 與模型對上，找 sampling、ADC filter、ISR latency、PWM shadow load、ZOH 等漏掉的 dynamics / delay。</p>
     </section>
 
     <section class="panel" id="control-chain">
@@ -230,5 +232,20 @@
   </main>
 
   <script src="app.js"></script>
+  <script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
+  <script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/opamp-module.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/power-firmware-modules.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/control-transforms-module.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/curriculum-schema-v3.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/engineering-models.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/model-registry.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/learning-evidence.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/lab-oracles.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/lab-verification-contracts.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/opamp-verification.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/power-firmware-verification.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/control-transforms-verification.js" data-circuit-tutor-js></script>
+  <script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
 </body>
 </html>
