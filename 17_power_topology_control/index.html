@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Buck、Boost、PFC、PSFB、LLC、Inverter 的互動式控制教材：從電路能量流、plant、Bode、數位延遲到 C2000 與 SFRA。">
+  <title>Power Topology Control Atlas</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
+</head>
+<body>
+<header class="topbar">
+  <a href="../index.html">← 教材總入口</a><strong>Power Topology Control Atlas</strong><span>Module 17</span>
+</header>
+<main>
+  <section class="hero" id="atlas">
+    <div>
+      <p class="eyebrow">SAME CONTROL LANGUAGE · DIFFERENT POWER-STAGE PERSONALITY</p>
+      <h1>同一套控制理論，<br><span>真正落到六種電源電路</span></h1>
+      <p class="lead">不是再背六套公式。這一章固定用同一個問題拆每種 topology：<b>能量怎麼走 → 真正的控制量是什麼 → plant 有哪些 pole/zero → 數位延遲怎麼進來 → SFRA 看到不一樣時先查什麼。</b></p>
+      <div class="pill-row"><span>精確 identity</span><span>teaching model</span><span>operating-point boundary</span><span>C2000 timing</span><span>SFRA debug</span></div>
+    </div>
+    <div class="atlas-map">
+      <div><b>Buck</b><small>duty → Vout</small></div><div><b>Boost</b><small>duty + RHPZ</small></div><div><b>PFC</b><small>current + voltage loops</small></div>
+      <div><b>PSFB</b><small>phase shift</small></div><div><b>LLC</b><small>switching frequency</small></div><div><b>Inverter</b><small>AC V/I + sync</small></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-head"><div><p class="eyebrow">CONTROL PERSONALITY MAP</p><h2>先看六種電路「油門」根本不一樣</h2></div></div>
+    <div class="table-wrap"><table class="compare-table"><thead><tr><th>Topology</th><th>主要控制量</th><th>主要回授</th><th>頻率域個性</th><th>最常踩的坑</th></tr></thead><tbody>
+      <tr><td>Buck</td><td>Duty</td><td>Vout / IL</td><td>LC double pole + ESR zero</td><td>把 delay / ESR / sampling 忽略</td></tr>
+      <tr><td>Boost CCM</td><td>Duty</td><td>Vout / IL</td><td>RHP zero 限 bandwidth</td><td>想用 compensator 消 RHPZ</td></tr>
+      <tr><td>PFC Boost</td><td>Duty / current ref amplitude</td><td>Iin + Vbus + line phase</td><td>快 current loop、慢 voltage loop、2ω ripple</td><td>outer loop 太快污染 THD</td></tr>
+      <tr><td>PSFB</td><td>Bridge phase shift</td><td>Vout / primary or secondary current</td><td>output LC + commutation / duty-loss</td><td>把 ZVS 當成 topology 保證</td></tr>
+      <tr><td>LLC</td><td>Switching frequency</td><td>Vout / resonant current</td><td>resonant gain 隨 load / operating point 變</td><td>拿單一 plant 全域套用</td></tr>
+      <tr><td>Inverter</td><td>modulation / current or voltage command</td><td>Vac/Iac + phase</td><td>LC/LCL resonance + PLL / grid interaction</td><td>bandwidth hierarchy 打架</td></tr>
+    </tbody></table></div>
+    <nav class="topology-nav" aria-label="topology quick navigation">
+      <button data-go="buck">Buck</button><button data-go="boost">Boost</button><button data-go="pfc">PFC</button><button data-go="psfb">PSFB</button><button data-go="llc">LLC</button><button data-go="inverter">Inverter</button>
+    </nav>
+  </section>
+
+  <section class="panel topology" id="buck">
+    <div class="section-head"><div><p class="eyebrow">A-CAPABLE LAB · BASELINE PLANT</p><h2>Buck：先用最乾淨的拓撲建立控制骨架</h2></div><span class="badge exact">Exact ideal identity + teaching AC model</span></div>
+    <div class="schematic-row">
+      <svg class="schematic" viewBox="0 0 620 180" role="img" aria-label="Buck converter schematic"><path d="M25 90 H110 M150 90 H235 M275 90 H370 M370 90 H500 M500 90 V150 H25 V90"/><path d="M110 65 V115 M110 65 H150 V115 H110"/><path d="M235 90 q10-32 20 0 q10-32 20 0"/><path d="M370 55 V145 M355 65 H385 M355 135 H385"/><text x="25" y="75">Vin</text><text x="112" y="55">SW</text><text x="238" y="55">L</text><text x="390" y="55">C</text><text x="505" y="82">Vout/R</text><path d="M165 90 V150"/><path d="M155 125 L165 145 L175 125 Z"/><text x="140" y="170">freewheel</text></svg>
+      <div class="four-layers"><article><b>① 白話</b><p>開關 ON 時電感充能，OFF 時電感繼續送能量。穩態時電感一個週期平均電壓必須是 0。</p></article><article><b>② 數學</b><p>Ideal CCM：Vout=D·Vin。AC plant 主要由 L、C、R 形成二階系統，capacitor ESR 再加一顆 zero。</p></article><article><b>③ C2000</b><p>ePWM SOC → ADC sample IL/Vout → PI/2P2Z → CMPA shadow。sample 與 load event 位置會直接變 delay。</p></article><article><b>④ Debug</b><p>模型 pole 對、phase 卻整段少一截：先查 ADC filter、ISR latency、PWM commit，不要先怪 PI。</p></article></div>
+    </div>
+    <div class="controls seven">
+      <label>Vin<input id="vinBuck" type="range" min="12" max="120" step="1" value="48"><output id="vinBuckOut"></output></label>
+      <label>Duty<input id="dutyBuck" type="range" min="10" max="90" step="1" value="50"><output id="dutyBuckOut"></output></label>
+      <label>L (µH)<input id="lBuck" type="range" min="20" max="1000" step="10" value="200"><output id="lBuckOut"></output></label>
+      <label>C (µF)<input id="cBuck" type="range" min="20" max="1000" step="10" value="220"><output id="cBuckOut"></output></label>
+      <label>Rload (Ω)<input id="rBuck" type="range" min="1" max="30" step="0.5" value="6"><output id="rBuckOut"></output></label>
+      <label>ESR (mΩ)<input id="esrBuck" type="range" min="2" max="200" step="2" value="40"><output id="esrBuckOut"></output></label>
+      <label>fsw (kHz)<input id="fsBuck" type="range" min="20" max="300" step="5" value="100"><output id="fsBuckOut"></output></label>
+    </div>
+    <div class="metric-grid">
+      <div data-metric="ideal vout"><span>Ideal Vout</span><strong id="buckVout"></strong></div><div><span>ΔIL p-p</span><strong id="buckRipple"></strong></div><div><span>LC resonance</span><strong id="buckF0"></strong></div><div><span>ESR zero</span><strong id="buckFesr"></strong></div>
+    </div>
+    <div class="viz-grid"><article><h3>Plant Bode（簡化 voltage-mode model）</h3><canvas id="buckBode" width="760" height="300"></canvas></article><article class="explain-card"><h3>先抓哪三件事？</h3><p id="buckExplain"></p><code>Gvd(s) ≈ Vin(1+s·ESR·C)/(LCs²+(L/R)s+1)</code><p class="boundary">邊界：忽略 switch/diode drop、inductor DCR、PWM gain、sample/ZOH/delay；正式設計要把 operating point 與實際 sensing chain 加回去。</p></article></div>
+  </section>
+
+  <section class="panel topology" id="boost">
+    <div class="section-head"><div><p class="eyebrow">NON-MINIMUM-PHASE PLANT</p><h2>Boost CCM：你第一次遇到「想加速，輸出卻先往反方向」</h2></div><span class="badge warn">RHP zero cannot be cancelled</span></div>
+    <div class="schematic-row"><svg class="schematic" viewBox="0 0 620 180" role="img" aria-label="Boost converter schematic"><path d="M25 90 H130"/><path d="M130 90 q10-32 20 0 q10-32 20 0"/><path d="M170 90 H270 M310 90 H420 H520"/><path d="M270 70 L310 90 L270 110 Z"/><path d="M215 90 V150"/><path d="M195 120 H235 M215 120 V150"/><path d="M420 55 V145 M405 65 H435 M405 135 H435"/><path d="M520 90 V150 H25"/><text x="25" y="75">Vin</text><text x="135" y="55">L</text><text x="195" y="115">SW</text><text x="265" y="55">D</text><text x="445" y="55">C</text><text x="525" y="82">Vout/R</text></svg>
+      <div class="four-layers"><article><b>① 白話</b><p>Duty 突然增加時，電感先多花時間充能、少花時間把能量送到輸出，所以 Vout 短時間可能先掉，再慢慢升。</p></article><article><b>② 數學</b><p>CCM control-to-output 有 RHP zero；它的 magnitude 像 zero 往上抬，但 phase 卻往下掉。</p></article><article><b>③ 設計</b><p>保守 crossover 通常要明顯低於 RHPZ；這不是多塞一顆 LHP zero 就能互消的問題。</p></article><article><b>④ Debug</b><p>負載變重或 duty 變大時 RHPZ 可能下移；同一組補償器會突然變得難看。</p></article></div></div>
+    <div class="controls four"><label>Duty<input id="dutyBoost" type="range" min="15" max="85" value="55"><output id="dutyBoostOut"></output></label><label>L (µH)<input id="lBoost" type="range" min="50" max="1500" step="10" value="300"><output id="lBoostOut"></output></label><label>Rload (Ω)<input id="rBoost" type="range" min="5" max="150" step="1" value="48"><output id="rBoostOut"></output></label><label>Vin (V)<input id="vinBoost" type="range" min="12" max="200" step="1" value="48"><output id="vinBoostOut"></output></label></div>
+    <div class="metric-grid"><div><span>Ideal Vout</span><strong id="boostVout"></strong></div><div><span>RHPZ</span><strong id="boostRhpz"></strong></div><div><span>1/5 RHPZ</span><strong id="boostFc5"></strong></div><div><span>1/10 RHPZ</span><strong id="boostFc10"></strong></div></div>
+    <div class="cause-chain"><span>Duty ↑</span><b>→</b><span>inductor charge time ↑</span><b>→</b><span>短時間送到 output 的能量 ↓</span><b>→</b><span>Vout 先反向</span><b>→</b><span>stored energy 後來才把 Vout 拉高</span></div>
+    <p class="boundary">Teaching formula：fRHPZ = R(1−D)²/(2πL)。實機 crossover 還要同時受 switching frequency、current-loop architecture、sampling delay、ESR/寄生與 operating range 限制。</p>
+  </section>
+
+  <section class="panel topology" id="pfc">
+    <div class="section-head"><div><p class="eyebrow">MULTI-TIME-SCALE CONTROL</p><h2>PFC：不是「穩住 400 V」而已，還要讓輸入電流像輸入電壓</h2></div><span class="badge teaching">Dual-loop teaching model</span></div>
+    <div class="schematic-row"><svg class="schematic" viewBox="0 0 620 180" role="img" aria-label="Boost PFC control diagram"><path d="M20 90 H110"/><rect x="110" y="60" width="80" height="60"/><text x="123" y="95">Bridge</text><path d="M190 90 H260"/><path d="M260 90 q10-32 20 0 q10-32 20 0"/><path d="M300 90 H390 H510"/><path d="M350 90 V145"/><rect x="330" y="120" width="40" height="30"/><text x="336" y="140">SW</text><path d="M430 55 V145 M415 65 H445 M415 135 H445"/><text x="20" y="75">AC</text><text x="263" y="55">L</text><text x="455" y="55">Cbus</text><text x="515" y="82">Vbus</text></svg>
+      <div class="four-layers"><article><b>① 白話</b><p>內環負責「每個 switching cycle 把電流拉成想要的樣子」；外環只慢慢決定這個正弦電流要多大，讓 bus 能量收支平衡。</p></article><article><b>② 頻率分工</b><p>line 50/60 Hz 會自然產生 100/120 Hz 的瞬時功率 ripple。外環若拼命追它，current amplitude reference 也會被調制。</p></article><article><b>③ C2000</b><p>SPLL / line feed-forward → current reference；ADC 同步 sample current → current compensator → PWM；Vbus 外環在更慢時間尺度更新 amplitude。</p></article><article><b>④ Debug</b><p>Bus 看起來超穩、THD 卻爛：先懷疑 outer loop 太快，而不是只看 current PI。</p></article></div></div>
+    <div class="controls five"><label>Line Vrms<input id="pfcVrms" type="range" min="90" max="265" value="230"><output id="pfcVrmsOut"></output></label><label>Power (W)<input id="pfcPower" type="range" min="200" max="5000" step="100" value="2000"><output id="pfcPowerOut"></output></label><label>Vbus (V)<input id="pfcBus" type="range" min="300" max="450" step="5" value="400"><output id="pfcBusOut"></output></label><label>Cbus (µF)<input id="pfcC" type="range" min="100" max="2000" step="50" value="680"><output id="pfcCOut"></output></label><label>Line Hz<input id="pfcHz" type="range" min="50" max="60" step="10" value="60"><output id="pfcHzOut"></output></label></div>
+    <div class="metric-grid"><div><span>Iin rms @ η=0.97</span><strong id="pfcIrms"></strong></div><div><span>Iref peak</span><strong id="pfcIpk"></strong></div><div><span>2ω ripple frequency</span><strong id="pfcRippleHz"></strong></div><div><span>Bus ΔVpk estimate</span><strong id="pfcRippleV"></strong></div></div>
+    <div class="loop-stack"><div class="fast"><b>FAST · current loop</b><span>line shape / THD / cycle-by-cycle current</span></div><div class="slow"><b>SLOW · voltage loop</b><span>average energy / Vbus regulation</span></div><div class="sync"><b>SYNC · SPLL / feed-forward</b><span>line phase + normalized current template</span></div></div>
+    <p class="boundary">ΔVbus,pk ≈ P/(2ωline·Cbus·Vbus) 是小 ripple 能量估算。實機要再考慮效率、load dynamics、bus ESR、feed-forward、current sensing、zero-crossing strategy 與 topology（diode bridge / totem-pole）。</p>
+  </section>
+
+  <section class="panel topology" id="psfb">
+    <div class="section-head"><div><p class="eyebrow">ISOLATED · PHASE-SHIFT CONTROL</p><h2>PSFB：控制量不是「一個 MOSFET 的 duty」，而是兩個 bridge leg 的相位</h2></div><span class="badge teaching">Power transfer + ZVS energy teaching model</span></div>
+    <div class="schematic-row"><svg class="schematic" viewBox="0 0 620 180" role="img" aria-label="PSFB block schematic"><rect x="30" y="45" width="150" height="90"/><text x="55" y="82">Full Bridge</text><text x="48" y="105">leg A ↔ leg B</text><path d="M180 90 H250"/><path d="M250 45 V135 M270 55 V125 M250 90 H270"/><path d="M270 90 H350"/><rect x="350" y="55" width="90" height="70"/><text x="365" y="85">Rectifier</text><text x="375" y="105">+ SR</text><path d="M440 90 H500"/><path d="M500 90 q10-32 20 0 q10-32 20 0"/><text x="235" y="35">XFMR</text><text x="495" y="50">Lo</text><text x="25" y="160">control: phase shift φ</text></svg>
+      <div class="four-layers"><article><b>① 白話</b><p>兩個 half-bridge 都近似 50% duty，但把它們彼此錯開多少角度，決定 transformer primary 有效電壓存在多久。</p></article><article><b>② 一階估算</b><p>用 normalized phase mφ=φ/180° 當 effective transfer command，Vout≈n·Vin·mφ；實機還會有 commutation duty-loss。</p></article><article><b>③ ZVS</b><p>橋臂切換前要有足夠電流/漏感能量去充放 Coss。輕載時 energy 不夠，就會失去 ZVS。</p></article><article><b>④ Debug</b><p>看 Vds turn-on，不要只看 controller command；dead-time 太短/太長、leakage、magnetizing current、SR timing 都可能讓效率掉。</p></article></div></div>
+    <div class="controls six"><label>Vin (V)<input id="psfbVin" type="range" min="200" max="450" step="10" value="400"><output id="psfbVinOut"></output></label><label>Phase φ<input id="psfbPhase" type="range" min="10" max="170" step="5" value="90"><output id="psfbPhaseOut"></output></label><label>Ns/Np<input id="psfbN" type="range" min="0.02" max="0.3" step="0.01" value="0.08"><output id="psfbNOut"></output></label><label>Llk (µH)<input id="psfbLlk" type="range" min="1" max="40" step="1" value="8"><output id="psfbLlkOut"></output></label><label>Ipri (A)<input id="psfbI" type="range" min="1" max="30" step="1" value="10"><output id="psfbIOut"></output></label><label>Ceq node (nF)<input id="psfbCoss" type="range" min="0.1" max="5" step="0.1" value="1"><output id="psfbCossOut"></output></label></div>
+    <div class="metric-grid"><div><span>mφ</span><strong id="psfbM"></strong></div><div><span>Idealized Vout</span><strong id="psfbVout"></strong></div><div><span>Llk energy</span><strong id="psfbEl"></strong></div><div><span>ZVS energy index</span><strong id="psfbZvs"></strong></div></div>
+    <p class="boundary">ZVS index 只比較 ½LlkI² 與 ½CeqVin² 的量級，用來建立「commutation energy budget」直覺；MOSFET Coss 是非線性、實際需要的 charge/energy 與 bridge node、dead-time、magnetizing current 都有關，不能拿這個比值當硬體認證。</p>
+  </section>
+
+  <section class="panel topology" id="llc">
+    <div class="section-head"><div><p class="eyebrow">RESONANT CONVERTER</p><h2>LLC：真正的油門是 switching frequency</h2></div><span class="badge warn">Plant changes with operating point</span></div>
+    <div class="schematic-row"><svg class="schematic" viewBox="0 0 620 180" role="img" aria-label="LLC resonant tank schematic"><rect x="25" y="55" width="100" height="70"/><text x="45" y="88">Half/Full</text><text x="52" y="108">Bridge</text><path d="M125 90 H190"/><path d="M190 90 q10-32 20 0 q10-32 20 0"/><path d="M230 90 H280"/><path d="M280 65 V115 M300 65 V115"/><path d="M300 90 H360"/><path d="M360 50 V130 M380 60 V120 M360 90 H380"/><path d="M380 90 H450"/><rect x="450" y="55" width="100" height="70"/><text x="465" y="88">Rectifier</text><text x="475" y="108">+ Cout</text><text x="185" y="50">Lr</text><text x="270" y="50">Cr</text><text x="345" y="35">Lm / XFMR</text></svg>
+      <div class="four-layers"><article><b>① 白話</b><p>不是把 duty 從 40% 拉到 60%，而是改 fs，讓 tank 工作在 resonance 左右不同位置，藉由 impedance / circulating current 改 gain。</p></article><article><b>② 核心座標</b><p>先算 fr、Ln=Lm/Lr、fn=fs/fr、Q。這四個量比單看 Kp/Ki 更接近 LLC 的本體。</p></article><article><b>③ 控制</b><p>frequency-to-output gain 的斜率會跟 Vin/load 改；同一個 compensator 在不同 operating point 可能看到完全不同 plant。</p></article><article><b>④ Debug</b><p>瞬態慢不一定只是 PI 太小；先看 operating point 是否跑到 gain curve 很平、很陡或接近 mode boundary。</p></article></div></div>
+    <div class="controls five"><label>Lr (µH)<input id="llcLr" type="range" min="2" max="100" step="1" value="20"><output id="llcLrOut"></output></label><label>Cr (nF)<input id="llcCr" type="range" min="10" max="500" step="5" value="100"><output id="llcCrOut"></output></label><label>Lm (µH)<input id="llcLm" type="range" min="40" max="1000" step="10" value="120"><output id="llcLmOut"></output></label><label>Qe<input id="llcQ" type="range" min="0.15" max="1.5" step="0.05" value="0.5"><output id="llcQOut"></output></label><label>fs (kHz)<input id="llcFs" type="range" min="30" max="400" step="5" value="120"><output id="llcFsOut"></output></label></div>
+    <div class="metric-grid"><div><span>fr</span><strong id="llcFr"></strong></div><div><span>Ln</span><strong id="llcLn"></strong></div><div><span>fn=fs/fr</span><strong id="llcFn"></strong></div><div><span>Normalized FHA gain</span><strong id="llcGain"></strong></div></div>
+    <div class="viz-grid"><article><h3>Normalized FHA gain family</h3><canvas id="llcGainCanvas" width="760" height="300"></canvas></article><article class="explain-card"><h3>你現在在哪個區域？</h3><p id="llcExplain"></p><code>M ≈ 1 / √([1+(1/Ln)(1−1/fn²)]² + [Q(fn−1/fn)]²)</code><p class="boundary">這裡用常見 normalized FHA 形式建立趨勢直覺；不同 FHA 定義、rectifier/load reflection 與實際磁性元件會改變係數。真正 loop design 要在目標 Vin/load operating points 量 SFRA 或建立對應 small-signal model。</p></article></div>
+  </section>
+
+  <section class="panel topology" id="inverter">
+    <div class="section-head"><div><p class="eyebrow">DC → AC · STANDALONE / GRID-TIED</p><h2>Inverter：AC 控制還多了同步與 filter resonance</h2></div><span class="badge teaching">LC/LCL + synchronization teaching model</span></div>
+    <div class="schematic-row"><svg class="schematic" viewBox="0 0 620 180" role="img" aria-label="Full bridge inverter with output filter"><rect x="25" y="50" width="120" height="80"/><text x="50" y="85">Full Bridge</text><text x="50" y="105">SPWM</text><path d="M145 90 H230"/><path d="M230 90 q10-32 20 0 q10-32 20 0"/><path d="M270 90 H365"/><path d="M365 55 V145 M350 65 H380 M350 135 H380"/><path d="M365 90 H440"/><path d="M440 90 q10-32 20 0 q10-32 20 0"/><path d="M480 90 H565"/><text x="225" y="50">L1</text><text x="345" y="50">Cf</text><text x="438" y="50">L2*</text><text x="515" y="75">Load/Grid</text></svg>
+      <div class="four-layers"><article><b>① Standalone</b><p>目標是做出乾淨 Vac，常見 LC output filter + voltage loop，內層可再加 current loop。</p></article><article><b>② Grid-tied</b><p>目標通常是控制注入 grid 的 current；需要知道 grid phase，單相常用 SPLL / orthogonal signal generation，再做 PR 或同步座標控制。</p></article><article><b>③ LCL</b><p>多一顆 L 讓 switching ripple 更好擋，但也多出尖銳 resonance；沒有 damping 時，current loop 很容易在那裡出事。</p></article><article><b>④ Debug</b><p>current loop、PLL、outer DC-bus/power loop、LCL damping 都有自己的 bandwidth；彼此太靠近就會互相看見。</p></article></div></div>
+    <div class="controls six"><label>Mode<select id="invMode"><option value="lc">Standalone LC</option><option value="lcl">Grid-tied LCL</option></select></label><label>Vdc<input id="invVdc" type="range" min="100" max="800" step="10" value="400"><output id="invVdcOut"></output></label><label>modulation m<input id="invM" type="range" min="0.1" max="0.98" step="0.02" value="0.8"><output id="invMOut"></output></label><label>L1 (mH)<input id="invL1" type="range" min="0.2" max="10" step="0.1" value="2"><output id="invL1Out"></output></label><label>Cf (µF)<input id="invC" type="range" min="1" max="50" step="1" value="10"><output id="invCOut"></output></label><label>L2 (mH)<input id="invL2" type="range" min="0.1" max="8" step="0.1" value="1"><output id="invL2Out"></output></label></div>
+    <div class="metric-grid"><div><span>Fundamental Vrms*</span><strong id="invVrms"></strong></div><div><span>Filter resonance</span><strong id="invFres"></strong></div><div><span>Mode</span><strong id="invModeText"></strong></div><div><span>First debug target</span><strong id="invDebug"></strong></div></div>
+    <div class="cause-chain"><span>ADC Vac/Iac</span><b>→</b><span>SPLL / angle*</span><b>→</b><span>V/I controller</span><b>→</b><span>modulator</span><b>→</b><span>ePWM</span><b>→</b><span>LC/LCL</span><b>→</b><span>load / grid</span></div>
+    <p class="boundary">*Full-bridge SPWM teaching assumption：fundamental peak≈m·Vdc，所以 Vrms≈mVdc/√2。Standalone 不一定需要 PLL；grid-tied 才需要同步。LCL resonance 使用 ideal L1-L2-Cf 公式，實機 damping、grid impedance 與 sensing location 都會改變 loop。</p>
+  </section>
+
+  <section class="panel" id="workflow">
+    <div class="section-head"><div><p class="eyebrow">ONE DEBUG WORKFLOW FOR ALL SIX</p><h2>最後不要問「Kp 要調多少」；先問是哪一層不對</h2></div></div>
+    <div class="workflow"><div><b>1 · POWER STAGE</b><span>energy path / operating point</span></div><div><b>2 · PLANT</b><span>pole / zero / resonance / RHPZ</span></div><div><b>3 · LOOP</b><span>crossover / PM / hierarchy</span></div><div><b>4 · DIGITAL</b><span>sample / compute / PWM commit</span></div><div><b>5 · MEASURE</b><span>SFRA / scope / THD / Vds</span></div><div><b>6 · CORRECT MODEL</b><span>把漏掉的 delay / parasitic / mode 加回去</span></div></div>
+    <div class="debug-grid">
+      <article><h3>Magnitude 很早就掉</h3><p>先查 analog/digital filter、多出來的 pole、sampling/ZOH、LLC operating-point slope。</p></article>
+      <article><h3>Magnitude 差不多，phase 額外差</h3><p>典型先查 ADC age、ISR、PWM shadow load、transport delay；Boost 還要看 RHPZ。</p></article>
+      <article><h3>只在某 operating point 爛</h3><p>Boost RHPZ 下移、PSFB ZVS energy 不夠、LLC plant slope 變、grid impedance 改變都屬這一類。</p></article>
+      <article><h3>波形好看但效率差</h3><p>PSFB/LLC 看 soft-switching、circulating current、dead-time；PFC 看 conduction path / zero crossing；inverter 看 switching/ripple current。</p></article>
+      <article><h3>PFC bus 很穩但 THD 差</h3><p>檢查 outer voltage loop 是否在追 2ω，current reference normalization / SPLL / zero-crossing 是否乾淨。</p></article>
+      <article><h3>Inverter 某頻帶突然尖峰</h3><p>先定位 LC/LCL resonance，再查 active/passive damping、PLL/current-loop bandwidth hierarchy。</p></article>
+    </div>
+    <div class="final-note"><b>模型分級：</b><span class="exact-text">Exact</span> = 可由獨立 identity 驗證；<span class="teaching-text">Teaching</span> = 用來建立趨勢與第一性原理；<span class="boundary-text">Hardware</span> = 必須靠實際 operating point、datasheet parasitic、scope/SFRA 才能閉環。</div>
+  </section>
+</main>
+<script src="app.js"></script>
+<script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
+<script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/opamp-module.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/power-firmware-modules.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/control-transforms-module.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/power-topology-control-module.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/curriculum-schema-v3.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/engineering-models.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/model-registry.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/learning-evidence.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/lab-oracles.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/lab-verification-contracts.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/opamp-verification.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/power-firmware-verification.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/control-transforms-verification.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/power-topology-control-verification.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
+</body>
+</html>
