@@ -47,9 +47,7 @@
   box-shadow: 0 22px 60px rgba(15, 23, 42, 0.24);
 }
 
-.clt-panel.is-open {
-  display: block;
-}
+.clt-panel.is-open { display: block; }
 
 .clt-head {
   position: sticky;
@@ -185,10 +183,7 @@
   box-shadow: 0 2px 8px rgba(23, 32, 38, 0.08);
 }
 
-.clt-checks {
-  display: grid;
-  gap: 7px;
-}
+.clt-checks { display: grid; gap: 7px; }
 
 .clt-check {
   display: flex;
@@ -206,31 +201,140 @@
   accent-color: var(--clt-teal);
 }
 
-.clt-engineering {
-  display: none;
-}
-
-.clt-root[data-mode="engineering"] .clt-engineering {
-  display: grid;
-}
+.clt-engineering { display: none; }
+.clt-root[data-mode="engineering"] .clt-engineering { display: grid; }
 
 .cl-mode-beginner [data-advanced],
-.cl-mode-beginner .advanced {
-  display: none !important;
+.cl-mode-beginner .advanced { display: none !important; }
+
+/* ---------------------------------------------------------------------
+   Module 0-15 content bridge.
+   These rules target legacy hard-coded pale surfaces that cannot inherit
+   the shared variables. The body class is added only to curriculum 0-15,
+   leaving Modules 16/17 untouched as the visual reference.
+   --------------------------------------------------------------------- */
+body.cl-theme-1617 :is(.term-box,.mode-card,.step-row,.reg-note,.viz,.diagram,.diagram-node,.flow-node,.table-wrap,.route-card,.icon-box) {
+  border-color: #29435e !important;
+  background: #091729 !important;
+  color: #edf6ff !important;
+  box-shadow: none !important;
 }
 
+body.cl-theme-1617 :is(.term-box,.mode-card,.step-row,.diagram-node,.flow-node,.route-card) p,
+body.cl-theme-1617 :is(.term-box,.mode-card,.step-row,.diagram-node,.flow-node,.route-card) small {
+  color: #9fb1c5 !important;
+}
+
+body.cl-theme-1617 .mode-card.active {
+  border-color: #2b7088 !important;
+  background: #10364a !important;
+}
+
+body.cl-theme-1617 :is(#statusCard,#system-state,#contactor,#pre-safety,#uds-cm4-state) {
+  border: 1px solid #29435e !important;
+  background: #0a1722 !important;
+  color: #edf6ff !important;
+}
+
+body.cl-theme-1617 .reg-note {
+  border-left-color: #bd9cff !important;
+  color: #c9d8e8 !important;
+}
+
+body.cl-theme-1617 .viz {
+  border-radius: 16px !important;
+  background: #071423 !important;
+}
+
+body.cl-theme-1617 :is(.diagram,.table-wrap) {
+  border-radius: 16px !important;
+}
+
+body.cl-theme-1617 :is(.route-card,.diagram-node,.flow-node,.icon-box) {
+  border-radius: 14px !important;
+}
+
+/* Tailwind-based PI lessons: replace the remaining pale utility surfaces. */
+body.cl-theme-1617 :is(.bg-white,.bg-gray-50,.bg-slate-50) {
+  background-color: #0d1b2d !important;
+}
+body.cl-theme-1617 :is(.bg-gray-100,.bg-slate-100,.bg-blue-50,.bg-blue-100,.bg-green-50,.bg-green-100,.bg-amber-50,.bg-amber-100,.bg-yellow-50,.bg-red-50,.bg-purple-50) {
+  background-color: #091729 !important;
+}
+body.cl-theme-1617 :is(.text-gray-900,.text-gray-800,.text-slate-900,.text-slate-800) {
+  color: #edf6ff !important;
+}
+body.cl-theme-1617 :is(.text-gray-700,.text-gray-600,.text-gray-500,.text-slate-700,.text-slate-600,.text-slate-500) {
+  color: #9fb1c5 !important;
+}
+body.cl-theme-1617 :is(.border-gray-100,.border-gray-200,.border-gray-300,.border-slate-100,.border-slate-200,.border-slate-300) {
+  border-color: #29435e !important;
+}
+body.cl-theme-1617 nav.nav.bg-white {
+  border: 1px solid #29435e !important;
+  background: rgba(9,23,41,.94) !important;
+  backdrop-filter: blur(12px);
+}
+body.cl-theme-1617 span.w-9.h-9.flex {
+  border: 1px solid #29435e !important;
+  background: #10243b !important;
+  color: #58d6ff !important;
+}
+
+/* SPI / legacy quizzes and callouts with literal light colors. */
+body.cl-theme-1617 :is(.callout,.tldr,.analogy,.quiz .opt,.quiz .explain,.metric,.cmp tbody th,.codetab,.btn.secondary) {
+  border-color: #29435e !important;
+  background: #091729 !important;
+  color: #c9d8e8 !important;
+}
+body.cl-theme-1617 :is(.tldr,.analogy,.callout) :is(p,li) { color: #c9d8e8 !important; }
+body.cl-theme-1617 :is(.quiz .opt.correct,.callout.tip) {
+  border-color: #286d54 !important;
+  background: rgba(103,224,163,.08) !important;
+  color: #67e0a3 !important;
+}
+body.cl-theme-1617 :is(.quiz .opt.wrong,.callout.danger) {
+  border-color: #7a3c34 !important;
+  background: rgba(255,143,112,.08) !important;
+  color: #ff8f70 !important;
+}
+body.cl-theme-1617 .callout.warn {
+  border-color: #7a6330 !important;
+  background: rgba(255,203,102,.07) !important;
+}
+body.cl-theme-1617 .callout.info {
+  border-color: #5b4580 !important;
+  background: rgba(189,156,255,.07) !important;
+}
+
+/* AFE internal nodes and route cards. */
+body.cl-theme-1617 :is(.diagram-node,.flow-node,.route-card) strong,
+body.cl-theme-1617 :is(.diagram-node,.flow-node,.route-card) h2,
+body.cl-theme-1617 :is(.diagram-node,.flow-node,.route-card) h3 {
+  color: #edf6ff !important;
+}
+body.cl-theme-1617 .icon-box { color: #58d6ff !important; }
+
+/* Explicit pale SVG fills from the older teaching diagrams. */
+body.cl-theme-1617 svg :is(
+  rect[fill="#fff"],rect[fill="#ffffff"],rect[fill="white"],
+  rect[fill="#f8fafc"],rect[fill="#f1f5f9"],rect[fill="#e2e8f0"],
+  rect[fill="#edf4ff"],rect[fill="#eef3f7"],rect[fill="#eef2f7"],
+  polygon[fill="#fff"],polygon[fill="#ffffff"],polygon[fill="white"],
+  polygon[fill="#f8fafc"],polygon[fill="#f1f5f9"],polygon[fill="#e2e8f0"],
+  polygon[fill="#edf4ff"],polygon[fill="#eef3f7"],polygon[fill="#eef2f7"]
+) {
+  fill: #0b1a2a !important;
+  stroke: #355777 !important;
+}
+body.cl-theme-1617 svg :is(
+  text[fill="#0f172a"],text[fill="#172026"],text[fill="#1e293b"],
+  text[fill="#334155"],text[fill="#475569"]
+) { fill: #edf6ff !important; }
+body.cl-theme-1617 svg text[fill="#64748b"] { fill: #9fb1c5 !important; }
+
 @media (max-width: 640px) {
-  .clt-button {
-    right: 12px;
-    bottom: 12px;
-  }
-
-  .clt-panel {
-    right: 12px;
-    bottom: 64px;
-  }
-
-  .clt-grid {
-    grid-template-columns: 1fr;
-  }
+  .clt-button { right: 12px; bottom: 12px; }
+  .clt-panel { right: 12px; bottom: 64px; }
+  .clt-grid { grid-template-columns: 1fr; }
 }

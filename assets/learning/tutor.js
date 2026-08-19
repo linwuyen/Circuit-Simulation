@@ -19,6 +19,18 @@
 
   function rel(path) { return rootPrefix + path; }
 
+  function apply1617Theme(ctx) {
+    const moduleNumber = Number(ctx && ctx.module && ctx.module.number);
+    if (!Number.isFinite(moduleNumber) || moduleNumber > 15) return;
+    document.body.classList.add("cl-theme-1617");
+    if (document.querySelector('link[data-circuit-theme-1617]')) return;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = rel("assets/learning/theme-1617.css");
+    link.dataset.circuitTheme1617 = "1";
+    document.head.appendChild(link);
+  }
+
   function loadScript(src, globalName) {
     return new Promise(resolve => {
       if (globalName && global[globalName]) return resolve(global[globalName]);
@@ -187,6 +199,7 @@
     const curriculum = deps.Schema.normalizeCurriculum(deps.raw);
     const ctx = findContext(curriculum);
     if (!ctx) return;
+    apply1617Theme(ctx);
     addCSS();
     if (deps.Evidence) deps.Evidence.reconcileAliases(curriculum.modules.flatMap(module => [...module.lessons, ...module.labs, ...module.faults]));
     render(ctx, curriculum, deps.Evidence, deps.Registry, deps.Oracles);
