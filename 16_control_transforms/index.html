@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Fourier、Laplace、Z 變換與數位電源控制的互動式橋接教材。">
+  <title>Fourier / Laplace / Z · Control Transform Bridge</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="home-link" href="../index.html">← 教材總入口</a>
+    <div class="topbar-title">Control Transform Bridge</div>
+    <div class="badge">Module 16</div>
+  </header>
+
+  <main>
+    <section class="hero" id="transform-family">
+      <div>
+        <p class="eyebrow">把三種變換串成同一條工程因果鏈</p>
+        <h1>Fourier、Laplace、Z<br><span>其實是同一家族</span></h1>
+        <p class="lead">不要背三套積分公式。把它們看成同一件事：把時間域的微分、延遲與卷積，換成 pole / zero / gain / phase 可以直接操作的座標系。</p>
+        <div class="equation-row">
+          <code>s = σ + jω</code>
+          <code>Fourier: s = jω</code>
+          <code>z = e<sup>sT<sub>s</sub></sup></code>
+          <code>DTFT: |z| = 1</code>
+        </div>
+      </div>
+      <div class="hero-map" aria-label="transform family map">
+        <div class="map-node hot">x(t)<small>continuous time</small></div>
+        <div class="map-arrow">→ Laplace →</div>
+        <div class="map-node">X(s)<small>s-plane</small></div>
+        <div class="map-arrow down">↓ s = jω</div>
+        <div class="map-node accent">X(jω)<small>Fourier axis</small></div>
+        <div class="map-arrow down">↓ sampling</div>
+        <div class="map-node">X(z)<small>z-plane</small></div>
+        <div class="map-arrow down">↓ |z| = 1</div>
+        <div class="map-node accent">X(e<sup>jΩ</sup>)<small>DTFT</small></div>
+      </div>
+    </section>
+
+    <section class="panel" id="pole-map">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">LAB 1 · ONE POLE, THREE VIEWS</p>
+          <h2>拖一顆 pole，看時間域、s-plane、z-plane 同時改變</h2>
+        </div>
+        <div class="status stable" id="stabilityBadge">STABLE</div>
+      </div>
+
+      <div class="controls three">
+        <label>σ（衰減 / 成長）
+          <input id="sigma" type="range" min="-1500" max="500" step="10" value="-250">
+          <output id="sigmaOut"></output>
+        </label>
+        <label>ω（振盪 rad/s）
+          <input id="omega" type="range" min="0" max="12000" step="100" value="3000">
+          <output id="omegaOut"></output>
+        </label>
+        <label>取樣週期 T<sub>s</sub>
+          <input id="sampleUs" type="range" min="2" max="100" step="1" value="10">
+          <output id="sampleOut"></output>
+        </label>
+      </div>
+
+      <div class="viz-grid">
+        <article class="viz-card">
+          <div class="viz-title">時間響應</div>
+          <canvas id="timeCanvas" width="560" height="300"></canvas>
+          <p class="hint" id="timeHint"></p>
+        </article>
+        <article class="viz-card">
+          <div class="viz-title">s-plane</div>
+          <canvas id="sCanvas" width="560" height="300"></canvas>
+          <p class="hint">左半平面：Re(s) &lt; 0 → 衰減 → 穩定。jω 軸就是 Fourier 的觀察線。</p>
+        </article>
+        <article class="viz-card">
+          <div class="viz-title">z-plane</div>
+          <canvas id="zCanvas" width="560" height="300"></canvas>
+          <p class="hint" id="zHint"></p>
+        </article>
+      </div>
+
+      <div class="formula-strip">
+        <div><span>s</span><strong id="sValue"></strong></div>
+        <div><span>z = e<sup>sT<sub>s</sub></sup></span><strong id="zValue"></strong></div>
+        <div><span>|z|</span><strong id="zMag"></strong></div>
+        <div><span>對應規則</span><strong>Re(s)&lt;0 ⇔ |z|&lt;1</strong></div>
+      </div>
+    </section>
+
+    <section class="panel" id="delay-lab">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">LAB 2 · DIGITAL DELAY</p>
+          <h2>「只是慢一拍」會直接吃掉多少 phase margin？</h2>
+        </div>
+      </div>
+      <div class="two-col">
+        <div>
+          <div class="controls stack">
+            <label>交越頻率 f<sub>c</sub>
+              <input id="fc" type="range" min="500" max="30000" step="500" value="10000">
+              <output id="fcOut"></output>
+            </label>
+            <label>總延遲 T<sub>d</sub>（ADC + ISR + PWM commit）
+              <input id="delayUs" type="range" min="0" max="50" step="1" value="10">
+              <output id="delayOut"></output>
+            </label>
+          </div>
+          <div class="big-number"><span id="phaseLoss">−36.0°</span><small>delay 造成的 phase lag</small></div>
+          <div class="phase-budget">
+            <div class="budget-track"><div id="budgetFill" class="budget-fill"></div></div>
+            <div class="budget-labels"><span>0°</span><span>−45°</span><span>−90°</span><span>−180°</span></div>
+          </div>
+          <p class="callout" id="delayInterpretation"></p>
+        </div>
+        <div class="equation-card">
+          <h3>延遲的 transfer function</h3>
+          <div class="hero-equation">G<sub>d</sub>(s) = e<sup>−sT<sub>d</sub></sup></div>
+          <p>在 <strong>s = jω</strong> 上：</p>
+          <div class="math-list">
+            <code>|G<sub>d</sub>(jω)| = 1</code>
+            <code>∠G<sub>d</sub>(jω) = −ωT<sub>d</sub></code>
+            <code>phase[deg] = −360 f T<sub>d</sub></code>
+          </div>
+          <p>所以 delay 幾乎不改 magnitude，卻會隨頻率線性增加 phase lag。這就是高 crossover 最容易踩到的數位控制風險。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="pi-bode">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">LAB 3 · PI = POLE + ZERO</p>
+          <h2>調 Kp / Ki，不是「調兩個魔法數字」</h2>
+        </div>
+      </div>
+      <div class="controls two">
+        <label>Kp
+          <input id="kp" type="range" min="0.05" max="3" step="0.05" value="0.8">
+          <output id="kpOut"></output>
+        </label>
+        <label>Ki（1/s）
+          <input id="ki" type="range" min="50" max="8000" step="50" value="1200">
+          <output id="kiOut"></output>
+        </label>
+      </div>
+      <div class="two-col">
+        <article class="viz-card">
+          <div class="viz-title">PI frequency response</div>
+          <canvas id="bodeCanvas" width="760" height="380"></canvas>
+          <p class="hint">橘點是 zero：ω<sub>z</sub> = Ki/Kp。zero 左移，phase boost 會更早出現。</p>
+        </article>
+        <div>
+          <div class="equation-card compact">
+            <div class="hero-equation">G<sub>PI</sub>(s) = K<sub>p</sub> + K<sub>i</sub>/s</div>
+            <div class="hero-equation small">= K<sub>p</sub>(s + K<sub>i</sub>/K<sub>p</sub>)/s</div>
+          </div>
+          <div class="metric-grid">
+            <div><span>integrator pole</span><strong>s = 0</strong></div>
+            <div><span>zero ωz</span><strong id="wzOut"></strong></div>
+            <div><span>zero fz</span><strong id="fzOut"></strong></div>
+            <div><span>工程語言</span><strong>loop shaping</strong></div>
+          </div>
+          <p class="callout">真正的設計問題不是「Kp 要多少？」而是：<strong>plant 的 pole/zero 在哪、crossover 要放哪、需要在哪一段補 phase。</strong></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="sfra-chain">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">MODEL → MEASUREMENT</p>
+          <h2>SFRA 是把理論上的 T(jω) 拿到實機上驗證</h2>
+        </div>
+        <button id="sweepButton" class="primary">▶ 開始 SFRA sweep</button>
+      </div>
+      <div class="sfra-grid">
+        <div class="chain-box">Injection<small>小訊號</small></div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-box">Controller<small>Gc</small></div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-box">Plant<small>Gp</small></div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-box">Response<small>Vout / Iout</small></div>
+      </div>
+      <div class="sweep-track"><div id="sweepDot" class="sweep-dot"></div></div>
+      <div class="formula-strip">
+        <div><span>掃描頻率</span><strong id="sweepFreq">—</strong></div>
+        <div><span>Model |T|</span><strong id="modelMag">—</strong></div>
+        <div><span>Measured |T|</span><strong id="measuredMag">—</strong></div>
+        <div><span>判讀</span><strong id="sweepVerdict">等待 sweep</strong></div>
+      </div>
+      <p class="hint">如果實測比模型多掉一段 phase，優先查 sampling、ADC filter、ISR latency、PWM shadow load、ZOH 等模型裡漏掉的 dynamics / delay。</p>
+    </section>
+
+    <section class="panel" id="control-chain">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">THE WHOLE CHAIN</p>
+          <h2>最後全部收斂成同一條數位電源工作流</h2>
+        </div>
+        <button id="playChain" class="primary">▶ 逐步播放</button>
+      </div>
+      <div class="learning-chain" id="learningChain">
+        <div class="step" data-step="0"><b>1</b><span>微分方程</span><small>L·di/dt = V</small></div>
+        <div class="step" data-step="1"><b>2</b><span>Laplace</span><small>建立 G(s)</small></div>
+        <div class="step" data-step="2"><b>3</b><span>Fourier axis</span><small>s = jω → Bode</small></div>
+        <div class="step" data-step="3"><b>4</b><span>Compensator</span><small>pole / zero placement</small></div>
+        <div class="step" data-step="4"><b>5</b><span>Discretize</span><small>z = e<sup>sTs</sup> / Tustin</small></div>
+        <div class="step" data-step="5"><b>6</b><span>Difference Eq.</span><small>u[n], e[n−1], z⁻¹</small></div>
+        <div class="step" data-step="6"><b>7</b><span>C2000 code</span><small>ADC → ISR → PWM</small></div>
+        <div class="step" data-step="7"><b>8</b><span>SFRA verify</span><small>模型 ↔ 實機</small></div>
+      </div>
+      <div class="chain-explain" id="chainExplain">點「逐步播放」，看每一層把上一層的問題轉成更容易量測與設計的形式。</div>
+    </section>
+
+    <section class="summary">
+      <h2>最後只要記住四行</h2>
+      <div class="summary-grid">
+        <code>s = σ + jω</code>
+        <code>Fourier = Laplace @ s = jω</code>
+        <code>z = e<sup>sT<sub>s</sub></sup></code>
+        <code>DTFT = Z-transform @ |z| = 1</code>
+      </div>
+      <p>當這條鏈打通後，PI/PID、補償器、SFRA、ADC/PWM delay、數位濾波器都會變成同一種語言：<strong>pole / zero / gain / delay 如何改變 loop gain 與 phase margin。</strong></p>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
