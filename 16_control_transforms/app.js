@@ -52,6 +52,17 @@
     else if (sig > 0) { badge.textContent = "UNSTABLE"; badge.classList.add("unstable"); }
     else { badge.textContent = "MARGINAL / FOURIER AXIS"; badge.classList.add("marginal"); }
 
+    if (sig < 0) {
+      $("polePlain").textContent = `每一拍只剩前一拍的 ${(zr * 100).toFixed(2)}%，擾動會逐拍縮小，所以最後回到平衡。`;
+      $("poleMath").innerHTML = `σ=${fmt(sig,0)}&lt;0，所以 e<sup>σt</sup> 衰減；取樣後 |z|=e<sup>σTs</sup>=${fmt(zr,4)}&lt;1。`;
+    } else if (sig > 0) {
+      $("polePlain").textContent = `每一拍反而放大到前一拍的 ${(zr * 100).toFixed(2)}%，小擾動不會消失，而是越來越大。`;
+      $("poleMath").innerHTML = `σ=${fmt(sig,0)}&gt;0，所以 e<sup>σt</sup> 成長；取樣後 |z|=e<sup>σTs</sup>=${fmt(zr,4)}&gt;1。`;
+    } else {
+      $("polePlain").textContent = "振幅既不縮小也不放大，只剩持續振盪；這正是穩定邊界。";
+      $("poleMath").innerHTML = "σ=0 → e<sup>σt</sup>=1 → |z|=1。s-plane 的 jω 軸因此映到 z-plane 的 unit circle。";
+    }
+
     $("timeHint").textContent = sig < 0 ? "包絡線 e^(σt) 衰減：pole 往左，settling 更快。" : sig > 0 ? "包絡線 e^(σt) 成長：任何小擾動都被放大。" : "σ = 0：只剩純振盪，正好落在 Fourier 的 jω 軸。";
     $("zHint").textContent = zr < 1 ? "|z| < 1：sample-to-sample 響應會縮小。" : zr > 1 ? "|z| > 1：每一拍都把狀態放大，離散系統不穩定。" : "|z| = 1：對應 s-plane 的 jω 軸，也就是 DTFT 的 unit circle。";
 
@@ -112,18 +123,28 @@
   }
 
   [sigma, omega, sampleUs].forEach(el => el.addEventListener("input", drawPoleLab));
+  document.querySelectorAll("[data-pole-preset]").forEach(button => button.addEventListener("click", () => {
+    const preset = button.dataset.polePreset;
+    const values = preset === "stable" ? [-500, 3200, 10] : preset === "unstable" ? [180, 3200, 10] : [0, 3200, 10];
+    sigma.value = values[0]; omega.value = values[1]; sampleUs.value = values[2]; drawPoleLab();
+  }));
 
   const fc = $("fc"), delayUs = $("delayUs");
   function updateDelay() {
     const f = Number(fc.value), td = Number(delayUs.value) * 1e-6;
     const phase = -360 * f * td;
+    const period = 1 / f;
+    const ratio = td / period;
     $("fcOut").textContent = `${fmt(f / 1000, 1)} kHz`;
     $("delayOut").textContent = `${fmt(td * 1e6, 0)} µs`;
     $("phaseLoss").textContent = `${phase.toFixed(1)}°`;
     $("budgetFill").style.width = `${clamp(Math.abs(phase) / 180 * 100, 0, 100)}%`;
-    let text = "延遲影響尚低，但仍應納入 loop model。";
-    if (Math.abs(phase) >= 60) text = "危險：delay 單獨就已吃掉 ≥60°。提高 crossover 前，先縮短 latency 或重新配置 sample / PWM update 時序。";
-    else if (Math.abs(phase) >= 30) text = "顯著：這已足以把理論上 60° 的 phase margin 壓到很窄。SFRA 實測若比模型差，先查 delay。";
+    $("crossoverPeriod").textContent = `${fmt(period * 1e6, 1)} µs`;
+    $("delayCycleRatio").textContent = `${fmt(ratio * 100, 1)}%`;
+    $("delayRule").textContent = `現在 delay 佔 crossover 一週期的 ${fmt(ratio * 100, 1)}%，所以相位落後就是 360° × ${fmt(ratio, 3)} ≈ ${Math.abs(phase).toFixed(1)}°。`;
+    let text = "延遲影響尚低，但仍應納入 loop model。工程上要量的是 sample age 到 PWM 真正生效的總 latency。";
+    if (Math.abs(phase) >= 60) text = "危險：delay 單獨就已吃掉 ≥60°。提高 crossover 前，先縮短 ADC→ISR→PWM latency、改 sample/update 時序，或降低 crossover。";
+    else if (Math.abs(phase) >= 30) text = "顯著：這已足以把理論上 60° 的 phase margin 壓到很窄。若 SFRA phase 比模型差，優先量 GPIO timing 與確認 PWM shadow load。";
     $("delayInterpretation").textContent = text;
   }
   [fc, delayUs].forEach(el => el.addEventListener("input", updateDelay));
@@ -142,6 +163,9 @@
     $("kiOut").textContent = fmt(kiv, 0);
     $("wzOut").textContent = `${fmt(wz, 0)} rad/s`;
     $("fzOut").textContent = `${fmt(fz, 1)} Hz`;
+    $("piLowRegion").textContent = `f ≪ ${fmt(fz,1)} Hz：Ki/s 主導`;
+    $("piHighRegion").textContent = `f ≫ ${fmt(fz,1)} Hz：Kp 主導`;
+    $("piInterpretation").textContent = `目前 PI zero 在 ${fmt(fz,1)} Hz。Ki/Kp 再變大，zero 會往高頻移；Ki/Kp 變小，zero 往低頻移。真正要做的是把這個交棒點放到 plant 與目標 crossover 需要的位置。`;
     drawBode(kpv, kiv, fz);
   }
   function drawBode(kpv, kiv, fz) {
@@ -188,14 +212,14 @@
   });
 
   const explanations = [
-    "先從物理定律開始。時間域最接近電路，但常是微分方程。",
-    "Laplace 把微分變成乘上 s，讓微分方程變成代數；pole/zero 開始可以直接操作。",
-    "令 s=jω，就沿著 Fourier 軸看頻率響應：Bode、crossover、phase margin 都在這裡。",
-    "PI / Type-II / Type-III 的工作就是放 pole / zero，塑造 loop gain。",
-    "MCU 是離散時間。用 z=e^(sTs) 或 Tustin，把 s-domain controller 搬到 z-domain。",
-    "z⁻¹ 就是一拍 delay。transfer function 最後會整理成 difference equation。",
-    "difference equation 直接落成 C2000 ISR：讀 ADC、算控制器、寫 PWM shadow register。",
-    "最後用 SFRA 把實機 T(jω) 量回來，對照模型，找 delay、filter、plant mismatch。"
+    "1 · 物理：先從電感、電容、能量守恆寫出微分方程。這最接近真實電路，但不適合直接看穩定度與頻率結構。",
+    "2 · Laplace：微分變成乘 s，卷積變乘法。G(s) 的 pole 告訴你自然 mode 怎麼衰減或振盪，zero 告訴你哪些頻率會被抑制或重塑。",
+    "3 · Fourier / Bode：令 s=jω，沿 imaginary axis 掃頻。你開始能直接讀 gain、phase、crossover、phase margin。",
+    "4 · Compensator：PI / Type-II / Type-III 不是神秘公式，而是有目的地放 pole / zero，把 loop gain 塑造成想要的樣子。",
+    "5 · Discretize：MCU 每 Ts 才算一次。連續 pole 精確映成 z=e^(sTs)，controller 則依需求選 ZOH、Tustin、Euler 或 matched pole-zero。",
+    "6 · Difference equation：z⁻¹ 就是上一拍。C(z) 整理後會變成 u[n]、u[n−1]、e[n]、e[n−1] 的遞迴關係。",
+    "7 · C2000：ADC sample → ISR / CLA → controller → PWM shadow register。這裡開始出現 acquisition、execution、jitter、commit delay。",
+    "8 · SFRA：最後把實機 T(jω) 量回來跟模型疊。差異不是失敗，而是告訴你還漏了哪個 pole、delay、filter 或 operating-point effect。"
   ];
   let chainStep = -1, chainTimer = null;
   function showStep(i) {
@@ -209,9 +233,15 @@
       chainStep++;
       if (chainStep >= explanations.length) { clearInterval(chainTimer); chainTimer = null; $("playChain").textContent = "▶ 再播一次"; return; }
       showStep(chainStep);
-    }, 1200);
+    }, 1500);
   });
   document.querySelectorAll(".step").forEach((el, idx) => el.addEventListener("click", () => showStep(idx)));
+
+  document.querySelectorAll(".reveal").forEach(button => button.addEventListener("click", () => {
+    const answer = $(button.dataset.answer);
+    answer.hidden = !answer.hidden;
+    button.textContent = answer.hidden ? "看答案" : "收起答案";
+  }));
 
   let resizeTimer;
   window.addEventListener("resize", () => {
