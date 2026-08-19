@@ -26,5 +26,5 @@ test("control transform bridge maps continuous pole to z-plane and quantifies de
 
   await page.locator(".reveal").first().click();
   await expect(page.locator("#answer1")).toBeVisible();
-  await expect(page.locator("#answer1")).toContainText("unit circle");
+  await expect(page.locator("#answer1")).toContainText("|z|=1");
 });
