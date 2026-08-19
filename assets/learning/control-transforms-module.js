@@ -17,9 +17,7 @@
       ["index.html#control-chain","G(s) → G(jω) → G(z) → C code","把整套控制理論收斂成可實作流程。","逐步播放完整因果鏈。","能從微分方程一路追到 C2000 ISR 與 SFRA verification。"]
     ],
     labs:[
-      ["transform-pole-map","把一顆連續 pole 映射到 z-plane","16_control_transforms/index.html#pole-map","選一組 σ、ω、Ts，驗證 Re(s)<0 時 |z|<1，並把 σ 拉到 0 看 unit circle。","能用 z=e^(sTs) 解釋穩定區域映射。","建立連續控制與數位控制共同的穩定語言。"],
-      ["transform-delay","估算 10 kHz crossover 的數位延遲代價","16_control_transforms/index.html#delay-lab","設定 fc=10kHz、Td=10µs，確認 phase lag 約 −36°，再改 Td 看裕度。","算式與畫面一致，並能指出何時 delay 已成主要風險。","直接對應 ADC→ISR→PWM timing closure。"],
-      ["transform-pi-zero","用 Kp/Ki 移動 PI zero","16_control_transforms/index.html#pi-bode","固定 Kp 或 Ki，掃另一個參數，觀察 fz=Ki/(2πKp) 與 Bode 變化。","能預測 zero 左移或右移對 phase boost 出現位置的影響。","把 PI tuning 升級成 loop shaping。"]
+      ["transform-pole-map","驗證 s-plane pole 到 z-plane 的精確映射","16_control_transforms/index.html","調整 σ、ω、Ts，讓頁面顯示的 |z| 與獨立解析式 exp(σTs) 一致，並驗證 Re(s) 與 unit circle 的穩定對應。","頁面輸出與 independent oracle 一致，且能解釋 Re(s)<0 ⇔ |z|<1。","建立連續控制與離散控制共同的穩定語言。"]
     ],
     faults:[
       ["理論 phase margin 很高，實機卻容易震盪","模型漏掉 ADC/ISR/PWM commit、ZOH 或濾波延遲。","先算 −360fTd，再用 SFRA 比較實測與模型 phase。","把量到的 delay/pole 納入模型，或降低 crossover/縮短 latency。","16_control_transforms/index.html#delay-lab"],
