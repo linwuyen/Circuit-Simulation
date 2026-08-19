@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Module 18：把 Fourier/Laplace/Z 的控制語言，與 Buck、Boost、PFC、PSFB、LLC、Inverter 的 power-stage personality 串成同一個 feedback framework。">
+  <title>Module 18 · Universal Control Loop Unifier</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
+</head>
+<body>
+<header class="topbar">
+  <a href="../index.html">← 教材總入口</a>
+  <nav aria-label="module bridge">
+    <a href="../16_control_transforms/index.html">16 · Control Language</a>
+    <span>→</span>
+    <strong>18 · Unifier</strong>
+    <span>←</span>
+    <a href="../17_power_topology_control/index.html">17 · Power Plants</a>
+  </nav>
+  <span class="badge">Module 18</span>
+</header>
+
+<main>
+  <section class="hero" id="bridge">
+    <div>
+      <p class="eyebrow">ONE LOOP · MANY PLANTS · ONE DEBUG LANGUAGE</p>
+      <h1>把 16 的控制語言，<br><span>真正套進 17 的六種電源</span></h1>
+      <p class="lead">不是把 16、17 再講一次，而是建立一個可以反覆套用的工程模板：<strong>r → e → C(z) → u → P(s) → y → ADC → feedback</strong>。換 topology 時，框架不換；換的是 actuator、plant dynamics、sensor 與 bandwidth boundary。</p>
+      <div class="equation-row">
+        <code>e = r − y</code>
+        <code>u = C(z)e</code>
+        <code>y = P(s)u</code>
+        <code>L(s)=C·P·H·e<sup>−sTd</sup></code>
+      </div>
+      <div class="read-path">
+        <span>① 找 u / y</span><b>→</b><span>② 建 P(s)</span><b>→</b><span>③ 看 Bode</span><b>→</b><span>④ 離散 / delay</span><b>→</b><span>⑤ C2000</span><b>→</b><span>⑥ SFRA</span>
+      </div>
+    </div>
+    <div class="bridge-map" aria-label="module 16 to 17 bridge">
+      <div class="bridge-node m16"><b>Module 16</b><small>Laplace · Bode · Z · delay · SFRA</small></div>
+      <div class="bridge-arrow">↓ 套用同一個 feedback grammar</div>
+      <div class="bridge-node m18"><b>Module 18</b><small>r → e → C → u → P → y → feedback</small></div>
+      <div class="bridge-arrow">↓ 只替換 power-stage personality</div>
+      <div class="bridge-node m17"><b>Module 17</b><small>Buck · Boost · PFC · PSFB · LLC · Inverter</small></div>
+    </div>
+  </section>
+
+  <section class="panel" id="universal-loop">
+    <div class="section-head">
+      <div><p class="eyebrow">UNIVERSAL LOOP MAPPER</p><h2>先別問「這是什麼 topology」，先把它塞進同一個 loop</h2></div>
+      <span class="status" id="selectedTopology">BUCK</span>
+    </div>
+    <div class="topology-tabs" role="group" aria-label="select topology">
+      <button class="topology-tab active" data-topology="buck">Buck</button>
+      <button class="topology-tab" data-topology="boost">Boost</button>
+      <button class="topology-tab" data-topology="pfc">PFC</button>
+      <button class="topology-tab" data-topology="psfb">PSFB</button>
+      <button class="topology-tab" data-topology="llc">LLC</button>
+      <button class="topology-tab" data-topology="inverter">Inverter</button>
+    </div>
+
+    <div class="loop-diagram" aria-label="universal feedback loop">
+      <div class="loop-node reference"><span>r</span><b id="referenceName">Vout*</b><small>Reference</small></div>
+      <div class="loop-arrow">→</div>
+      <div class="sum-node"><b>Σ</b><small>e = r − y</small></div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-node controller"><span>C(z)</span><b id="controllerName">PI / 2P2Z</b><small>Controller</small></div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-node actuator"><span>u</span><b id="controlName">Duty D</b><small>Actuator / command</small></div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-node plant"><span>P(s)</span><b id="plantName">Buck LC power stage</b><small>Plant</small></div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-node output"><span>y</span><b id="outputName">Vout</b><small>Controlled output</small></div>
+    </div>
+    <div class="feedback-row">
+      <div class="feedback-line">↑ feedback ────────────────────────────────────────────────────────┘</div>
+      <div class="loop-node sensor"><span>H</span><b id="sensorName">Vout ADC</b><small>Sensor / scaling / ADC</small></div>
+    </div>
+
+    <div class="passport-grid">
+      <article><span>真正的「油門」 u</span><strong id="passportControl">Duty D</strong></article>
+      <article><span>真正要控制 y</span><strong id="passportOutput">Vout</strong></article>
+      <article><span>Plant personality</span><strong id="passportPlant">LC double pole + ESR zero</strong></article>
+      <article><span>Bandwidth threat</span><strong id="passportBoundary">LC resonance / delay / ESR</strong></article>
+    </div>
+    <div class="bridge-callout" id="mapperMeaning"><b>不變的是：</b>比較目標 → 算 error → controller → actuator → plant → measure → feedback。<b>會換的是：</b>u、y、P(s)、sensor 與 operating-point boundary。</div>
+  </section>
+
+  <section class="panel" id="five-lenses">
+    <div class="section-head"><div><p class="eyebrow">MODULE 16 LENSES → MODULE 17 PLANT</p><h2>同一個 power stage，依序戴上 16 的五副鏡頭</h2></div></div>
+    <div class="lens-tabs" role="group" aria-label="control lens">
+      <button class="lens-tab active" data-lens="laplace">1 · Laplace</button>
+      <button class="lens-tab" data-lens="bode">2 · Bode</button>
+      <button class="lens-tab" data-lens="z">3 · Z</button>
+      <button class="lens-tab" data-lens="firmware">4 · C2000</button>
+      <button class="lens-tab" data-lens="sfra">5 · SFRA</button>
+    </div>
+    <div class="lens-stage">
+      <div class="lens-number" id="lensNumber">01</div>
+      <div>
+        <p class="eyebrow" id="lensEyebrow">LAPLACE · NATURAL DYNAMICS</p>
+        <h3 id="lensTitle">先把 Buck 變成 P(s)，找 pole / zero</h3>
+        <p id="lensBody">Buck 的 LC 儲能元件形成二階 dynamics，capacitor ESR 再帶來 zero。這一層先問 plant 天生怎麼動，不急著調 PI。</p>
+        <code id="lensQuestion">問：pole / zero 在哪？哪個 operating point 會改它？</code>
+      </div>
+    </div>
+    <div class="lens-grid">
+      <article><b>Laplace</b><p>微分方程 → P(s) → pole / zero → stability / natural dynamics。</p></article>
+      <article><b>Fourier / Bode</b><p>s=jω → magnitude / phase → crossover / PM / GM。</p></article>
+      <article><b>Z</b><p>sampling → C(z) / z⁻¹ → 每一拍如何演化。</p></article>
+      <article><b>C2000</b><p>SOC → ADC → ISR/CLA → control → PWM shadow load。</p></article>
+      <article><b>SFRA</b><p>把 model 與 measured loop response 對起來，找漏掉的 dynamics。</p></article>
+    </div>
+  </section>
+
+  <section class="panel" id="same-not-same">
+    <div class="section-head"><div><p class="eyebrow">SAME SKELETON ≠ SAME PI</p><h2>「同一套控制」到底哪裡相同、哪裡絕對不能硬套</h2></div></div>
+    <div class="same-different">
+      <article class="shared">
+        <span class="layer-tag good">永遠共用</span>
+        <h3>Feedback control grammar</h3>
+        <ul>
+          <li>Reference r 與 feedback y 形成 error</li>
+          <li>Controller 依 loop-shaping 目標產生 command u</li>
+          <li>Plant P(s) 決定 pole / zero / resonance / bandwidth boundary</li>
+          <li>Sampling / delay 進入離散模型與 phase budget</li>
+          <li>SFRA / scope / telemetry 驗證 model ↔ hardware</li>
+        </ul>
+      </article>
+      <article class="different">
+        <span class="layer-tag hot">每個 topology 都可能不同</span>
+        <h3>Power-stage personality</h3>
+        <ul>
+          <li>油門：Duty / phase shift / switching frequency / modulation</li>
+          <li>回授：Vout / IL / Iin / Vbus / Iac / phase</li>
+          <li>Plant：LC / RHPZ / resonant tank / LCL / nested loops</li>
+          <li>Operating point：load、Vin、duty、Q、grid impedance</li>
+          <li>Controller：PI、2P2Z、PR、gain scheduling、inner/outer loops</li>
+        </ul>
+      </article>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Topology</th><th>u：控制量</th><th>y：主要回授</th><th>P(s) 個性</th><th>第一個 bandwidth 問題</th></tr></thead>
+        <tbody id="topologyMatrix"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" id="delay-budget">
+    <div class="section-head">
+      <div><p class="eyebrow">A-CAPABLE LAB · DIGITAL PHASE BUDGET</p><h2>把 Module 16 的 delay，直接扣到 Module 17 的 crossover 上</h2></div>
+      <span class="status danger" id="delayStatus">RISK</span>
+    </div>
+    <div class="teaching-grid">
+      <article><b>① 先有沒有 delay 的 loop</b><p>先從 plant + controller 得到沒有額外 pure delay 時的 phase margin。</p></article>
+      <article><b>② 再量真實 Td</b><p>不是猜「一個 ISR」；要從 sample instant 追到 PWM command 真正作用到 plant。</p></article>
+      <article><b>③ 在 fc 換算成角度</b><p>純延遲在 crossover 的額外 phase 是 −360·fc·Td。</p></article>
+      <article><b>④ 再看還剩多少 margin</b><p>如果 magnitude 幾乎沒變、phase 卻整段少掉，delay 是第一嫌疑。</p></article>
+    </div>
+    <div class="controls four">
+      <label>Crossover f<sub>c</sub>
+        <input id="fc" type="range" min="500" max="30000" step="500" value="10000">
+        <output id="fcOut">10.0 kHz</output>
+      </label>
+      <label>Measured effective delay T<sub>d</sub>
+        <input id="delayUs" type="range" min="0" max="50" step="1" value="10">
+        <output id="delayOut">10 µs</output>
+      </label>
+      <label>Sample period T<sub>s</sub>
+        <input id="sampleUs" type="range" min="2" max="100" step="1" value="10">
+        <output id="sampleOut">10 µs</output>
+      </label>
+      <label>PM before pure delay
+        <input id="basePm" type="range" min="30" max="90" step="1" value="60">
+        <output id="basePmOut">60°</output>
+      </label>
+    </div>
+    <div class="metric-grid">
+      <div data-metric="delay phase loss"><span>Delay phase loss @ fc</span><strong id="phaseLoss">−36.0°</strong></div>
+      <div data-metric="estimated pm"><span>PM after pure delay</span><strong id="estimatedPm">24.0°</strong></div>
+      <div><span>Td / Ts</span><strong id="delaySamples">1.00 sample</strong></div>
+      <div><span>fc · Td</span><strong id="delayCycleRatio">10.0% cycle</strong></div>
+    </div>
+    <div class="phase-budget">
+      <div><span>0°</span><span>45° target</span><span>90°</span></div>
+      <div class="phase-track"><div class="phase-fill" id="phaseFill"></div><i id="phaseMarker"></i></div>
+    </div>
+    <div class="deep-note">
+      <b id="delayTopologyTitle">Buck · 為什麼這個 budget 有用？</b>
+      <p id="delayTopologyHint">Buck 的 plant 先受 LC/ESR 形狀限制；當模型與 SFRA magnitude 大致對得上、phase 卻少一截，ADC/ISR/PWM latency 就應該先被量出來。</p>
+      <p><strong>邊界：</strong>這裡只把「pure delay」的相位貢獻獨立算出來。Analog filter、ZOH、plant pole/zero、PWM gain 與 nonlinear/operating-point effects 要各自建模，不能全部假裝成 Td。</p>
+    </div>
+  </section>
+
+  <section class="panel" id="c2000-path">
+    <div class="section-head"><div><p class="eyebrow">CONTINUOUS MODEL → FIRMWARE TIMELINE</p><h2>Controller 不知道下面叫 Buck 還是 LLC；它只知道每一拍要把 u 更新出去</h2></div></div>
+    <div class="firmware-timeline">
+      <div><b>ePWM SOC</b><small>sample instant</small></div><span>→</span>
+      <div><b>ADC S+H / EOC</b><small id="sensorTimeline">Vout ADC</small></div><span>→</span>
+      <div><b>ADCINT</b><small>trigger CPU / CLA</small></div><span>→</span>
+      <div><b>C(z)</b><small id="controllerTimeline">PI / 2P2Z</small></div><span>→</span>
+      <div><b>Command u</b><small id="actuatorTimeline">Duty D</small></div><span>→</span>
+      <div><b>PWM commit</b><small>shadow → load event</small></div><span>→</span>
+      <div><b>Power stage</b><small id="plantTimeline">Buck LC power stage</small></div>
+    </div>
+    <div class="code-bridge">
+      <div>
+        <span class="layer-tag math">Control model</span>
+        <pre><code>e[n] = r[n] - y[n]
+u[n] = C(z){e[n]}
+plant receives u after Td</code></pre>
+      </div>
+      <b>→ firmware →</b>
+      <div>
+        <span class="layer-tag firmware">C2000 skeleton</span>
+        <pre><code>fb  = ADC_read();
+err = ref - fb;
+cmd = controller_run(err);
+actuator_commit(cmd);</code></pre>
+      </div>
+    </div>
+    <p class="hint">`actuator_commit()` 是刻意抽象化的：Buck/Boost 可能更新 CMPA duty；PSFB 可能更新 phase；LLC 可能改 TBPRD / switching frequency；Inverter 可能更新 modulation compare。控制骨架不變，actuator semantics 會換。</p>
+  </section>
+
+  <section class="panel" id="debug-router">
+    <div class="section-head"><div><p class="eyebrow">SFRA → NEXT MEASUREMENT</p><h2>看到症狀，不先亂調 Kp/Ki：先判斷是 16 的哪一層、17 的哪個 personality</h2></div></div>
+    <div class="debug-buttons" role="group" aria-label="debug symptom">
+      <button class="debug-button active" data-debug="phase">Magnitude 差不多，phase 更差</button>
+      <button class="debug-button" data-debug="rolloff">高頻 magnitude 提早掉</button>
+      <button class="debug-button" data-debug="resonance">某頻段突然共振</button>
+      <button class="debug-button" data-debug="operating">換 Vin/load 後整條變形</button>
+      <button class="debug-button" data-debug="pfc">PFC bus 穩但 THD 變差</button>
+    </div>
+    <div class="debug-result">
+      <div><span>先懷疑</span><strong id="debugSuspect">Digital / sampling delay</strong></div>
+      <div><span>第一個量測</span><strong id="debugMeasure">GPIO timing + ADC SOC → PWM load latency</strong></div>
+      <div><span>原因</span><p id="debugReason">Pure delay 幾乎不改 magnitude，但會以 −ωTd 直接拉低 phase；這正是「形狀差不多、phase 整段少一截」的典型 signature。</p></div>
+    </div>
+  </section>
+
+  <section class="panel" id="new-topology">
+    <div class="section-head"><div><p class="eyebrow">TRANSFER THE SKILL</p><h2>真正學會的證據：明天丟一個陌生 topology，你仍知道第一週該問什麼</h2></div></div>
+    <div class="new-topology-grid">
+      <button class="new-card active" data-new="dab"><b>DAB</b><small>Dual Active Bridge</small></button>
+      <button class="new-card" data-new="totem"><b>Totem-Pole PFC</b><small>bridgeless PFC</small></button>
+      <button class="new-card" data-new="bidir"><b>Bidirectional Buck-Boost</b><small>two-way DC/DC</small></button>
+    </div>
+    <div class="challenge-stage">
+      <div>
+        <p class="eyebrow">不要先 Google「最佳 PI」</p>
+        <h3 id="challengeTitle">DAB：先定義 control variable，再談補償器</h3>
+        <p id="challengeBody">第一個候選控制量通常是 bridge phase shift；但你仍要先確定 operating mode、power direction、transformer/leakage model 與你真正想閉迴路的 y。</p>
+      </div>
+      <ol class="question-stack">
+        <li><b>1 · u?</b><span id="challengeU">phase shift / modulation variant</span></li>
+        <li><b>2 · y?</b><span id="challengeY">Vout / power / current</span></li>
+        <li><b>3 · P(s)?</b><span id="challengeP">先 small-signal linearize around operating point</span></li>
+        <li><b>4 · pole/zero?</b><span>找儲能元件、non-minimum-phase / resonance / delay</span></li>
+        <li><b>5 · bandwidth?</b><span>先受 plant physics 限制，再決定 controller target</span></li>
+        <li><b>6 · digital?</b><span>Ts、compute latency、PWM update semantics</span></li>
+        <li><b>7 · verify?</b><span>SFRA / FRA / step / scope 對 model</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="summary">
+    <p class="eyebrow">THE MENTAL MODEL TO KEEP</p>
+    <h2>16 是文法，17 是不同 plant，18 是把任何新電源翻譯成同一種控制問題</h2>
+    <div class="summary-chain">
+      <div><b>Module 16</b><small>怎麼看 dynamics</small></div><span>→</span>
+      <div><b>Module 18</b><small>怎麼抽象成 feedback loop</small></div><span>→</span>
+      <div><b>Module 17</b><small>不同 topology 的 personality</small></div>
+    </div>
+    <p>以後看到新 topology，先問：<strong>u 是什麼？y 是什麼？P(s) 長什麼？pole/zero / resonance 在哪？crossover 能放哪？Ts/Td 多大？C(z) 怎麼落地？SFRA 怎麼證明？</strong></p>
+  </section>
+</main>
+
+<script src="app.js"></script>
+<script data-circuit-tutor-js>window.CIRCUIT_ROOT_PREFIX="../";</script>
+<script src="../assets/learning/curriculum.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/opamp-module.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/power-firmware-modules.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/control-transforms-module.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/power-topology-control-module.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/control-unification-module.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/curriculum-schema-v3.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/engineering-models.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/model-registry.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/learning-evidence.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/lab-oracles.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/lab-verification-contracts.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/opamp-verification.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/power-firmware-verification.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/control-transforms-verification.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/power-topology-control-verification.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/control-unification-verification.js" data-circuit-tutor-js></script>
+<script src="../assets/learning/tutor.js" data-circuit-tutor-js></script>
+</body>
+</html>
