@@ -1,0 +1,28 @@
+/* Embedded simulators live inside the narrow sticky mental-model column. */
+@media (min-width: 861px) {
+  .journey-system-sticky .sensing-chain {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+    overflow-x: visible;
+  }
+  .journey-system-sticky .sensing-chain article {
+    min-width: 0;
+    padding: .58rem .46rem;
+    overflow-wrap: anywhere;
+  }
+  .journey-system-sticky .sensing-chain article b { font-size: .68rem; }
+  .journey-system-sticky .sensing-chain article strong { font-size: .82rem; }
+  .journey-system-sticky .sensing-chain article small { font-size: .6rem; }
+  .journey-system-sticky .sensing-chain > i { font-size: .7rem; }
+}
+
+.journey-system-sticky .timing-track { height: 158px; }
+.journey-system-sticky .timing-event {
+  --timing-lane: 0px;
+  bottom: calc(6px + var(--timing-lane));
+}
+.journey-system-sticky .timing-event[data-event="eoc"] { --timing-lane: 46px; }
+.journey-system-sticky .timing-event[data-event="isr"] { --timing-lane: 92px; }
+.journey-system-sticky .timing-event::after {
+  bottom: calc(-10px - var(--timing-lane));
+  height: calc(10px + var(--timing-lane));
+}
