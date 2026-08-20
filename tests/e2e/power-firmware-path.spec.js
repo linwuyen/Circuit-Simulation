@@ -6,12 +6,13 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('home exposes the six-layer Power Electronics Firmware Engineer path', async ({ page }) => {
-  await expect(page.locator('#powerFirmwarePath')).toContainText('Power Electronics Firmware Engineer Path');
-  await expect(page.locator('#powerFirmwarePath')).toContainText('Power Physics');
-  await expect(page.locator('#powerFirmwarePath')).toContainText('System Integration');
-  await expect(page.locator('a[href="13_power_sync/index.html"]')).toHaveCount(2);
-  await expect(page.locator('a[href="14_power_protection/index.html"]')).toHaveCount(2);
-  await expect(page.locator('a[href="15_power_capstone/index.html"]')).toHaveCount(2);
+  const path = page.locator('#powerFirmwarePath');
+  await expect(path).toContainText('Power Electronics Firmware Engineer Path');
+  await expect(path).toContainText('Power Physics');
+  await expect(path).toContainText('System Integration');
+  await expect(path.locator('a[href="13_power_sync/index.html"]')).toHaveCount(1);
+  await expect(path.locator('a[href="14_power_protection/index.html"]')).toHaveCount(1);
+  await expect(path.locator('a[href="15_power_capstone/index.html"]')).toHaveCount(1);
   await expect(page.locator('.v8-validity-summary')).toContainText('16/16 golden anchors pass');
   await expect(page.locator('.v8-validity-summary')).toContainText('16/16 modules anchored');
 });
