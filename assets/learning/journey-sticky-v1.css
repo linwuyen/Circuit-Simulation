@@ -16,13 +16,21 @@
 }
 
 .journey-system-sticky .timing-track { height: 158px; }
-.journey-system-sticky .timing-event {
-  --timing-lane: 0px;
-  bottom: calc(6px + var(--timing-lane));
-}
+.journey-system-sticky .timing-event { --timing-lane: 0px; bottom: calc(6px + var(--timing-lane)); }
 .journey-system-sticky .timing-event[data-event="eoc"] { --timing-lane: 46px; }
 .journey-system-sticky .timing-event[data-event="isr"] { --timing-lane: 92px; }
-.journey-system-sticky .timing-event::after {
-  bottom: calc(-10px - var(--timing-lane));
-  height: calc(10px + var(--timing-lane));
+.journey-system-sticky .timing-event::after { bottom: calc(-10px - var(--timing-lane)); height: calc(10px + var(--timing-lane)); }
+
+.journey-model-fidelity {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: .75rem;
+  margin: -.25rem 0 .85rem;
+  padding: .48rem .58rem;
+  border: 1px dashed var(--line, #d9dee7);
+  border-radius: 10px;
+  background: rgba(120, 130, 150, .045);
 }
+.journey-model-fidelity span { font-size: .62rem; font-weight: 900; letter-spacing: .08em; opacity: .58; }
+.journey-model-fidelity strong { font-size: .72rem; }
