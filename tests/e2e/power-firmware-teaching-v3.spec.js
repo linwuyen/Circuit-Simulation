@@ -1,0 +1,15 @@
+const { test, expect } = require('@playwright/test');
+async function setRange(page, selector, value){await page.locator(selector).evaluate((el,v)=>{el.value=String(v);el.dispatchEvent(new Event('input',{bubbles:true}));},value);}
+test.beforeEach(async({page})=>{await page.goto('/');});
+test('V3 connects switching physics, C2000 timing, PCM, protection and production firmware',async({page})=>{
+  await expect(page.locator('[data-v3-switching]')).toBeVisible();
+  await setRange(page,'[data-v3-deadtime]',300); await expect(page.locator('[data-v3-deadtime-out]')).toHaveText('300 ns');
+  await page.locator('[data-journey-stage="1"]').click(); await expect(page.locator('[data-v3-calibration]')).toBeVisible(); await setRange(page,'[data-v3-temp]',100); await expect(page.locator('[data-v3-cal-drift]')).not.toHaveText('0.00%');
+  await page.locator('[data-journey-stage="2"]').click(); await expect(page.locator('[data-v3-c2000]')).toBeVisible(); await expect(page.locator('[data-v3-pipeline]')).toContainText('CMPSS'); await expect(page.locator('[data-v3-period-cycles]')).toContainText('2000');
+  await page.locator('[data-journey-stage="3"]').click(); await page.evaluate(()=>{CircuitPowerSystemStateV1.set('plant.duty',.7);CircuitPowerSystemStateV1.set('peakCurrent.slopeCompRatio',0);}); await expect(page.locator('[data-v3-pcm-verdict]')).toHaveText('SUBHARMONIC RISK'); await setRange(page,'[data-v3-slope]',.5); await expect(page.locator('[data-v3-pcm-verdict]')).toHaveText('STABLE');
+  await page.locator('[data-journey-stage="4"]').click(); await expect(page.locator('[data-v3-model-grid] article')).toHaveCount(4);
+  await page.locator('[data-journey-stage="5"]').click(); await page.locator('[data-topology="llc"]').click(); await expect(page.locator('[data-v3-topology]')).toHaveText('LLC'); await expect(page.locator('[data-v3-actuator]')).toContainText('switching frequency');
+  await page.locator('[data-journey-stage="6"]').click(); await expect(page.locator('[data-v3-policy]')).toContainText('SCP'); await expect(page.locator('[data-v3-policy]')).toContainText('Sensor implausible');
+  await page.locator('[data-journey-stage="7"]').click(); await setRange(page,'[data-v3-power]',-800); await expect(page.locator('[data-v3-bi-mode]')).toHaveText('SINK / REGEN'); await page.locator('[data-v3-age-command]').click(); await page.locator('[data-v3-age-command]').click(); await expect(page.locator('[data-v3-command-fresh]')).toHaveText('STALE'); await expect(page.locator('[data-v3-prod-policy]')).toContainText('FAIL SAFE');
+});
+test('V3 stays within viewport on desktop and mobile',async({page})=>{for(const viewport of [{width:1440,height:900},{width:390,height:844}]){await page.setViewportSize(viewport);await page.goto('/');for(let stage=0;stage<8;stage+=1){await page.locator(`[data-journey-stage="${stage}"]`).click();const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);expect(overflow).toBeLessThanOrEqual(2);}}});
