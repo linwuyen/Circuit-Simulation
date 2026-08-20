@@ -1,8 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-test.beforeEach(async ({ page }) => {
-  await page.goto('/');
-});
+test.beforeEach(async ({ page }) => { await page.goto('/'); });
 
 test('power-firmware teaching v2 connects requirements, regions, constraints, state and observability', async ({ page }) => {
   await expect(page.locator('[data-v2-contract]')).toBeVisible();
@@ -26,6 +24,8 @@ test('power-firmware teaching v2 connects requirements, regions, constraints, st
   await expect(page.locator('[data-v2-sampling]')).toBeVisible();
   await page.locator('[data-timing-sample]').fill('1.0');
   await page.locator('[data-v2-jitter]').fill('100');
+  await page.locator('[data-v2-sync]').uncheck();
+  await expect(page.locator('[data-v2-alias-readout]')).toContainText('ALIAS BEAT');
   await expect(page.locator('[data-v2-sample-phase]')).toContainText('10.0%');
   await expect(page.locator('[data-v2-ripple-error]')).not.toHaveText('+0.000 A');
 
@@ -38,6 +38,8 @@ test('power-firmware teaching v2 connects requirements, regions, constraints, st
   await expect(page.locator('[data-v2-aw-result]')).toContainText('OFF');
   await page.locator('[data-v2-ff]').uncheck();
   await expect(page.locator('[data-v2-ff-result]')).toContainText('OFF');
+  await page.locator('[data-v2-bumpless]').uncheck();
+  await expect(page.locator('[data-v2-bumpless-result]')).toContainText('COLD');
 
   await page.locator('[data-journey-stage="4"]').click();
   await expect(page.locator('[data-v2-bandwidth]')).toBeVisible();
@@ -54,9 +56,7 @@ test('power-firmware teaching v2 connects requirements, regions, constraints, st
   await page.locator('[data-v2-startup-power]').click();
   await page.locator('[data-v2-startup-advance]').click();
   await expect(page.locator('[data-v2-startup-status]')).toContainText('ADC_NOT_VALID');
-  for (const name of ['adcValid','selfTestPass','busReady','prechargeDone','softStartComplete']) {
-    await page.locator(`[data-v2-qualifier="${name}"]`).check();
-  }
+  for (const name of ['adcValid','selfTestPass','busReady','prechargeDone','softStartComplete']) await page.locator(`[data-v2-qualifier="${name}"]`).check();
   for (let i = 0; i < 4; i += 1) await page.locator('[data-v2-startup-advance]').click();
   await expect(page.locator('[data-v2-startup-state]')).toHaveText('RUN');
   await expect(page.locator('[data-v2-startup-pwm]')).toHaveText('ALLOW');
@@ -68,12 +68,12 @@ test('power-firmware teaching v2 connects requirements, regions, constraints, st
   await expect(page.locator('[data-v2-ownership-table]')).toContainText('STALE');
   await page.locator('[data-v2-instrument="command_age"]').uncheck();
   await expect(page.locator('[data-v2-instrument-score]')).not.toContainText('100% coverage');
+  await expect(page.locator('[data-v2-observability]')).toContainText('MODEL → SIL → HIL → BOARD');
 });
 
 test('teaching v2 stays within the document viewport on desktop and mobile', async ({ page }) => {
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
-    await page.setViewportSize(viewport);
-    await page.goto('/');
+    await page.setViewportSize(viewport); await page.goto('/');
     for (let stage = 0; stage < 8; stage += 1) {
       await page.locator(`[data-journey-stage="${stage}"]`).click();
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

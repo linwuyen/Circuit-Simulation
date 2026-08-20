@@ -6,10 +6,10 @@
     plant: { topology: "buck", vin: 48, duty: 0.50, fsw: 100000, inductance: 200e-6, capacitance: 470e-6, load: 6, esr: 0.05 },
     sensing: { divider: 15, adcVref: 3.3, adcMax: 4095, gainError: 0, offsetCounts: 0 },
     timing: { sampleUs: 2.5, acquisitionUs: 0.25, conversionUs: 0.45, irqUs: 0.35, computeUs: 1.2 },
-    sampling: { jitterNs: 20, sourceTauUs: 0.08 },
+    sampling: { jitterNs: 20, sourceTauUs: 0.08, synchronous: true, freeRunOffsetPct: 0.7 },
     actuator: { tbclkHz: 200000000, tbprd: 2000 },
     limits: { dutyMin: 0.02, dutyMax: 0.90, currentLimitA: 10 },
-    control: { vref: 30, kp: 0.40, ki: 120, antiWindup: true, feedForward: true },
+    control: { vref: 30, kp: 0.40, ki: 120, antiWindup: true, feedForward: true, bumpless: true },
     safety: { thresholdA: 12, currentA: 18, filterSamples: 3, tripLatched: false },
     startup: { state: "POWER_OFF", adcValid: false, selfTestPass: false, busReady: false, prechargeDone: false, softStartComplete: false, faultInput: false },
     data: {

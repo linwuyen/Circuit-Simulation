@@ -4,119 +4,32 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 global.window = global;
-for (const file of [
-  'assets/learning/power-system-state-v1.js',
-  'assets/learning/power-system-models-v1.js',
-  'assets/learning/power-firmware-teaching-v2-models.js'
-]) {
-  vm.runInThisContext(fs.readFileSync(file, 'utf8'), { filename: file });
-}
-
+for (const file of ['assets/learning/power-system-state-v1.js','assets/learning/power-system-models-v1.js','assets/learning/power-firmware-teaching-v2-models.js']) vm.runInThisContext(fs.readFileSync(file, 'utf8'), { filename: file });
 const Store = global.CircuitPowerSystemStateV1;
 const Models = global.CircuitPowerTeachingModelsV2;
 
-test('system contract exposes requirement boundaries before control details', () => {
-  Store.reset();
-  const rows = Models.contractRows(Store.snapshot());
-  assert.equal(rows.length, 6);
-  assert.ok(rows.some(row => row.id === 'deadline' && row.value.includes('10')));
-  assert.ok(rows.some(row => row.id === 'safety' && row.value.includes('12')));
-});
+test('system contract exposes requirement boundaries before control details', () => { Store.reset(); const rows=Models.contractRows(Store.snapshot()); assert.equal(rows.length,6); assert.ok(rows.some(row=>row.id==='deadline'&&row.value.includes('10'))); assert.ok(rows.some(row=>row.id==='safety'&&row.value.includes('12'))); });
 
-test('Buck operating-region classifier invalidates CCM shortcut in DCM', () => {
-  Store.reset();
-  assert.equal(Models.buckRegion(Store.snapshot()).region, 'CCM');
-  Store.set('plant.load', 120);
-  const dcm = Models.buckRegion(Store.snapshot());
-  assert.equal(dcm.region, 'DCM');
-  assert.equal(dcm.idealRuleValid, false);
-  assert.ok(dcm.iavg < dcm.boundaryA);
-});
+test('Buck operating-region classifier invalidates CCM shortcut in DCM', () => { Store.reset(); assert.equal(Models.buckRegion(Store.snapshot()).region,'CCM'); Store.set('plant.load',120); const dcm=Models.buckRegion(Store.snapshot()); assert.equal(dcm.region,'DCM'); assert.equal(dcm.idealRuleValid,false); assert.ok(dcm.iavg<dcm.boundaryA); });
 
-test('resolution budget includes both ADC observation and PWM actuation floors', () => {
-  Store.reset();
-  const budget = Models.resolutionBudget(Store.snapshot());
-  assert.ok(Math.abs(budget.adcLsbOutputV - 0.0120879) < 1e-4);
-  assert.equal(budget.dutyLsbPct, 0.05);
-  assert.equal(budget.pwmEquivalentOutputV, 0.024);
-  assert.equal(budget.effectiveFloorV, 0.024);
-});
+test('resolution budget includes both ADC observation and PWM actuation floors', () => { Store.reset(); const b=Models.resolutionBudget(Store.snapshot()); assert.ok(Math.abs(b.adcLsbOutputV-0.0120879)<1e-4); assert.equal(b.dutyLsbPct,0.05); assert.equal(b.pwmEquivalentOutputV,0.024); assert.equal(b.effectiveFloorV,0.024); });
 
-test('sampling phase changes ripple-correlated current measurement', () => {
-  Store.reset();
-  Store.set('timing.sampleUs', 1.0);
-  const sample = Models.sampleInductorCurrent(Store.snapshot());
-  assert.ok(Math.abs(sample.rippleErrorA) > 0.1);
-  assert.ok(sample.jitterBandA >= 0);
-  assert.ok(sample.settlingResidual > 0 && sample.settlingResidual < 1);
-});
+test('sampling phase, jitter and asynchronous sampling expose switching-ripple measurement errors', () => { Store.reset(); Store.set('timing.sampleUs',1.0); const sample=Models.sampleInductorCurrent(Store.snapshot()); assert.ok(Math.abs(sample.rippleErrorA)>0.1); assert.ok(sample.jitterBandA>=0); assert.ok(sample.settlingResidual>0&&sample.settlingResidual<1); assert.equal(sample.aliasRisk,'PHASE_LOCKED'); Store.set('sampling.synchronous',false); const asyncSample=Models.sampleInductorCurrent(Store.snapshot()); assert.equal(asyncSample.aliasRisk,'ALIAS_BEAT_RISK'); assert.ok(asyncSample.aliasBeatHz>0); });
 
-test('CC/CV authority hands control to current limit under overload', () => {
-  Store.reset();
-  const normal = Models.ccCvPoint(Store.snapshot(), 6);
-  const overload = Models.ccCvPoint(Store.snapshot(), 2);
-  assert.equal(normal.mode, 'CV');
-  assert.equal(overload.mode, 'CC');
-  assert.equal(overload.currentA, 10);
-  assert.equal(overload.targetV, 20);
-});
+test('CC/CV authority hands control to current limit under overload', () => { Store.reset(); const normal=Models.ccCvPoint(Store.snapshot(),6), overload=Models.ccCvPoint(Store.snapshot(),2); assert.equal(normal.mode,'CV'); assert.equal(overload.mode,'CC'); assert.equal(overload.currentA,10); assert.equal(overload.targetV,20); });
 
-test('anti-windup reduces recovery overshoot after an unreachable Vin sag', () => {
-  Store.reset();
-  const on = Models.simulateWindup(Store.snapshot(), true);
-  const off = Models.simulateWindup(Store.snapshot(), false);
-  assert.ok(on.overshootPct < off.overshootPct);
-  assert.ok(on.integralPeak < off.integralPeak);
-});
+test('anti-windup reduces recovery overshoot after an unreachable Vin sag', () => { Store.reset(); const on=Models.simulateWindup(Store.snapshot(),true),off=Models.simulateWindup(Store.snapshot(),false); assert.ok(on.overshootPct<off.overshootPct); assert.ok(on.integralPeak<off.integralPeak); });
 
-test('Vin feed-forward reduces transient droop before feedback catches up', () => {
-  Store.reset();
-  const on = Models.simulateFeedForward(Store.snapshot(), true);
-  const off = Models.simulateFeedForward(Store.snapshot(), false);
-  assert.ok(on.droopV < off.droopV);
-  assert.ok(off.droopV > 1);
-});
+test('Vin feed-forward reduces transient droop before feedback catches up', () => { Store.reset(); const on=Models.simulateFeedForward(Store.snapshot(),true),off=Models.simulateFeedForward(Store.snapshot(),false); assert.ok(on.droopV<off.droopV); assert.ok(off.droopV>1); });
 
-test('cascaded-loop budget keeps inner loop faster and exposes delay phase cost', () => {
-  Store.reset();
-  const budget = Models.loopBandwidthBudget(Store.snapshot());
-  assert.equal(budget.separation, 5);
-  assert.ok(budget.innerHz > budget.outerHz);
-  assert.ok(budget.phaseLagInnerDeg > budget.phaseLagOuterDeg);
-});
+test('bumpless CC/CV handoff preloads incoming controller state', () => { Store.reset(); Store.set('plant.load',2); const smooth=Models.bumplessHandoff(Store.snapshot(),true),cold=Models.bumplessHandoff(Store.snapshot(),false); assert.equal(smooth.commandJumpPct,0); assert.ok(cold.commandJumpPct>10); });
 
-test('startup state machine refuses RUN until qualifiers are satisfied', () => {
-  Store.reset();
-  let startup = Store.snapshot().startup;
-  startup = Models.startupTransition(startup, 'power_on').next;
-  const blocked = Models.startupTransition(startup, 'advance');
-  assert.equal(blocked.next.state, 'INIT');
-  assert.equal(blocked.blocked, 'ADC_NOT_VALID');
-  startup.adcValid = true;
-  startup = Models.startupTransition(startup, 'advance').next;
-  assert.equal(startup.state, 'SELF_TEST');
-  const faulted = Models.startupTransition(startup, 'fault');
-  assert.equal(faulted.next.state, 'FAULT_LATCHED');
-  assert.equal(faulted.view.pwmAllowed, false);
-});
+test('cascaded-loop budget keeps inner loop faster and exposes delay phase cost', () => { Store.reset(); const b=Models.loopBandwidthBudget(Store.snapshot()); assert.equal(b.separation,5); assert.ok(b.innerHz>b.outerHz); assert.ok(b.phaseLagInnerDeg>b.phaseLagOuterDeg); });
 
-test('plant library makes operating region explicit for every topology', () => {
-  for (const id of ['buck','boost','pfc','psfb','llc','inverter']) {
-    const region = Models.plantRegion(id);
-    assert.ok(region.axis.length > 0);
-    assert.ok(region.regions.length >= 4);
-    assert.ok(region.boundary.length > 0);
-  }
-});
+test('startup state machine refuses RUN until qualifiers are satisfied', () => { Store.reset(); let startup=Store.snapshot().startup; startup=Models.startupTransition(startup,'power_on').next; const blocked=Models.startupTransition(startup,'advance'); assert.equal(blocked.next.state,'INIT'); assert.equal(blocked.blocked,'ADC_NOT_VALID'); startup.adcValid=true; startup=Models.startupTransition(startup,'advance').next; assert.equal(startup.state,'SELF_TEST'); const faulted=Models.startupTransition(startup,'fault'); assert.equal(faulted.next.state,'FAULT_LATCHED'); assert.equal(faulted.view.pwmAllowed,false); });
 
-test('ownership freshness and instrumentation budget quantify observability', () => {
-  Store.reset();
-  const record = Store.snapshot().data.vref;
-  assert.equal(Models.dataFreshness(record, record.maxAgeMs).fresh, true);
-  const stale = Models.dataFreshness({ ...record, ageMs: 250 }, record.maxAgeMs);
-  assert.equal(stale.label, 'STALE');
-  const score = Models.instrumentationScore(Store.snapshot().instrumentation.selected);
-  assert.equal(score.slots, 8);
-  assert.equal(score.score, 100);
-  assert.deepEqual(score.missing, []);
-});
+test('plant library makes operating region explicit for every topology', () => { for(const id of ['buck','boost','pfc','psfb','llc','inverter']){const region=Models.plantRegion(id);assert.ok(region.axis.length>0);assert.ok(region.regions.length>=4);assert.ok(region.boundary.length>0);} });
+
+test('verification ladder spans model, SIL, HIL and real board energy', () => { const ladder=Models.verificationLadder(); assert.deepEqual(ladder.map(x=>x.id),['model','sil','hil','board']); assert.ok(ladder.find(x=>x.id==='hil').faults.includes('trip')); });
+
+test('ownership freshness and instrumentation budget quantify observability', () => { Store.reset(); const record=Store.snapshot().data.vref; assert.equal(Models.dataFreshness(record,record.maxAgeMs).fresh,true); assert.equal(Models.dataFreshness({...record,ageMs:250},record.maxAgeMs).label,'STALE'); const score=Models.instrumentationScore(Store.snapshot().instrumentation.selected); assert.equal(score.slots,8); assert.equal(score.score,100); assert.deepEqual(score.missing,[]); });
