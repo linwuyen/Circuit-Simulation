@@ -22,7 +22,7 @@ test('power-firmware teaching v2 connects requirements, regions, constraints, st
 
   await page.locator('[data-journey-stage="2"]').click();
   await expect(page.locator('[data-v2-sampling]')).toBeVisible();
-  await page.locator('[data-timing-sample]').fill('1.0');
+  await page.locator('[data-timing-sample]').fill('1');
   await page.locator('[data-v2-jitter]').fill('100');
   await page.locator('[data-v2-sync]').uncheck();
   await expect(page.locator('[data-v2-alias-readout]')).toContainText('ALIAS BEAT');
