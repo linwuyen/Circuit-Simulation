@@ -1,4 +1,15 @@
 /* Embedded simulators live inside the narrow sticky mental-model column. */
+.journey-layout > .journey-stage-list,
+.journey-layout > .journey-system,
+.journey-system-sticky,
+.journey-system-sticky > * {
+  min-width: 0;
+}
+.journey-system-sticky .sensing-live,
+.journey-system-sticky .sensing-chain {
+  max-width: 100%;
+}
+
 @media (min-width: 861px) {
   .journey-system-sticky .sensing-chain {
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
