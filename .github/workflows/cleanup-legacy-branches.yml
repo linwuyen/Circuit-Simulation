@@ -1,0 +1,40 @@
+name: One-time legacy branch cleanup
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: contains(github.event.head_commit.message, '[cleanup-legacy-branches]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete merged exploratory and CI-mirror branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          branches=(
+            "agent/complete-learning-system"
+            "agent/first-principles-learning-core"
+            "agent/journey-theme-contrast-ci"
+            "agent/power-firmware-teaching-v2-ci"
+            "agent/sanitize-and-correct-models"
+            "feat/power-firmware-journey-complete"
+            "feat/power-firmware-journey-v1"
+            "feat/stage2-sensing-live"
+            "feat/stage2-sensing-live-v2"
+            "feat/stage2-sensing-live-v3"
+          )
+          for branch in "${branches[@]}"; do
+            ref="heads/${branch}"
+            if gh api "repos/${GITHUB_REPOSITORY}/git/ref/${ref}" >/dev/null 2>&1; then
+              echo "Deleting ${branch}"
+              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/${ref}"
+            else
+              echo "Already absent: ${branch}"
+            fi
+          done
