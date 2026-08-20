@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="C2000 Buck 電源韌體：可執行控制核心、driverlib mapping、SIL/HIL fault injection 與板上 evidence contract。">
+  <title>C2000 Buck Firmware Lab</title>
+  <link rel="stylesheet" href="../assets/learning/learning.css">
+  <link rel="stylesheet" href="../assets/learning/learning-v3.css">
+  <link rel="stylesheet" href="lab.css">
+</head>
+<body class="cl-theme-1617">
+  <main class="shell lab-shell">
+    <a class="button" href="../index.html">← 回 Power Firmware Journey</a>
+    <section class="lab-hero">
+      <div class="eyebrow">C2000 POWER FIRMWARE · EXECUTABLE LAB</div>
+      <h1>從方程式到 ePWM / ADC / CMPSS / Trip Zone，再到 HIL 證據</h1>
+      <p class="lead">同一個 Buck controller 同時存在三個世界：host SIL 的純 C 控制核心、C2000Ware driverlib 的 target binding、以及可注入 fault 的 deterministic HIL model。</p>
+    </section>
+    <section class="lab-panel">
+      <h2>1 · 真正的 sample → compute → actuate pipeline</h2>
+      <div class="pipeline" data-pipeline>
+        <span>ePWM1 SOCA<br><small>TBCTR = ZERO</small></span><i>→</i>
+        <span>ADCA SOC0<br><small>S/H + EOC</small></span><i>→</i>
+        <span>ADCINT1 ISR<br><small>GPIO31 evidence</small></span><i>→</i>
+        <span>BuckControl_tick()<br><small>CC/CV + anti-windup</small></span><i>→</i>
+        <span>CMPA update<br><small>PWM command</small></span>
+      </div>
+      <div class="pipeline"><span>CMPSS1</span><i>→</i><span>Digital Compare</span><i>→</i><span>Trip Zone</span><i>→</i><span>PWM LOW</span></div>
+      <p class="truth-box">Safety plane 不等 control ISR：過流硬體路徑必須能直接否決 PWM。韌體負責留下 evidence、state 與 re-arm policy。</p>
+    </section>
+    <section class="lab-grid">
+      <article class="lab-panel">
+        <h2>2 · Source contract</h2>
+        <p>純 controller 不碰 register；target binding 只做 hardware ownership。這樣同一份 controller 可以先在 host SIL 證明，再接進 C2000。</p>
+        <div class="source-links">
+          <a class="button" href="firmware/buck_control.h">buck_control.h</a>
+          <a class="button" href="firmware/buck_control.c">buck_control.c</a>
+          <a class="button" href="firmware/f2838x_target.c">f2838x_target.c</a>
+          <a class="button" href="firmware/host_sil.c">host_sil.c</a>
+          <a class="button" href="firmware/README.md">build / evidence contract</a>
+        </div>
+      </article>
+      <article class="lab-panel">
+        <h2>3 · Deterministic HIL fault injection</h2>
+        <div class="scenario-row">
+          <button class="selected" type="button" data-scenario="nominal">Nominal</button>
+          <button type="button" data-scenario="load-step">Load step</button>
+          <button type="button" data-scenario="ocp">OCP</button>
+          <button type="button" data-scenario="ovp">OVP</button>
+          <button type="button" data-scenario="adc-stuck">ADC invalid</button>
+          <button type="button" data-scenario="command-timeout">Command timeout</button>
+        </div>
+        <div class="metric-grid">
+          <div><span>SCENARIO</span><b id="hilScenario"></b></div>
+          <div><span>RESULT</span><b id="hilPass"></b></div>
+          <div><span>VOUT</span><b id="hilVout"></b></div>
+          <div><span>DUTY</span><b id="hilDuty"></b></div>
+          <div><span>STATE</span><b id="hilState"></b></div>
+          <div><span>FAULT</span><b id="hilFault"></b></div>
+          <div><span>TRIP LATENCY</span><b id="hilLatency"></b></div>
+        </div>
+        <div class="trace-wrap"><table><thead><tr><th>tick</th><th>Vout</th><th>iL</th><th>duty</th><th>state</th></tr></thead><tbody id="hilTrace"></tbody></table></div>
+      </article>
+    </section>
+    <section class="lab-panel">
+      <h2>4 · BOARD evidence slots <span id="evidenceCount">0/8</span></h2>
+      <p>這裡是「上板才可打勾」的物理證據契約。瀏覽器不會替你偽造 scope waveform。</p>
+      <div class="evidence-list" id="boardEvidence"></div>
+    </section>
+    <section class="lab-panel">
+      <h2>5 · Verification ladder</h2>
+      <div class="pipeline">
+        <span>MODEL<br><small>averaged plant / faults</small></span><i>→</i>
+        <span>HOST SIL<br><small>C11 controller binary</small></span><i>→</i>
+        <span>HIL<br><small>deterministic injected faults</small></span><i>→</i>
+        <span>C2000 TARGET<br><small>driverlib mapping</small></span><i>→</i>
+        <span>BOARD<br><small>scope evidence required</small></span>
+      </div>
+    </section>
+  </main>
+  <script src="hil/hil-models.js"></script>
+  <script src="lab.js"></script>
+</body>
+</html>

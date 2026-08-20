@@ -30,6 +30,14 @@ jobs:
       - name: Run engineering and learning tests
         run: npm test
 
+      - name: Build and run C2000 Buck host SIL
+        run: |
+          gcc -std=c11 -Wall -Wextra -Werror \
+            19_c2000_buck_firmware_lab/firmware/buck_control.c \
+            19_c2000_buck_firmware_lab/firmware/host_sil.c \
+            -I19_c2000_buck_firmware_lab/firmware -lm -o /tmp/c2000-buck-sil
+          /tmp/c2000-buck-sil
+
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
