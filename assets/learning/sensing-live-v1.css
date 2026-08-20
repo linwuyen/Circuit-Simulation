@@ -1,0 +1,216 @@
+.sensing-live {
+  margin-top: 1rem;
+  border: 1px solid var(--line, #d9dee7);
+  border-radius: 18px;
+  padding: 1rem;
+  background: linear-gradient(145deg, rgba(34, 197, 94, .055), transparent 42%), var(--panel, #fff);
+}
+.sensing-live[hidden] { display: none !important; }
+.sensing-live-head,
+.sensing-source,
+.sensing-controls,
+.sensing-truth-grid {
+  display: grid;
+  gap: .8rem;
+}
+.sensing-live-head {
+  grid-template-columns: 1fr auto;
+  align-items: start;
+}
+.sensing-live-head h4 {
+  margin: .25rem 0 .25rem;
+  font-size: 1.2rem;
+}
+.sensing-live-head p { margin: 0; opacity: .72; line-height: 1.45; }
+.sensing-live-kicker,
+.sensing-source span,
+.sensing-chain article > span,
+.sensing-truth-grid article > span,
+.sensing-consequence > span,
+.sensing-first-principles > span {
+  display: block;
+  font-size: .66rem;
+  letter-spacing: .09em;
+  font-weight: 900;
+  opacity: .65;
+}
+.sensing-reset,
+.sensing-predict button {
+  border: 1px solid var(--line, #d9dee7);
+  border-radius: 10px;
+  background: var(--panel, #fff);
+  padding: .48rem .62rem;
+  font: inherit;
+  cursor: pointer;
+}
+.sensing-reset:hover,
+.sensing-predict button:hover,
+.sensing-predict button.is-selected {
+  border-color: rgba(34, 197, 94, .65);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, .08);
+}
+.sensing-source {
+  grid-template-columns: 1fr minmax(180px, .8fr);
+  align-items: center;
+  margin-top: .85rem;
+  padding: .8rem;
+  border-radius: 14px;
+  background: rgba(61, 99, 255, .055);
+  border: 1px solid rgba(61, 99, 255, .16);
+}
+.sensing-source strong { display: block; margin-top: .25rem; }
+.sensing-source label span { margin-bottom: .35rem; }
+.sensing-source input { width: 100%; }
+.sensing-predict {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .45rem;
+  margin-top: .8rem;
+  padding: .72rem .8rem;
+  border: 1px dashed var(--line, #d9dee7);
+  border-radius: 13px;
+}
+.sensing-predict strong { margin-right: .1rem; }
+.sensing-predict small {
+  flex-basis: 100%;
+  opacity: .7;
+}
+.sensing-predict small.is-pass { color: #15803d; opacity: 1; font-weight: 800; }
+.sensing-predict small.is-fail { color: #b91c1c; opacity: 1; font-weight: 800; }
+.sensing-predict .sensing-inject {
+  margin-left: auto;
+  font-weight: 800;
+  border-color: rgba(245, 158, 11, .5);
+  background: rgba(245, 158, 11, .08);
+}
+.sensing-chain {
+  display: grid;
+  grid-template-columns: repeat(9, auto);
+  align-items: center;
+  gap: .32rem;
+  margin-top: .9rem;
+  overflow-x: auto;
+  padding-bottom: .2rem;
+}
+.sensing-chain article {
+  min-width: 118px;
+  padding: .72rem;
+  border: 1px solid var(--line, #d9dee7);
+  border-radius: 12px;
+  background: var(--panel, #fff);
+}
+.sensing-chain article b,
+.sensing-chain article strong,
+.sensing-chain article small { display: block; }
+.sensing-chain article b { margin-top: .2rem; font-size: .75rem; opacity: .72; }
+.sensing-chain article strong { margin-top: .26rem; font-size: .98rem; }
+.sensing-chain article small { margin-top: .25rem; opacity: .58; line-height: 1.25; }
+.sensing-chain > i { font-style: normal; opacity: .35; font-weight: 900; }
+.sensing-chain article[data-sensing-block="physical"] { border-color: rgba(61, 99, 255, .35); }
+.sensing-chain article[data-sensing-block="firmware"] { border-color: rgba(34, 197, 94, .5); }
+.sensing-truth-grid {
+  grid-template-columns: 1fr 1fr .72fr;
+  margin-top: .85rem;
+}
+.sensing-truth-grid article {
+  padding: .8rem;
+  border: 1px solid var(--line, #d9dee7);
+  border-radius: 13px;
+}
+.sensing-truth-grid strong {
+  display: block;
+  margin: .3rem 0;
+  font-size: 1.12rem;
+}
+.sensing-truth-grid small { opacity: .62; }
+.sensing-bar {
+  height: 7px;
+  margin: .45rem 0;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(120, 130, 150, .12);
+}
+.sensing-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  opacity: .68;
+  transition: width .18s ease;
+}
+.sensing-error-card.is-ok { background: rgba(34, 197, 94, .055); border-color: rgba(34, 197, 94, .24); }
+.sensing-error-card.is-fault { background: rgba(239, 68, 68, .06); border-color: rgba(239, 68, 68, .35); }
+.sensing-controls {
+  grid-template-columns: 1fr 1fr;
+  margin-top: .85rem;
+}
+.sensing-controls label {
+  padding: .8rem;
+  border: 1px solid var(--line, #d9dee7);
+  border-radius: 13px;
+}
+.sensing-controls label > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.sensing-controls output { font-weight: 850; }
+.sensing-controls input { width: 100%; margin: .65rem 0 .35rem; }
+.sensing-controls small { display: block; opacity: .62; line-height: 1.35; }
+.sensing-equations {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .55rem;
+  margin-top: .85rem;
+}
+.sensing-equations div {
+  padding: .72rem;
+  border-radius: 12px;
+  background: rgba(120, 130, 150, .07);
+}
+.sensing-equations span,
+.sensing-equations code { display: block; }
+.sensing-equations span { font-size: .68rem; font-weight: 900; opacity: .58; margin-bottom: .3rem; }
+.sensing-equations code { white-space: normal; line-height: 1.35; }
+.sensing-consequence {
+  margin-top: .85rem;
+  padding: .8rem;
+  border-left: 3px solid rgba(245, 158, 11, .72);
+  border-radius: 0 12px 12px 0;
+  background: rgba(245, 158, 11, .07);
+}
+.sensing-consequence strong { display: block; margin: .25rem 0; }
+.sensing-consequence p { margin: 0; line-height: 1.4; }
+.sensing-first-principles {
+  margin-top: .85rem;
+  padding: .8rem;
+  border-radius: 13px;
+  border: 1px solid rgba(34, 197, 94, .22);
+  background: rgba(34, 197, 94, .045);
+}
+.sensing-first-principles div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .4rem;
+  margin-top: .35rem;
+}
+.sensing-first-principles i { font-style: normal; opacity: .35; }
+.sensing-first-principles p { margin: .45rem 0 0; opacity: .76; }
+.sensing-boundary {
+  margin: .8rem 0 0;
+  padding-top: .75rem;
+  border-top: 1px solid var(--line, #d9dee7);
+  font-size: .78rem;
+  line-height: 1.45;
+  opacity: .68;
+}
+@media (max-width: 860px) {
+  .sensing-live-head,
+  .sensing-source,
+  .sensing-truth-grid,
+  .sensing-controls,
+  .sensing-equations { grid-template-columns: 1fr; }
+  .sensing-predict .sensing-inject { margin-left: 0; }
+}
