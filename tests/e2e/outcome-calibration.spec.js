@@ -40,7 +40,9 @@ test("item calibration export is explicit, privacy-minimized and first-attempt o
   });
   expect(exported.schema).toBe("circuit-outcome-calibration");
   expect(exported.profile).toBe("core8");
-  expect(exported.instrument).toEqual({ seed:20260821, countPerCompetency:1 });
+  expect(exported.instrument.seed).toBe(20260821);
+  expect(exported.instrument.countPerCompetency).toBe(1);
+  expect(exported.instrument.contractFingerprint).toMatch(/^[0-9a-f]{16}$/);
   expect(exported.privacy).toEqual([true, false, false]);
   expect(exported.rowKeys).toEqual(["caseId", "competency", "correct"]);
   expect(exported.hasAnswer).toBe(false);
