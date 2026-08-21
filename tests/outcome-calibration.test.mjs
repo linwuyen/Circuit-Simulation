@@ -9,19 +9,31 @@ const Calibration = require(path.join(repoRoot, "assets", "learning", "outcome-c
 const CORE = Calibration.PROFILE_COMPETENCIES.core8;
 
 function phaseStatus(phase, pattern, completed = true) {
-  const rows = CORE.map((competency, index) => ({
-    caseId: `${phase}-${competency}-v${index}-s20260821`,
+  const cases = CORE.map((competency, index) => ({
+    id: `${phase}-${competency}-v${index}-s20260821`,
     phase,
     competency,
+    answerType: "choice",
+    prompt: `${phase} ${competency} prompt ${index}`,
+    choices: ["a", "b"],
+    choiceLabels: { a:"A", b:"B" },
+    expected: "a",
+    parameters: { variant:index }
+  }));
+  const rows = cases.map((item, index) => ({
+    caseId: item.id,
+    phase,
+    competency: item.competency,
     attempted: completed,
-    correct: completed ? Boolean(pattern(index, competency)) : false
+    correct: completed ? Boolean(pattern(index, item.competency)) : false
   }));
   return {
     phase,
     attempted: completed ? rows.length : 0,
     total: rows.length,
     completed,
-    score: completed ? { rows } : null
+    score: completed ? { rows } : null,
+    cases
   };
 }
 
@@ -39,7 +51,9 @@ function summary(pattern = () => true, { seed = 20260821, postCompleted = true }
 test("calibration export keeps item correctness without prompts, choices or raw answers", () => {
   const bundle = Calibration.exportParticipant(summary(index => index % 2 === 0), { participantId:"p_001", exportedAt:"2026-08-21T00:00:00Z" });
   assert.equal(Calibration.validateParticipant(bundle).valid, true);
-  assert.deepEqual(bundle.instrument, { seed:20260821, countPerCompetency:1 });
+  assert.equal(bundle.instrument.seed, 20260821);
+  assert.equal(bundle.instrument.countPerCompetency, 1);
+  assert.match(bundle.instrument.contractFingerprint, /^[0-9a-f]{16}$/);
   assert.equal(bundle.phases.post.rows.length, 8);
   assert.deepEqual(Object.keys(bundle.phases.post.rows[0]).sort(), ["caseId","competency","correct"]);
   assert.equal(bundle.containsItemCorrectness, true);
@@ -103,10 +117,17 @@ test("usable cohort identifies extreme p-correct and positively discriminating i
   assert.equal(result.causalClaimAllowed, false);
 });
 
-test("calibration aggregation rejects mixed instrument configuration and duplicate participants", () => {
-  const a = Calibration.exportParticipant(summary(), { participantId:"same" });
+test("calibration aggregation rejects mixed instrument configuration, semantic drift and duplicate participants", () => {
+  const baseline = summary();
+  const a = Calibration.exportParticipant(baseline, { participantId:"same" });
   const b = Calibration.exportParticipant(summary(() => true, { seed:77 }), { participantId:"other" });
   assert.throws(() => Calibration.aggregate([a,b]), /mixed calibration instruments/);
+
+  const changed = summary();
+  changed.post.cases[0].prompt += " changed without version bump";
+  const drift = Calibration.exportParticipant(changed, { participantId:"drift" });
+  assert.notEqual(a.instrument.contractFingerprint, drift.instrument.contractFingerprint);
+  assert.throws(() => Calibration.aggregate([a,drift]), /mixed calibration instruments/);
   assert.throws(() => Calibration.aggregate([a,a]), /duplicate participantId/);
 });
 
