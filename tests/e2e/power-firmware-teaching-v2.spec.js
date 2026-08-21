@@ -1,8 +1,12 @@
 const { test, expect } = require('@playwright/test');
 
+const selectStage = async (page, id) => {
+  await page.locator(`[data-stage-id="${id}"]`).click();
+};
+
 test.beforeEach(async ({ page }) => { await page.goto('/'); });
 
-test('power-firmware teaching v2 connects requirements, regions, constraints, state and observability', async ({ page }) => {
+test('power-firmware teaching v2 follows the semantic core path and transfer atlas', async ({ page }) => {
   await expect(page.locator('[data-v2-contract]')).toBeVisible();
   await expect(page.locator('[data-v2-contract-grid] article')).toHaveCount(6);
   await expect(page.locator('[data-v2-contract]')).toContainText('SYSTEM CONTRACT');
@@ -14,13 +18,13 @@ test('power-firmware teaching v2 connects requirements, regions, constraints, st
   await page.locator('[data-v2-load]').fill('6');
   await expect(page.locator('[data-v2-region]')).toHaveText('CCM');
 
-  await page.locator('[data-journey-stage="1"]').click();
+  await selectStage(page, 'sensing');
   await expect(page.locator('[data-v2-resolution]')).toBeVisible();
   await page.locator('[data-v2-tbprd]').fill('1000');
   await expect(page.locator('[data-v2-pwm-lsb]')).toContainText('0.100%');
   await expect(page.locator('[data-v2-pwm-vstep]')).toContainText('48.00 mV');
 
-  await page.locator('[data-journey-stage="2"]').click();
+  await selectStage(page, 'timing');
   await expect(page.locator('[data-v2-sampling]')).toBeVisible();
   await page.locator('[data-timing-sample]').fill('1');
   await page.locator('[data-v2-jitter]').fill('100');
@@ -29,7 +33,7 @@ test('power-firmware teaching v2 connects requirements, regions, constraints, st
   await expect(page.locator('[data-v2-sample-phase]')).toContainText('10.0%');
   await expect(page.locator('[data-v2-ripple-error]')).not.toHaveText('+0.000 A');
 
-  await page.locator('[data-journey-stage="3"]').click();
+  await selectStage(page, 'control');
   await expect(page.locator('[data-v2-product-control]')).toBeVisible();
   await page.locator('[data-v2-cccv-load]').fill('2');
   await expect(page.locator('[data-v2-control-mode]')).toHaveText('CC');
@@ -41,17 +45,17 @@ test('power-firmware teaching v2 connects requirements, regions, constraints, st
   await page.locator('[data-v2-bumpless]').uncheck();
   await expect(page.locator('[data-v2-bumpless-result]')).toContainText('COLD');
 
-  await page.locator('[data-journey-stage="4"]').click();
+  await selectStage(page, 'dynamics');
   await expect(page.locator('[data-v2-bandwidth]')).toBeVisible();
   await expect(page.locator('[data-v2-separation]')).toContainText('5×');
   await expect(page.locator('[data-v2-inner-phase]')).toContainText('°');
 
-  await page.locator('[data-journey-stage="5"]').click();
-  await page.locator('[data-topology="llc"]').click();
-  await expect(page.locator('[data-v2-plant-name]')).toHaveText('LLC');
-  await expect(page.locator('[data-v2-plant-region-list]')).toContainText('near resonance');
+  const transferAtlas = page.locator('.journey-specialization-links a[href="17_power_topology_control/index.html"]');
+  await expect(transferAtlas).toBeVisible();
+  await expect(transferAtlas).toContainText('Transfer Atlas');
+  await expect(transferAtlas).toContainText('Boost / PFC / PSFB / LLC / Inverter');
 
-  await page.locator('[data-journey-stage="6"]').click();
+  await selectStage(page, 'safety');
   await expect(page.locator('[data-v2-startup]')).toBeVisible();
   await page.locator('[data-v2-startup-power]').click();
   await page.locator('[data-v2-startup-advance]').click();
@@ -61,7 +65,7 @@ test('power-firmware teaching v2 connects requirements, regions, constraints, st
   await expect(page.locator('[data-v2-startup-state]')).toHaveText('RUN');
   await expect(page.locator('[data-v2-startup-pwm]')).toHaveText('ALLOW');
 
-  await page.locator('[data-journey-stage="7"]').click();
+  await selectStage(page, 'production');
   await expect(page.locator('[data-v2-observability]')).toBeVisible();
   await expect(page.locator('[data-v2-instrument-score]')).toContainText('100% coverage');
   await page.locator('[data-v2-age-host]').click();
@@ -74,8 +78,8 @@ test('power-firmware teaching v2 connects requirements, regions, constraints, st
 test('teaching v2 stays within the document viewport on desktop and mobile', async ({ page }) => {
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport); await page.goto('/');
-    for (let stage = 0; stage < 8; stage += 1) {
-      await page.locator(`[data-journey-stage="${stage}"]`).click();
+    for (const id of ['energy','sensing','control','timing','dynamics','safety','production','capstone']) {
+      await selectStage(page, id);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       expect(overflow).toBeLessThanOrEqual(2);
     }
