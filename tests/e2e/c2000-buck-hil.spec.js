@@ -7,6 +7,15 @@ test("guided Buck capstone is equation-backed across all eight layers", async ({
 
   await expect(page.locator('[data-learning-mode="guided"]')).toHaveClass(/selected/);
   await expect(page.locator("[data-pipeline]").first()).toContainText("Power Stage");
+  await expect(page.locator("[data-mental-view-button]")).toHaveCount(5);
+  await expect(page.locator("[data-mental-view-stage]")).toContainText("能量真的怎麼流");
+  await page.locator('[data-mental-view-button="signal"]').click();
+  await expect(page.locator("[data-mental-view-stage]")).toContainText("ADC pin");
+  await page.locator('[data-mental-view-button="time"]').click();
+  await expect(page.locator("[data-mental-view-stage]")).toContainText("CMPA shadow write");
+  await page.locator('[data-mental-view-button="authority"]').click();
+  await expect(page.locator("[data-mental-view-stage]")).toContainText("PWM grant");
+  await expect(page.locator(".capstone-role-note")).toContainText("Module 15 Debug Challenge Bank");
 
   await expect(page.locator("#inductanceRange")).toBeDisabled();
   await expect(page.locator("#physicsDuty")).toHaveText("25.00 %");
@@ -39,17 +48,23 @@ test("guided Buck capstone is equation-backed across all eight layers", async ({
   await expect(page.locator("#feedbackPlot .current-wave")).toHaveAttribute("d", /L/);
   await expect(page.locator("#feedbackFinal")).toContainText("V");
 
+  await expect(page.locator("[data-dynamics-story]")).toContainText("負載突然增加");
+  await expect(page.locator("[data-dynamics-story]")).toContainText("Bode 的用途");
   await expect(page.locator("#dynDelayPhase")).toHaveText("-36.0°");
   await expect(page.locator("#safeHardware")).toHaveText("230 ns");
   await expect(page.locator("#safeSoftware")).toHaveText("5.50 µs");
 
   await expect(page.locator("#prodFaultAt")).toHaveText("501 ticks / 5.01 ms");
   await expect(page.locator("#prodState")).toHaveText("RUN");
+  await expect(page.locator("[data-authority-model] .authority-equation")).toContainText("PWM_AUTHORITY");
+  await expect(page.locator("[data-authority-result]")).toContainText("GRANTED");
   await expect(page.locator("#prodMissed")).toBeDisabled();
   await page.locator('[data-layer-coach="production"] [data-layer-coach-choice="fail-closed"]').click();
   await expect(page.locator("#prodMissed")).toBeEnabled();
   await page.locator("#prodMissed").fill("501");
   await expect(page.locator("#prodState")).toHaveText("FAULT_LATCHED");
+  await expect(page.locator('[data-authority-condition="fresh"]')).toHaveAttribute("data-pass", "0");
+  await expect(page.locator("[data-authority-result]")).toContainText("DENIED");
 
   await expect(page.locator("#transferDuty")).toHaveText("50.00 %");
   await expect(page.locator("#transferRhp")).toContainText("kHz");
@@ -68,6 +83,15 @@ test("guided layer coaches unlock outside guided mode without leaking first-atte
   await page.locator('[data-layer-coach="feedback"] [data-layer-coach-choice="both-up"]').click();
   await expect(page.locator("#feedbackRef")).toBeEnabled();
   await expect(page.locator('[data-layer-coach="feedback"] [data-layer-coach-status]')).toContainText("r − ŷ");
+});
+
+test("module 15 is a diagnosis challenge bank, not a second capstone", async ({ page }) => {
+  await page.goto("/15_power_capstone/");
+  await expect(page).toHaveTitle(/Debug Challenge Bank/);
+  await expect(page.locator("h1")).toContainText("未知故障");
+  await expect(page.locator(".lead")).toContainText("Module 19 是 authoritative executable capstone");
+  await expect(page.locator('a[href="../19_c2000_buck_firmware_lab/index.html"]').first()).toBeVisible();
+  await expect(page.locator("main")).toContainText("先證明 signal existence，再證明 timing");
 });
 
 test("debug mode exposes deterministic HIL and board claim is manifest-backed", async ({ page }) => {
