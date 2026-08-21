@@ -60,6 +60,9 @@ test("guided Buck capstone is equation-backed across all eight layers", async ({
   await expect(page.locator("#prodState")).toHaveText("RUN");
   await expect(page.locator("[data-authority-model] .authority-equation")).toContainText("PWM_AUTHORITY");
   await expect(page.locator("[data-authority-result]")).toContainText("GRANTED");
+  await expect(page.locator("[data-ownership-ledger]")).toContainText("Host / comm producer");
+  await expect(page.locator("[data-ownership-ledger]")).toContainText("consumer 不能替 producer 刷 freshness");
+  await expect(page.locator("[data-ownership-ledger]")).toContainText("ePWM");
   await expect(page.locator("#prodMissed")).toBeDisabled();
   await page.locator('[data-layer-coach="production"] [data-layer-coach-choice="fail-closed"]').click();
   await expect(page.locator("#prodMissed")).toBeEnabled();
@@ -70,6 +73,9 @@ test("guided Buck capstone is equation-backed across all eight layers", async ({
 
   await expect(page.locator("#transferDuty")).toHaveText("50.00 %");
   await expect(page.locator("#transferRhp")).toContainText("kHz");
+  await expect(page.locator("[data-transfer-bridge]")).toContainText("Boost PFC");
+  await expect(page.locator("[data-transfer-bridge]")).toContainText("LLC");
+  await expect(page.locator('[data-transfer-bridge] a')).toHaveAttribute("href", "../17_power_topology_control/index.html#atlas");
   expect(errors).toEqual([]);
 });
 
@@ -99,6 +105,32 @@ test("module 15 is a diagnosis challenge bank, not a second capstone", async ({ 
     return module ? { title: module.title, tag: module.tag } : null;
   });
   expect(role).toEqual({ title: "Power Firmware Debug Challenge Bank", tag: "Debug Lab" });
+});
+
+test("debug practice randomizes faults but keeps measurement order falsifiable", async ({ page }) => {
+  await page.goto("/19_c2000_buck_firmware_lab/?debug_case=stale-command");
+  await expect(page.locator('[data-diagnostic-challenge]')).toHaveAttribute("data-case-id", "stale-command");
+  await page.locator('[data-learning-mode="debug"]').click();
+  await expect(page.locator("#hilScenario")).toHaveText("command-timeout");
+  await page.locator('[data-diagnostic-choice="command-age"]').click();
+  await expect(page.locator("[data-diagnostic-status]")).toContainText("最高資訊量方向正確");
+  await expect(page.locator("[data-diagnostic-status]")).toContainText("外部 producer");
+
+  await page.goto("/19_c2000_buck_firmware_lab/");
+  const before = await page.locator('[data-diagnostic-challenge]').getAttribute("data-case-id");
+  await page.locator('[data-diagnostic-next]').click();
+  await expect(page.locator('[data-diagnostic-challenge]')).not.toHaveAttribute("data-case-id", before);
+});
+
+test("deep links select the authoritative Module 19 layer and evidence mode", async ({ page }) => {
+  await page.goto("/19_c2000_buck_firmware_lab/?layer=production");
+  await expect(page.locator("#prodTimeout").locator("xpath=ancestor::article[1]")).toHaveAttribute("data-core-focus", "production");
+  await expect(page.locator('[data-learning-mode="guided"]')).toHaveClass(/selected/);
+
+  await page.goto("/19_c2000_buck_firmware_lab/?layer=evidence&debug_case=stale-command");
+  await expect(page.locator('[data-learning-mode="debug"]')).toHaveClass(/selected/);
+  await expect(page.locator("#boardClaim").locator("xpath=ancestor::section[1]")).toHaveAttribute("data-core-focus", "evidence");
+  await expect(page.locator("#boardClaim").locator("xpath=ancestor::section[1]")).not.toHaveClass(/mode-hidden/);
 });
 
 test("debug mode exposes deterministic HIL and board claim is manifest-backed", async ({ page }) => {
@@ -135,12 +167,18 @@ test("outcome benchmark records immutable first attempts and home surfaces real 
   await expect(page.locator("[data-outcome-home]")).toContainText("1/8 first attempts");
 });
 
-test("homepage links the executable C2000 Buck lab and both pages avoid overflow", async ({ page }) => {
+test("homepage makes Module 19 the single core path and hides the topic library by default", async ({ page }) => {
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     await page.goto("/");
     await expect(page.locator("[data-c2000-buck-lab-entry]")).toBeVisible();
-    await expect(page.locator('[data-c2000-buck-lab-entry] a')).toHaveAttribute("href", "19_c2000_buck_firmware_lab/index.html");
+    await expect(page.locator('[data-c2000-buck-lab-entry] a').first()).toHaveAttribute("href", "19_c2000_buck_firmware_lab/index.html?layer=physics");
+    await expect(page.locator('[data-journey-stage] .journey-enter[data-core-layer]')).toHaveCount(8);
+    for (const layer of ["physics", "sensing", "feedback", "timing", "dynamics", "safety", "production", "evidence"]) {
+      await expect(page.locator(`.journey-enter[data-core-layer="${layer}"]`)).toHaveAttribute("href", `19_c2000_buck_firmware_lab/index.html?layer=${layer}`);
+    }
+    await expect(page.locator("[data-topic-index]")).not.toHaveAttribute("open", "");
+    await expect(page.locator("[data-topic-index] summary")).toContainText("不是建議學習順序");
     let overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(2);
 
