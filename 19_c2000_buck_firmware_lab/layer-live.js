@@ -5,6 +5,129 @@
   const $ = selector => document.querySelector(selector);
   const number = (selector, fallback = 0) => Number($(selector)?.value ?? fallback);
 
+  const layerCoaches = [
+    {
+      id: "sensing",
+      anchor: "#senseRipple",
+      why: "ADC 數字不是物理量本身；它只是感測鏈把真實 Vout 投影成 counts 的結果。",
+      question: "只把 divider 比例調大，實際 Vout 不變，而且 ADC 還沒飽和：ADC count 會怎麼變？",
+      correct: "increase",
+      choices: [["increase", "變大"], ["same", "不變"], ["decrease", "變小"]],
+      explain: "physical V 不變 → ADC pin voltage ↑ → ADC code ↑。如果韌體 scaling 沒同步，重建出的 Vout 就會錯。",
+      measure: "先量：同時看實際 Vout、ADC pin，再對 ADCRESULT/count；不要先改 PI。"
+    },
+    {
+      id: "feedback",
+      anchor: "#feedbackInitial",
+      why: "控制器只看得到 reference 與『重建後的 feedback』，看不到你心裡認為的真實 Vout。",
+      question: "Vout 還來不及變時，只把 reference 調高；在正 Kp/Ki、未飽和的前提下，第一個 control step 的 error 與 duty 傾向？",
+      correct: "both-up",
+      choices: [["both-up", "error ↑、duty ↑"], ["error-down", "error ↓、duty ↑"], ["same", "都不變"]],
+      explain: "r − ŷ ↑ → PI command ↑ → duty ↑。這是第一拍的因果方向，不代表最後穩態一定沒有 saturation 或其他限制。",
+      measure: "先量：同步 trace reference、reconstructed feedback、error、duty command；不要一看到 Vout 不對就先調 Kp/Ki。"
+    },
+    {
+      id: "dynamics",
+      anchor: "#dynLoad",
+      why: "同一組 PI，光是韌體晚一拍生效，就可能把原本夠用的 phase margin 吃掉。",
+      question: "probe frequency 不變，只增加 sample-to-actuate pure delay；delay 對 phase 的貢獻會？",
+      correct: "more-negative",
+      choices: [["more-negative", "更負、lag 更多"], ["same", "不變"], ["less-negative", "更接近 0°"]],
+      explain: "φdelay = −360°·f·Td；頻率固定時，Td ↑ → phase lag 線性增加。這還不是 total phase margin。",
+      measure: "先量：SOCA → ADC/EOC → ISR/CLA → CMPA shadow write → active load 的實際時間，再談 crossover。"
+    },
+    {
+      id: "safety",
+      anchor: "#safeCmp",
+      why: "保護的第一任務不是『讓 CPU 知道出錯』，而是『在能量繼續灌入前先把 PWM 否決掉』。",
+      question: "同一個 OCP fault 同時能走 hardware trip 與 ADC ISR 軟體路徑；哪一條應負責最快關 PWM？",
+      correct: "hardware",
+      choices: [["hardware", "CMPSS / Trip hardware"], ["software", "ADC ISR / CPU"], ["either", "兩者等價"]],
+      explain: "hardware veto 不必等 ADC、interrupt entry 與 control compute；software path 應負責 state、evidence 與受條件限制的 re-arm。",
+      measure: "先量：scope 同時抓 fault/comparator 訊號與 gate/PWM output，直接量 fault-to-PWM-low latency。"
+    },
+    {
+      id: "production",
+      anchor: "#prodTimeout",
+      why: "RUN 不是一個 bool；輸出權限必須持續由 state、fresh command、valid measurement、no fault 等條件共同成立。",
+      question: "enable authority 仍為 1，但外部 command age 已嚴格超過 timeout budget；正確 production 行為是？",
+      correct: "fail-closed",
+      choices: [["fail-closed", "撤銷輸出 / fault"], ["keep-running", "維持最後 duty"], ["fake-heartbeat", "由 ISR 刷新 heartbeat"]],
+      explain: "command freshness 屬於外部 producer ownership；consumer/ADC ISR 不能替 producer 製造『還活著』的證據。",
+      measure: "先量：producer publish timestamp、command age、state 與 PWM authority；確認誰真正擁有 freshness。"
+    },
+    {
+      id: "transfer",
+      anchor: "#transferVin",
+      why: "可遷移的是 feedback grammar，不是把 Buck 的 bandwidth 與補償參數原封不動貼到另一個 plant。",
+      question: "Buck loop 在某個 crossover 很穩，換成 Boost CCM 後，可以先照抄同一 crossover 再說嗎？",
+      correct: "no",
+      choices: [["no", "不行，先看新 plant constraint"], ["yes", "可以，grammar 一樣"], ["gain-only", "只重算 gain 就好"]],
+      explain: "Boost CCM 多了 RHP zero；先找 topology-specific constraint，再決定 crossover。『同一控制語法』不等於『同一 plant』。",
+      measure: "先量/算：Vin、Vout、load、L 與 operating duty，得到 RHP-zero 尺度後再放 loop bandwidth。"
+    }
+  ];
+
+  function currentMode() {
+    return document.querySelector('[data-learning-mode].selected')?.dataset.learningMode || "guided";
+  }
+
+  function setCoachLock(config, locked) {
+    const anchor = $(config.anchor);
+    const panel = anchor?.closest("article");
+    if (!panel) return;
+    panel.querySelectorAll(".input-grid input").forEach(input => {
+      input.disabled = Boolean(locked);
+    });
+  }
+
+  function syncCoachLocks() {
+    const guided = currentMode() === "guided";
+    layerCoaches.forEach(config => {
+      const coach = document.querySelector(`[data-layer-coach="${config.id}"]`);
+      setCoachLock(config, guided && coach?.dataset.answered !== "1");
+    });
+  }
+
+  function installLayerCoach(config) {
+    const anchor = $(config.anchor);
+    const panel = anchor?.closest("article");
+    const inputGrid = panel?.querySelector(".input-grid");
+    if (!panel || !inputGrid || panel.querySelector(`[data-layer-coach="${config.id}"]`)) return;
+
+    const coach = document.createElement("div");
+    coach.className = "guided-example";
+    coach.dataset.layerCoach = config.id;
+    coach.dataset.answered = "0";
+    coach.innerHTML = `
+      <div class="section-kicker">白話先判斷 · WHY FIRMWARE CARES</div>
+      <p>${config.why}</p>
+      <p><b>${config.question}</b></p>
+      <div class="prediction-row" aria-label="${config.id} 方向預測">
+        ${config.choices.map(([value, label]) => `<button type="button" data-layer-coach-choice="${value}">${label}</button>`).join("")}
+      </div>
+      <p class="prediction-status" data-layer-coach-status aria-live="polite">先做方向預測，才解鎖參數；先建立因果，再看數字。</p>
+    `;
+    inputGrid.before(coach);
+
+    const status = coach.querySelector("[data-layer-coach-status]");
+    coach.querySelectorAll("[data-layer-coach-choice]").forEach(button => {
+      button.addEventListener("click", () => {
+        if (coach.dataset.answered === "1") return;
+        const correct = button.dataset.layerCoachChoice === config.correct;
+        coach.dataset.answered = "1";
+        coach.dataset.firstAttempt = correct ? "pass" : "miss";
+        coach.querySelectorAll("[data-layer-coach-choice]").forEach(choice => {
+          choice.disabled = true;
+          if (choice.dataset.layerCoachChoice === config.correct) choice.dataset.correct = "1";
+        });
+        button.dataset.selected = "1";
+        status.textContent = `${correct ? "✓ 方向正確。" : "✗ 方向先修正。"} ${config.explain} ${config.measure}`;
+        setCoachLock(config, false);
+      });
+    });
+  }
+
   function lineSvg(points, xKey, yKey, label) {
     if (!points.length) return "";
     const width = 720, height = 250, left = 58, right = 20, top = 24, bottom = 42;
@@ -85,6 +208,12 @@
       $('#transferBoundary').textContent = `輸入超出 Boost CCM teaching boundary：${error.message}`;
     }
   }
+
+  layerCoaches.forEach(installLayerCoach);
+  document.querySelectorAll('[data-learning-mode]').forEach(button => {
+    button.addEventListener('click', () => requestAnimationFrame(syncCoachLocks));
+  });
+  syncCoachLocks();
 
   ['#senseRipple','#sensePhase','#senseDivider'].forEach(id => $(id)?.addEventListener('input', renderSensing));
   ['#feedbackInitial','#feedbackRef','#feedbackKp','#feedbackKi'].forEach(id => $(id)?.addEventListener('input', renderFeedback));
