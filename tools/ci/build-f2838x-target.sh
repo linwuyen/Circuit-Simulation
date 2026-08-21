@@ -10,6 +10,7 @@ COMMON_INCLUDE="${C2000WARE_ROOT}/device_support/f2838x/common/include"
 DRIVERLIB_INCLUDE="${C2000WARE_ROOT}/driverlib/f2838x/driverlib"
 OUT_DIR="${RUNNER_TEMP:-/tmp}/c2000-target-objects"
 CL2000="${C2000_CGT_ROOT}/bin/cl2000"
+CGT_REVISION="25.11.1.LTS"
 
 for required in "${CL2000}" "${COMMON_INCLUDE}/device.h" "${DRIVERLIB_INCLUDE}/epwm.h"; do
   if [[ ! -e "${required}" ]]; then
@@ -48,6 +49,6 @@ for object in buck_control.obj f2838x_target.obj; do
 done
 
 echo "TI C2000 target compile PASS"
-echo "  compiler: $(${CL2000} --version | head -n 1)"
+echo "  compiler: TI C2000 CGT ${CGT_REVISION} (${CL2000})"
 echo "  C2000Ware: ${C2000WARE_ROOT}"
 echo "  objects: ${OUT_DIR}/buck_control.obj ${OUT_DIR}/f2838x_target.obj"
