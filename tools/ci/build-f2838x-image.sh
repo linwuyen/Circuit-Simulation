@@ -11,13 +11,14 @@ DRIVERLIB_ROOT="${C2000WARE_ROOT}/driverlib/f2838x/driverlib"
 OUT_DIR="${REPO_ROOT}/build/f2838x-flash"
 CL2000="${C2000_CGT_ROOT}/bin/cl2000"
 HEX2000="${C2000_CGT_ROOT}/bin/hex2000"
+RTS_LIB="${C2000_CGT_ROOT}/lib/rts2800_fpu32_eabi.lib"
 LINKER_CMD="${COMMON_ROOT}/cmd/2838x_FLASH_lnk_cpu1.cmd"
 DRIVERLIB="${DRIVERLIB_ROOT}/ccs/Release/driverlib.lib"
 DEVICE_C="${COMMON_ROOT}/source/device.c"
 CODESTART="${COMMON_ROOT}/source/f2838x_codestartbranch.asm"
 
 for required in \
-  "${CL2000}" "${HEX2000}" "${LINKER_CMD}" "${DRIVERLIB}" \
+  "${CL2000}" "${HEX2000}" "${RTS_LIB}" "${LINKER_CMD}" "${DRIVERLIB}" \
   "${DEVICE_C}" "${CODESTART}" "${COMMON_ROOT}/include/device.h" "${COMMON_ROOT}/include/driverlib.h"; do
   if [[ ! -e "${required}" ]]; then
     echo "Missing image-build dependency: ${required}" >&2
@@ -60,7 +61,7 @@ pushd "${OUT_DIR}" >/dev/null
   --map_file=c2000-buck-f2838x.map \
   --output_file=c2000-buck-f2838x.out \
   buck_control.obj f2838x_target.obj device.obj f2838x_codestartbranch.obj \
-  "${LINKER_CMD}" "${DRIVERLIB}" --library=libc.a
+  "${LINKER_CMD}" "${DRIVERLIB}" "${RTS_LIB}"
 
 "${HEX2000}" -i c2000-buck-f2838x.out -o c2000-buck-f2838x.hex -romwidth 16 -memwidth 16
 popd >/dev/null
@@ -82,6 +83,7 @@ if ! grep -q "080000" "${OUT_DIR}/c2000-buck-f2838x.map"; then
 fi
 
 echo "TI C2000 F2838x flash image PASS"
+echo "  RTS: ${RTS_LIB}"
 echo "  out: ${OUT_DIR}/c2000-buck-f2838x.out"
 echo "  map: ${OUT_DIR}/c2000-buck-f2838x.map"
 echo "  hex: ${OUT_DIR}/c2000-buck-f2838x.hex"
