@@ -29,8 +29,6 @@ The benchmark fingerprints competency + prompt + choices + expected answer + phy
 
 `assets/learning/outcome-session-v1.js` stores the live learner protocol under `benchmark.outcomeV1` inside the existing V5 state (`circuit-learning-state-v5`). It does not create a new state schema.
 
-The runtime flow is:
-
 ```text
 PRE unseen
   ↓ complete
@@ -55,15 +53,35 @@ Rules:
 - the homepage reads the same V5 state and displays actual PRE / POST / delta / next-measurement / transfer / next-retention status;
 - absence of real learner attempts is displayed as missing evidence, not as a synthetic score.
 
-## Evidence quality
+## P4-C · real learner study export
 
-The benchmark uses the same local sample-size labels as the rest of the learning system:
+`assets/learning/outcome-study-v1.js` converts the current outcome summary into a privacy-minimized participant bundle.
 
-- `< 4` first attempts: `insufficient`
+The export deliberately contains only:
+
+- anonymous `participantId` supplied by the operator;
+- phase completion/attempt counts;
+- accuracy metrics;
+- paired PRE→POST delta;
+- retention metrics.
+
+It explicitly does **not** contain raw answers, prompts, free-text reports or personal profile fields. The Module 19 UI can download this study JSON after a real learner session.
+
+Multiple participant bundles can be aggregated with:
+
+```sh
+node tools/learning/summarize-outcome-study.mjs p_001.outcome-study.json p_002.outcome-study.json ...
+```
+
+The cohort summary reports participant count, paired PRE/POST count, mean PRE/POST/delta, next-measurement, transfer, and retention completion/accuracy. Duplicate participant IDs are rejected.
+
+Evidence labels remain local:
+
+- `< 4` paired PRE/POST learners: `insufficient`
 - `4–7`: `provisional`
 - `>= 8`: `usable`
 
-`usable` means the local measurement is large enough to be displayed as a learner signal. It is not population psychometrics, IRT, or a controlled education study.
+`usable` still does **not** mean causal proof. Every participant and cohort export carries `causalClaimAllowed: false`.
 
 ## Pre/post interpretation
 
@@ -71,11 +89,15 @@ A positive pre/post delta means:
 
 > This learner performed better on the post set of content-disjoint unseen cases.
 
-It does **not** by itself prove:
+A positive cohort mean delta means:
+
+> The observed learner sample performed better on post than pre on average.
+
+Neither statement by itself proves:
 
 > The course caused the improvement.
 
-A causal effectiveness claim would require an actual study design with suitable controls, sampling, and analysis.
+A causal effectiveness claim requires an actual study design with suitable controls, sampling and analysis.
 
 ## Timing truth
 
@@ -85,9 +107,9 @@ This prevents an optimistic `<= deadline` simplification from teaching the wrong
 
 ## APIs
 
-`assets/learning/outcome-benchmark-v1.js` exports generation, content fingerprinting, first-attempt scoring, pre/post comparison, retention planning and strict timing truth.
-
-`assets/learning/outcome-session-v1.js` exports durable phase configuration, start/attempt recording, phase status, summary and reset.
+- `assets/learning/outcome-benchmark-v1.js` — generation, content fingerprinting, first-attempt scoring, pre/post comparison, retention planning and strict timing truth.
+- `assets/learning/outcome-session-v1.js` — durable phase configuration, start/attempt recording, phase status, summary and reset.
+- `assets/learning/outcome-study-v1.js` — de-identified participant export, validation and cohort aggregation.
 
 CI tests ensure:
 
@@ -100,7 +122,9 @@ CI tests ensure:
 - next-measurement and transfer are reported separately
 - exact-load-event timing remains fail-closed
 - browser state survives navigation from Module 19 to the homepage
+- study export omits prompts/raw answers
+- cohort aggregation rejects duplicate participant IDs and never emits a causal claim
 
 ## What remains empirical
 
-The repository now contains and runs the measurement instrument. **Actual learner effectiveness still requires actual learner attempts over time.** CI must never generate synthetic perfect scores and present them as evidence that the course improved a human learner.
+The repository now contains the measurement instrument **and** the real-data export/aggregation path. Actual learner effectiveness still requires actual learners completing PRE/POST and retention over time. CI must never generate synthetic perfect scores and present them as human learning evidence.
