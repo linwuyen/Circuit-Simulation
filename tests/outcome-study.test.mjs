@@ -84,10 +84,14 @@ test("mixed outcome profiles fail closed instead of averaging different instrume
   assert.throws(() => Study.aggregate([legacy,core8]), /mixed outcome profiles/);
 });
 
-test("P4-C duplicate participants, unknown profiles and invalid IDs fail closed", () => {
+test("P4-C malformed competency metrics, unknown profiles and invalid IDs fail closed", () => {
   assert.throws(() => Study.exportParticipant(summary(0.5,0.8,0.3), { participantId:"name with spaces" }), /participantId/);
   assert.throws(() => Study.exportParticipant(summary(0.5,0.8,0.3,null,"unknown"), { participantId:"unknown_profile" }), /outcome profile/);
-  const a = Study.exportParticipant(summary(0.5,0.8,0.3), { participantId:"same" });
-  assert.equal(Study.validateParticipant({ ...a, outcomeProfile:"unknown" }).valid, false);
-  assert.throws(() => Study.aggregate([a,a]), /duplicate participantId/);
+  const legacy = Study.exportParticipant(summary(0.5,0.8,0.3), { participantId:"same" });
+  assert.equal(Study.validateParticipant({ ...legacy, outcomeProfile:"unknown" }).valid, false);
+  const core8 = Study.exportParticipant(summary(0.5,0.8,0.3,null,"core8"), { participantId:"polluted" });
+  const polluted = JSON.parse(JSON.stringify(core8));
+  polluted.phases.post.byCompetency.hack = { attempted:1, correct:1, accuracy:1 };
+  assert.equal(Study.validateParticipant(polluted).valid, false);
+  assert.throws(() => Study.aggregate([legacy,legacy]), /duplicate participantId/);
 });
