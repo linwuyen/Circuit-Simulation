@@ -17,7 +17,7 @@
   const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
 
   function familyEngine() {
-    return root.CircuitOutcomeFamiliesV2 || (typeof require === "function" ? require("./outcome-families-v2.js") : null);
+    return root.CircuitOutcomeCore8InstrumentV2 || (typeof require === "function" ? require("./outcome-core8-instrument-v2.js") : null);
   }
 
   function assertInstrumentVersion(profile, version) {
@@ -51,6 +51,9 @@
     assertInstrumentVersion(record.profile, record.instrumentVersion);
     if (!Number.isInteger(record.countPerCompetency) || record.countPerCompetency < 1 || record.countPerCompetency > Benchmark.MAX_CASES_PER_COMPETENCY) {
       record.countPerCompetency = definition.defaultCountPerCompetency;
+    }
+    if (record.profile === "core8" && record.instrumentVersion === 2 && record.countPerCompetency !== 1) {
+      throw new RangeError("core8 instrumentVersion 2 requires countPerCompetency=1");
     }
     record.sessions = record.sessions && typeof record.sessions === "object" ? record.sessions : {};
     record.retention = record.retention && typeof record.retention === "object" ? record.retention : {};
@@ -89,9 +92,9 @@
 
   function phaseCases(record, phase) {
     if (record.profile === "core8" && record.instrumentVersion === 2) {
-      const Families = familyEngine();
-      if (!Families || Families.VERSION !== 2) throw new Error("CircuitOutcomeFamiliesV2 is required for core8 instrumentVersion 2");
-      return Families.generateBenchmarkSet({
+      const Instrument = familyEngine();
+      if (!Instrument || Instrument.VERSION !== 2) throw new Error("CircuitOutcomeCore8InstrumentV2 is required for core8 instrumentVersion 2");
+      return Instrument.generateBenchmarkSet({
         seed: record.seed,
         phase,
         countPerCompetency: record.countPerCompetency
@@ -163,6 +166,9 @@
         throw new RangeError("invalid countPerCompetency");
       }
       record.countPerCompetency = countPerCompetency;
+    }
+    if (record.profile === "core8" && record.instrumentVersion === 2 && record.countPerCompetency !== 1) {
+      throw new RangeError("core8 instrumentVersion 2 requires countPerCompetency=1");
     }
     return saveRecord(record);
   }
@@ -256,12 +262,12 @@
       );
     }
     const retention = ["r1", "r2", "r3", "r4"].map(phase => phaseStatus(phase, at));
-    const Families = record.profile === "core8" && record.instrumentVersion === 2 ? familyEngine() : null;
+    const Instrument = record.profile === "core8" && record.instrumentVersion === 2 ? familyEngine() : null;
     return Object.freeze({
       seed: record.seed,
       profile: record.profile,
       instrumentVersion: record.instrumentVersion,
-      familyContractFingerprint: Families ? Families.contractFingerprint() : null,
+      familyContractFingerprint: Instrument ? Instrument.familyContractFingerprint() : null,
       countPerCompetency: record.countPerCompetency,
       pre: phaseStatus("pre", at),
       post: phaseStatus("post", at),
