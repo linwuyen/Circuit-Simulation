@@ -9,9 +9,8 @@ typedef struct {
     float load_ohm;
 } Plant;
 
-static void plant_step(Plant *p, float duty)
+static void plant_step(Plant *p, float duty, float dt)
 {
-    const float dt = 0.00001f;
     const float L = 0.0002f;
     const float C = 0.00047f;
     const float di = (duty * p->vin - p->vout) / L * dt;
@@ -32,7 +31,8 @@ static BuckControlConfig config(void)
         .voltage_ki = 100.0f,
         .current_kp = 0.02f,
         .current_ki = 500.0f,
-        .soft_start_volts_per_tick = 0.0024f,
+        .control_period_s = 0.00001f,
+        .soft_start_volts_per_second = 240.0f,
         .ovp_threshold = 14.0f,
         .command_timeout_ticks = 500u
     };
@@ -52,11 +52,12 @@ int main(void)
     in.sensor_valid = 1u;
 
     for (n = 0; n < 12000; ++n) {
+        in.vin = p.vin;
         in.vout = p.vout;
-        in.iout = p.iL;
+        in.iL = p.iL;
         in.command_heartbeat = (n % 100) == 0;
         BuckControl_tick(&c, &in, &s);
-        plant_step(&p, s.duty);
+        plant_step(&p, s.duty, c.control_period_s);
     }
 
     if (fabsf(p.vout - 12.0f) > 0.20f) {
@@ -65,7 +66,7 @@ int main(void)
     }
 
     in.command_heartbeat = 1u;
-    in.iout = 9.5f;
+    in.iL = 9.5f;
     BuckControl_tick(&c, &in, &s);
     if ((s.fault_latch & BUCK_FAULT_OCP) == 0u || s.duty != 0.0f) {
         fprintf(stderr, "OCP failed to latch and veto PWM\n");
@@ -73,7 +74,8 @@ int main(void)
     }
 
     BuckControl_init(&s);
-    in.iout = 0.0f;
+    in.vin = 48.0f;
+    in.iL = 0.0f;
     in.vout = 0.0f;
     in.sensor_valid = 1u;
     in.enable_request = 1u;
@@ -84,6 +86,17 @@ int main(void)
         return 3;
     }
 
-    puts("C2000 Buck host SIL PASS: regulation, OCP veto, command timeout");
+    BuckControl_init(&s);
+    in.vin = 48.0f;
+    in.sensor_valid = 1u;
+    in.enable_request = 0u;
+    in.command_heartbeat = 1u;
+    BuckControl_tick(&c, &in, &s);
+    if (s.state != BUCK_STATE_OFF || s.duty != 0.0f) {
+        fprintf(stderr, "disabled controller must remain OFF\n");
+        return 4;
+    }
+
+    puts("C2000 Buck host SIL PASS: regulation, OCP veto, command timeout, idle-off");
     return 0;
 }

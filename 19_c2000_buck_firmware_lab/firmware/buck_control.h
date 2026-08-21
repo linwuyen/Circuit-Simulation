@@ -31,14 +31,16 @@ typedef struct {
     float voltage_ki;
     float current_kp;
     float current_ki;
-    float soft_start_volts_per_tick;
+    float control_period_s;
+    float soft_start_volts_per_second;
     float ovp_threshold;
     uint32_t command_timeout_ticks;
 } BuckControlConfig;
 
 typedef struct {
+    float vin;
     float vout;
-    float iout;
+    float iL;
     uint8_t sensor_valid;
     uint8_t enable_request;
     uint8_t command_heartbeat;

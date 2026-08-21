@@ -1,10 +1,18 @@
 # C2000 Buck Firmware Lab
 
-This lab separates one power-supply controller into three evidence levels:
+This lab keeps one controller contract across model, Host SIL, deterministic HIL and the F2838x target binding. Passing a lower layer never certifies a higher layer.
 
-1. **Host SIL** — `buck_control.c` compiles with a normal C11 compiler and proves deterministic controller invariants.
-2. **C2000 target binding** — `f2838x_target.c` maps the same controller to C2000Ware driverlib: ePWM SOCA → ADC SOC/EOC → ISR → CMPA, with CMPSS → Digital Compare → Trip Zone as the fail-closed safety veto.
-3. **HIL / board evidence** — the browser/Node HIL harness injects deterministic faults. The board checklist defines what must be captured on real hardware; it does not fabricate board measurements.
+## One semantic contract
+
+`BuckControl_tick()` receives physical-domain values:
+
+- `vin` — converter input voltage in volts.
+- `vout` — regulated output voltage in volts.
+- `iL` — inductor-current feedback in amperes. It is intentionally **not** named `iout`.
+- `control_period_s` — controller integration cadence owned by configuration, not a hidden 10 us constant.
+- `soft_start_volts_per_second` — a rate in SI units; the controller multiplies it by `control_period_s`.
+
+Duty feed-forward is `soft_vref / vin`; neither the C controller nor HIL hard-codes 48 V.
 
 ## Host SIL
 
@@ -16,30 +24,70 @@ gcc -std=c11 -Wall -Wextra -Werror \
 /tmp/c2000-buck-sil
 ```
 
-CI runs this exact build.
+CI runs this exact build. It proves only the pure-controller / averaged-plant invariants encoded by the test: nominal regulation, software OCP veto, command timeout, and disabled OFF state.
 
-## F2838x target build
+## F2838x target binding
 
-Prerequisites:
+`f2838x_target.c` closes the previously missing driverlib ownership:
 
-- TI C2000Ware with F2838x driverlib
-- TI C2000 Code Generation Tools
-- a board-specific linker command file and pinmux
-- real current-sense scaling bound into `BuckControlInput.iout`
+1. TBCLKSYNC is disabled while the control pipeline is configured.
+2. ePWM1 gets an explicit time-base mode, CMPA shadow load at ZERO, AQ behavior, SOCA at ZERO, and startup one-shot trip.
+3. ADCA gets prescaler/mode/pulse configuration, `ADC_enableConverter()`, the required 500 us startup delay, three SOCs, and an interrupt from the final SOC.
+4. CMPSS1 CTRIPH is explicitly routed through ePWM X-BAR TRIP4 into DCAH / DCAEVT1 and Trip Zone, asynchronously forcing EPWM1A low.
+5. TBCLKSYNC is enabled only after PWM, ADC and hardware-veto configuration are complete.
+6. The ADC ISR reads `Vin`, `Vout` and `iL`, executes the pure controller, then writes CMPA shadow.
+7. Command freshness is owned by the communication producer through `BuckTarget_publishCommand()`. The ADC ISR cannot invent a heartbeat.
 
-Compile `buck_control.c` and `f2838x_target.c` in a normal C2000Ware project. The target file intentionally keeps hardware access in driverlib symbols rather than raw register magic numbers.
+The command mailbox uses two payload slots and a 16-bit active-slot selector. A publisher fills the inactive slot completely and flips the selector last; the ADC ISR takes one bounded snapshot and never spins waiting for a pre-empted writer.
+
+## Target truth boundary
+
+The target source is deliberately executable **reference-lab binding**, not a board certificate. These items remain board-specific and must be rebound from the actual schematic/calibration record:
+
+- EPWM1A pinmux and gate-driver polarity.
+- ADC channel ownership and acquisition window.
+- voltage-divider gains and current-sense zero/gain.
+- CMPSS positive-input mux, DAC threshold and any digital-filter policy.
+- dead time / complementary outputs when the real power stage needs them.
+- board-safe startup, contactor/relay sequencing and qualified re-arm conditions.
+
+The constants `VOUT_VOLTS_PER_ADC_V`, `VIN_VOLTS_PER_ADC_V`, `IL_ZERO_ADC_V`, `IL_AMPS_PER_ADC_V` and `CONTROL_OCP_DAC_CODE` are therefore reference values, not measured board calibration.
+
+## Command ownership
+
+A communication layer should call:
+
+```c
+BuckTarget_publishCommand(enable, clear_fault);
+```
+
+**only after** its frame has passed the product's CRC/version/range/ownership checks. Each new publication advances a sequence number. The control ISR resets `command_age_ticks` only when that published sequence changes. If communication stops, command age crosses the configured budget and the controller fails closed.
+
+## Deterministic HIL
+
+The browser/Node HIL model uses the same `controlPeriodS`, `vin` and `iL` meaning as C. It injects:
+
+- nominal regulation
+- load step
+- OCP
+- OVP
+- ADC invalid
+- command timeout
+- idle/disabled OFF
+
+HIL is deterministic training evidence. It is not peripheral timing proof and not physical board proof.
 
 ## Board evidence contract
 
-Do not call the board stage PASS until all of these are captured from physical hardware:
+Do not mark BOARD PASS until physical captures demonstrate all eight items:
 
-- PWM period and duty on the gate-command pin
-- GPIO31 high pulse from ADC ISR entry to compare update
-- ADC SOC phase relative to PWM switching edge
-- CMPSS / Trip Zone response from injected over-current to PWM forced low
-- soft-start Vout ramp
-- load-step Vout and current response
-- command-timeout fail-closed behavior
-- fault-latch clear only after the source is physically safe
+- PWM period and duty on the actual gate-command pin.
+- GPIO31 ISR pulse width / execution slack.
+- ADC SOC phase relative to the switching edge.
+- CMPSS -> ePWM X-BAR -> DCAEVT1 -> Trip Zone forcing PWM low.
+- soft-start Vout ramp.
+- load-step Vout and inductor-current response.
+- stale command fail-closed behavior from the real communication owner.
+- fault re-arm only after the actual fault source and product qualifiers are safe.
 
-The repository can validate the model, SIL, target API contract, and HIL scenarios automatically. Physical board captures require the actual target, probe, and load.
+The browser intentionally provides empty evidence checkboxes instead of fabricated scope traces.

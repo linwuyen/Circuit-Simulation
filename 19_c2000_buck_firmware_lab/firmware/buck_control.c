@@ -26,7 +26,7 @@ void BuckControl_tick(
     BuckControlState *state
 )
 {
-    const float dt = 0.00001f;
+    const float dt = config->control_period_s;
     float voltage_error;
     float current_error;
     float voltage_u;
@@ -39,10 +39,13 @@ void BuckControl_tick(
     if (input->command_heartbeat) state->command_age_ticks = 0u;
     else if (state->command_age_ticks < 0xFFFFFFFFu) state->command_age_ticks++;
 
-    if (!input->sensor_valid) detected |= BUCK_FAULT_SENSOR;
-    if (input->iout > config->current_limit * 1.08f) detected |= BUCK_FAULT_OCP;
+    if (!input->sensor_valid || input->vin <= 0.1f || dt <= 0.0f) detected |= BUCK_FAULT_SENSOR;
+    if (input->iL > config->current_limit * 1.08f) detected |= BUCK_FAULT_OCP;
     if (input->vout > config->ovp_threshold) detected |= BUCK_FAULT_OVP;
-    if (state->command_age_ticks > config->command_timeout_ticks) detected |= BUCK_FAULT_COMMAND_TIMEOUT;
+    /* A stale command is hazardous only while external authority requests PWM. */
+    if (input->enable_request && state->command_age_ticks > config->command_timeout_ticks) {
+        detected |= BUCK_FAULT_COMMAND_TIMEOUT;
+    }
 
     state->fault_latch |= detected;
 
@@ -54,7 +57,8 @@ void BuckControl_tick(
 
         if (input->clear_fault_request &&
             input->sensor_valid &&
-            input->iout < config->current_limit * 0.20f &&
+            input->vin > 0.1f &&
+            input->iL < config->current_limit * 0.20f &&
             input->vout < config->vref * 0.50f &&
             state->command_age_ticks <= config->command_timeout_ticks) {
             state->fault_latch = BUCK_FAULT_NONE;
@@ -78,7 +82,7 @@ void BuckControl_tick(
     if (state->state == BUCK_STATE_OFF) state->state = BUCK_STATE_SOFT_START;
 
     if (state->state == BUCK_STATE_SOFT_START) {
-        state->soft_vref += config->soft_start_volts_per_tick;
+        state->soft_vref += config->soft_start_volts_per_second * dt;
         if (state->soft_vref >= config->vref) {
             state->soft_vref = config->vref;
             state->state = BUCK_STATE_RUN;
@@ -98,9 +102,9 @@ void BuckControl_tick(
         state->voltage_integrator = clampf(state->voltage_integrator, 0.0f, config->current_limit);
     }
 
-    current_error = state->current_reference - input->iout;
+    current_error = state->current_reference - input->iL;
     current_u = config->current_kp * current_error + state->current_integrator;
-    duty_unsat = state->soft_vref / 48.0f + current_u;
+    duty_unsat = state->soft_vref / input->vin + current_u;
     state->duty = clampf(duty_unsat, config->duty_min, config->duty_max);
 
     if ((state->duty > config->duty_min && state->duty < config->duty_max) ||
