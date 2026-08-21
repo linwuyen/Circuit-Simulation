@@ -10,43 +10,74 @@ Teaching model
   -> deterministic HIL
   -> TI C2000 compile
   -> linked Flash .out/.map/.hex
-  -> board binding
-  -> physical evidence
+  -> physical closure package
+  -> control validation
+  -> board binding + physical evidence
   -> BOARD_PASS
 ```
 
 A lower layer cannot certify a higher layer.
 
-## Target build
+## Target build and flash recipe
 
-The reference manifest records the CI target image artifact. Required CI builds with pinned TI CGT/C2000Ware and produces:
+Required CI builds with pinned TI CGT/C2000Ware and produces:
 
 - `c2000-buck-f2838x.out`
 - `c2000-buck-f2838x.map`
-- `c2000-buck-f2838x.hex` (Intel HEX)
+- `c2000-buck-f2838x.hex`
 
-The link includes C2000Ware `device.c`, `f2838x_codestartbranch.asm`, `2838x_FLASH_lnk_cpu1.cmd` and `driverlib.lib`; the map gate verifies the flash `codestart` region.
+`tools/flash/f2838x-uniflash.sh` requires a real `DSLITE` and exported `F2838X_CCXML`. The repository never guesses an XDS probe or board revision.
 
-## Flash recipe
+## P4-A · physical closure package
 
-`tools/flash/f2838x-uniflash.sh` uses TI UniFlash/DSLite but intentionally requires:
+Start from `board-closure.template.json` and record only sanitized real-board evidence.
 
-- `DSLITE` — actual UniFlash CLI executable/script
-- `F2838X_CCXML` — exported target configuration for the real probe/board
-- optional `F2838X_UFSETTINGS`
-- optional `F2838X_IMAGE` (defaults to the linked `.out`)
+The package is stricter than the public board manifest. A valid flash session requires:
 
-No CCXML means no flash attempt. The repository never guesses an XDS probe or board revision.
+- linked image artifact reference;
+- real exported CCXML artifact reference;
+- probe identity;
+- flash timestamp;
+- observed reset/boot after programming.
+
+Every one of the nine bindings must be `VERIFIED` with typed provenance `{kind, ref, verifiedAt}`. Every one of the eight physical captures must be `PASS` and accepted with artifact metadata `{ref, sha256, instrument, capturedAt}`.
+
+Validate it with:
+
+```sh
+node tools/board/verify-board-closure.mjs board-closure.json --emit-manifest board-binding-evidence.json
+```
+
+`assets/learning/physical-board-closure-v1.js` derives the ordinary board manifest only after those provenance gates pass. `BOARD_PASS` cannot be manufactured by changing one status string.
+
+## P4-B · physical control validation
+
+`control-validation.template.json` defines four measured control checks:
+
+1. load-step droop / overshoot / settling;
+2. sample-to-actuate timing and strict PWM shadow-load commit;
+3. hardware trip fault-to-PWM-low latency;
+4. measured SFRA vs model Bode magnitude/phase.
+
+Each analysis also requires capture provenance with artifact reference, SHA-256, instrument and capture timestamp.
+
+Run:
+
+```sh
+node tools/board/analyze-control-validation.mjs control-validation.json
+```
+
+A passing bundle reports `CONTROL_VALIDATION_PASS`. That means the four measured control checks passed their supplied engineering limits. It **does not imply `BOARD_PASS`** and does not replace the nine bindings/eight board evidence items.
 
 ## BOARD_PASS gate
 
 `BOARD_PASS` is valid only when all of the following are true:
 
-1. `targetBuild.status` is `PASS` and names a non-empty image artifact.
-2. Every entry under `bindings` is `VERIFIED` and names a non-empty source such as a public schematic/calibration record or deliberately sanitized lab record.
-3. The eight required physical evidence items are all `PASS` and reference a non-empty artifact identifier/path.
+1. target image/real flash closure is supported by the physical closure package;
+2. every required binding is verified with provenance;
+3. all eight physical evidence items pass with real artifact provenance.
 
-`assets/learning/board-evidence-v1.js` implements this same gate for Node tests and the browser. Module 19 loads the reference manifest and can validate a local sanitized manifest; it does not offer manual PASS checkboxes.
+Module 19 exposes the reference manifest, P4-A physical closure loader and P4-B control-validation loader. All three default to fail-closed / missing states.
 
 ## Required bindings
 
@@ -73,6 +104,6 @@ No CCXML means no flash attempt. The repository never guesses an XDS probe or bo
 
 ## What CI cannot do
 
-CI can certify source, compiler/API compatibility, link placement, image generation, deterministic SIL/HIL and manifest integrity. It cannot connect a probe, know a private board schematic, or produce oscilloscope captures. Those remain `UNBOUND/MISSING` until real measurements exist.
+CI can certify source, compiler/API compatibility, link placement, image generation, deterministic SIL/HIL and the integrity of these evidence contracts. It cannot connect a probe, know a private board schematic, flash a board in this environment, or create oscilloscope/SFRA captures.
 
-The gate is fail-closed: changing the manifest to `BOARD_PASS` without target image + 9 verified bindings + 8 physical artifacts makes `npm test` fail.
+Therefore the committed reference remains `UNBOUND/MISSING` until real measurements exist. The software path for P4-A/P4-B is complete; physical truth still requires physical hardware.
