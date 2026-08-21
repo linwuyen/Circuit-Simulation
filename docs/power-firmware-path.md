@@ -29,10 +29,10 @@ The course builds one digital converter through eight causal layers rather than 
    state + ownership + command freshness + fail-closed policy
         ↓
 08 Capstone / Evidence
-   SIL → HIL → linked F2838x image → board binding → physical evidence → transfer
+   SIL → HIL → linked F2838x image → physical closure → measured control validation → transfer
 ```
 
-Module 19 gives every layer an executable causal surface. The sticky grammar remains:
+Module 19 gives every core layer an executable causal surface. The sticky grammar remains:
 
 ```text
 r → e → C(z) → u → P(s) → y
@@ -42,28 +42,12 @@ r → e → C(z) → u → P(s) → y
 Safety veto: CMPSS / Trip / State → PWM OFF
 ```
 
-The teaching loop is:
-
-```text
-Problem
-→ Prediction
-→ Experiment
-→ Observation
-→ Mechanism
-→ Firmware mapping
-→ Fault injection
-→ Next measurement
-→ Unseen transfer
-```
-
 ## Core vs. lens / transfer content
 
-The core path stays on one Buck until the learner can reason across all eight layers.
-
 - **Module 16 · Math Lens** — Laplace / Fourier / Z / Bode / delay are views of the same loop.
-- **Module 17 · Transfer Atlas** — reuse the grammar on Boost / PFC / PSFB / LLC / Inverter.
+- **Module 17 · Transfer Atlas** — reuse the same grammar on Boost / PFC / PSFB / LLC / Inverter.
 - **Module 18 · Control Grammar** — reusable `r → e → C(z) → u → P → y` reference.
-- **Module 19 · Executable Capstone** — shared controller contract across model, Host SIL, deterministic HIL, linked F2838x Flash image, board evidence and unseen outcome sessions.
+- **Module 19 · Executable Capstone** — Buck model/SIL/HIL/F2838x image, physical closure, measured validation and learner outcome sessions.
 
 ## Capability target
 
@@ -86,63 +70,72 @@ Teaching model
 → deterministic HIL
 → TI C2000 object compile
 → linked F2838x Flash .out/.map/.hex
-→ actual board binding
-→ physical board evidence
+→ P4-A physical closure package
+→ P4-B measured control validation
+→ actual board binding + physical evidence
+→ BOARD_PASS
 ```
 
 Lower levels cannot certify higher levels.
 
 ### TI target image gate
 
-GitHub `validate` uses:
+GitHub `validate` uses TI C2000 CGT 25.11.1.LTS and C2000Ware REL_C2000Ware_v26.01.00.00.STS. It compiles the controller/target binding and links a CPU1 Flash image with `device.c`, codestart, the official Flash linker command, driverlib and RTS. Non-empty `.out`, `.map`, and Intel `.hex` are required before merge.
 
-- TI C2000 CGT **25.11.1.LTS**
-- C2000Ware core SDK **REL_C2000Ware_v26.01.00.00.STS**
-- F2838x CPU1 / EABI / FPU32 / TMU0 / VCU2 settings
+The UniFlash/DSLite recipe remains fail-closed: a real exported CCXML and real probe configuration are required.
 
-It first compiles the pure controller and target binding, then builds the Flash image with C2000Ware `device.c`, `f2838x_codestartbranch.asm`, official `2838x_FLASH_lnk_cpu1.cmd`, `driverlib.lib` and RTS. The gate requires non-empty `.out`, `.map`, and Intel `.hex` outputs and verifies the Flash codestart region before merge.
+## P4-A · real-board closure workflow
 
-The UniFlash/DSLite recipe is fail-closed: it requires a real exported CCXML and never guesses probe or board settings.
+`19_c2000_buck_firmware_lab/board/board-closure.template.json` is the operator-facing physical package. A complete package requires:
 
-### Board binding gate
+- real flash session: image + CCXML + probe + timestamp + observed reset/boot;
+- 9/9 board bindings VERIFIED with typed provenance and verification timestamps;
+- 8/8 physical captures PASS with acceptance criterion, SHA-256, instrument and capture timestamp.
 
-`19_c2000_buck_firmware_lab/board/board-binding.reference.json` intentionally remains `UNCLAIMED` until real board evidence exists.
+`assets/learning/physical-board-closure-v1.js` and `tools/board/verify-board-closure.mjs` validate the package and can derive the ordinary board manifest. The committed repository template remains incomplete by design because CI cannot fabricate hardware evidence.
 
-`BOARD_PASS` requires all three:
+## P4-B · measured control validation
 
-1. linked target image artifact PASS;
-2. all nine board bindings VERIFIED with non-empty source records;
-3. all eight physical captures PASS with non-empty artifact references.
+A sanitized real-board bundle can be analyzed with `assets/learning/control-validation-v1.js` / `tools/board/analyze-control-validation.mjs`.
 
-The browser and Node tests use the same machine-readable validator. A browser checkbox cannot manufacture BOARD evidence.
+The four measured gates are:
+
+1. load-step droop / overshoot / settling;
+2. sample-to-actuate timing with strict shadow-load commit semantics;
+3. hardware trip fault-to-PWM-low latency;
+4. SFRA/model Bode magnitude/phase agreement.
+
+A passing bundle reports `CONTROL_VALIDATION_PASS`. It never implies `BOARD_PASS`.
+
+## P4-C · learner study closure
+
+The individual V5 PRE→POST→R1/R2/R3/R4 flow remains unchanged and first attempts remain immutable.
+
+`assets/learning/outcome-study-v1.js` adds a privacy-minimized study export containing only anonymous participant ID and metrics. It does not export prompts, raw answers or free text. Multiple participant bundles can be summarized by `tools/learning/summarize-outcome-study.mjs`.
+
+The aggregate remains observational learner evidence and always carries `causalClaimAllowed: false`.
+
+## P5 · topology transfer closure
+
+Module 17 now has one shared executable transfer model in `assets/learning/topology-transfer-v1.js` plus a live `P5 · Unseen Transfer Verification` surface.
+
+The transfer target is not memorizing five additional formula sets. It is identifying the topology-specific constraint while preserving the same control grammar:
+
+| Topology | Same grammar | Constraint that changes the design |
+|---|---|---|
+| Boost CCM | duty → plant → Vout | RHP zero moves with duty/load/L; non-minimum phase |
+| Boost PFC | current/voltage feedback | double-line energy ripple; outer loop must stay slow relative to current shaping |
+| PSFB | error → phase shift | ZVS commutation energy margin collapses toward light load |
+| LLC | error → switching frequency | gain/plant depends strongly on normalized frequency, Ln and Q |
+| Inverter | modulation/current/voltage loop | LC/LCL resonance and damping become explicit bandwidth constraints |
+
+P5 includes deterministic first-attempt transfer checks and live constraint values derived from the same operating-point controls already present in Module 17. These are transfer-learning evidence, not physical-board certification.
 
 ## Learning outcome measurement
 
-Course quality is measured with content-disjoint unseen benchmark sets rather than page completion.
+Primary metrics remain first-attempt accuracy, next-measurement accuracy, unseen-transfer accuracy, PRE/POST delta and 1/7/30/90-day retention.
 
-Primary metrics:
-
-- first-attempt accuracy
-- next-measurement accuracy
-- unseen-transfer accuracy
-- pre/post accuracy change
-- retention checkpoints at 1d / 7d / 30d / 90d
-
-`assets/learning/outcome-session-v1.js` persists the benchmark flow inside the V5 durable learning state:
-
-```text
-PRE unseen
-→ normal learning
-→ POST unseen
-→ R1 1d
-→ R2 7d
-→ R3 30d
-→ R4 90d
-```
-
-The first attempt is immutable. Retries are stored separately and cannot wash an incorrect first judgment. POST completion schedules retention due dates. Module 19 runs the flow; the homepage displays only real stored learner results. CI verifies the measurement machinery but never injects synthetic human improvement.
-
-A measured pre/post improvement is learner evidence, not a causal scientific claim about the course.
+The homepage displays only real stored learner results. CI verifies the measurement machinery but never injects synthetic human improvement.
 
 See `docs/learning-outcome-protocol.md`.
 
@@ -150,7 +143,7 @@ See `docs/learning-outcome-protocol.md`.
 
 This repository contains only public, de-productized teaching material. Do not commit company product identifiers, proprietary schematics/pin maps, proprietary command payloads, firmware snapshots, internal calibration/threshold/control coefficients, customer specifications, or unsanitized measurement logs.
 
-Allowed content is the reusable engineering pattern: timing, scaling, protection latency, state invariants, producer/consumer ownership, control reasoning, fault isolation, and sanitized evidence contracts.
+Allowed content is the reusable engineering pattern: timing, scaling, protection latency, state invariants, producer/consumer ownership, control reasoning, fault isolation, sanitized evidence contracts and de-identified learning metrics.
 
 ## Validation
 
@@ -165,4 +158,4 @@ The required `validate` job is the merge gate.
 
 ## Maintenance stop rule
 
-Do not add another framework version merely to create infrastructure. New work must improve an unseen engineering judgment, diagnosis, transfer, retention, target/board truth, or real physical evidence.
+Do not add another framework version merely to create infrastructure. New work must improve an unseen engineering judgment, diagnosis, transfer, retention, target/board truth, measured control evidence, or real physical evidence.
