@@ -27,7 +27,29 @@ test('timing model detects missed PWM load', () => {
   Store.set('timing.computeUs', 8.8);
   const timing = Models.timingState(Store.snapshot());
   assert.equal(timing.missed, true);
-  assert.ok(timing.apply >= 20);
+  assert.equal(timing.missedLoads, 1);
+  assert.equal(timing.apply, 20);
+});
+
+test('timing deadline is strict and an exact-boundary write waits one more load', () => {
+  Store.reset();
+  Store.set('timing.computeUs', 6.45); // 2.5 + .25 + .45 + .35 + 6.45 = 10.00 us
+  const timing = Models.timingState(Store.snapshot());
+  assert.ok(Math.abs(timing.write - 10) < 1e-9);
+  assert.equal(timing.missed, true);
+  assert.equal(timing.missedLoads, 1);
+  assert.equal(timing.apply, 20);
+});
+
+test('PI surrogate carries every missed shadow-load cycle into its command queue', () => {
+  Store.reset();
+  Store.set('timing.sampleUs', 8);
+  Store.set('timing.computeUs', 12);
+  const timing = Models.timingState(Store.snapshot());
+  assert.equal(timing.apply, 30);
+  assert.equal(timing.missedLoads, 2);
+  const sim = Models.simulatePi(Store.snapshot());
+  assert.equal(sim.delayCycles, 2);
 });
 
 test('Boost qualitative signature starts in the inverse direction', () => {
