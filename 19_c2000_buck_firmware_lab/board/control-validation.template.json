@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "captures": {
+    "loadStep": null,
+    "timing": null,
+    "trip": null,
+    "sfra": null
+  },
+  "loadStep": {
+    "stepAtMs": null,
+    "vref": 12,
+    "tolerancePct": 2,
+    "maxDroopPct": 10,
+    "maxOvershootPct": 10,
+    "maxSettlingMs": 20,
+    "samples": []
+  },
+  "timing": {
+    "periodUs": 10,
+    "computeDoneUs": null,
+    "observedCommitUs": null,
+    "minSlackUs": 0.5,
+    "commitToleranceUs": 0.05
+  },
+  "trip": {
+    "faultAtNs": null,
+    "pwmLowAtNs": null,
+    "maxLatencyNs": 1000
+  },
+  "sfra": {
+    "magToleranceDb": 3,
+    "phaseToleranceDeg": 20,
+    "model": [],
+    "measured": []
+  }
+}
