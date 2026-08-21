@@ -27,6 +27,11 @@ test("guided Buck capstone is equation-backed across all eight layers", async ({
   await expect(page.locator("#timingCommit")).toHaveText("20.00 µs");
   await expect(page.locator("#timingMiss")).toHaveText("1");
 
+  await expect(page.locator("[data-layer-coach]")).toHaveCount(6);
+  await expect(page.locator("#sensePhase")).toBeDisabled();
+  await page.locator('[data-layer-coach="sensing"] [data-layer-coach-choice="increase"]').click();
+  await expect(page.locator('[data-layer-coach="sensing"] [data-layer-coach-status]')).toContainText("先量：");
+  await expect(page.locator("#sensePhase")).toBeEnabled();
   await expect(page.locator("#senseCode")).toContainText("/4095");
   await page.locator("#sensePhase").fill("90");
   await expect(page.locator("#sensePhysical")).toHaveText("12.1000 V");
@@ -40,12 +45,29 @@ test("guided Buck capstone is equation-backed across all eight layers", async ({
 
   await expect(page.locator("#prodFaultAt")).toHaveText("501 ticks / 5.01 ms");
   await expect(page.locator("#prodState")).toHaveText("RUN");
+  await expect(page.locator("#prodMissed")).toBeDisabled();
+  await page.locator('[data-layer-coach="production"] [data-layer-coach-choice="fail-closed"]').click();
+  await expect(page.locator("#prodMissed")).toBeEnabled();
   await page.locator("#prodMissed").fill("501");
   await expect(page.locator("#prodState")).toHaveText("FAULT_LATCHED");
 
   await expect(page.locator("#transferDuty")).toHaveText("50.00 %");
   await expect(page.locator("#transferRhp")).toContainText("kHz");
   expect(errors).toEqual([]);
+});
+
+test("guided layer coaches unlock outside guided mode without leaking first-attempt answers", async ({ page }) => {
+  await page.goto("/19_c2000_buck_firmware_lab/");
+
+  await expect(page.locator("#feedbackRef")).toBeDisabled();
+  await page.locator('[data-learning-mode="sandbox"]').click();
+  await expect(page.locator("#feedbackRef")).toBeEnabled();
+
+  await page.locator('[data-learning-mode="guided"]').click();
+  await expect(page.locator("#feedbackRef")).toBeDisabled();
+  await page.locator('[data-layer-coach="feedback"] [data-layer-coach-choice="both-up"]').click();
+  await expect(page.locator("#feedbackRef")).toBeEnabled();
+  await expect(page.locator('[data-layer-coach="feedback"] [data-layer-coach-status]')).toContainText("r − ŷ");
 });
 
 test("debug mode exposes deterministic HIL and board claim is manifest-backed", async ({ page }) => {
