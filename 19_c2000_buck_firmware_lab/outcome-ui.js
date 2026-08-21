@@ -133,4 +133,5 @@
 
   renderQuestion();
   installStudyExport();
+  loadScript('learning-p2.js').catch(() => {});
 })();
