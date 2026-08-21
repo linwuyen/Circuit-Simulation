@@ -21,16 +21,7 @@
 08 Capstone / Evidence
 ```
 
-Module 19 現在每一層都有 executable causal surface：
-
-- Physics — switching-cycle / volt-second / ΔiL
-- Sensing — sample phase / divider / ADC quantization / reconstruction
-- Feedback — discrete PI + averaged Buck response
-- Timing — SOCA → ADC → ISR → shadow write → physical PWM load
-- Dynamics — ideal LC duty-to-output plant + pure delay phase
-- Safety — parameterized hardware-veto vs software-path latency
-- Production — command age / strict timeout / fail-closed state
-- Capstone / Transfer — Boost CCM RHP zero + unseen benchmark / next measurement
+Module 19 每一層都有 executable causal surface：Physics、Sensing、Feedback、Timing、Dynamics、Safety、Production，以及 Capstone/Evidence。
 
 共同控制語言：
 
@@ -42,14 +33,12 @@ r → e → C(z) → u → P(s) → y
 Safety veto: CMPSS / Trip / State → PWM OFF
 ```
 
-完整主題仍保留為索引，但不代表建議學習順序。
-
 ### Module roles
 
 - **Module 16 · Math Lens** — Laplace / Fourier / Z / Bode / delay。
-- **Module 17 · Transfer Atlas** — Boost / PFC / PSFB / LLC / Inverter。
+- **Module 17 · Transfer Atlas** — Boost / PFC / PSFB / LLC / Inverter，含 P5 live transfer verification。
 - **Module 18 · Control Grammar** — `r → e → C(z) → u → P → y` reusable reference。
-- **Module 19 · Executable Capstone** — Model → Host SIL → HIL → linked F2838x Flash image → Board evidence。
+- **Module 19 · Executable Capstone** — Model → Host SIL → HIL → linked F2838x Flash image → P4 physical closure / control validation → Board evidence。
 
 詳細說明：[`docs/power-firmware-path.md`](docs/power-firmware-path.md)
 
@@ -66,64 +55,83 @@ TI C2000 compile
         ↓
 TI link + Flash .out/.map/.hex
         ↓
-Actual board binding
+P4-A physical closure package
         ↓
-Physical board evidence
+P4-B measured control validation
+        ↓
+Actual board binding + physical evidence
+        ↓
+BOARD_PASS
 ```
 
 **低層 PASS 永遠不能冒充高層 PASS。**
 
-Required GitHub `validate` 會：
+Required GitHub `validate` 會跑完整 Node tests、Host SIL、TI C2000 compile、Flash link/HEX、artifact upload 與 Chromium desktop/mobile smoke tests。
 
-- 驗 links / curriculum / JavaScript
-- 跑完整 Node engineering + learning tests
-- GCC 編譯並執行 Host SIL
-- 安裝 **TI C2000 CGT 25.11.1.LTS**
-- checkout **C2000Ware 26.01.00.00.STS**
-- 真正 compile `buck_control.c` / `f2838x_target.c`
-- 再加入 `device.c`、`f2838x_codestartbranch.asm`、官方 `2838x_FLASH_lnk_cpu1.cmd` 與 `driverlib.lib` link Flash image
-- 產生並驗證 `c2000-buck-f2838x.out` / `.map` / Intel `.hex`
-- 把 image 上傳成 CI artifact
-- 跑 Chromium desktop/mobile Playwright smoke tests
+Flash 不猜 target probe。[`tools/flash/f2838x-uniflash.sh`](tools/flash/f2838x-uniflash.sh) 必須收到真實 exported CCXML 才會呼叫 UniFlash/DSLite；沒有 board config 就 fail closed。
 
-Flash 不猜 target probe。[`tools/flash/f2838x-uniflash.sh`](tools/flash/f2838x-uniflash.sh) 必須收到真實 exported CCXML，才會呼叫 UniFlash/DSLite；沒有 board config 就 fail closed。
+## P4-A · physical board closure
 
-## Board truth contract
+`19_c2000_buck_firmware_lab/board/board-closure.template.json` 是真板 closure package 起點。
 
-`19_c2000_buck_firmware_lab/board/board-binding.reference.json` 預設為 `UNCLAIMED`。
+`BOARD_PASS` 前除了 linked image，還要求：
 
-`BOARD_PASS` 同時要求：
+- 真實 image / CCXML / probe / flash timestamp / reset-boot observation；
+- 9/9 board bindings 有 typed provenance + verified timestamp；
+- 8/8 physical captures 有 acceptance、artifact ref、SHA-256、instrument、capture timestamp。
 
-1. linked target image PASS；
-2. 9/9 board-specific bindings `VERIFIED` 並有 source；
-3. 8/8 physical evidence `PASS` 並有 artifact。
+驗證 CLI：
 
-Module 19 Board UI 直接讀 machine-readable manifest，不再用任意 checkbox 冒充 scope evidence。使用者可以載入 sanitized local manifest 驗證 claim；瀏覽器或 CI 都不能生成 physical PASS。
+```bash
+node tools/board/verify-board-closure.mjs board-closure.json --emit-manifest board-binding-evidence.json
+```
+
+Committed template 永遠預設 `UNCLAIMED/MISSING`；CI 不會製造實板證據。
+
+## P4-B · measured control validation
+
+`control-validation.template.json` 把四種真實控制量測變成 machine verdict：
+
+- load-step droop / overshoot / settling
+- sample→actuate timing + strict PWM shadow-load commit
+- CMPSS/Trip hardware fault-to-PWM-low latency
+- measured SFRA vs model Bode magnitude/phase
+
+```bash
+node tools/board/analyze-control-validation.mjs control-validation.json
+```
+
+PASS 名稱是 `CONTROL_VALIDATION_PASS`，**不等於 `BOARD_PASS`**。
 
 Board contract：[`19_c2000_buck_firmware_lab/board/README.md`](19_c2000_buck_firmware_lab/board/README.md)
 
-## Learning outcome measurement
+## P4-C · real learner study
 
-課程成效用 content-disjoint unseen benchmark，而不是「看過幾頁」衡量：
+既有 PRE → POST → R1/R2/R3/R4 仍使用 V5 durable state、first attempt immutable、content-disjoint unseen cases。
 
-- First-attempt accuracy
-- Next-measurement accuracy
-- Unseen-transfer accuracy
-- Pre/post change
-- R1/R2/R3/R4 = 1/7/30/90 day retention
+Module 19 現在可以用匿名 participant ID 匯出 study JSON；`outcome-study-v1.js` 只輸出 metric，不含題目、raw answers 或自由文字。
 
-`assets/learning/outcome-session-v1.js` 已把 benchmark 接進 **V5 durable state (`circuit-learning-state-v5`)**：
+多人資料可聚合：
 
-- first attempt immutable；retry 只另記，不洗分
-- PRE 完成後才有有效 POST 配對
-- POST 完成後產生 retention due dates
-- Module 19 顯示完整 benchmark flow
-- 首頁顯示真實 PRE / POST / Δ / next-measurement / transfer / next retention due
-- 沒有 learner attempts 就顯示空值；CI 不會用 synthetic perfect score 冒充真人成效
+```bash
+node tools/learning/summarize-outcome-study.mjs p_001.outcome-study.json p_002.outcome-study.json
+```
 
-測到 improvement 只代表 learner evidence，不自動宣稱課程具有因果效果。
+結果只代表 observational learner evidence，固定 `causalClaimAllowed: false`。
 
 Protocol：[`docs/learning-outcome-protocol.md`](docs/learning-outcome-protocol.md)
+
+## P5 · topology transfer
+
+Module 17 的 P5 surface 使用同一份 `assets/learning/topology-transfer-v1.js`，把 Buck grammar 遷移到五種 topology，但要求先辨認各自 constraint：
+
+- **Boost CCM** — RHP zero / non-minimum-phase
+- **Boost PFC** — double-line energy ripple / fast-current + slow-voltage hierarchy
+- **PSFB** — ZVS commutation energy margin
+- **LLC** — normalized-frequency / Ln / Q operating-point dependency
+- **Inverter** — LC/LCL resonance and damping
+
+P5 有 live constraint cards 與 deterministic first-attempt unseen checks；這是 transfer-learning evidence，不是 hardware certification。
 
 ## Production / state contract
 
@@ -131,11 +139,11 @@ Protocol：[`docs/learning-outcome-protocol.md`](docs/learning-outcome-protocol.
 - **V5** — durable learning-state schema
 - **V6–V8** — measurement validity, independent verification, transfer/retention, uncertainty, external validity, typed evidence
 
-不為版本號本身建立 V9。新 infrastructure 必須改善 unseen judgment、diagnosis、transfer、retention、target truth 或 physical evidence closure。
+不為版本號本身建立 V9。新 infrastructure 必須改善 unseen judgment、diagnosis、transfer、retention、target truth、measured control evidence 或 physical evidence closure。
 
 ## Public-content boundary
 
-此 repository 只保存可公開、去產品化的通用教材。不要 commit proprietary schematic / PCB net / internal model / command payload / calibration / threshold / measurement log。真實 board evidence 若要放進 public repo，必須先 sanitized。
+此 repository 只保存可公開、去產品化的通用教材。不要 commit proprietary schematic / PCB net / internal model / command payload / calibration / threshold / unsanitized measurement log。真實 board evidence 若要放進 public repo，必須先 sanitized；learner study bundle 只保留匿名 metrics。
 
 ## Validation
 
