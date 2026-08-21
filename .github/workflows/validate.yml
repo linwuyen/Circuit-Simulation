@@ -11,7 +11,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -37,6 +37,25 @@ jobs:
             19_c2000_buck_firmware_lab/firmware/host_sil.c \
             -I19_c2000_buck_firmware_lab/firmware -lm -o /tmp/c2000-buck-sil
           /tmp/c2000-buck-sil
+
+      - name: Check out pinned C2000Ware headers
+        uses: actions/checkout@v4
+        with:
+          repository: TexasInstruments/c2000ware-core-sdk
+          ref: REL_C2000Ware_v26.01.00.00.STS
+          path: .ci/c2000ware
+          sparse-checkout: |
+            device_support/f2838x/common/include
+            driverlib/f2838x/driverlib
+          sparse-checkout-cone-mode: true
+
+      - name: Install TI C2000 CGT 25.11.1.LTS
+        run: bash tools/ci/install-ti-c2000-cgt.sh
+
+      - name: Compile F2838x CPU1 target with TI cl2000
+        env:
+          C2000WARE_ROOT: ${{ github.workspace }}/.ci/c2000ware
+        run: bash tools/ci/build-f2838x-target.sh
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
