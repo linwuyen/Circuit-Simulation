@@ -32,7 +32,7 @@
     if (!grid || !head || grid.closest("[data-topic-index]")) return;
 
     const details = document.createElement("details");
-    details.className = "journey-advanced-evidence";
+    details.className = "journey-topic-index panel";
     details.dataset.topicIndex = "1";
     const summary = document.createElement("summary");
     summary.textContent = "進階查找：完整主題索引（不是建議學習順序）";
