@@ -117,6 +117,7 @@ test("debug practice randomizes faults but keeps measurement order falsifiable",
   await expect(page.locator("[data-diagnostic-status]")).toContainText("外部 producer");
 
   await page.goto("/19_c2000_buck_firmware_lab/");
+  await page.locator('[data-learning-mode="debug"]').click();
   const before = await page.locator('[data-diagnostic-challenge]').getAttribute("data-case-id");
   await page.locator('[data-diagnostic-next]').click();
   await expect(page.locator('[data-diagnostic-challenge]')).not.toHaveAttribute("data-case-id", before);
