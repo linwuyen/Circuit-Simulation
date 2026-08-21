@@ -132,12 +132,21 @@
     });
   }
 
+  function downloadJson(bundle, suffix) {
+    const blob = new Blob([JSON.stringify(bundle, null, 2) + '\n'], { type:'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${bundle.participantId}.${suffix}.json`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
   async function installStudyExport() {
     const panel = document.querySelector('.outcome-panel');
     if (!panel || $('#outcomeStudyExport')) return;
     const wrap = document.createElement('div');
     wrap.id = 'outcomeStudyExport';
-    wrap.innerHTML = `<hr><div class="section-kicker">P4-C · LEARNER STUDY EXPORT</div><p class="muted">只匯出 aggregate metrics、outcome profile 與 competency-level accuracy；不含題目、答案或自由文字。participant ID 請使用匿名代碼。</p><div class="input-grid"><label>Anonymous participant ID<input id="outcomeParticipantId" type="text" maxlength="64" placeholder="例如 p_001"></label></div><div class="actions"><button class="button" id="outcomeStudyDownload" type="button">匯出 study JSON</button><span class="prediction-status" id="outcomeStudyStatus"></span></div>`;
+    wrap.innerHTML = `<hr><div class="section-kicker">P4-C · LEARNER STUDY EXPORT</div><p class="muted">Study JSON 只匯出 aggregate metrics、outcome profile 與 competency-level accuracy；不含題目、答案或自由文字。participant ID 請使用匿名代碼。</p><div class="input-grid"><label>Anonymous participant ID<input id="outcomeParticipantId" type="text" maxlength="64" placeholder="例如 p_001"></label></div><div class="actions"><button class="button" id="outcomeStudyDownload" type="button">匯出 study JSON</button><span class="prediction-status" id="outcomeStudyStatus"></span></div><div data-calibration-export><div class="section-kicker">P4-D · OPT-IN ITEM CALIBRATION</div><p class="muted">Calibration JSON 額外包含 case ID、competency 與 first-attempt 正誤，用來估 proportion-correct / corrected discrimination；仍不含 prompt、choice 或實際作答內容。只有要做題目校準時才匯出。</p><div class="actions"><button class="button" id="outcomeCalibrationDownload" type="button">匯出 calibration JSON</button><span class="prediction-status" id="outcomeCalibrationStatus"></span></div></div>`;
     panel.appendChild(wrap);
     try {
       if (!window.CircuitOutcomeStudyV1) await loadScript('../assets/learning/outcome-study-v1.js');
@@ -147,10 +156,18 @@
     $('#outcomeStudyDownload').addEventListener('click', () => {
       try {
         const bundle = window.CircuitOutcomeStudyV1.exportParticipant(Session.summary(), { participantId:$('#outcomeParticipantId').value });
-        const blob = new Blob([JSON.stringify(bundle, null, 2) + '\n'], { type:'application/json' });
-        const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${bundle.participantId}.outcome-study.json`; link.click(); URL.revokeObjectURL(link.href);
+        downloadJson(bundle, 'outcome-study');
         $('#outcomeStudyStatus').textContent = `exported ${bundle.participantId} · profile ${bundle.outcomeProfile} · raw answers/prompts: no`;
       } catch (error) { $('#outcomeStudyStatus').textContent = `REJECTED: ${error.message}`; }
+    });
+    $('#outcomeCalibrationDownload').addEventListener('click', async () => {
+      const status = $('#outcomeCalibrationStatus');
+      try {
+        if (!window.CircuitOutcomeCalibrationV1) await loadScript('../assets/learning/outcome-calibration-v1.js');
+        const bundle = window.CircuitOutcomeCalibrationV1.exportParticipant(Session.summary(), { participantId:$('#outcomeParticipantId').value });
+        downloadJson(bundle, 'outcome-calibration');
+        status.textContent = `exported ${bundle.participantId} · ${bundle.outcomeProfile} · item correctness: yes · raw answers/prompts: no`;
+      } catch (error) { status.textContent = `REJECTED: ${error.message}`; }
     });
   }
 
