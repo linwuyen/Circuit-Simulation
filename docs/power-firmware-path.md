@@ -181,15 +181,20 @@ A passing bundle reports `CONTROL_VALIDATION_PASS`. It never implies `BOARD_PASS
 
 ## P4-C · learner study closure
 
-The individual V5 PRE→POST→R1/R2/R3/R4 flow remains unchanged and first attempts remain immutable.
+The durable PRE→POST→R1/R2/R3/R4 flow remains under the existing `benchmark.outcomeV1` state and first attempts remain immutable. The measurement instrument is now explicit:
 
-`assets/learning/outcome-study-v1.js` adds a privacy-minimized study export containing only anonymous participant ID and metrics. It does not export prompts, raw answers or free text. Multiple participant bundles can be summarized by `tools/learning/summarize-outcome-study.mjs`.
+- **`legacy4`** preserves pre-existing four-competency learner evidence and direct V1 benchmark compatibility.
+- **`core8`** is the default for new learner records and uses one unseen case for each authoritative layer: Physics, Sensing, Feedback, Timing, Dynamics, Safety, Production and Evidence.
 
-The aggregate remains observational learner evidence and always carries `causalClaimAllowed: false`.
+Both profiles remain eight questions per phase, so the new instrument increases causal-layer coverage without increasing formal quiz length. PRE / POST / R1–R4 remain deterministic and content-disjoint within a profile.
+
+`assets/learning/outcome-study-v1.js` adds a privacy-minimized study export containing only anonymous participant ID, outcome profile, aggregate metrics and competency-level aggregate accuracy. It does not export prompts, raw answers or free text. Multiple participant bundles can be summarized by `tools/learning/summarize-outcome-study.mjs`.
+
+Cohort aggregation is profile-homogeneous and fails closed if `legacy4` and `core8` bundles are mixed. The aggregate remains observational learner evidence and always carries `causalClaimAllowed: false`.
 
 ## P5 · topology transfer closure
 
-Module 17 now has one shared executable transfer model in `assets/learning/topology-transfer-v1.js` plus a live `P5 · Unseen Transfer Verification` surface.
+Module 17 has one shared executable transfer model in `assets/learning/topology-transfer-v1.js` plus a live `P5 · Unseen Transfer Verification` surface.
 
 The transfer target is not memorizing five additional formula sets. It is identifying the topology-specific constraint while preserving the same control grammar:
 
@@ -205,9 +210,13 @@ P5 includes deterministic first-attempt transfer checks and live constraint valu
 
 ## Learning outcome measurement
 
-Primary metrics remain first-attempt accuracy, next-measurement accuracy, unseen-transfer accuracy, PRE/POST delta and 1/7/30/90-day retention.
+For new `core8` learner records, the formal outcome target is first-attempt accuracy across all eight causal layers, PRE/POST delta, competency-level gaps and 1/7/30/90-day retention. This answers the question “which layer of the same converter can the learner actually reason about on an unseen case?” rather than using page completion as mastery.
 
-The homepage displays only real stored learner results. CI verifies the measurement machinery but never injects synthetic human improvement.
+Historical `legacy4` records continue to report their original first-attempt, next-measurement and transfer metrics. Those metrics are not retroactively mapped onto `core8` because the instruments have different competency composition.
+
+Diagnosis measurement remains explicit in Module 15 and topology-transfer measurement remains explicit in Module 17. They complement the core8 capstone instrument rather than being silently mixed into it.
+
+The homepage and Module 19 display only real stored learner results. CI verifies the measurement machinery but never injects synthetic human improvement.
 
 See `docs/learning-outcome-protocol.md`.
 
