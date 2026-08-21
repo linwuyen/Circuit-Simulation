@@ -96,8 +96,8 @@
     const status = $('[data-physics-predict-status]');
     status.dataset.result = pass ? 'pass' : 'fail';
     status.textContent = pass
-      ? '✓ 正確。現在只改 L，看斜率與 ΔIL 如何一起縮小。'
-      : '先保留這個預測。解鎖後觀察：同樣 vL 下，L 變大會讓 di/dt 變小。';
+      ? '✓ 正確。只改 L 時，同樣 vL 會讓 di/dt 與 ΔIL 一起縮小。假設：ideal CCM、Vin/Vout/fsw 固定。真板先量：switch node 與 iL ripple，再對照 L 與 switching period。'
+      : '方向先修正：同樣 vL 下，L 變大會讓 di/dt 變小。假設仍是 ideal CCM。真板先量：switch node 與 iL ripple；不要先用 controller 參數解釋 switching physics。';
     $('[data-physics-control]').disabled = false;
     $('[data-play-cycle]').disabled = false;
     renderPhysics();
@@ -177,8 +177,8 @@
     const status = $('[data-timing-predict-status]');
     status.dataset.result = pass ? 'pass' : 'fail';
     status.textContent = pass
-      ? '✓ 正確。9.0 µs compute 使 write 在 10.5 µs 完成，已錯過 10 µs ZERO。'
-      : '先保留這個預測。關鍵不是「CPU 算完」，而是 shadow write 是否嚴格早於 load event。';
+      ? '✓ 正確。9.0 µs compute 使 write 在 10.5 µs 完成，已錯過 10 µs ZERO。假設：SOCA@ZERO、CMPA shadow load@ZERO。真板先量：SOCA/EOC、ISR entry/exit、shadow write marker 與 PWM active edge。'
+      : '方向先修正：關鍵不是「CPU 算完」，而是 shadow write 是否嚴格早於 load event。假設：SOCA@ZERO、shadow load@ZERO。真板先量完整 sample→actuate timeline，再決定是否要動 PI 或 fsw。';
     $('[data-timing-control]').disabled = false;
     $('[data-timing-fault]').disabled = false;
     $('[data-timing-transfer]').disabled = false;
