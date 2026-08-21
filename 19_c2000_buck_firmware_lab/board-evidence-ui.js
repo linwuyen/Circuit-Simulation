@@ -6,7 +6,18 @@
   let currentManifest = null;
 
   function escapeHtml(value) {
-    return String(value == null ? '' : value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    return String(value == null ? '' : value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+  }
+
+  function failClosed(message) {
+    currentManifest = null;
+    $('#evidenceCount').textContent = '0/8';
+    $('#boardClaim').textContent = 'UNCLAIMED';
+    $('#boardClaim').dataset.pass = '0';
+    $('#boardBindingTable').innerHTML = '';
+    $('#boardEvidence').innerHTML = '';
+    $('#boardManifestStatus').textContent = message;
+    $('#boardBoundary').textContent = 'Fail-closed：沒有通過 machine-readable manifest，就沒有任何 BOARD evidence claim。';
   }
 
   function render(manifest, sourceLabel) {
@@ -24,24 +35,26 @@
   }
 
   async function loadReference() {
+    failClosed('loading repository reference manifest…');
     try {
       const response = await fetch('board/board-binding.reference.json', { cache:'no-store' });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       render(await response.json(), 'repository reference manifest');
     } catch (error) {
-      $('#boardManifestStatus').textContent = `Manifest load failed: ${error.message}`;
+      failClosed(`Manifest load failed: ${error.message}`);
     }
   }
 
   $('#boardManifestFile')?.addEventListener('change', async event => {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
+    failClosed(`validating local manifest: ${file.name}…`);
     try {
       const manifest = JSON.parse(await file.text());
       Board.assertBoardPass(manifest);
       render(manifest, `local manifest: ${file.name}`);
     } catch (error) {
-      $('#boardManifestStatus').textContent = `REJECTED: ${error.message}`;
+      failClosed(`REJECTED: ${error.message}`);
     }
   });
 
