@@ -11,7 +11,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -38,7 +38,7 @@ jobs:
             -I19_c2000_buck_firmware_lab/firmware -lm -o /tmp/c2000-buck-sil
           /tmp/c2000-buck-sil
 
-      - name: Check out pinned C2000Ware headers
+      - name: Check out pinned C2000Ware target support
         uses: actions/checkout@v4
         with:
           repository: TexasInstruments/c2000ware-core-sdk
@@ -46,6 +46,8 @@ jobs:
           path: .ci/c2000ware
           sparse-checkout: |
             device_support/f2838x/common/include
+            device_support/f2838x/common/source
+            device_support/f2838x/common/cmd
             driverlib/f2838x/driverlib
           sparse-checkout-cone-mode: true
 
@@ -56,6 +58,21 @@ jobs:
         env:
           C2000WARE_ROOT: ${{ github.workspace }}/.ci/c2000ware
         run: bash tools/ci/build-f2838x-target.sh
+
+      - name: Link F2838x flash image and generate Intel HEX
+        env:
+          C2000WARE_ROOT: ${{ github.workspace }}/.ci/c2000ware
+        run: bash tools/ci/build-f2838x-image.sh
+
+      - name: Upload F2838x flash image
+        uses: actions/upload-artifact@v4
+        with:
+          name: c2000-buck-f2838x-flash-image
+          path: |
+            build/f2838x-flash/c2000-buck-f2838x.out
+            build/f2838x-flash/c2000-buck-f2838x.map
+            build/f2838x-flash/c2000-buck-f2838x.hex
+          if-no-files-found: error
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
