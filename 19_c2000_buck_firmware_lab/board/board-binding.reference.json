@@ -1,8 +1,14 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "target": "TMS320F2838x CPU1 reference lab",
   "boardClaim": "UNCLAIMED",
   "truthLevel": "REFERENCE_TARGET_ONLY",
+  "targetBuild": {
+    "status": "PASS",
+    "artifact": "CI:c2000-buck-f2838x-flash-image",
+    "toolchain": "TI C2000 CGT 25.11.1.LTS + C2000Ware 26.01.00.00.STS",
+    "outputs": ["c2000-buck-f2838x.out", "c2000-buck-f2838x.map", "c2000-buck-f2838x.hex"]
+  },
   "bindings": {
     "pwmPinmuxAndPolarity": { "status": "UNBOUND", "source": null },
     "adcChannels": { "status": "UNBOUND", "source": null },
