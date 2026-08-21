@@ -18,7 +18,7 @@ CODESTART="${COMMON_ROOT}/source/f2838x_codestartbranch.asm"
 
 for required in \
   "${CL2000}" "${HEX2000}" "${LINKER_CMD}" "${DRIVERLIB}" \
-  "${DEVICE_C}" "${CODESTART}" "${COMMON_ROOT}/include/device.h" "${DRIVERLIB_ROOT}/driverlib.h"; do
+  "${DEVICE_C}" "${CODESTART}" "${COMMON_ROOT}/include/device.h" "${COMMON_ROOT}/include/driverlib.h"; do
   if [[ ! -e "${required}" ]]; then
     echo "Missing image-build dependency: ${required}" >&2
     exit 1
