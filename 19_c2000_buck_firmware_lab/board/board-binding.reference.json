@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "target": "TMS320F2838x CPU1 reference lab",
+  "boardClaim": "UNCLAIMED",
+  "truthLevel": "REFERENCE_TARGET_ONLY",
+  "bindings": {
+    "pwmPinmuxAndPolarity": { "status": "UNBOUND", "source": null },
+    "adcChannels": { "status": "UNBOUND", "source": null },
+    "adcAcquisitionWindow": { "status": "UNBOUND", "source": null },
+    "voltageScaling": { "status": "UNBOUND", "source": null },
+    "currentScaling": { "status": "UNBOUND", "source": null },
+    "cmpssInputAndThreshold": { "status": "UNBOUND", "source": null },
+    "deadTimeAndComplementaryOutputs": { "status": "UNBOUND", "source": null },
+    "startupAndRearmPolicy": { "status": "UNBOUND", "source": null },
+    "communicationOwner": { "status": "UNBOUND", "source": null }
+  },
+  "evidence": [
+    { "id": "pwm", "status": "MISSING", "artifact": null, "criterion": "Measured gate-command period and active duty match configured switching frequency and CMPA shadow-load behavior." },
+    { "id": "gpio", "status": "MISSING", "artifact": null, "criterion": "GPIO31 ISR pulse demonstrates sample-to-shadow-write execution time and positive deadline slack." },
+    { "id": "soc", "status": "MISSING", "artifact": null, "criterion": "ADC SOC phase is measured relative to the physical switching edge." },
+    { "id": "trip", "status": "MISSING", "artifact": null, "criterion": "CMPSS to XBAR to DCAEVT1 to Trip Zone forces PWM low without waiting for the control ISR." },
+    { "id": "soft", "status": "MISSING", "artifact": null, "criterion": "Soft-start Vout is monotonic and does not show saturation windup." },
+    { "id": "load", "status": "MISSING", "artifact": null, "criterion": "Load-step Vout and iL recover without protection chatter." },
+    { "id": "timeout", "status": "MISSING", "artifact": null, "criterion": "Stale command from the real communication owner fails closed." },
+    { "id": "rearm", "status": "MISSING", "artifact": null, "criterion": "Fault re-arm occurs only after the physical fault source and product qualifiers are safe." }
+  ]
+}

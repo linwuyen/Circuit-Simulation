@@ -26,6 +26,16 @@ gcc -std=c11 -Wall -Wextra -Werror \
 
 CI runs this exact build. It proves only the pure-controller / averaged-plant invariants encoded by the test: nominal regulation, software OCP veto, command timeout, and disabled OFF state.
 
+## TI C2000 target compile gate
+
+The required GitHub `validate` job also compiles the target objects with the actual TI toolchain rather than a host compiler or source-text approximation:
+
+- TI C2000 CGT `25.11.1.LTS`
+- C2000Ware core SDK tag `REL_C2000Ware_v26.01.00.00.STS`
+- F2838x CPU1, EABI, FPU32, TMU0 and VCU2 compile options
+
+The gate compiles both `buck_control.c` and `f2838x_target.c`. A DriverLib symbol/API/compiler mismatch therefore blocks merge.
+
 ## F2838x target binding
 
 `f2838x_target.c` closes the previously missing driverlib ownership:
@@ -50,6 +60,7 @@ The target source is deliberately executable **reference-lab binding**, not a bo
 - CMPSS positive-input mux, DAC threshold and any digital-filter policy.
 - dead time / complementary outputs when the real power stage needs them.
 - board-safe startup, contactor/relay sequencing and qualified re-arm conditions.
+- real communication ownership and freshness source.
 
 The constants `VOUT_VOLTS_PER_ADC_V`, `VIN_VOLTS_PER_ADC_V`, `IL_ZERO_ADC_V`, `IL_AMPS_PER_ADC_V` and `CONTROL_OCP_DAC_CODE` are therefore reference values, not measured board calibration.
 
@@ -61,7 +72,7 @@ A communication layer should call:
 BuckTarget_publishCommand(enable, clear_fault);
 ```
 
-**only after** its frame has passed the product's CRC/version/range/ownership checks. Each new publication advances a sequence number. The control ISR resets `command_age_ticks` only when that published sequence changes. If communication stops, command age crosses the configured budget and the controller fails closed.
+**only after** its frame has passed the product's CRC/version/range/ownership checks. Each new publication advances a sequence number. The control ISR resets `command_age_ticks` only when that published sequence changes. If communication stops while enable authority is requested, command age crosses the configured budget and the controller fails closed. Disabled authority remains safely OFF without requiring fabricated heartbeats.
 
 ## Deterministic HIL
 
@@ -79,7 +90,11 @@ HIL is deterministic training evidence. It is not peripheral timing proof and no
 
 ## Board evidence contract
 
-Do not mark BOARD PASS until physical captures demonstrate all eight items:
+The machine-readable board gate lives at:
+
+`19_c2000_buck_firmware_lab/board/board-binding.reference.json`
+
+It starts as `boardClaim: UNCLAIMED`. Do not mark `BOARD_PASS` until all board-specific bindings are VERIFIED and physical captures demonstrate all eight items:
 
 - PWM period and duty on the actual gate-command pin.
 - GPIO31 ISR pulse width / execution slack.
@@ -90,4 +105,4 @@ Do not mark BOARD PASS until physical captures demonstrate all eight items:
 - stale command fail-closed behavior from the real communication owner.
 - fault re-arm only after the actual fault source and product qualifiers are safe.
 
-The browser intentionally provides empty evidence checkboxes instead of fabricated scope traces.
+`tests/board-evidence-contract.test.mjs` fails closed if `BOARD_PASS` is asserted without every binding source and all eight evidence artifacts.
