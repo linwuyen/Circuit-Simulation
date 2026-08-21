@@ -264,7 +264,7 @@ int main(void)
     BuckControl_init(&gState);
 
     /* GPIO0 is the reference-lab EPWM1A pin. Rebind in the board pinmux. */
-    GPIO_setPinConfig(GPIO_0_EPWM1_A);
+    GPIO_setPinConfig(GPIO_0_EPWM1A);
     configureControlPipeline();
 
     Interrupt_register(INT_ADCA1, &adca1ISR);
