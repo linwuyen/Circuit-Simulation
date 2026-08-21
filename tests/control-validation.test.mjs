@@ -37,6 +37,12 @@ test("P4-B strict timing retains exactly-on-load miss semantics", () => {
   assert.equal(Validation.strictCommit(10, 10).firstLoadMet, false);
 });
 
+test("P4-B null measurement fields are missing, not numeric zero", () => {
+  assert.equal(Validation.analyzeTiming({ periodUs:10, computeDoneUs:null, observedCommitUs:null }).ready, false);
+  assert.equal(Validation.analyzeTripLatency({ faultAtNs:null, pwmLowAtNs:null }).ready, false);
+  assert.equal(Validation.analyzeLoadStep({ stepAtMs:null, vref:12, samples:[] }).ready, false);
+});
+
 test("P4-B passing physical bundle yields CONTROL_VALIDATION_PASS but never BOARD_PASS", () => {
   const result = Validation.validateBundle(passingBundle());
   assert.equal(result.overallPass, true);
