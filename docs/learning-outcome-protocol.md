@@ -21,7 +21,9 @@ Primary metrics:
 
 ## Unseen rule
 
-`pre`, `post`, `r1`, `r2`, `r3`, and `r4` use different seed namespaces. Their case IDs cannot overlap.
+`pre`, `post`, `r1`, `r2`, `r3`, and `r4` each own a separate collision-free variant block. Unseen status is checked at the **content level**, not only by case ID.
+
+The benchmark fingerprints competency + prompt + choices + expected answer + physical parameters. Generated sets reject duplicate fingerprints, pre/post comparison rejects content reused under a different ID, and retention sets are checked against one another for the same condition.
 
 A retry does not replace the first attempt. The benchmark scorer keeps the earliest attempt for a case even if a later retry is correct.
 
@@ -39,7 +41,7 @@ The benchmark uses the same local sample-size labels as the rest of the learning
 
 A positive pre/post delta means:
 
-> This learner performed better on the post set of disjoint unseen cases.
+> This learner performed better on the post set of content-disjoint unseen cases.
 
 It does **not** by itself prove:
 
@@ -58,6 +60,7 @@ This deliberately prevents an optimistic `<= deadline` simplification from teach
 `assets/learning/outcome-benchmark-v1.js` exports:
 
 - `generateBenchmarkSet()`
+- `contentFingerprint()`
 - `scoreFirstAttempts()`
 - `compareSessions()`
 - `retentionPlan()`
@@ -66,7 +69,9 @@ This deliberately prevents an optimistic `<= deadline` simplification from teach
 CI tests ensure:
 
 - deterministic generation
-- disjoint pre/post sets
+- content-disjoint pre/post sets
+- content-disjoint R1/R2/R3/R4 sets
+- changed IDs cannot disguise cloned content
 - retry cannot wash a wrong first attempt
 - next-measurement and transfer are reported separately
 - exact-load-event timing remains fail-closed
