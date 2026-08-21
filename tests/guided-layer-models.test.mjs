@@ -41,7 +41,7 @@ test("command timeout matches controller's strict greater-than semantics", () =>
   assert.equal(before.faulted, false);
   assert.equal(trip.faulted, true);
   assert.equal(trip.faultTick, 501);
-  assert.equal(trip.faultAfterMs, 5.01);
+  assert.ok(Math.abs(trip.faultAfterMs - 5.01) < 1e-12);
 });
 
 test("Boost transfer exposes RHP-zero crossover ceiling", () => {
