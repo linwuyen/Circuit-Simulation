@@ -2,12 +2,13 @@
   const Calibration = root && root.CircuitOutcomeCalibrationV1 || (typeof require === "function" ? require("./outcome-calibration-v1.js") : null);
   const Benchmark = root && root.CircuitOutcomeBenchmarkV1 || (typeof require === "function" ? require("./outcome-benchmark-v1.js") : null);
   const Families = root && root.CircuitOutcomeFamiliesV2 || (typeof require === "function" ? require("./outcome-families-v2.js") : null);
-  const api = factory(Calibration, Benchmark, Families);
+  const Instrument = root && root.CircuitOutcomeCore8InstrumentV2 || (typeof require === "function" ? require("./outcome-core8-instrument-v2.js") : null);
+  const api = factory(Calibration, Benchmark, Families, Instrument);
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.CircuitOutcomeFamilyCalibrationV1 = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function (Calibration, Benchmark, Families) {
+})(typeof globalThis !== "undefined" ? globalThis : this, function (Calibration, Benchmark, Families, Instrument) {
   "use strict";
-  if (!Calibration || !Benchmark || !Families) throw new Error("Calibration, Benchmark and FamiliesV2 are required");
+  if (!Calibration || !Benchmark || !Families || !Instrument) throw new Error("Calibration, Benchmark, FamiliesV2 and Core8InstrumentV2 are required");
 
   const PHASES = Calibration.PHASES;
   const THRESHOLDS = Calibration.CALIBRATION_THRESHOLDS;
@@ -25,7 +26,7 @@
 
   function exactContractFingerprint(seed, countPerCompetency) {
     const contract = PHASES.map(phase => {
-      const cases = Families.generateBenchmarkSet({ seed, phase, countPerCompetency });
+      const cases = Instrument.generateBenchmarkSet({ seed, phase, countPerCompetency });
       return [phase, cases.map(item => ({
         id:item.id,
         phase:item.phase,
@@ -97,7 +98,7 @@
     }
     const status = bundle.phases[phase];
     if (!status || status.completed !== true || status.attempted !== status.total || status.total <= 0) return null;
-    const cases = Families.generateBenchmarkSet({ seed, phase, countPerCompetency:count });
+    const cases = Instrument.generateBenchmarkSet({ seed, phase, countPerCompetency:count });
     const byId = new Map(cases.map(item => [item.id, item]));
     const rows = status.rows.map(row => {
       const item = byId.get(row.caseId);
@@ -175,7 +176,7 @@
     });
 
     const byCompetency = {};
-    for (const competency of Families.COMPETENCIES) {
+    for (const competency of Instrument.COMPETENCIES) {
       const learnerAccuracy = resolved.map(participant => {
         const rows = participant.rows.filter(row => row.competency === competency);
         return rows.length ? rows.filter(row => row.correct).length / rows.length : null;
@@ -197,8 +198,8 @@
       schema:"circuit-outcome-family-calibration-summary",
       version:1,
       outcomeProfile:"core8",
-      instrumentVersion:Families.VERSION,
-      familyContractFingerprint:Families.contractFingerprint(),
+      instrumentVersion:Instrument.VERSION,
+      familyContractFingerprint:Instrument.familyContractFingerprint(),
       phase,
       bundles:bundles.length,
       completed:resolved.length,
