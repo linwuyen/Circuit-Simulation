@@ -69,4 +69,8 @@
   });
 
   loadReference();
+
+  const extension = document.createElement('script');
+  extension.src = 'physical-closure-ui.js';
+  document.body.appendChild(extension);
 })();

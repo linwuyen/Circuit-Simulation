@@ -92,6 +92,34 @@
     window.setTimeout(renderQuestion, 450);
   }
 
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script'); script.src = src; script.onload = resolve; script.onerror = reject; document.head.appendChild(script);
+    });
+  }
+
+  async function installStudyExport() {
+    const panel = document.querySelector('.outcome-panel');
+    if (!panel || $('#outcomeStudyExport')) return;
+    const wrap = document.createElement('div');
+    wrap.id = 'outcomeStudyExport';
+    wrap.innerHTML = `<hr><div class="section-kicker">P4-C · LEARNER STUDY EXPORT</div><p class="muted">只匯出 aggregate metrics；不含題目、答案或自由文字。participant ID 請使用匿名代碼。</p><div class="input-grid"><label>Anonymous participant ID<input id="outcomeParticipantId" type="text" maxlength="64" placeholder="例如 p_001"></label></div><div class="actions"><button class="button" id="outcomeStudyDownload" type="button">匯出 study JSON</button><span class="prediction-status" id="outcomeStudyStatus"></span></div>`;
+    panel.appendChild(wrap);
+    try {
+      if (!window.CircuitOutcomeStudyV1) await loadScript('../assets/learning/outcome-study-v1.js');
+    } catch (_) {
+      $('#outcomeStudyStatus').textContent = 'study model 載入失敗'; return;
+    }
+    $('#outcomeStudyDownload').addEventListener('click', () => {
+      try {
+        const bundle = window.CircuitOutcomeStudyV1.exportParticipant(Session.summary(), { participantId:$('#outcomeParticipantId').value });
+        const blob = new Blob([JSON.stringify(bundle, null, 2) + '\n'], { type:'application/json' });
+        const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${bundle.participantId}.outcome-study.json`; link.click(); URL.revokeObjectURL(link.href);
+        $('#outcomeStudyStatus').textContent = `exported ${bundle.participantId} · raw answers/prompts: no`;
+      } catch (error) { $('#outcomeStudyStatus').textContent = `REJECTED: ${error.message}`; }
+    });
+  }
+
   $$('.outcome-phase-button').forEach(button => button.addEventListener('click', () => {
     activePhase = button.dataset.phase;
     renderQuestion();
@@ -104,4 +132,5 @@
   });
 
   renderQuestion();
+  installStudyExport();
 })();
