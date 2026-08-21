@@ -28,7 +28,7 @@ test("hardware-class faults fail closed deterministically", () => {
   }
 });
 
-test("stale command trips only after the freshness budget", () => {
+test("stale enabled command trips only after the freshness budget", () => {
   const result = Hil.runScenario("command-timeout");
   assert.equal(result.pass, true);
   assert.equal(result.duty, 0);
@@ -42,6 +42,13 @@ test("disabled target remains OFF without pretending a command heartbeat", () =>
   assert.equal(result.state, "OFF");
   assert.equal(result.duty, 0);
   assert.equal(result.faultLatch, 0);
+
+  const hilSource = fs.readFileSync(path.join(repoRoot, "19_c2000_buck_firmware_lab", "hil", "hil-models.js"), "utf8");
+  const controlSource = fs.readFileSync(path.join(repoRoot, "19_c2000_buck_firmware_lab", "firmware", "buck_control.c"), "utf8");
+  assert.match(hilSource, /const heartbeat = input\.heartbeat === true;/);
+  assert.match(hilSource, /if \(name === "idle-off"\) \{[\s\S]*?input\.enable = false;[\s\S]*?input\.heartbeat = false;/);
+  assert.match(hilSource, /if \(enable && s\.commandAge > c\.commandTimeoutTicks\)/);
+  assert.match(controlSource, /input->enable_request && state->command_age_ticks > config->command_timeout_ticks/);
 });
 
 test("HIL contract owns cadence and physical Vin/iL semantics", () => {
@@ -96,4 +103,13 @@ test("F2838x binding closes timing, ADC, XBAR and command-ownership P0 gaps", ()
   assert.match(file, /slots\[2\]/);
   assert.match(file, /gCommand\.active_slot = next;/);
   assert.doesNotMatch(file, /while \(\(before != after\)/);
+});
+
+test("F2838x reference current range reaches software OCP and trip evidence counts edges", () => {
+  const file = fs.readFileSync(path.join(repoRoot, "19_c2000_buck_firmware_lab", "firmware", "f2838x_target.c"), "utf8");
+  assert.match(file, /#define IL_AMPS_PER_ADC_V\s+6\.0f/);
+  assert.match(file, /static uint16_t gHardwareTripActive = 0U;/);
+  assert.match(file, /if \(hardwareTripActive && !gHardwareTripActive\) gHardwareTripCount\+\+;/);
+  assert.match(file, /gHardwareTripActive = hardwareTripActive;/);
+  assert.doesNotMatch(file, /if \(\(tzFlags & EPWM_TZ_FLAG_DCAEVT1\) != 0U\) gHardwareTripCount\+\+;/);
 });
