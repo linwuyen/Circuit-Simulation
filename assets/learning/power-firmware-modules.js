@@ -22,7 +22,7 @@
       {id:"power-sync.lab.update-delay",title:"找出一拍控制延遲",href:"13_power_sync/lab_update_delay.html",task:"比較 immediate 與 shadow-load 策略，判斷新 duty 在第幾個 PWM 週期生效。",success:"能指出 missed load point 導致的額外 one-cycle delay。",value:"避免把 phase lag / instability 全怪到 PI 參數。",competency:"power-sync.shadow-update.delay",transferPrompt:"若 control ISR 越過 shadow load point，plant 看到的 command age 會增加多少？"}
     ],
     faults:[
-      {id:"power-sync.fault.edge-noise",symptom:"ADC raw count 每個週期在 PWM edge 附近抖動",cause:"SOC 落在 switching transient / ringing window。",verify:"固定負載，只掃 sample phase 並比較 raw-count variance。",fix:"把 SOC 移到較安靜的 conduction window，並重新確認 acquisition time。",href:"13_power_sync/lab_edge_noise.html",competency:"power-sync.sample-window.noise"},
+      {id:"power-sync.fault.edge-noise",symptom:"ADC raw count 每個週期在 PWM edge 附近抖動",cause:"SOC 落在 switching transient / ringing window。",verify:"固定負載，只掃 sample phase並比較 raw-count variance。",fix:"把 SOC 移到較安靜的 conduction window，並重新確認 acquisition time。",href:"13_power_sync/lab_edge_noise.html",competency:"power-sync.sample-window.noise"},
       {id:"power-sync.fault.one-cycle-delay",symptom:"控制器數學正確但 response 比模型多一拍 phase lag",cause:"ISR 完成後錯過 PWM shadow load point。",verify:"同時量 ADC EOC、ISR entry/exit 與 PWM update event。",fix:"調整 SOC/load point、縮短 critical path 或明確納入 z^-1 delay。",href:"13_power_sync/lab_update_delay.html",competency:"power-sync.shadow-update.delay"},
       {id:"power-sync.fault.deadline",symptom:"提高 switching frequency 後偶發 stale duty / missed update",cause:"sample→conversion→ISR→control critical path 超過 period deadline。",verify:"建立 worst-case latency budget，不只看 average execution time。",fix:"縮短 latency、調 trigger、搬移非關鍵工作或降低 fsw。",href:"13_power_sync/lab_timing.html",competency:"power-sync.sample-update.deadline"}
     ]
@@ -53,13 +53,13 @@
   });
 
   addModule({
-    id:"power-capstone",number:"15",tag:"Capstone",title:"Programmable Power Converter Capstone",entry:"15_power_capstone/index.html",
-    oneLine:"把 sensing、sampling、control、PWM、protection、communication 與 diagnostics 串成一個 generic power-converter system，而不是把每門課孤立記住。",
-    analogy:"真正產品不是七門課並排，而是一條因果鏈；任何一層的 stale data、scale、timing 或 state 錯誤都可能在輸出端變成同一個症狀。",
-    whyUseful:"訓練 requirement → architecture → measurement → diagnosis → verification 的整合能力，同時維持完全去產品化的公開邊界。",
+    id:"power-capstone",number:"15",tag:"Debug Lab",title:"Power Firmware Debug Challenge Bank",entry:"15_power_capstone/index.html",
+    oneLine:"Module 19 先建立正常的 Buck 因果鏈；這裡故意給未知 sensing、timing、ownership、state 與 control fault，要求用最少量測收斂 root cause。",
+    analogy:"像拿到一台別人寫的電源：你不知道哪裡壞，只能靠 observable 一層層證偽假設，而不是把每個參數都重調一次。",
+    whyUseful:"訓練 hypothesis → highest-information measurement → falsification → root cause → verification 的 diagnosis transfer；不是第二個 capstone。",
     prerequisites:[],
     lessons:[
-      {id:"power-capstone.lesson.chain",href:"15_power_capstone/index.html#chain",title:"從 Requirement 建立 Signal Chain",objective:"把 command 到 physical output 的每一層 owner 與 unit 寫清楚。",action:"沿著 command→control→PWM→plant→sensor→ADC 追一圈。",expectedObservation:"每個轉換點都有 unit/latency/state contract。",competency:"capstone.signal-chain.integration"},
+      {id:"power-capstone.lesson.chain",href:"15_power_capstone/index.html#chain",title:"先建立 Unknown-System Signal Chain",objective:"在不知道 root cause 前，先把 command 到 physical output 的 owner、unit 與 observable 寫清楚。",action:"沿著 command→control→PWM→plant→sensor→ADC 追一圈。",expectedObservation:"每個轉換點都有 unit/latency/state contract，可作為後續證偽邊界。",competency:"capstone.signal-chain.integration"},
       {id:"power-capstone.lesson.budget",href:"15_power_capstone/lab_budget.html",title:"End-to-End Control Budget",objective:"辨認 critical path 與 background work。",action:"改 sensing/control/PWM-commit/communication latency。",expectedObservation:"只有 serial critical path 決定 same-cycle deadline；background work 仍需資源隔離。",competency:"capstone.signal-chain.integration"},
       {id:"power-capstone.lesson.fault",href:"15_power_capstone/lab_fault.html",title:"有限量測預算下隔離 Root Cause",objective:"優先量能最大縮小假設空間的 signal。",action:"在 sensor/control/communication fault 間選 measurement。",expectedObservation:"好 debug 不是量最多，而是每一步都最大化可否證性。",competency:"capstone.fault-isolation.measurement"},
       {id:"power-capstone.lesson.ladder",href:"15_power_capstone/lab_debug.html",title:"Debug Ladder：先存在，再時序，再數值",objective:"建立跨模組一致的 debug order。",action:"依 Power/Clock/Reset/Signal/Timing/Data/State/Control/Plant 排序。",expectedObservation:"先證明 lower layer invariant，可避免過早改 control algorithm。",competency:"capstone.debug-ladder.order"}
