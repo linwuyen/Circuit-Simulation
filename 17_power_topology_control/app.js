@@ -43,4 +43,5 @@
   bind(["vinBuck","dutyBuck","lBuck","cBuck","rBuck","esrBuck","fsBuck"],buck);bind(["dutyBoost","lBoost","rBoost","vinBoost"],boost);bind(["pfcVrms","pfcPower","pfcBus","pfcC","pfcHz"],pfc);bind(["psfbVin","psfbPhase","psfbN","psfbLlk","psfbI","psfbCoss"],psfb);bind(["llcLr","llcCr","llcLm","llcQ","llcFs"],llc);bind(["invMode","invVdc","invM","invL1","invC","invL2"],inverter);
   document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>$(b.dataset.go).scrollIntoView({behavior:"smooth",block:"start"})));
   buck();boost();pfc();psfb();llc();inverter();
+  const p5=document.createElement("script");p5.src="p5-transfer.js";document.body.appendChild(p5);
 })();
