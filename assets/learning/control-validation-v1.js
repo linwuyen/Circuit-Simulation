@@ -5,7 +5,7 @@
 })(typeof window !== "undefined" ? window : globalThis, function () {
   "use strict";
 
-  const finite = value => Number.isFinite(Number(value));
+  const finite = value => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
   const number = value => Number(value);
   const nonEmpty = value => typeof value === "string" && value.trim().length > 0;
   const mean = values => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : NaN;
@@ -18,8 +18,8 @@
 
   function analyzeLoadStep(config = {}) {
     const samples = Array.isArray(config.samples) ? config.samples.filter(row => finite(row.tMs) && finite(row.vout)).map(row => ({ tMs:number(row.tMs), vout:number(row.vout), iL:finite(row.iL) ? number(row.iL) : null })).sort((a,b)=>a.tMs-b.tMs) : [];
-    const stepAtMs = number(config.stepAtMs);
-    const vref = number(config.vref);
+    const stepAtMs = finite(config.stepAtMs) ? number(config.stepAtMs) : NaN;
+    const vref = finite(config.vref) ? number(config.vref) : NaN;
     const tolerancePct = finite(config.tolerancePct) ? number(config.tolerancePct) : 2;
     const maxDroopPct = finite(config.maxDroopPct) ? number(config.maxDroopPct) : 10;
     const maxOvershootPct = finite(config.maxOvershootPct) ? number(config.maxOvershootPct) : 10;
