@@ -27,6 +27,13 @@
     return profile;
   }
 
+  function safeInstrumentVersion(profile, value) {
+    const version = value == null ? 1 : Number(value);
+    const valid = profile === "legacy4" ? version === 1 : profile === "core8" ? (version === 1 || version === 2) : false;
+    if (!Number.isInteger(version) || !valid) throw new Error("invalid outcome instrument version");
+    return version;
+  }
+
   function competencyMetrics(score) {
     const rows = score && score.byCompetency && typeof score.byCompetency === "object" ? score.byCompetency : {};
     const result = {};
@@ -58,6 +65,7 @@
     if (!summary || typeof summary !== "object") throw new Error("outcome summary is required");
     const id = safeId(participantId);
     const profile = safeProfile(summary.profile || "legacy4");
+    const instrumentVersion = safeInstrumentVersion(profile, summary.instrumentVersion);
     const phases = {};
     phases.pre = phaseMetric(summary.pre);
     phases.post = phaseMetric(summary.post);
@@ -70,6 +78,7 @@
       schema:"circuit-outcome-study",
       version:1,
       outcomeProfile:profile,
+      outcomeInstrumentVersion:instrumentVersion,
       participantId:id,
       exportedAt,
       phases:Object.freeze(phases),
@@ -85,9 +94,11 @@
     const value = bundle && typeof bundle === "object" ? bundle : {};
     let idValid = true;
     let profileValid = true;
+    let instrumentVersionValid = true;
     try { safeId(value.participantId); } catch (_) { idValid = false; }
     try { safeProfile(value.outcomeProfile || "legacy4"); } catch (_) { profileValid = false; }
     const profile = profileValid ? safeProfile(value.outcomeProfile || "legacy4") : "legacy4";
+    try { safeInstrumentVersion(profile, value.outcomeInstrumentVersion); } catch (_) { instrumentVersionValid = false; }
     const allowedCompetencies = new Set(PROFILE_COMPETENCIES[profile]);
     const phases = value.phases && typeof value.phases === "object" ? value.phases : {};
     const phaseRows = PHASES.map(phase => {
@@ -115,9 +126,10 @@
       Number(value.version) === 1 &&
       idValid &&
       profileValid &&
+      instrumentVersionValid &&
       privacyValid &&
       phaseRows.every(row => row.valid);
-    return Object.freeze({ valid, idValid, profileValid, privacyValid, phaseRows:Object.freeze(phaseRows) });
+    return Object.freeze({ valid, idValid, profileValid, instrumentVersionValid, privacyValid, phaseRows:Object.freeze(phaseRows) });
   }
 
   function aggregateCompetencies(bundles, phase) {
@@ -144,6 +156,9 @@
     const profiles = new Set(valid.map(bundle => safeProfile(bundle.outcomeProfile || "legacy4")));
     if (profiles.size > 1) throw new Error("mixed outcome profiles cannot be aggregated");
     const outcomeProfile = profiles.size ? [...profiles][0] : null;
+    const instrumentVersions = new Set(valid.map(bundle => safeInstrumentVersion(bundle.outcomeProfile || "legacy4", bundle.outcomeInstrumentVersion)));
+    if (instrumentVersions.size > 1) throw new Error("mixed outcome instrument versions cannot be aggregated");
+    const outcomeInstrumentVersion = instrumentVersions.size ? [...instrumentVersions][0] : null;
     const paired = valid.filter(bundle => bundle.pairedPrePost === true && finite(bundle.delta));
     const metric = (phase, key, rows = valid) => mean(rows.map(bundle => bundle.phases[phase] && bundle.phases[phase][key]).filter(finite).map(Number));
     const retention = {};
@@ -157,6 +172,7 @@
       schema:"circuit-outcome-study-summary",
       version:1,
       outcomeProfile,
+      outcomeInstrumentVersion,
       participants:valid.length,
       pairedPrePost:pairedN,
       evidenceStatus,
@@ -168,7 +184,7 @@
       meanPostByCompetency:aggregateCompetencies(paired, "post"),
       retention:Object.freeze(retention),
       causalClaimAllowed:false,
-      interpretation:"observational learner evidence from de-identified metric bundles using one outcome profile; not a causal course-effect estimate"
+      interpretation:"observational learner evidence from de-identified metric bundles using one outcome profile and instrument version; not a causal course-effect estimate"
     });
   }
 
