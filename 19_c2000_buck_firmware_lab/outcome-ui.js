@@ -81,6 +81,7 @@
     } else {
       $$('[data-outcome-choice]').forEach(button => button.addEventListener('click', () => submit(item, button.dataset.outcomeChoice)));
     }
+    renderDashboard();
   }
 
   function submit(item, answer) {
