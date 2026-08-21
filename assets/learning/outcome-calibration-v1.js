@@ -40,12 +40,49 @@
     return profile;
   }
 
+  function fnv1a32(text, offset) {
+    let hash = offset >>> 0;
+    for (let index = 0; index < text.length; index += 1) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 16777619) >>> 0;
+    }
+    return hash >>> 0;
+  }
+
+  function phaseStatusFromSummary(summary, phase) {
+    return phase === "pre" || phase === "post"
+      ? summary && summary[phase]
+      : Array.isArray(summary && summary.retention) ? summary.retention.find(item => item.phase === phase) : null;
+  }
+
+  function contractFingerprint(summary) {
+    const contract = PHASES.map(phase => {
+      const status = phaseStatusFromSummary(summary, phase);
+      if (!status || !Array.isArray(status.cases)) throw new Error(`calibration export requires generated cases for ${phase}`);
+      return [phase, status.cases.map(item => ({
+        id: item.id,
+        phase: item.phase,
+        competency: item.competency,
+        answerType: item.answerType,
+        prompt: item.prompt,
+        choices: item.choices || null,
+        choiceLabels: item.choiceLabels || null,
+        expected: item.expected,
+        parameters: item.parameters || null
+      }))];
+    });
+    const text = JSON.stringify(contract);
+    const a = fnv1a32(text, 2166136261).toString(16).padStart(8, "0");
+    const b = fnv1a32(text, 2246822519).toString(16).padStart(8, "0");
+    return `${a}${b}`;
+  }
+
   function safeInstrument(summary) {
     const seed = Number(summary && summary.seed);
     const countPerCompetency = Number(summary && summary.countPerCompetency);
     if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) throw new Error("calibration export requires an integer instrument seed");
     if (!Number.isInteger(countPerCompetency) || countPerCompetency < 1 || countPerCompetency > 16) throw new Error("calibration export requires countPerCompetency 1-16");
-    return Object.freeze({ seed, countPerCompetency });
+    return Object.freeze({ seed, countPerCompetency, contractFingerprint: contractFingerprint(summary) });
   }
 
   function calibrationPhase(status, phase, allowedCompetencies) {
@@ -79,10 +116,7 @@
     const allowedCompetencies = new Set(PROFILE_COMPETENCIES[profile]);
     const phases = {};
     for (const phase of PHASES) {
-      const status = phase === "pre" || phase === "post"
-        ? summary[phase]
-        : Array.isArray(summary.retention) ? summary.retention.find(item => item.phase === phase) : null;
-      phases[phase] = calibrationPhase(status, phase, allowedCompetencies);
+      phases[phase] = calibrationPhase(phaseStatusFromSummary(summary, phase), phase, allowedCompetencies);
     }
     return Object.freeze({
       schema: "circuit-outcome-calibration",
@@ -109,7 +143,8 @@
     const allowedCompetencies = new Set(PROFILE_COMPETENCIES[profile]);
     const seed = Number(value.instrument && value.instrument.seed);
     const count = Number(value.instrument && value.instrument.countPerCompetency);
-    const instrumentValid = Number.isInteger(seed) && seed >= 0 && seed <= 0xffffffff && Number.isInteger(count) && count >= 1 && count <= 16;
+    const fingerprint = String(value.instrument && value.instrument.contractFingerprint || "");
+    const instrumentValid = Number.isInteger(seed) && seed >= 0 && seed <= 0xffffffff && Number.isInteger(count) && count >= 1 && count <= 16 && /^[0-9a-f]{16}$/.test(fingerprint);
     const phases = value.phases && typeof value.phases === "object" ? value.phases : {};
     const phaseRows = PHASES.map(phase => {
       const item = phases[phase] && typeof phases[phase] === "object" ? phases[phase] : {};
@@ -168,7 +203,7 @@
   }
 
   function instrumentSignature(bundle) {
-    return `${bundle.outcomeProfile}|${bundle.instrument.seed}|${bundle.instrument.countPerCompetency}`;
+    return `${bundle.outcomeProfile}|${bundle.instrument.seed}|${bundle.instrument.countPerCompetency}|${bundle.instrument.contractFingerprint}`;
   }
 
   function aggregate(bundles = [], { phase = "post" } = {}) {
