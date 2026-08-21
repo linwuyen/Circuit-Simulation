@@ -156,10 +156,12 @@ test("debug mode exposes deterministic HIL and board claim is manifest-backed", 
   expect(errors).toEqual([]);
 });
 
-test("outcome benchmark records immutable first attempts and home surfaces real state", async ({ page }) => {
+test("outcome benchmark records immutable core8 first attempts and home surfaces real state", async ({ page }) => {
   await page.goto("/19_c2000_buck_firmware_lab/");
+  await expect(page.locator("#outcomeDashboard")).toHaveAttribute("data-profile", "core8");
+  await expect(page.locator("#outcomeDashboard")).toContainText("CORE LAYERS");
   await expect(page.locator("#outcomeDashboard")).toContainText("0/8 first attempts");
-  await expect(page.locator("#outcomeQuestion")).toContainText("PRE");
+  await expect(page.locator("#outcomeQuestion")).toContainText("PRE · CORE8");
   await page.locator("[data-outcome-choice]").first().click();
   await expect(page.locator("#outcomeDashboard")).toContainText("1/8 first attempts");
 
