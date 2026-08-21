@@ -23,6 +23,7 @@ test("guided Buck capstone is equation-backed across all eight layers", async ({
   await expect(page.locator("#physicsToff")).toHaveText("7.500 µs");
   await expect(page.locator("#physicsRipple")).toHaveText("0.450 A");
   await page.locator('[data-physics-predict="lower"]').click();
+  await expect(page.locator("[data-physics-predict-status]")).toContainText("真板先量");
   await page.locator("#inductanceRange").fill("400");
   await expect(page.locator("#physicsRipple")).toHaveText("0.225 A");
   await expect(page.locator("#buckWaveform .current-wave")).toHaveAttribute("d", /L/);
@@ -31,6 +32,7 @@ test("guided Buck capstone is equation-backed across all eight layers", async ({
   await expect(page.locator("#timingDone")).toHaveText("5.50 µs");
   await expect(page.locator("#timingCommit")).toHaveText("10.00 µs");
   await page.locator('[data-timing-predict="next"]').click();
+  await expect(page.locator("[data-timing-predict-status]")).toContainText("真板先量");
   await page.locator("[data-timing-fault]").click();
   await expect(page.locator("#timingDone")).toHaveText("10.50 µs");
   await expect(page.locator("#timingCommit")).toHaveText("20.00 µs");
@@ -92,6 +94,11 @@ test("module 15 is a diagnosis challenge bank, not a second capstone", async ({ 
   await expect(page.locator(".lead")).toContainText("Module 19 是 authoritative executable capstone");
   await expect(page.locator('a[href="../19_c2000_buck_firmware_lab/index.html"]').first()).toBeVisible();
   await expect(page.locator("main")).toContainText("先證明 signal existence，再證明 timing");
+  const role = await page.evaluate(() => {
+    const module = window.CircuitCurriculum?.modules?.find(item => item.id === "power-capstone");
+    return module ? { title: module.title, tag: module.tag } : null;
+  });
+  expect(role).toEqual({ title: "Power Firmware Debug Challenge Bank", tag: "Debug Lab" });
 });
 
 test("debug mode exposes deterministic HIL and board claim is manifest-backed", async ({ page }) => {
