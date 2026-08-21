@@ -42,7 +42,10 @@ void BuckControl_tick(
     if (!input->sensor_valid || input->vin <= 0.1f || dt <= 0.0f) detected |= BUCK_FAULT_SENSOR;
     if (input->iL > config->current_limit * 1.08f) detected |= BUCK_FAULT_OCP;
     if (input->vout > config->ovp_threshold) detected |= BUCK_FAULT_OVP;
-    if (state->command_age_ticks > config->command_timeout_ticks) detected |= BUCK_FAULT_COMMAND_TIMEOUT;
+    /* A stale command is hazardous only while external authority requests PWM. */
+    if (input->enable_request && state->command_age_ticks > config->command_timeout_ticks) {
+        detected |= BUCK_FAULT_COMMAND_TIMEOUT;
+    }
 
     state->fault_latch |= detected;
 
