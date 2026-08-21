@@ -5,7 +5,6 @@
 })(typeof window !== "undefined" ? window : globalThis, function () {
   "use strict";
 
-  const DT = 1e-5;
   const DEFAULTS = Object.freeze({
     vin: 48,
     vref: 12,
@@ -19,7 +18,8 @@
     voltageKi: 100,
     currentKp: 0.02,
     currentKi: 500,
-    softStartTicks: 5000,
+    controlPeriodS: 1e-5,
+    softStartVoltsPerSecond: 240,
     commandTimeoutTicks: 500
   });
 
@@ -41,11 +41,12 @@
       iL: 0,
       duty: 0,
       iref: 0,
+      softVref: 0,
       voltageI: 0,
       currentI: 0,
       commandAge: 0,
       faultLatch: 0,
-      state: "SOFT_START",
+      state: "OFF",
       minVout: Infinity,
       maxVout: -Infinity,
       tripTick: null
@@ -54,15 +55,18 @@
 
   function controlStep(s, input = {}) {
     const c = s.cfg;
+    const dt = c.controlPeriodS;
     const heartbeat = input.heartbeat !== false;
+    const enable = input.enable !== false;
     const sensorValid = input.sensorValid !== false;
+    const measuredVin = Number.isFinite(input.measuredVin) ? input.measuredVin : c.vin;
     const measuredVout = Number.isFinite(input.measuredVout) ? input.measuredVout : s.vout;
     const measuredCurrent = Number.isFinite(input.measuredCurrent) ? input.measuredCurrent : s.iL;
 
     if (heartbeat) s.commandAge = 0;
     else s.commandAge += 1;
 
-    if (!sensorValid) s.faultLatch |= FAULT.SENSOR;
+    if (!sensorValid || measuredVin <= 0.1 || dt <= 0) s.faultLatch |= FAULT.SENSOR;
     if (measuredCurrent > c.currentLimit * 1.08) s.faultLatch |= FAULT.OCP;
     if (measuredVout > c.ovp) s.faultLatch |= FAULT.OVP;
     if (s.commandAge > c.commandTimeoutTicks) s.faultLatch |= FAULT.COMMAND_TIMEOUT;
@@ -76,34 +80,49 @@
       return;
     }
 
-    const softVref = c.vref * clamp(s.tick / c.softStartTicks, 0, 1);
-    s.state = softVref < c.vref ? "SOFT_START" : "RUN";
+    if (!enable) {
+      s.state = "OFF";
+      s.softVref = 0;
+      s.duty = 0;
+      s.iref = 0;
+      s.voltageI = 0;
+      s.currentI = 0;
+      return;
+    }
 
-    const ev = softVref - measuredVout;
+    if (s.state === "OFF") s.state = "SOFT_START";
+    if (s.state === "SOFT_START") {
+      s.softVref = Math.min(c.vref, s.softVref + c.softStartVoltsPerSecond * dt);
+      if (s.softVref >= c.vref) s.state = "RUN";
+    } else {
+      s.softVref = c.vref;
+    }
+
+    const ev = s.softVref - measuredVout;
     const ivUnsat = c.voltageKp * ev + s.voltageI;
     s.iref = clamp(ivUnsat, 0, c.currentLimit);
     if ((s.iref > 0 && s.iref < c.currentLimit) ||
         (s.iref >= c.currentLimit && ev < 0) ||
         (s.iref <= 0 && ev > 0)) {
-      s.voltageI = clamp(s.voltageI + c.voltageKi * ev * DT, 0, c.currentLimit);
+      s.voltageI = clamp(s.voltageI + c.voltageKi * ev * dt, 0, c.currentLimit);
     }
 
     const ei = s.iref - measuredCurrent;
-    const ff = softVref / c.vin;
-    const raw = ff + c.currentKp * ei + s.currentI;
+    const raw = s.softVref / measuredVin + c.currentKp * ei + s.currentI;
     s.duty = clamp(raw, 0, c.dutyMax);
     if ((s.duty > 0 && s.duty < c.dutyMax) ||
         (s.duty >= c.dutyMax && ei < 0) ||
         (s.duty <= 0 && ei > 0)) {
-      s.currentI = clamp(s.currentI + c.currentKi * ei * DT, -0.25, 0.25);
+      s.currentI = clamp(s.currentI + c.currentKi * ei * dt, -0.25, 0.25);
     }
   }
 
   function plantStep(s, loadOhm = s.cfg.loadOhm) {
     const c = s.cfg;
-    const di = (s.duty * c.vin - s.vout) / c.L * DT;
+    const dt = c.controlPeriodS;
+    const di = (s.duty * c.vin - s.vout) / c.L * dt;
     s.iL = Math.max(0, s.iL + di);
-    const dv = (s.iL - s.vout / loadOhm) / c.C * DT;
+    const dv = (s.iL - s.vout / loadOhm) / c.C * dt;
     s.vout = Math.max(0, s.vout + dv);
     s.minVout = Math.min(s.minVout, s.vout);
     s.maxVout = Math.max(s.maxVout, s.vout);
@@ -141,6 +160,7 @@
         input.measuredVout = s.cfg.ovp + 1;
         eventTick = n;
       }
+      if (name === "idle-off") input.enable = false;
 
       finalLoad = load;
       controlStep(s, input);
@@ -154,6 +174,7 @@
     const expectedFault = {
       nominal: 0,
       "load-step": 0,
+      "idle-off": 0,
       ocp: FAULT.OCP,
       "adc-stuck": FAULT.SENSOR,
       "command-timeout": FAULT.COMMAND_TIMEOUT,
@@ -161,6 +182,10 @@
     }[name];
 
     const tripLatencyTicks = eventTick != null && s.tripTick != null ? s.tripTick - eventTick : null;
+    const nonFaultPass = name === "idle-off"
+      ? s.faultLatch === 0 && s.state === "OFF" && s.duty === 0
+      : s.faultLatch === 0 && Math.abs(s.vout - s.cfg.vref) < 0.35;
+
     return {
       name,
       vout: s.vout,
@@ -176,7 +201,7 @@
       trace,
       pass:
         expectedFault === 0
-          ? s.faultLatch === 0 && Math.abs(s.vout - s.cfg.vref) < 0.35
+          ? nonFaultPass
           : (s.faultLatch & expectedFault) !== 0 && s.duty === 0 && tripLatencyTicks != null &&
             (name === "command-timeout" ? tripLatencyTicks <= s.cfg.commandTimeoutTicks + 1 : tripLatencyTicks <= 1)
     };
@@ -184,14 +209,14 @@
 
   function boardEvidenceContract() {
     return [
-      { id: "pwm", signal: "PWM gate command", criterion: "100 kHz period and commanded duty match CMPA" },
-      { id: "gpio", signal: "GPIO31 ISR probe", criterion: "sample-to-compare execution fits inside the control period" },
-      { id: "soc", signal: "ADC SOC phase", criterion: "sample phase is deterministic relative to PWM switching edge" },
-      { id: "trip", signal: "CMPSS → TZ", criterion: "fault forces PWM low without waiting for background software" },
+      { id: "pwm", signal: "PWM gate command", criterion: "measured period matches configured fsw and active duty matches CMPA after the defined shadow-load event" },
+      { id: "gpio", signal: "GPIO31 ISR probe", criterion: "sample-to-shadow-write execution meets the measured control deadline with margin" },
+      { id: "soc", signal: "ADC SOC phase", criterion: "sample phase is deterministic relative to the physical switching edge" },
+      { id: "trip", signal: "CMPSS → XBAR → DCAEVT1 → TZ", criterion: "fault forces PWM low without waiting for ADC ISR or background software" },
       { id: "soft", signal: "Soft-start Vout", criterion: "monotonic ramp without duty saturation windup" },
       { id: "load", signal: "Load step", criterion: "Vout transient returns to regulation without protection chatter" },
-      { id: "timeout", signal: "Command timeout", criterion: "stale command fails closed and latches evidence" },
-      { id: "rearm", signal: "Fault re-arm", criterion: "clear only after source-safe qualifiers are physically true" }
+      { id: "timeout", signal: "Command timeout", criterion: "stale external command fails closed; ADC ISR does not self-refresh freshness" },
+      { id: "rearm", signal: "Fault re-arm", criterion: "clear only after explicit command plus physically safe V/I qualifiers" }
     ];
   }
 
