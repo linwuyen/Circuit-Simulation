@@ -201,7 +201,6 @@ static void configureControlPipeline(void)
     configureADC();
     configureHardwareVeto();
     configureEvidenceGPIO();
-    SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);
 }
 
 __interrupt void adca1ISR(void)
@@ -266,6 +265,8 @@ int main(void)
     Interrupt_enable(INT_ADCA1);
     EINT;
     ERTM;
+    /* Start PWM/SOCA only after the ADC ISR ownership is fully installed. */
+    SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);
 
     while (1) {
         /* Communication layer publishes validated commands via BuckTarget_publishCommand(). */
