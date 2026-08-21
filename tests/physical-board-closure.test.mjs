@@ -43,7 +43,7 @@ test("P4-A template is fail-closed and enumerates the next physical actions", ()
   assert.equal(result.flashPassed, false);
   assert.equal(result.bindingsVerified, false);
   assert.equal(result.evidencePassed, false);
-  assert.equal(result.remainingActions.length, 18);
+  assert.equal(result.remainingActions.length, 19);
 });
 
 test("P4-A complete package can derive a BOARD_PASS manifest only with provenance", () => {
