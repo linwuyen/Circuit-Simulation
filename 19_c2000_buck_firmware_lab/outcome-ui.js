@@ -48,8 +48,9 @@
     const comparison = summary.comparison;
     const dashboard = $('#outcomeDashboard');
     dashboard.dataset.profile = summary.profile;
+    dashboard.dataset.instrumentVersion = String(summary.instrumentVersion || 1);
     dashboard.innerHTML = `
-      <div><span>PRE · ${summary.profile.toUpperCase()}</span><b>${pct(summary.pre.score && summary.pre.score.accuracy)}</b><small>${summary.pre.attempted}/${summary.pre.total} first attempts</small></div>
+      <div><span>PRE · ${summary.profile.toUpperCase()} V${summary.instrumentVersion || 1}</span><b>${pct(summary.pre.score && summary.pre.score.accuracy)}</b><small>${summary.pre.attempted}/${summary.pre.total} first attempts</small></div>
       <div><span>POST</span><b>${pct(summary.post.score && summary.post.score.accuracy)}</b><small>${summary.post.attempted}/${summary.post.total} first attempts</small></div>
       <div><span>Δ UNSEEN</span><b>${comparison && comparison.delta != null ? `${comparison.delta >= 0 ? '+' : ''}${Math.round(comparison.delta*100)} pp` : '—'}</b><small>not a causal claim</small></div>
       ${profileMetrics(summary)}
@@ -98,10 +99,11 @@
       return;
     }
     const index = status.cases.findIndex(testCase => testCase.id === item.id) + 1;
+    const familyNote = item.familyId ? ` · ${item.familyId}` : '';
     const choiceMarkup = item.answerType === 'timing'
       ? `<div class="prediction-row"><button type="button" data-outcome-judgement="met">第一個 ZERO 趕得上</button><button type="button" data-outcome-judgement="missed">錯過第一個 ZERO</button></div><label class="control-label">Physical commit (µs)<input id="outcomeCommitUs" type="number" step="0.001" placeholder="例如 10.000"></label><button class="button primary" type="button" id="outcomeTimingSubmit" disabled>鎖定 first attempt</button>`
       : `<div class="prediction-row">${item.choices.map(choice => `<button type="button" data-outcome-choice="${choice}">${item.choiceLabels?.[choice] || choice}</button>`).join('')}</div>`;
-    $('#outcomeQuestion').innerHTML = `<div class="section-kicker">${activePhase.toUpperCase()} · ${status.profile.toUpperCase()} · ${item.competency} · ${index}/${status.total}</div><h3>${item.prompt}</h3><p class="muted">送出後 first attempt 永久鎖定；重答只記 retry。正式題只量 unseen judgement，不會把 practice 題成績混進來。</p>${choiceMarkup}<p class="prediction-status" id="outcomeAnswerStatus" aria-live="polite"></p>`;
+    $('#outcomeQuestion').innerHTML = `<div class="section-kicker">${activePhase.toUpperCase()} · ${status.profile.toUpperCase()} V${status.instrumentVersion || 1} · ${item.competency}${familyNote} · ${index}/${status.total}</div><h3>${item.prompt}</h3><p class="muted">送出後 first attempt 永久鎖定；重答只記 retry。正式題只量 unseen judgement，不會把 practice 題成績混進來。</p>${choiceMarkup}<p class="prediction-status" id="outcomeAnswerStatus" aria-live="polite"></p>`;
 
     if (item.answerType === 'timing') {
       let judgement = null;
@@ -146,7 +148,7 @@
     if (!panel || $('#outcomeStudyExport')) return;
     const wrap = document.createElement('div');
     wrap.id = 'outcomeStudyExport';
-    wrap.innerHTML = `<hr><div class="section-kicker">P4-C · LEARNER STUDY EXPORT</div><p class="muted">Study JSON 只匯出 aggregate metrics、outcome profile 與 competency-level accuracy；不含題目、答案或自由文字。participant ID 請使用匿名代碼。</p><div class="input-grid"><label>Anonymous participant ID<input id="outcomeParticipantId" type="text" maxlength="64" placeholder="例如 p_001"></label></div><div class="actions"><button class="button" id="outcomeStudyDownload" type="button">匯出 study JSON</button><span class="prediction-status" id="outcomeStudyStatus"></span></div><div data-calibration-export><div class="section-kicker">P4-D · OPT-IN ITEM CALIBRATION</div><p class="muted">Calibration JSON 額外包含 case ID、competency 與 first-attempt 正誤，用來估 proportion-correct / corrected discrimination；仍不含 prompt、choice 或實際作答內容。只有要做題目校準時才匯出。</p><div class="actions"><button class="button" id="outcomeCalibrationDownload" type="button">匯出 calibration JSON</button><span class="prediction-status" id="outcomeCalibrationStatus"></span></div></div>`;
+    wrap.innerHTML = `<hr><div class="section-kicker">P4-C · LEARNER STUDY EXPORT</div><p class="muted">Study JSON 只匯出 aggregate metrics、outcome profile 與 competency-level accuracy；不含題目、答案或自由文字。participant ID 請使用匿名代碼。</p><div class="input-grid"><label>Anonymous participant ID<input id="outcomeParticipantId" type="text" maxlength="64" placeholder="例如 p_001"></label></div><div class="actions"><button class="button" id="outcomeStudyDownload" type="button">匯出 study JSON</button><span class="prediction-status" id="outcomeStudyStatus"></span></div><div data-calibration-export><div class="section-kicker">P4-D · OPT-IN ITEM / FAMILY CALIBRATION</div><p class="muted">Calibration JSON 額外包含 case ID、family/variant ID、competency 與 first-attempt 正誤，用來估 proportion-correct、corrected discrimination 與跨 form family 行為；仍不含 prompt、choice 或實際作答內容。只有要做題目校準時才匯出。</p><div class="actions"><button class="button" id="outcomeCalibrationDownload" type="button">匯出 calibration JSON</button><span class="prediction-status" id="outcomeCalibrationStatus"></span></div></div>`;
     panel.appendChild(wrap);
     try {
       if (!window.CircuitOutcomeStudyV1) await loadScript('../assets/learning/outcome-study-v1.js');
@@ -166,7 +168,7 @@
         if (!window.CircuitOutcomeCalibrationV1) await loadScript('../assets/learning/outcome-calibration-v1.js');
         const bundle = window.CircuitOutcomeCalibrationV1.exportParticipant(Session.summary(), { participantId:$('#outcomeParticipantId').value });
         downloadJson(bundle, 'outcome-calibration');
-        status.textContent = `exported ${bundle.participantId} · ${bundle.outcomeProfile} · item correctness: yes · raw answers/prompts: no`;
+        status.textContent = `exported ${bundle.participantId} · ${bundle.outcomeProfile} v${bundle.instrument.instrumentVersion || 1} · item correctness: yes · raw answers/prompts: no`;
       } catch (error) { status.textContent = `REJECTED: ${error.message}`; }
     });
   }
@@ -182,7 +184,20 @@
     }
   });
 
-  renderQuestion();
-  installStudyExport();
-  loadScript('learning-p2.js').catch(() => {});
+  async function bootstrap() {
+    const record = Session.loadRecord();
+    if (record.profile === 'core8' && record.instrumentVersion === 2 && !window.CircuitOutcomeFamiliesV2) {
+      try {
+        await loadScript('../assets/learning/outcome-families-v2.js');
+      } catch (error) {
+        $('#outcomeQuestion').innerHTML = `<p class="truth-box">core8 v2 family instrument 載入失敗：${error.message}</p>`;
+        return;
+      }
+    }
+    renderQuestion();
+    installStudyExport();
+    loadScript('learning-p2.js').catch(() => {});
+  }
+
+  bootstrap();
 })();
