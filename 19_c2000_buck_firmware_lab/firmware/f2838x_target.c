@@ -32,7 +32,8 @@
 #define VOUT_VOLTS_PER_ADC_V    5.0f
 #define VIN_VOLTS_PER_ADC_V     20.0f
 #define IL_ZERO_ADC_V           1.65f
-#define IL_AMPS_PER_ADC_V       5.0f
+/* ±9.9 A span gives measurable headroom above the 8.64 A software OCP point. */
+#define IL_AMPS_PER_ADC_V       6.0f
 
 typedef struct {
     volatile uint32_t sequence;
@@ -70,6 +71,7 @@ static BuckControlState gState;
 static BuckCommandMailbox gCommand = {{{0U, 0U, 0U}, {0U, 0U, 0U}}, 0U};
 static uint32_t gLastCommandSequence = 0U;
 static volatile uint32_t gHardwareTripCount = 0U;
+static uint16_t gHardwareTripActive = 0U;
 
 /*
  * The communication owner calls this only after a command frame passes its
@@ -208,6 +210,7 @@ __interrupt void adca1ISR(void)
     BuckControlInput input;
     BuckCommandSnapshot command;
     uint16_t tzFlags;
+    uint16_t hardwareTripActive;
     const uint16_t rawVout = ADC_readResult(CONTROL_ADCRESULT_BASE, CONTROL_SOC_VOUT);
     const uint16_t rawVin = ADC_readResult(CONTROL_ADCRESULT_BASE, CONTROL_SOC_VIN);
     const uint16_t rawIL = ADC_readResult(CONTROL_ADCRESULT_BASE, CONTROL_SOC_IL);
@@ -229,7 +232,9 @@ __interrupt void adca1ISR(void)
                                 (uint16_t)(gState.duty * (float)CONTROL_TBPRD));
 
     tzFlags = EPWM_getTripZoneFlagStatus(CONTROL_EPWM_BASE);
-    if ((tzFlags & EPWM_TZ_FLAG_DCAEVT1) != 0U) gHardwareTripCount++;
+    hardwareTripActive = ((tzFlags & EPWM_TZ_FLAG_DCAEVT1) != 0U) ? 1U : 0U;
+    if (hardwareTripActive && !gHardwareTripActive) gHardwareTripCount++;
+    gHardwareTripActive = hardwareTripActive;
 
     if ((gState.state == BUCK_STATE_FAULT_LATCHED) || !input.enable_request) {
         EPWM_forceTripZoneEvent(CONTROL_EPWM_BASE, EPWM_TZ_FORCE_EVENT_OST);
@@ -242,6 +247,7 @@ __interrupt void adca1ISR(void)
         input.iL < gConfig.current_limit * 0.20f && input.vout < gConfig.vref * 0.50f) {
         EPWM_clearTripZoneFlag(CONTROL_EPWM_BASE,
                                EPWM_TZ_FLAG_OST | EPWM_TZ_FLAG_DCAEVT1);
+        gHardwareTripActive = 0U;
     }
 
     GPIO_writePin(CONTROL_EVIDENCE_GPIO, 0U);
