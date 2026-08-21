@@ -16,6 +16,10 @@
   }
 
   const OUTCOME_PROFILES = Object.freeze(["legacy4", "core8"]);
+  const PROFILE_COMPETENCIES = Object.freeze({
+    legacy4: Object.freeze(["physics", "timing", "next-measurement", "transfer"]),
+    core8: Object.freeze(["physics", "sensing", "feedback", "timing", "dynamics", "safety", "production", "evidence"])
+  });
 
   function safeProfile(value) {
     const profile = String(value || "legacy4").trim();
@@ -83,15 +87,28 @@
     let profileValid = true;
     try { safeId(value.participantId); } catch (_) { idValid = false; }
     try { safeProfile(value.outcomeProfile || "legacy4"); } catch (_) { profileValid = false; }
+    const profile = profileValid ? safeProfile(value.outcomeProfile || "legacy4") : "legacy4";
+    const allowedCompetencies = new Set(PROFILE_COMPETENCIES[profile]);
     const phases = value.phases && typeof value.phases === "object" ? value.phases : {};
     const phaseRows = PHASES.map(phase => {
       const item = phases[phase] && typeof phases[phase] === "object" ? phases[phase] : {};
+      const rows = item.byCompetency && typeof item.byCompetency === "object" ? item.byCompetency : {};
+      const competenciesValid = Object.entries(rows).every(([key, metric]) => {
+        const attempted = Number(metric && metric.attempted);
+        const correct = Number(metric && metric.correct);
+        const accuracy = metric && metric.accuracy;
+        return allowedCompetencies.has(key) &&
+          Number.isInteger(attempted) && attempted >= 0 &&
+          Number.isInteger(correct) && correct >= 0 && correct <= attempted &&
+          (accuracy == null || (finite(accuracy) && Number(accuracy) >= 0 && Number(accuracy) <= 1));
+      });
       const valid = Number.isInteger(Number(item.attempted)) &&
         Number.isInteger(Number(item.total)) &&
         Number(item.attempted) >= 0 &&
         Number(item.total) >= Number(item.attempted) &&
-        (item.accuracy == null || (finite(item.accuracy) && Number(item.accuracy) >= 0 && Number(item.accuracy) <= 1));
-      return Object.freeze({ phase, valid });
+        (item.accuracy == null || (finite(item.accuracy) && Number(item.accuracy) >= 0 && Number(item.accuracy) <= 1)) &&
+        competenciesValid;
+      return Object.freeze({ phase, valid, competenciesValid });
     });
     const privacyValid = value.containsRawAnswers === false && value.containsPrompts === false;
     const valid = value.schema === "circuit-outcome-study" &&
