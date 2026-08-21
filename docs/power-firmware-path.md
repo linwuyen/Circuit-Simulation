@@ -20,13 +20,13 @@ The course builds one digital converter through eight causal layers rather than 
    PWM SOCA → ADC → ISR/CLA → shadow write → PWM load
         ↓
 05 Dynamics
-   P(s) → Bode → C(z) → delay → SFRA
+   load-step phenomenon → energy storage / delay → P(s) / Bode / SFRA
         ↓
 06 Safety
    Fault → CMPSS → XBAR/DC → Trip Zone → PWM LOW
         ↓
 07 Production Firmware
-   state + ownership + command freshness + fail-closed policy
+   state + ownership + command freshness + validity invariants → PWM authority
         ↓
 08 Capstone / Evidence
    SIL → HIL → linked F2838x image → physical closure → measured control validation → transfer
@@ -42,12 +42,84 @@ r → e → C(z) → u → P(s) → y
 Safety veto: CMPSS / Trip / State → PWM OFF
 ```
 
+Every guided layer converges on the same learner loop:
+
+```text
+plain-language claim
+→ directional prediction
+→ change one variable
+→ observe
+→ causal explanation + assumption boundary
+→ highest-value next measurement
+```
+
+## Five fixed engineering views
+
+Module 19 keeps the same five coordinates visible throughout the course so the learner does not rebuild the architecture from scratch on every page:
+
+```text
+PHYSICAL
+PWM / switch state → switch node → vL / di/dt → L/C energy → load / Vout
+
+SIGNAL
+physical V/I → divider / AFE → ADC pin → sample / count → reconstructed feedback ŷ
+
+CONTROL
+reference r → error e → C(z) → duty / phase / fsw command → plant
+
+TIME
+SOCA → ADC ready → ISR / CLA → shadow write → active PWM commit
+
+AUTHORITY
+RUN ∧ COMMAND_FRESH ∧ SENSING_VALID ∧ NO_FAULT ∧ PERIPHERALS_READY ∧ CALIBRATION_VALID
+→ software PWM grant
+
+Independent hardware veto:
+fault → CMPSS / qualification → XBAR / Trip Zone → PWM LOW
+```
+
+The views are diagnostic coordinates, not five extra modules. When an output is wrong, first identify which contract is broken before changing controller code.
+
 ## Core vs. lens / transfer content
 
+- **Module 15 · Debug Challenge Bank** — after the normal causal chain is learned in Module 19, diagnose unknown sensing / timing / ownership / state / control faults with limited measurement budget. It is not a second capstone.
 - **Module 16 · Math Lens** — Laplace / Fourier / Z / Bode / delay are views of the same loop.
 - **Module 17 · Transfer Atlas** — reuse the same grammar on Boost / PFC / PSFB / LLC / Inverter.
 - **Module 18 · Control Grammar** — reusable `r → e → C(z) → u → P → y` reference.
-- **Module 19 · Executable Capstone** — Buck model/SIL/HIL/F2838x image, physical closure, measured validation and learner outcome sessions.
+- **Module 19 · Executable Capstone** — the authoritative Buck model/SIL/HIL/F2838x image, physical closure, measured validation and learner outcome sessions.
+
+## Dynamics teaching order
+
+Frequency-domain tools are not the entry point. The default causal order is:
+
+```text
+load current ↑
+→ capacitor initially supplies the deficit
+→ Vout sags
+→ inductor current cannot jump, only ramp
+→ ADC eventually samples the sag
+→ controller computes a new command
+→ PWM shadow load commits later
+→ plant responds
+```
+
+Only after that phenomenon is understood do `P(s)`, Bode and SFRA appear as compact ways to quantify how the plant plus delay respond to disturbances at different speeds. A timing-only phase term is never presented as total phase margin.
+
+## Production authority invariant
+
+`RUN` is not a sufficient enable bit. The software request for PWM must remain fail-closed unless all required invariants are simultaneously valid:
+
+```text
+PWM_AUTHORITY =
+    (state == RUN)
+ && command_fresh
+ && sensing_valid
+ && no_fault
+ && peripherals_ready
+ && calibration_valid
+```
+
+Command freshness belongs to the external producer; the ADC/control ISR cannot refresh a heartbeat on the producer's behalf. Even when software authority is granted, CMPSS / Trip Zone may independently veto PWM.
 
 ## Capability target
 
