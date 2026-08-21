@@ -23,6 +23,17 @@
 
 Module 19 每一層都有 executable causal surface：Physics、Sensing、Feedback、Timing、Dynamics、Safety、Production，以及 Capstone/Evidence。
 
+所有 Guided layer 都收斂到同一個工程迴圈：
+
+```text
+白話物理問題
+→ 方向預測
+→ 只改一個變數
+→ 觀察
+→ 因果解釋 + 假設邊界
+→ 真板下一個最高資訊量量測
+```
+
 共同控制語言：
 
 ```text
@@ -33,12 +44,15 @@ r → e → C(z) → u → P(s) → y
 Safety veto: CMPSS / Trip / State → PWM OFF
 ```
 
+Module 19 同時固定使用五個工程視圖：**PHYSICAL / SIGNAL / CONTROL / TIME / AUTHORITY**。目的不是增加新章節，而是讓學員遇到任何症狀時先定位是哪個 contract 壞掉，再決定是否要改 code。
+
 ### Module roles
 
+- **Module 15 · Debug Challenge Bank** — 完成 Module 19 的正常因果鏈後，進行 unknown-system fault isolation；它不是第二個 capstone。
 - **Module 16 · Math Lens** — Laplace / Fourier / Z / Bode / delay。
 - **Module 17 · Transfer Atlas** — Boost / PFC / PSFB / LLC / Inverter，含 P5 live transfer verification。
 - **Module 18 · Control Grammar** — `r → e → C(z) → u → P → y` reusable reference。
-- **Module 19 · Executable Capstone** — Model → Host SIL → HIL → linked F2838x Flash image → P4 physical closure / control validation → Board evidence。
+- **Module 19 · Executable Capstone** — authoritative Model → Host SIL → HIL → linked F2838x Flash image → P4 physical closure / control validation → Board evidence。
 
 詳細說明：[`docs/power-firmware-path.md`](docs/power-firmware-path.md)
 
@@ -134,6 +148,20 @@ Module 17 的 P5 surface 使用同一份 `assets/learning/topology-transfer-v1.j
 P5 有 live constraint cards 與 deterministic first-attempt unseen checks；這是 transfer-learning evidence，不是 hardware certification。
 
 ## Production / state contract
+
+Software PWM grant 不是單一 `enable` bit：
+
+```text
+PWM_AUTHORITY =
+    RUN
+ && command_fresh
+ && sensing_valid
+ && no_fault
+ && peripherals_ready
+ && calibration_valid
+```
+
+而且即使 software authority 成立，CMPSS / Trip Zone 仍可獨立 hardware veto。Command freshness 只由外部 producer publication 更新，consumer/ADC ISR 不得替 producer 製造 heartbeat。
 
 - **V3** — production renderer
 - **V5** — durable learning-state schema
