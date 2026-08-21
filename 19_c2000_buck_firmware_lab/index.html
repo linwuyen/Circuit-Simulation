@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="C2000 Buck 電源韌體：可執行控制核心、driverlib mapping、SIL/HIL fault injection 與板上 evidence contract。">
+  <meta name="description" content="C2000 Buck 電源韌體：從理想 switching physics、sample-to-actuate timing，到可執行 C controller、driverlib target mapping、SIL/HIL 與板上 evidence contract。">
   <title>C2000 Buck Firmware Lab</title>
   <link rel="stylesheet" href="../assets/learning/learning.css">
   <link rel="stylesheet" href="../assets/learning/learning-v3.css">
@@ -12,73 +12,191 @@
 <body class="cl-theme-1617">
   <main class="shell lab-shell">
     <a class="button" href="../index.html">← 回 Power Firmware Journey</a>
+
     <section class="lab-hero">
-      <div class="eyebrow">C2000 POWER FIRMWARE · EXECUTABLE LAB</div>
-      <h1>從方程式到 ePWM / ADC / CMPSS / Trip Zone，再到 HIL 證據</h1>
-      <p class="lead">同一個 Buck controller 同時存在三個世界：host SIL 的純 C 控制核心、C2000Ware driverlib 的 target binding、以及可注入 fault 的 deterministic HIL model。</p>
+      <div class="eyebrow">C2000 POWER FIRMWARE · GUIDED CORE</div>
+      <h1>先預測，再看波形；最後才落到 ePWM / ADC / CMPSS / Trip Zone</h1>
+      <p class="lead">同一台 48 → 12 V Buck，從 switching-cycle 物理、sample-to-actuate deadline，一路用同一份 semantic contract 走到 Host SIL、HIL、C2000 target 與實板證據。</p>
+      <div class="truth-box"><b>Truth hierarchy：</b>Physics → Teaching Model → Host SIL → HIL → Target → Board。下層 PASS 永遠不自動代表上層 PASS。</div>
     </section>
-    <section class="lab-panel">
-      <h2>1 · 真正的 sample → compute → actuate pipeline</h2>
+
+    <nav class="mode-tabs" aria-label="學習模式">
+      <button type="button" class="selected" data-learning-mode="guided">GUIDED<br><small>一次一個問題</small></button>
+      <button type="button" data-learning-mode="explain">EXPLAIN<br><small>公式與因果</small></button>
+      <button type="button" data-learning-mode="firmware">FIRMWARE<br><small>C2000 mapping</small></button>
+      <button type="button" data-learning-mode="debug">DEBUG<br><small>Fault injection</small></button>
+      <button type="button" data-learning-mode="sandbox">SANDBOX<br><small>全部打開</small></button>
+    </nav>
+
+    <section class="lab-panel" data-show-modes="guided explain firmware debug sandbox">
+      <div class="section-kicker">STICKY MENTAL MODEL</div>
+      <h2>一條控制迴路，兩條權限路徑</h2>
       <div class="pipeline" data-pipeline>
-        <span>ePWM1 SOCA<br><small>TBCTR = ZERO</small></span><i>→</i>
-        <span>ADCA SOC0<br><small>S/H + EOC</small></span><i>→</i>
-        <span>ADCINT1 ISR<br><small>GPIO31 evidence</small></span><i>→</i>
-        <span>BuckControl_tick()<br><small>CC/CV + anti-windup</small></span><i>→</i>
-        <span>CMPA update<br><small>PWM command</small></span>
+        <span>Power Stage<br><small>Vin / L / C / load</small></span><i>→</i>
+        <span>Sensor / Scale<br><small>physical → volts</small></span><i>→</i>
+        <span>ADC<br><small>sample → counts</small></span><i>→</i>
+        <span>C(z)<br><small>error → command</small></span><i>→</i>
+        <span>PWM<br><small>shadow → active</small></span>
       </div>
-      <div class="pipeline"><span>CMPSS1</span><i>→</i><span>Digital Compare</span><i>→</i><span>Trip Zone</span><i>→</i><span>PWM LOW</span></div>
-      <p class="truth-box">Safety plane 不等 control ISR：過流硬體路徑必須能直接否決 PWM。韌體負責留下 evidence、state 與 re-arm policy。</p>
+      <div class="pipeline safety-pipeline"><span>Fault</span><i>→</i><span>CMPSS</span><i>→</i><span>ePWM XBAR / DCAEVT1</span><i>→</i><span>Trip Zone</span><i>→</i><span>PWM LOW</span></div>
+      <p class="truth-box">Safety plane 不是普通 ISR：硬體 fault 可以直接否決 PWM；軟體負責 state、evidence、command freshness 與受條件限制的 re-arm。</p>
     </section>
-    <section class="lab-grid">
+
+    <section class="lab-grid" data-show-modes="guided explain sandbox">
+      <article class="lab-panel guided-example" data-physics-example>
+        <div class="section-kicker">EXAMPLE A · POWER PHYSICS</div>
+        <h2>只改 L：電感電流 ripple 會怎麼變？</h2>
+        <p>先不要碰公式。假設 Vin=48 V、Vout=12 V、fsw=100 kHz；把 L 從 200 µH 增加，ΔIL 會？</p>
+        <div class="prediction-row" aria-label="物理預測">
+          <button type="button" data-physics-predict="lower">變小</button>
+          <button type="button" data-physics-predict="same">不變</button>
+          <button type="button" data-physics-predict="higher">變大</button>
+        </div>
+        <p class="prediction-status" data-physics-predict-status aria-live="polite">先做方向預測，才解鎖旋鈕。</p>
+        <label class="control-label" for="inductanceRange">L <b id="inductanceValue">200 µH</b></label>
+        <input id="inductanceRange" data-physics-control type="range" min="100" max="600" step="25" value="200" disabled>
+        <button class="button" type="button" data-play-cycle disabled>▶ 慢放一個 switching cycle</button>
+        <small class="muted">播放是時間尺度放大示意；標示的 µs / A / V 仍由實際 100 kHz 方程式計算。</small>
+
+        <svg class="lesson-plot" id="buckWaveform" viewBox="0 0 720 300" role="img" aria-label="理想 CCM Buck switch-node voltage 與 inductor-current waveform"></svg>
+        <div class="metric-grid physics-metrics">
+          <div><span>D</span><b id="physicsDuty"></b></div>
+          <div><span>TON</span><b id="physicsTon"></b></div>
+          <div><span>TOFF</span><b id="physicsToff"></b></div>
+          <div><span>ΔIL P-P</span><b id="physicsRipple"></b></div>
+          <div><span>(di/dt)ON</span><b id="physicsSlopeOn"></b></div>
+          <div><span>V·s residual</span><b id="physicsResidual"></b></div>
+        </div>
+        <p class="truth-box" id="physicsBoundary"></p>
+
+        <details class="advanced-controls">
+          <summary>進階：改 Vin / Vout / fsw</summary>
+          <div class="input-grid">
+            <label>Vin (V)<input id="physicsVin" type="number" min="1" step="1" value="48"></label>
+            <label>Vout (V)<input id="physicsVout" type="number" min="0.1" step="0.5" value="12"></label>
+            <label>fsw (kHz)<input id="physicsFsw" type="number" min="10" step="10" value="100"></label>
+          </div>
+        </details>
+      </article>
+
+      <article class="lab-panel guided-example" data-timing-example>
+        <div class="section-kicker">EXAMPLE B · REAL-TIME TIMING</div>
+        <h2>算完 ≠ duty 已經生效</h2>
+        <p>SOCA 在 ZERO。ADC 1.2 µs + ISR entry 0.3 µs。若 compute 從 4 µs 拉到 9 µs，新 CMPA 還能在第一個 10 µs ZERO 生效嗎？</p>
+        <div class="prediction-row" aria-label="時序預測">
+          <button type="button" data-timing-predict="first">仍在第一個 ZERO</button>
+          <button type="button" data-timing-predict="next">會錯過，下一拍</button>
+        </div>
+        <p class="prediction-status" data-timing-predict-status aria-live="polite">先預測 shadow-load 結果，才解鎖 compute time。</p>
+        <label class="control-label" for="computeRange">Control compute <b id="computeValue">4.0 µs</b></label>
+        <input id="computeRange" data-timing-control type="range" min="1" max="12" step="0.1" value="4" disabled>
+        <button class="button" type="button" data-timing-fault disabled>注入 9.0 µs compute</button>
+        <button class="button" type="button" data-timing-transfer disabled>未見遷移：fsw → 200 kHz</button>
+
+        <svg class="lesson-plot" id="timingPlot" viewBox="0 0 720 260" role="img" aria-label="SOCA 到 CMPA shadow write 再到 PWM ZERO load 的時間線"></svg>
+        <div class="metric-grid timing-metrics">
+          <div><span>PERIOD</span><b id="timingPeriod"></b></div>
+          <div><span>COMPUTE DONE</span><b id="timingDone"></b></div>
+          <div><span>ACTIVE COMMIT</span><b id="timingCommit"></b></div>
+          <div><span>LOAD MISSES</span><b id="timingMiss"></b></div>
+          <div><span>1ST DEADLINE MARGIN</span><b id="timingSlack"></b></div>
+          <div><span>TIMING-ONLY PHASE @ fc</span><b id="timingPhase"></b></div>
+        </div>
+        <p class="truth-box" id="timingBoundary"></p>
+
+        <details class="advanced-controls">
+          <summary>進階：改 fsw / crossover / ADC / ISR entry</summary>
+          <div class="input-grid">
+            <label>fsw (kHz)<input id="timingFsw" type="number" min="10" step="10" value="100"></label>
+            <label>fc (kHz)<input id="timingFc" type="number" min="0.1" step="0.5" value="10"></label>
+            <label>ADC (µs)<input id="timingAdc" type="number" min="0.1" step="0.1" value="1.2"></label>
+            <label>ISR entry (µs)<input id="timingIsr" type="number" min="0.1" step="0.1" value="0.3"></label>
+          </div>
+        </details>
+      </article>
+    </section>
+
+    <section class="lab-panel" data-show-modes="explain sandbox">
+      <div class="section-kicker">MECHANISM</div>
+      <h2>公式只在你看過現象之後出現</h2>
+      <div class="formula-grid">
+        <div><code>D = Vout / Vin</code><p>理想 CCM steady-state Buck 的 volt-second balance。</p></div>
+        <div><code>(di/dt)ON = (Vin − Vout) / L</code><p>L 越大，同樣電壓下電流斜率越小。</p></div>
+        <div><code>ΔIL = (Vin − Vout)·Ton / L</code><p>所以只增加 L，ripple 反比下降。</p></div>
+        <div><code>φdelay = −360°·fc·Td</code><p>这里只算純 delay contribution，不冒充 total phase margin。</p></div>
+      </div>
+    </section>
+
+    <section class="lab-grid" data-show-modes="firmware sandbox">
       <article class="lab-panel">
-        <h2>2 · Source contract</h2>
-        <p>純 controller 不碰 register；target binding 只做 hardware ownership。這樣同一份 controller 可以先在 host SIL 證明，再接進 C2000。</p>
+        <div class="section-kicker">P0 · SOURCE CONTRACT</div>
+        <h2>Controller 不碰 register</h2>
+        <p>`vin / vout / iL / control_period_s` 是純控制核心的物理語義。Target binding 只負責 peripheral ownership、ADC scale 與 command ownership。</p>
         <div class="source-links">
           <a class="button" href="firmware/buck_control.h">buck_control.h</a>
           <a class="button" href="firmware/buck_control.c">buck_control.c</a>
           <a class="button" href="firmware/f2838x_target.c">f2838x_target.c</a>
           <a class="button" href="firmware/host_sil.c">host_sil.c</a>
-          <a class="button" href="firmware/README.md">build / evidence contract</a>
+          <a class="button" href="firmware/README.md">build / truth contract</a>
         </div>
       </article>
       <article class="lab-panel">
-        <h2>3 · Deterministic HIL fault injection</h2>
-        <div class="scenario-row">
-          <button class="selected" type="button" data-scenario="nominal">Nominal</button>
-          <button type="button" data-scenario="load-step">Load step</button>
-          <button type="button" data-scenario="ocp">OCP</button>
-          <button type="button" data-scenario="ovp">OVP</button>
-          <button type="button" data-scenario="adc-stuck">ADC invalid</button>
-          <button type="button" data-scenario="command-timeout">Command timeout</button>
-        </div>
-        <div class="metric-grid">
-          <div><span>SCENARIO</span><b id="hilScenario"></b></div>
-          <div><span>RESULT</span><b id="hilPass"></b></div>
-          <div><span>VOUT</span><b id="hilVout"></b></div>
-          <div><span>DUTY</span><b id="hilDuty"></b></div>
-          <div><span>STATE</span><b id="hilState"></b></div>
-          <div><span>FAULT</span><b id="hilFault"></b></div>
-          <div><span>TRIP LATENCY</span><b id="hilLatency"></b></div>
-        </div>
-        <div class="trace-wrap"><table><thead><tr><th>tick</th><th>Vout</th><th>iL</th><th>duty</th><th>state</th></tr></thead><tbody id="hilTrace"></tbody></table></div>
+        <div class="section-kicker">P0 · C2000 BINDING</div>
+        <h2>Target 必須真的形成閉環</h2>
+        <ul class="contract-list">
+          <li><b>ePWM：</b>TBCLK / UP-count / CMPA shadow@ZERO / AQ high@ZERO low@CMPA 明確配置。</li>
+          <li><b>ADC：</b>prescaler / 12-bit single-ended / enable converter / ≥500 µs startup / Vout+Vin+iL SOC。</li>
+          <li><b>Safety：</b>CMPSS1 CTRIPH → ePWM XBAR TRIP4 → DCAEVT1 async → TZ LOW。</li>
+          <li><b>Command：</b>只有 communication owner 呼叫 `BuckTarget_publishCommand()` 才刷新 heartbeat。</li>
+          <li><b>Startup：</b>software OST 先把 PWM fail-closed；fresh validated enable 才解除。</li>
+        </ul>
       </article>
     </section>
-    <section class="lab-panel">
-      <h2>4 · BOARD evidence slots <span id="evidenceCount">0/8</span></h2>
-      <p>這裡是「上板才可打勾」的物理證據契約。瀏覽器不會替你偽造 scope waveform。</p>
+
+    <section class="lab-panel" data-show-modes="debug sandbox">
+      <div class="section-kicker">DEBUG · DETERMINISTIC HIL</div>
+      <h2>Fault injection：先問「哪條權限路徑該贏？」</h2>
+      <div class="scenario-row">
+        <button class="selected" type="button" data-scenario="nominal">Nominal</button>
+        <button type="button" data-scenario="load-step">Load step</button>
+        <button type="button" data-scenario="ocp">OCP</button>
+        <button type="button" data-scenario="ovp">OVP</button>
+        <button type="button" data-scenario="adc-stuck">ADC invalid</button>
+        <button type="button" data-scenario="command-timeout">Command timeout</button>
+        <button type="button" data-scenario="idle-off">Idle / OFF</button>
+      </div>
+      <div class="metric-grid">
+        <div><span>SCENARIO</span><b id="hilScenario"></b></div>
+        <div><span>RESULT</span><b id="hilPass"></b></div>
+        <div><span>VOUT</span><b id="hilVout"></b></div>
+        <div><span>DUTY</span><b id="hilDuty"></b></div>
+        <div><span>STATE</span><b id="hilState"></b></div>
+        <div><span>FAULT</span><b id="hilFault"></b></div>
+        <div><span>TRIP LATENCY</span><b id="hilLatency"></b></div>
+      </div>
+      <div class="trace-wrap"><table><thead><tr><th>tick</th><th>Vout</th><th>iL</th><th>duty</th><th>state</th></tr></thead><tbody id="hilTrace"></tbody></table></div>
+    </section>
+
+    <section class="lab-panel" data-show-modes="firmware debug sandbox">
+      <div class="section-kicker">BOARD · PHYSICAL EVIDENCE ONLY</div>
+      <h2>上板才可打勾 <span id="evidenceCount">0/8</span></h2>
+      <p>瀏覽器、SIL、HIL 與 CI 都不會替實板偽造 scope waveform。Board stage 初始狀態永遠是 <b>UNCLAIMED</b>。</p>
       <div class="evidence-list" id="boardEvidence"></div>
     </section>
-    <section class="lab-panel">
-      <h2>5 · Verification ladder</h2>
-      <div class="pipeline">
-        <span>MODEL<br><small>averaged plant / faults</small></span><i>→</i>
-        <span>HOST SIL<br><small>C11 controller binary</small></span><i>→</i>
-        <span>HIL<br><small>deterministic injected faults</small></span><i>→</i>
-        <span>C2000 TARGET<br><small>driverlib mapping</small></span><i>→</i>
+
+    <section class="lab-panel" data-show-modes="firmware debug sandbox">
+      <div class="section-kicker">VERIFICATION LADDER</div>
+      <h2>每一層只能證明自己的事情</h2>
+      <div class="pipeline verification-pipeline">
+        <span>PHYSICS<br><small>equation invariants</small></span><i>→</i>
+        <span>HOST SIL<br><small>same C controller</small></span><i>→</i>
+        <span>HIL<br><small>deterministic faults</small></span><i>→</i>
+        <span>C2000 TARGET<br><small>driverlib contract</small></span><i>→</i>
         <span>BOARD<br><small>scope evidence required</small></span>
       </div>
     </section>
   </main>
+  <script src="../assets/learning/guided-power-models-v1.js"></script>
   <script src="hil/hil-models.js"></script>
   <script src="lab.js"></script>
 </body>
