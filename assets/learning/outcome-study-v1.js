@@ -15,9 +15,11 @@
     return id;
   }
 
+  const OUTCOME_PROFILES = Object.freeze(["legacy4", "core8"]);
+
   function safeProfile(value) {
     const profile = String(value || "legacy4").trim();
-    if (!/^[A-Za-z0-9_-]{1,32}$/.test(profile)) throw new Error("invalid outcome profile");
+    if (!OUTCOME_PROFILES.includes(profile)) throw new Error("invalid outcome profile");
     return profile;
   }
 
