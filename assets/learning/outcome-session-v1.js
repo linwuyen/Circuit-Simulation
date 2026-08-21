@@ -12,8 +12,20 @@
   const PHASES = Object.freeze(["pre", "post", "r1", "r2", "r3", "r4"]);
   const RETENTION_DAYS = Benchmark.RETENTION_DAYS;
   const NEW_RECORD_PROFILE = "core8";
+  const NEW_RECORD_INSTRUMENT_VERSION = 2;
   const nowIso = () => new Date().toISOString();
   const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
+
+  function familyEngine() {
+    return root.CircuitOutcomeFamiliesV2 || (typeof require === "function" ? require("./outcome-families-v2.js") : null);
+  }
+
+  function assertInstrumentVersion(profile, version) {
+    const value = Number(version);
+    const valid = profile === "legacy4" ? value === 1 : profile === "core8" ? (value === 1 || value === 2) : false;
+    if (!valid) throw new RangeError(`unsupported ${profile} instrumentVersion: ${version}`);
+    return value;
+  }
 
   function memoryEvidence() {
     let state = { benchmark: {}, events: [] };
@@ -32,6 +44,11 @@
       record.profile = existed ? "legacy4" : NEW_RECORD_PROFILE;
     }
     const definition = Benchmark.profileDefinition(record.profile);
+    if (!Number.isInteger(record.instrumentVersion)) {
+      // Evidence created before versioned item families must remain on the exact V1 generator.
+      record.instrumentVersion = existed ? 1 : (record.profile === "core8" ? NEW_RECORD_INSTRUMENT_VERSION : 1);
+    }
+    assertInstrumentVersion(record.profile, record.instrumentVersion);
     if (!Number.isInteger(record.countPerCompetency) || record.countPerCompetency < 1 || record.countPerCompetency > Benchmark.MAX_CASES_PER_COMPETENCY) {
       record.countPerCompetency = definition.defaultCountPerCompetency;
     }
@@ -48,6 +65,7 @@
       : {
           seed: 20260821,
           profile: NEW_RECORD_PROFILE,
+          instrumentVersion: NEW_RECORD_INSTRUMENT_VERSION,
           countPerCompetency: Benchmark.PROFILES[NEW_RECORD_PROFILE].defaultCountPerCompetency,
           sessions: {},
           retention: {},
@@ -70,6 +88,15 @@
   }
 
   function phaseCases(record, phase) {
+    if (record.profile === "core8" && record.instrumentVersion === 2) {
+      const Families = familyEngine();
+      if (!Families || Families.VERSION !== 2) throw new Error("CircuitOutcomeFamiliesV2 is required for core8 instrumentVersion 2");
+      return Families.generateBenchmarkSet({
+        seed: record.seed,
+        phase,
+        countPerCompetency: record.countPerCompetency
+      });
+    }
     return Benchmark.generateBenchmarkSet({
       seed: record.seed,
       phase,
@@ -117,7 +144,7 @@
     return permission;
   }
 
-  function configure({ seed, countPerCompetency, profile } = {}) {
+  function configure({ seed, countPerCompetency, profile, instrumentVersion } = {}) {
     const record = loadRecord();
     const hasAttempts = Object.values(record.sessions || {}).some(session => Object.keys(session.firstAttempts || {}).length > 0);
     if (hasAttempts) throw new Error("benchmark configuration is immutable after the first attempt");
@@ -125,7 +152,11 @@
     if (profile != null) {
       const definition = Benchmark.profileDefinition(profile);
       record.profile = definition.id;
+      record.instrumentVersion = instrumentVersion == null ? (record.profile === "core8" ? NEW_RECORD_INSTRUMENT_VERSION : 1) : Number(instrumentVersion);
+      assertInstrumentVersion(record.profile, record.instrumentVersion);
       if (countPerCompetency == null) record.countPerCompetency = definition.defaultCountPerCompetency;
+    } else if (instrumentVersion != null) {
+      record.instrumentVersion = assertInstrumentVersion(record.profile, instrumentVersion);
     }
     if (countPerCompetency != null) {
       if (!Number.isInteger(countPerCompetency) || countPerCompetency < 1 || countPerCompetency > Benchmark.MAX_CASES_PER_COMPETENCY) {
@@ -199,6 +230,7 @@
     return Object.freeze({
       phase,
       profile: record.profile,
+      instrumentVersion: record.instrumentVersion,
       total: cases.length,
       attempted: attempts.length,
       completed: Boolean(session && session.completedAt),
@@ -224,9 +256,12 @@
       );
     }
     const retention = ["r1", "r2", "r3", "r4"].map(phase => phaseStatus(phase, at));
+    const Families = record.profile === "core8" && record.instrumentVersion === 2 ? familyEngine() : null;
     return Object.freeze({
       seed: record.seed,
       profile: record.profile,
+      instrumentVersion: record.instrumentVersion,
+      familyContractFingerprint: Families ? Families.contractFingerprint() : null,
       countPerCompetency: record.countPerCompetency,
       pre: phaseStatus("pre", at),
       post: phaseStatus("post", at),
