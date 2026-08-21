@@ -6,8 +6,7 @@
   "use strict";
 
   const PHASES = Object.freeze(["pre","post","r1","r2","r3","r4"]);
-  const nonEmpty = value => typeof value === "string" && value.trim().length > 0;
-  const finite = value => Number.isFinite(Number(value));
+  const finite = value => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
   const mean = values => values.length ? values.reduce((sum,value)=>sum+value,0)/values.length : null;
 
   function safeId(value) {
