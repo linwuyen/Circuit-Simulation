@@ -18,9 +18,11 @@ The existing `outcome-study-v1.js` intentionally answers the first two with aggr
 
 - anonymous `participantId`;
 - `outcomeProfile`;
-- exact instrument configuration: `seed` + `countPerCompetency`;
+- exact instrument configuration: `seed` + `countPerCompetency` + semantic `contractFingerprint`;
 - phase completion counts;
 - for attempted first attempts only: `caseId`, `competency`, `correct`.
+
+The fingerprint is computed from the generated six-phase item contracts but exports only a compact hash, not the item text. It is an accidental-drift guard, not a security primitive.
 
 It does **not** export:
 
@@ -40,12 +42,14 @@ Item analysis is stricter than cohort outcome aggregation.
 All bundles in one calibration run must have the same:
 
 ```text
-outcomeProfile + seed + countPerCompetency
+outcomeProfile + seed + countPerCompetency + contractFingerprint
 ```
 
 They must also expose the same case-ID set for the selected phase. Mixed instrument configurations fail closed.
 
 Reason: two learners can both be on `core8` while receiving different seeded items. Those responses can inform competency-level outcome research, but they cannot be treated as repeated observations of the **same item**.
+
+The semantic fingerprint closes another failure mode: if a developer changes prompt wording, answer contract, choices, or physical parameters without changing the seed/profile, new bundles still stop matching historical bundles instead of silently contaminating calibration evidence.
 
 ## Phase isolation
 
@@ -123,7 +127,7 @@ node tools/learning/calibrate-outcome-items.mjs --phase post \
 
 The command emits JSON containing:
 
-- exact profile/instrument metadata;
+- exact profile/instrument metadata and semantic fingerprint;
 - completed sample size and evidence status;
 - mean phase accuracy;
 - item-level `proportionCorrect`;
@@ -131,7 +135,7 @@ The command emits JSON containing:
 - review flags;
 - competency-level observed means and review ordering.
 
-Invalid bundles, duplicate participant IDs, mixed instrument configurations, unknown phases, and inconsistent item sets are rejected rather than silently filtered.
+Invalid bundles, duplicate participant IDs, mixed instrument configurations, semantic fingerprint drift, unknown phases, and inconsistent item sets are rejected rather than silently filtered.
 
 ## Evidence boundary
 
@@ -143,6 +147,6 @@ Calibration output is **observational instrument evidence**. It is not:
 - board evidence;
 - permission to rewrite already-collected item semantics in place.
 
-If calibrated evidence motivates a material change to item wording, answer contract, or physical parameters, preserve historical evidence by versioning the instrument/profile rather than silently reinterpreting old responses.
+If calibrated evidence motivates a material change to item wording, answer contract, or physical parameters, preserve historical evidence by versioning the instrument/profile rather than silently reinterpreting old responses. The fingerprint is a guardrail against accidental mixing; deliberate instrument evolution still needs an explicit versioning decision.
 
 Synthetic CI fixtures exist only to verify the math and fail-closed rules. Real calibration claims require real learner bundles.
