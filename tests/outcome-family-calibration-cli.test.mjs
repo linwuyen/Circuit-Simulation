@@ -10,11 +10,12 @@ const require = createRequire(import.meta.url);
 const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const Benchmark = require(path.join(repoRoot, "assets", "learning", "outcome-benchmark-v1.js"));
 globalThis.CircuitOutcomeBenchmarkV1 = Benchmark;
-const Families = require(path.join(repoRoot, "assets", "learning", "outcome-families-v2.js"));
+require(path.join(repoRoot, "assets", "learning", "outcome-families-v2.js"));
+const Instrument = require(path.join(repoRoot, "assets", "learning", "outcome-core8-instrument-v2.js"));
 const Calibration = require(path.join(repoRoot, "assets", "learning", "outcome-calibration-v1.js"));
 
 function phaseStatus(seed, phase, learner) {
-  const cases = Families.generateBenchmarkSet({ seed, phase });
+  const cases = Instrument.generateBenchmarkSet({ seed, phase });
   const complete = phase === "post";
   return {
     phase,
@@ -33,7 +34,7 @@ function summary(seed, learner) {
     seed,
     profile:"core8",
     instrumentVersion:2,
-    familyContractFingerprint:Families.contractFingerprint(),
+    familyContractFingerprint:Instrument.familyContractFingerprint(),
     countPerCompetency:1,
     pre:phaseStatus(seed,"pre",learner),
     post:phaseStatus(seed,"post",learner),
