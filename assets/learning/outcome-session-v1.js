@@ -66,6 +66,29 @@
     return record.sessions[phase];
   }
 
+  function phasePermission(record, phase, at = Date.now()) {
+    if (!PHASES.includes(phase)) return Object.freeze({ allowed: false, reason: `unknown outcome phase: ${phase}` });
+    if (phase === "pre") return Object.freeze({ allowed: true, reason: null });
+    if (phase === "post") {
+      const pre = record.sessions && record.sessions.pre;
+      return pre && pre.completedAt
+        ? Object.freeze({ allowed: true, reason: null })
+        : Object.freeze({ allowed: false, reason: "POST requires completed PRE" });
+    }
+    const post = record.sessions && record.sessions.post;
+    if (!post || !post.completedAt) return Object.freeze({ allowed: false, reason: `${phase.toUpperCase()} requires completed POST` });
+    const retention = record.retention && record.retention[phase];
+    if (!retention || !retention.dueAt) return Object.freeze({ allowed: false, reason: `${phase.toUpperCase()} has no retention due date` });
+    if (at < new Date(retention.dueAt).getTime()) return Object.freeze({ allowed: false, reason: `${phase.toUpperCase()} is not due until ${retention.dueAt}` });
+    return Object.freeze({ allowed: true, reason: null });
+  }
+
+  function assertPhasePermission(record, phase, at) {
+    const permission = phasePermission(record, phase, at);
+    if (!permission.allowed) throw new Error(permission.reason);
+    return permission;
+  }
+
   function configure({ seed, countPerCompetency } = {}) {
     const record = loadRecord();
     const hasAttempts = Object.values(record.sessions || {}).some(session => Object.keys(session.firstAttempts || {}).length > 0);
@@ -80,30 +103,33 @@
     return saveRecord(record);
   }
 
-  function startPhase(phase) {
+  function startPhase(phase, at = Date.now()) {
     const record = loadRecord();
+    assertPhasePermission(record, phase, at);
     ensurePhase(record, phase);
     return saveRecord(record).sessions[phase];
   }
 
-  function recordAttempt(phase, caseId, answer) {
+  function recordAttempt(phase, caseId, answer, at = Date.now()) {
     const record = loadRecord();
+    assertPhasePermission(record, phase, at);
     const session = ensurePhase(record, phase);
     const cases = phaseCases(record, phase);
     const item = cases.find(testCase => testCase.id === caseId);
     if (!item) throw new Error(`case does not belong to ${phase}: ${caseId}`);
     session.firstAttempts = session.firstAttempts || {};
     session.retries = Array.isArray(session.retries) ? session.retries : [];
+    const attemptedAt = new Date(at).toISOString();
     if (!session.firstAttempts[caseId]) {
-      session.firstAttempts[caseId] = { caseId, answer: clone(answer), at: nowIso(), attemptIndex: 0 };
+      session.firstAttempts[caseId] = { caseId, answer: clone(answer), at: attemptedAt, attemptIndex: 0 };
     } else {
-      session.retries.push({ caseId, answer: clone(answer), at: nowIso(), attemptIndex: session.retries.filter(row => row.caseId === caseId).length + 1 });
+      session.retries.push({ caseId, answer: clone(answer), at: attemptedAt, attemptIndex: session.retries.filter(row => row.caseId === caseId).length + 1 });
     }
 
     const attempts = Object.values(session.firstAttempts);
     session.score = Benchmark.scoreFirstAttempts(cases, attempts);
     if (attempts.length === cases.length && !session.completedAt) {
-      session.completedAt = nowIso();
+      session.completedAt = attemptedAt;
       if (phase === "post") scheduleRetention(record, session.completedAt);
     }
     saveRecord(record);
@@ -130,11 +156,13 @@
 
   function phaseStatus(phase, at = Date.now()) {
     const record = loadRecord();
+    if (!PHASES.includes(phase)) throw new RangeError(`unknown outcome phase: ${phase}`);
     const session = record.sessions && record.sessions[phase] || null;
     const cases = phaseCases(record, phase);
     const attempts = session ? Object.values(session.firstAttempts || {}) : [];
     const retention = record.retention && record.retention[phase] || null;
-    const due = retention ? at >= new Date(retention.dueAt).getTime() : phase === "pre" || phase === "post";
+    const permission = phasePermission(record, phase, at);
+    const due = /^r[1-4]$/.test(phase) ? permission.allowed : phase === "pre" || (phase === "post" && permission.allowed);
     return Object.freeze({
       phase,
       total: cases.length,
@@ -142,6 +170,8 @@
       completed: Boolean(session && session.completedAt),
       started: Boolean(session),
       due,
+      allowed: permission.allowed,
+      blockedReason: permission.reason,
       dueAt: retention && retention.dueAt || null,
       score: session && session.score || null,
       cases: Object.freeze(cases)
@@ -178,5 +208,5 @@
     return loadRecord();
   }
 
-  return Object.freeze({ PHASES, configure, startPhase, recordAttempt, phaseStatus, summary, reset, loadRecord });
+  return Object.freeze({ PHASES, configure, startPhase, recordAttempt, phaseStatus, summary, reset, loadRecord, phasePermission });
 });
