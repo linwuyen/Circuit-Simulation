@@ -5,8 +5,11 @@ test("item calibration export is explicit, privacy-minimized and first-attempt o
   page.on("pageerror", error => errors.push(String(error)));
   await page.goto("/19_c2000_buck_firmware_lab/");
 
+  await expect(page.locator("#outcomeDashboard")).toHaveAttribute("data-instrument-version", "2");
+  await expect(page.locator("#outcomeDashboard")).toContainText("CORE8 V2");
+  await expect(page.locator("#outcomeQuestion .section-kicker")).toContainText(/physics\./);
   await expect(page.locator("[data-calibration-export]")).toBeVisible();
-  await expect(page.locator("[data-calibration-export]")).toContainText("OPT-IN ITEM CALIBRATION");
+  await expect(page.locator("[data-calibration-export]")).toContainText("OPT-IN ITEM / FAMILY CALIBRATION");
   await expect(page.locator("[data-calibration-export]")).toContainText("first-attempt 正誤");
   await expect(page.locator("[data-calibration-export]")).toContainText("不含 prompt、choice 或實際作答內容");
 
@@ -22,14 +25,17 @@ test("item calibration export is explicit, privacy-minimized and first-attempt o
   await expect(page.locator("#outcomeCalibrationStatus")).toContainText("raw answers/prompts: no");
 
   const exported = await page.evaluate(() => {
+    const summary = window.CircuitOutcomeSessionV1.summary();
     const bundle = window.CircuitOutcomeCalibrationV1.exportParticipant(
-      window.CircuitOutcomeSessionV1.summary(),
+      summary,
       { participantId:"cal_probe" }
     );
     const row = bundle.phases.pre.rows[0];
     return {
       schema: bundle.schema,
       profile: bundle.outcomeProfile,
+      instrumentVersion: summary.instrumentVersion,
+      familyContractFingerprint: summary.familyContractFingerprint,
       instrument: bundle.instrument,
       privacy: [bundle.containsItemCorrectness, bundle.containsRawAnswers, bundle.containsPrompts],
       rowKeys: Object.keys(row).sort(),
@@ -40,6 +46,8 @@ test("item calibration export is explicit, privacy-minimized and first-attempt o
   });
   expect(exported.schema).toBe("circuit-outcome-calibration");
   expect(exported.profile).toBe("core8");
+  expect(exported.instrumentVersion).toBe(2);
+  expect(exported.familyContractFingerprint).toMatch(/^core8-families-v2-[0-9a-f]{8}$/);
   expect(exported.instrument.seed).toBe(20260821);
   expect(exported.instrument.countPerCompetency).toBe(1);
   expect(exported.instrument.contractFingerprint).toMatch(/^[0-9a-f]{16}$/);
