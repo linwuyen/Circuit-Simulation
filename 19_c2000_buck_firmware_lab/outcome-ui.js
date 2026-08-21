@@ -148,7 +148,7 @@
     if (!panel || $('#outcomeStudyExport')) return;
     const wrap = document.createElement('div');
     wrap.id = 'outcomeStudyExport';
-    wrap.innerHTML = `<hr><div class="section-kicker">P4-C · LEARNER STUDY EXPORT</div><p class="muted">Study JSON 只匯出 aggregate metrics、outcome profile 與 competency-level accuracy；不含題目、答案或自由文字。participant ID 請使用匿名代碼。</p><div class="input-grid"><label>Anonymous participant ID<input id="outcomeParticipantId" type="text" maxlength="64" placeholder="例如 p_001"></label></div><div class="actions"><button class="button" id="outcomeStudyDownload" type="button">匯出 study JSON</button><span class="prediction-status" id="outcomeStudyStatus"></span></div><div data-calibration-export><div class="section-kicker">P4-D · OPT-IN ITEM / FAMILY CALIBRATION</div><p class="muted">Calibration JSON 額外包含 case ID、family/variant ID、competency 與 first-attempt 正誤，用來估 proportion-correct、corrected discrimination 與跨 form family 行為；仍不含 prompt、choice 或實際作答內容。只有要做題目校準時才匯出。</p><div class="actions"><button class="button" id="outcomeCalibrationDownload" type="button">匯出 calibration JSON</button><span class="prediction-status" id="outcomeCalibrationStatus"></span></div></div>`;
+    wrap.innerHTML = `<hr><div class="section-kicker">P4-C · LEARNER STUDY EXPORT</div><p class="muted">Study JSON 只匯出 aggregate metrics、outcome profile 與 competency-level accuracy；不含題目、答案或自由文字。participant ID 請使用匿名代碼。</p><div class="input-grid"><label>Anonymous participant ID<input id="outcomeParticipantId" type="text" maxlength="64" placeholder="例如 p_001"></label></div><div class="actions"><button class="button" id="outcomeStudyDownload" type="button">匯出 study JSON</button><span class="prediction-status" id="outcomeStudyStatus"></span></div><div data-calibration-export><div class="section-kicker">P4-D · OPT-IN ITEM / FAMILY CALIBRATION</div><p class="muted">Calibration JSON 仍只增加 case ID、competency 與 first-attempt 正誤；跨 form analyzer 會用 versioned generator 重新解析 family / variant 並重算 semantic fingerprint。JSON 不含 prompt、choice 或實際作答內容。</p><div class="actions"><button class="button" id="outcomeCalibrationDownload" type="button">匯出 calibration JSON</button><span class="prediction-status" id="outcomeCalibrationStatus"></span></div></div>`;
     panel.appendChild(wrap);
     try {
       if (!window.CircuitOutcomeStudyV1) await loadScript('../assets/learning/outcome-study-v1.js');
@@ -168,7 +168,7 @@
         if (!window.CircuitOutcomeCalibrationV1) await loadScript('../assets/learning/outcome-calibration-v1.js');
         const bundle = window.CircuitOutcomeCalibrationV1.exportParticipant(Session.summary(), { participantId:$('#outcomeParticipantId').value });
         downloadJson(bundle, 'outcome-calibration');
-        status.textContent = `exported ${bundle.participantId} · ${bundle.outcomeProfile} v${bundle.instrument.instrumentVersion || 1} · item correctness: yes · raw answers/prompts: no`;
+        status.textContent = `exported ${bundle.participantId} · ${bundle.outcomeProfile} v${Session.summary().instrumentVersion || 1} · item correctness: yes · raw answers/prompts: no`;
       } catch (error) { status.textContent = `REJECTED: ${error.message}`; }
     });
   }
@@ -186,9 +186,10 @@
 
   async function bootstrap() {
     const record = Session.loadRecord();
-    if (record.profile === 'core8' && record.instrumentVersion === 2 && !window.CircuitOutcomeFamiliesV2) {
+    if (record.profile === 'core8' && record.instrumentVersion === 2) {
       try {
-        await loadScript('../assets/learning/outcome-families-v2.js');
+        if (!window.CircuitOutcomeFamiliesV2) await loadScript('../assets/learning/outcome-families-v2.js');
+        if (!window.CircuitOutcomeCore8InstrumentV2) await loadScript('../assets/learning/outcome-core8-instrument-v2.js');
       } catch (error) {
         $('#outcomeQuestion').innerHTML = `<p class="truth-box">core8 v2 family instrument 載入失敗：${error.message}</p>`;
         return;
