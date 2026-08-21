@@ -56,7 +56,7 @@
   function controlStep(s, input = {}) {
     const c = s.cfg;
     const dt = c.controlPeriodS;
-    const heartbeat = input.heartbeat !== false;
+    const heartbeat = input.heartbeat === true;
     const enable = input.enable !== false;
     const sensorValid = input.sensorValid !== false;
     const measuredVin = Number.isFinite(input.measuredVin) ? input.measuredVin : c.vin;
@@ -69,7 +69,7 @@
     if (!sensorValid || measuredVin <= 0.1 || dt <= 0) s.faultLatch |= FAULT.SENSOR;
     if (measuredCurrent > c.currentLimit * 1.08) s.faultLatch |= FAULT.OCP;
     if (measuredVout > c.ovp) s.faultLatch |= FAULT.OVP;
-    if (s.commandAge > c.commandTimeoutTicks) s.faultLatch |= FAULT.COMMAND_TIMEOUT;
+    if (enable && s.commandAge > c.commandTimeoutTicks) s.faultLatch |= FAULT.COMMAND_TIMEOUT;
 
     if (s.faultLatch) {
       if (s.tripTick == null) s.tripTick = s.tick;
@@ -137,7 +137,7 @@
 
     for (let n = 0; n < totalTicks; n += 1) {
       s.tick = n;
-      const input = {};
+      const input = { heartbeat: true };
       let load = s.cfg.loadOhm;
 
       if (name === "load-step" && n >= 5500) {
@@ -160,7 +160,10 @@
         input.measuredVout = s.cfg.ovp + 1;
         eventTick = n;
       }
-      if (name === "idle-off") input.enable = false;
+      if (name === "idle-off") {
+        input.enable = false;
+        input.heartbeat = false;
+      }
 
       finalLoad = load;
       controlStep(s, input);
@@ -215,7 +218,7 @@
       { id: "trip", signal: "CMPSS → XBAR → DCAEVT1 → TZ", criterion: "fault forces PWM low without waiting for ADC ISR or background software" },
       { id: "soft", signal: "Soft-start Vout", criterion: "monotonic ramp without duty saturation windup" },
       { id: "load", signal: "Load step", criterion: "Vout transient returns to regulation without protection chatter" },
-      { id: "timeout", signal: "Command timeout", criterion: "stale external command fails closed; ADC ISR does not self-refresh freshness" },
+      { id: "timeout", signal: "Command timeout", criterion: "stale enabled external command fails closed; disabled authority remains safely OFF without fabricated freshness" },
       { id: "rearm", signal: "Fault re-arm", criterion: "clear only after explicit command plus physically safe V/I qualifiers" }
     ];
   }
