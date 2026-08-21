@@ -11,15 +11,38 @@ function perfectAttempts(cases) {
   return cases.map((item, index) => ({ caseId: item.id, answer: item.expected, attemptIndex: index }));
 }
 
-test("pre/post benchmark sets are deterministic but unseen and disjoint", () => {
+function fingerprints(cases) {
+  return cases.map(item => Benchmark.contentFingerprint(item));
+}
+
+test("pre/post benchmark sets are deterministic and content-disjoint", () => {
   const preA = Benchmark.generateBenchmarkSet({ seed: 42, phase: "pre" });
   const preB = Benchmark.generateBenchmarkSet({ seed: 42, phase: "pre" });
   const post = Benchmark.generateBenchmarkSet({ seed: 42, phase: "post" });
   assert.deepEqual(preA, preB);
   assert.equal(preA.length, 8);
   assert.equal(post.length, 8);
-  assert.equal(preA.some(item => post.some(other => other.id === item.id)), false);
+  assert.equal(new Set(fingerprints(preA)).size, preA.length);
+  assert.equal(new Set(fingerprints(post)).size, post.length);
+  const preContent = new Set(fingerprints(preA));
+  assert.equal(fingerprints(post).some(fingerprint => preContent.has(fingerprint)), false);
   assert.equal(new Set(preA.map(item => item.competency)).size, 4);
+});
+
+test("all pre/post/retention phase namespaces are content-disjoint", () => {
+  const phases = ["pre", "post", "r1", "r2", "r3", "r4"];
+  const all = phases.flatMap(phase => Benchmark.generateBenchmarkSet({ seed: 20260821, phase }));
+  const allFingerprints = fingerprints(all);
+  assert.equal(new Set(allFingerprints).size, allFingerprints.length);
+});
+
+test("compareSessions rejects cloned content even when ids and phases differ", () => {
+  const pre = Benchmark.generateBenchmarkSet({ seed: 17, phase: "pre", countPerCompetency: 1 });
+  const clonedPost = pre.map((item, index) => Object.freeze({ ...item, id: `post-clone-${index}`, phase: "post" }));
+  assert.throws(
+    () => Benchmark.compareSessions(pre, [], clonedPost, []),
+    /reuses benchmark content/
+  );
 });
 
 test("shadow-load timing treats exactly-on-ZERO completion as a miss", () => {
@@ -71,10 +94,11 @@ test("pre/post comparison reports measured change without making a causal claim"
   assert.equal(result.causalClaimAllowed, false);
 });
 
-test("retention plan generates fresh R1/R2/R3/R4 sets at 1/7/30/90 days", () => {
+test("retention plan generates content-fresh R1/R2/R3/R4 sets at 1/7/30/90 days", () => {
   const plan = Benchmark.retentionPlan({ seed: 456 });
   assert.deepEqual(plan.map(item => item.phase), ["r1", "r2", "r3", "r4"]);
   assert.deepEqual(plan.map(item => item.dueAfterDays), [1, 7, 30, 90]);
-  const ids = plan.flatMap(item => item.cases.map(testCase => testCase.id));
-  assert.equal(new Set(ids).size, ids.length);
+  const cases = plan.flatMap(item => item.cases);
+  assert.equal(new Set(cases.map(item => item.id)).size, cases.length);
+  assert.equal(new Set(fingerprints(cases)).size, cases.length);
 });
