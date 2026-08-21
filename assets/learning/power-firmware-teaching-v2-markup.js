@@ -30,8 +30,8 @@
     return `<section class="power-v2-card" data-v2-resolution>
       <div class="power-v2-card-head"><div><span>RESOLUTION BUDGET</span><strong>不是所有 regulation error 都能靠 PI 消掉</strong></div><b>ADC ↔ PWM</b></div>
       <label class="power-v2-slider"><span>ePWM TBPRD <output data-v2-tbprd-readout></output></span><input data-v2-tbprd type="range" min="500" max="5000" step="100"></label>
-      <div class="power-v2-metrics"><div><span>ADC LSB @ output</span><b data-v2-adc-lsb></b></div><div><span>PWM duty LSB</span><b data-v2-pwm-lsb></b></div><div><span>PWM equivalent Vout step</span><b data-v2-pwm-vstep></b></div><div><span>Quantization floor</span><b data-v2-resolution-floor></b></div></div>
-      <p>Observation resolution 與 actuator resolution 共同形成底限；controller 無法命令一個硬體不存在的中間值。</p>
+      <div class="power-v2-metrics"><div><span>ADC LSB @ output</span><b data-v2-adc-lsb></b></div><div><span>PWM duty LSB</span><b data-v2-pwm-lsb></b></div><div><span>PWM equivalent Vout step</span><b data-v2-pwm-vstep></b></div><div><span>Ideal single-step scale</span><b data-v2-resolution-floor></b></div></div>
+      <p>這裡比較的是 ideal ADC observation step 與 ideal PWM actuator step，只能當解析度尺度，不是 absolute regulation floor。Calibration、noise、INL/DNL、dither、HRPWM 與 plant gain 都會改變實際可達精度。</p>
     </section>`;
   }
 
@@ -54,14 +54,15 @@
       <div class="power-v2-metrics"><div><span>Authority</span><b data-v2-cccv-mode></b></div><div><span>Physical target</span><b data-v2-cccv-v></b></div><div><span>Iout</span><b data-v2-cccv-i></b></div><div><span>Required duty</span><b data-v2-cccv-duty></b></div></div>
       <div class="power-v2-toggle-grid"><label><input data-v2-aw type="checkbox"> Anti-windup</label><div><span>Vin sag → recovery</span><b data-v2-aw-result></b><small data-v2-aw-compare></small></div><label><input data-v2-ff type="checkbox"> Vin feed-forward</label><div><span>Vin step response</span><b data-v2-ff-result></b><small data-v2-ff-compare></small></div><label><input data-v2-bumpless type="checkbox"> Bumpless CC↔CV</label><div><span>Authority handoff</span><b data-v2-bumpless-result></b><small>preload incoming controller state to outgoing command</small></div></div>
       <p>Feedback 修 residual error；feed-forward 預先補償已知 disturbance。CC/CV 切換不是「兩個 PI 同時搶 duty」，而是明確的 authority handoff。</p>
+      <p><b>Fidelity：</b>anti-windup / feed-forward 的 overshoot、droop 數字來自 τ=1.2 ms 一階 plant surrogate；用來比較控制結構，不代表此 L/C/R Buck 的真實 transient。</p>
     </section>`;
   }
 
   function stage4Markup() {
     return `<section class="power-v2-card" data-v2-bandwidth>
       <div class="power-v2-card-head"><div><span>CASCADED-LOOP BANDWIDTH</span><strong>內環要先收斂，外環才看見近似受控的 plant</strong></div><b data-v2-separation></b></div>
-      <div class="power-v2-metrics"><div><span>Inner current loop target</span><b data-v2-inner-bw></b></div><div><span>Outer voltage loop target</span><b data-v2-outer-bw></b></div><div><span>Sample→actuate delay</span><b data-v2-loop-delay></b></div><div><span>Delay phase @ inner</span><b data-v2-inner-phase></b></div></div>
-      <p>「內環 5× 外環」不是宗教規則，而是在 plant coupling、delay 與 phase margin 之間留下可驗證的 separation。</p>
+      <div class="power-v2-metrics"><div><span>Heuristic inner start</span><b data-v2-inner-bw></b></div><div><span>Heuristic outer start</span><b data-v2-outer-bw></b></div><div><span>Sample→actuate delay</span><b data-v2-loop-delay></b></div><div><span>Delay phase @ inner</span><b data-v2-inner-phase></b></div></div>
+      <p>這裡的 inner=min(fsw/20, 5 kHz)、outer=inner/5 只是教學起始值，不是由 P(s) 設計出的 crossover。真正 bandwidth 必須由 operating-point plant、delay、margin 與 SFRA/loop-gain 驗證。</p>
     </section>`;
   }
 
