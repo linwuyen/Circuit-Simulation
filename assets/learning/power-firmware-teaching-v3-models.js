@@ -1,5 +1,6 @@
 (function (global) {
   "use strict";
+  const Base = global.CircuitPowerModelsV1 || {};
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Number(v)));
 
   function switchingCycle(state) {
@@ -14,18 +15,25 @@
     const iminA = iavgA - deltaOnA / 2, imaxA = iavgA + deltaOnA / 2;
     const irmsA = Math.sqrt(Math.max(0, iavgA * iavgA + deltaOnA * deltaOnA / 12));
     const deadTimeS = Math.max(0, Number(sw.deadTimeNs || 0)) * 1e-9;
-    const deadTimeDutyLoss = Math.min(0.25, 2 * deadTimeS / periodS);
+    // For positive-current CCM Buck operation, one high-side turn-on dead-time
+    // interval is a useful first-order estimate of effective HS duty loss. Two
+    // dead-time windows per cycle are relevant to body-diode conduction loss.
+    // Neither is a universal dead-time transfer model: polarity, DB mode and
+    // device drops must be verified on the real bridge.
+    const deadTimeWindowFraction = Math.min(0.50, 2 * deadTimeS / periodS);
+    const deadTimeDutyLoss = Math.min(0.25, deadTimeS / periodS);
     const rds = Math.max(0, Number(sw.mosfetRdsOnOhm || 0.018));
     const diodeDrop = Math.max(0, Number(sw.diodeDropV || 0.8));
     const trfS = Math.max(0, Number(sw.riseNs || 35) + Number(sw.fallNs || 35)) * 1e-9;
     const conductionLossW = irmsA * irmsA * rds;
-    const diodeLossW = Math.max(0, iavgA) * diodeDrop * deadTimeDutyLoss;
+    const diodeLossW = Math.max(0, iavgA) * diodeDrop * deadTimeWindowFraction;
     const switchingLossW = 0.5 * p.vin * Math.max(0, iavgA) * trfS * p.fsw;
     const inductorSatA = Math.max(0, Number(sw.inductorSatA || 18));
     return {
       periodUs: periodS * 1e6, tonUs: tonS * 1e6, toffUs: toffS * 1e6,
       vout, m1, m2, deltaOnA, deltaOffA, voltSecondMismatchA: deltaOnA - deltaOffA,
-      iavgA, iminA, imaxA, irmsA, deadTimeDutyLoss, deadTimeEquivalentV: p.vin * deadTimeDutyLoss,
+      iavgA, iminA, imaxA, irmsA, deadTimeWindowFraction, deadTimeDutyLoss,
+      deadTimeEquivalentV: p.vin * deadTimeDutyLoss,
       conductionLossW, diodeLossW, switchingLossW, totalSemiconductorLossW: conductionLossW + diodeLossW + switchingLossW,
       inductorSatA, saturationMarginA: inductorSatA - imaxA,
       abstraction: "SWITCHING_CYCLE"
@@ -39,7 +47,10 @@
     const m2 = Math.max(1e-9, vout / p.inductance);
     const slopeCompRatio = Math.max(0, Number(pc.slopeCompRatio || 0));
     const mc = slopeCompRatio * m2;
-    const perturbationPole = (m2 - mc) / (m1 + mc);
+    // Cycle-to-cycle perturbations alternate sign. The magnitude condition is
+    // |(m2-mc)/(m1+mc)| < 1; keeping the minus sign makes the displayed pole
+    // physically consistent with period-doubling behavior.
+    const perturbationPole = -(m2 - mc) / (m1 + mc);
     const requiredMc = Math.max(0, (m2 - m1) / 2);
     const requiredRatio = requiredMc / m2;
     const stable = Math.abs(perturbationPole) < 1;
@@ -47,7 +58,7 @@
     const blankingNs = Math.max(0, Number(pc.blankingNs || 120));
     return { duty, vout, m1, m2, mc, slopeCompRatio, perturbationPole, requiredMc, requiredRatio, stable, currentCommandA, blankingNs,
       verdict: stable ? "STABLE" : "SUBHARMONIC RISK",
-      rule: duty <= 0.5 || slopeCompRatio >= requiredRatio ? "QUALIFIED" : "SLOPE COMP REQUIRED" };
+      rule: stable ? "QUALIFIED" : "SLOPE COMP REQUIRED" };
   }
 
   function c2000Pipeline(state) {
@@ -60,16 +71,25 @@
       { id:"eoc", block:"ADC conversion + PPB", us:Number(t.conversionUs || 0), role:"convert + offset/limit post-processing" },
       { id:"irq", block:c2.claEnabled === false ? "ADCINT → CPU ISR" : "ADCINT → CLA task", us:Number(t.irqUs || 0), role:"deterministic control entry" },
       { id:"control", block:"C(z) + limiter", us:Number(t.computeUs || 0), role:"compute command under constraints" },
-      { id:"commit", block:c2.hrpwmEnabled ? "CMPA shadow + HRPWM" : "CMPA shadow", us:0, role:"atomic PWM command commit" },
+      { id:"commit", block:c2.hrpwmEnabled ? "CMPA shadow + HRPWM" : "CMPA shadow", us:0, role:"write command; effective only at configured load event" },
       { id:"safety", block:"CMPSS → DC → TZ", us:0, role:"asynchronous fail-closed veto" },
       { id:"evidence", block:"GPIO probe / DMA trace", us:0, role:"make timing and ownership observable" }
     ];
     const activeUs = Number(t.acquisitionUs||0)+Number(t.conversionUs||0)+Number(t.irqUs||0)+Number(t.computeUs||0);
     const activeCycles = activeUs * mhz;
-    const sampleToActuateUs = Number(t.sampleUs||0) + activeUs;
-    const slackUs = periodUs - sampleToActuateUs;
-    return { sysclkHz, periodUs, periodCycles, activeUs, activeCycles, sampleToActuateUs, slackUs, deadlineMet: slackUs >= 0,
-      cpuBudgetPct: periodCycles ? activeCycles / periodCycles * 100 : 0, stages };
+    const computeCycles = Number(t.computeUs||0) * mhz;
+    const writeUs = Number(t.sampleUs||0) + activeUs;
+    const timing = Base.timingState ? Base.timingState(state) : null;
+    const epsilonUs = Math.max(1e-9, periodUs * 1e-9);
+    const fallbackMissedLoads = Math.floor((writeUs + epsilonUs) / periodUs);
+    const missedLoads = timing && Number.isFinite(timing.missedLoads) ? timing.missedLoads : fallbackMissedLoads;
+    const applyUs = timing && Number.isFinite(timing.apply) ? timing.apply : periodUs * (missedLoads + 1);
+    const sampleToActuateUs = timing && Number.isFinite(timing.actuation) ? timing.actuation : applyUs - Number(t.sampleUs||0);
+    const slackUs = periodUs - writeUs;
+    const deadlineMet = timing ? !timing.missed : missedLoads === 0;
+    return { sysclkHz, periodUs, periodCycles, activeUs, activeCycles, computeCycles, writeUs, applyUs, missedLoads,
+      sampleToActuateUs, slackUs, deadlineMet,
+      cpuBudgetPct: periodCycles ? computeCycles / periodCycles * 100 : 0, stages };
   }
 
   function calibrationBudget(state) {
@@ -99,12 +119,12 @@
   function topologyControl(id) { return Object.assign({ id }, TOPOLOGY_CONTROL[id] || TOPOLOGY_CONTROL.buck); }
 
   const PROTECTION_POLICIES = Object.freeze([
-    { fault:"OCP", detect:"CMPSS cycle-by-cycle", reaction:"TZ PWM OFF", recovery:"auto next cycle or escalate", latency:"sub-µs" },
-    { fault:"SCP", detect:"CMPSS high threshold", reaction:"one-shot TZ", recovery:"hiccup / latch", latency:"sub-µs" },
-    { fault:"OVP", detect:"ADC PPB + comparator", reaction:"PWM OFF + discharge policy", recovery:"latched until qualified", latency:"µs–ms" },
-    { fault:"UVP/Brownout", detect:"filtered ADC", reaction:"derate / controlled stop", recovery:"brown-in hysteresis", latency:"ms" },
-    { fault:"OTP", detect:"temperature sensor", reaction:"derate then stop", recovery:"cooldown hysteresis", latency:"ms–s" },
-    { fault:"Fan fail", detect:"tach timeout", reaction:"derate / stop", recovery:"retry + log", latency:"100 ms+" },
+    { fault:"OCP", detect:"CMPSS cycle-by-cycle", reaction:"TZ PWM OFF", recovery:"auto next cycle or escalate", latency:"hardware-direct · config/device/gate dependent · measure" },
+    { fault:"SCP", detect:"CMPSS high threshold", reaction:"one-shot TZ", recovery:"hiccup / latch", latency:"hardware-direct · config/device/gate dependent · measure" },
+    { fault:"OVP", detect:"ADC PPB + comparator", reaction:"PWM OFF + discharge policy", recovery:"latched until qualified", latency:"path/rate dependent · measure" },
+    { fault:"UVP/Brownout", detect:"filtered ADC", reaction:"derate / controlled stop", recovery:"brown-in hysteresis", latency:"filter/task dependent" },
+    { fault:"OTP", detect:"temperature sensor", reaction:"derate then stop", recovery:"cooldown hysteresis", latency:"sensor/filter/task dependent" },
+    { fault:"Fan fail", detect:"tach timeout", reaction:"derate / stop", recovery:"retry + log", latency:"timeout policy dependent" },
     { fault:"Sensor implausible", detect:"range/rate/redundancy", reaction:"fail-safe authority", recovery:"service / restart policy", latency:"task dependent" }
   ]);
   function protectionPolicies() { return PROTECTION_POLICIES.map(x => Object.assign({}, x)); }
