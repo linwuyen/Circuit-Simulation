@@ -30,21 +30,52 @@ test('timing model detects missed PWM load', () => {
   assert.ok(timing.apply >= 20);
 });
 
-test('Boost RHP-zero response starts in the inverse direction', () => {
+test('Boost qualitative signature starts in the inverse direction', () => {
   const response = Models.topologyResponse('rhp');
   assert.equal(response[0], 0);
   assert.ok(response[1] < response[0]);
   assert.ok(response.at(-1) > 0.9);
 });
 
-test('loop analysis uses true sign-change crossings and reports multiplicity', () => {
+test('Buck loop plant includes load damping and capacitor ESR terms', () => {
+  Store.reset();
+  const state = Store.snapshot();
+  const f = 500;
+  const w = 2 * Math.PI * f;
+  const { inductance:L, capacitance:C, load:R, esr:Rc } = state.plant;
+  const num = { re:1, im:w * Rc * C };
+  const den = { re:1 - w*w*L*C*(1 + Rc/R), im:w*(L/R + Rc*C) };
+  const d2 = den.re*den.re + den.im*den.im;
+  const plant = {
+    re:(num.re*den.re + num.im*den.im)/d2,
+    im:(num.im*den.re - num.re*den.im)/d2
+  };
+  const controller = { re:state.control.kp, im:-state.control.ki/w };
+  const expectedMag = Math.hypot(
+    controller.re*plant.re - controller.im*plant.im,
+    controller.re*plant.im + controller.im*plant.re
+  );
+  const actual = Models.buckLoopPoint(f, 0, state);
+  assert.ok(Math.abs(actual.magDb - 20*Math.log10(expectedMag)) < 1e-9);
+});
+
+test('loop analysis scans low enough to retain the real low-frequency crossing', () => {
   Store.reset();
   const result = Models.analyzeLoop(Store.snapshot(), 7.5);
+  assert.equal(result.minHz, 1);
+  assert.ok(result.maxHz <= Store.get('plant.fsw') * 0.45 + 1e-9);
+  assert.ok(result.crossings.some(crossing => crossing.freq < 100));
   for (const crossing of result.crossings) {
-    assert.ok(crossing.freq >= 100 && crossing.freq <= 50000);
+    assert.ok(crossing.freq >= result.minHz && crossing.freq <= result.maxHz);
     assert.ok(Number.isFinite(crossing.phaseMargin));
   }
   assert.ok(['NO_CROSSOVER','SINGLE','MULTIPLE'].includes(result.status));
+});
+
+test('loop probe phase preserves full pure-delay rotation instead of wrapping at 180 degrees', () => {
+  Store.reset();
+  const point = Models.buckLoopPoint(40000, 25, Store.snapshot());
+  assert.ok(point.phase < -360);
 });
 
 test('diagnostic measurement reduces hypothesis space quantitatively', () => {
