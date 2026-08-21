@@ -7,18 +7,52 @@
   const $$ = selector => [...document.querySelectorAll(selector)];
   let activePhase = "pre";
 
+  const competencyLabel = Object.freeze({
+    physics: "Physics",
+    sensing: "Sensing",
+    feedback: "Feedback",
+    timing: "Timing",
+    dynamics: "Dynamics",
+    safety: "Safety",
+    production: "Production",
+    evidence: "Evidence",
+    "next-measurement": "Next measurement",
+    transfer: "Transfer"
+  });
+
   function pct(value) { return value == null ? "—" : `${Math.round(value * 100)}%`; }
   function fmtDate(value) { return value ? new Date(value).toLocaleString('zh-TW', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '—'; }
+
+  function profileMetrics(summary) {
+    const postScore = summary.post.score || null;
+    if (summary.profile !== "core8") {
+      return `
+        <div><span>NEXT MEASURE</span><b>${pct(postScore && postScore.nextMeasurementAccuracy)}</b><small>post unseen</small></div>
+        <div><span>TRANSFER</span><b>${pct(postScore && postScore.transferAccuracy)}</b><small>post unseen</small></div>`;
+    }
+
+    const expected = Benchmark.PROFILES.core8.competencies;
+    const byCompetency = postScore && postScore.byCompetency || {};
+    const attempted = postScore ? postScore.attemptedCompetencies : 0;
+    const missed = expected.filter(key => {
+      const row = byCompetency[key];
+      return row && row.attempted > 0 && row.correct < row.attempted;
+    });
+    return `
+      <div><span>CORE LAYERS</span><b>${attempted}/${expected.length}</b><small>post unseen coverage</small></div>
+      <div><span>MISSED LAYERS</span><b>${missed.length || '—'}</b><small>${missed.length ? missed.map(key => competencyLabel[key] || key).join(' · ') : 'complete POST to locate gaps'}</small></div>`;
+  }
 
   function renderDashboard() {
     const summary = Session.summary();
     const comparison = summary.comparison;
-    $('#outcomeDashboard').innerHTML = `
-      <div><span>PRE</span><b>${pct(summary.pre.score && summary.pre.score.accuracy)}</b><small>${summary.pre.attempted}/${summary.pre.total} first attempts</small></div>
+    const dashboard = $('#outcomeDashboard');
+    dashboard.dataset.profile = summary.profile;
+    dashboard.innerHTML = `
+      <div><span>PRE · ${summary.profile.toUpperCase()}</span><b>${pct(summary.pre.score && summary.pre.score.accuracy)}</b><small>${summary.pre.attempted}/${summary.pre.total} first attempts</small></div>
       <div><span>POST</span><b>${pct(summary.post.score && summary.post.score.accuracy)}</b><small>${summary.post.attempted}/${summary.post.total} first attempts</small></div>
       <div><span>Δ UNSEEN</span><b>${comparison && comparison.delta != null ? `${comparison.delta >= 0 ? '+' : ''}${Math.round(comparison.delta*100)} pp` : '—'}</b><small>not a causal claim</small></div>
-      <div><span>NEXT MEASURE</span><b>${pct(summary.post.score && summary.post.score.nextMeasurementAccuracy)}</b><small>post unseen</small></div>
-      <div><span>TRANSFER</span><b>${pct(summary.post.score && summary.post.score.transferAccuracy)}</b><small>post unseen</small></div>
+      ${profileMetrics(summary)}
       <div><span>NEXT RETENTION</span><b>${summary.nextDue ? summary.nextDue.phase.toUpperCase() : 'DONE'}</b><small>${summary.nextDue ? fmtDate(summary.nextDue.dueAt) : 'all checkpoints complete'}</small></div>`;
 
     $$('.outcome-phase-button').forEach(button => {
@@ -66,8 +100,8 @@
     const index = status.cases.findIndex(testCase => testCase.id === item.id) + 1;
     const choiceMarkup = item.answerType === 'timing'
       ? `<div class="prediction-row"><button type="button" data-outcome-judgement="met">第一個 ZERO 趕得上</button><button type="button" data-outcome-judgement="missed">錯過第一個 ZERO</button></div><label class="control-label">Physical commit (µs)<input id="outcomeCommitUs" type="number" step="0.001" placeholder="例如 10.000"></label><button class="button primary" type="button" id="outcomeTimingSubmit" disabled>鎖定 first attempt</button>`
-      : `<div class="prediction-row">${item.choices.map(choice => `<button type="button" data-outcome-choice="${choice}">${choice}</button>`).join('')}</div>`;
-    $('#outcomeQuestion').innerHTML = `<div class="section-kicker">${activePhase.toUpperCase()} · ${item.competency} · ${index}/${status.total}</div><h3>${item.prompt}</h3><p class="muted">送出後 first attempt 永久鎖定；重答只記 retry。</p>${choiceMarkup}<p class="prediction-status" id="outcomeAnswerStatus" aria-live="polite"></p>`;
+      : `<div class="prediction-row">${item.choices.map(choice => `<button type="button" data-outcome-choice="${choice}">${item.choiceLabels?.[choice] || choice}</button>`).join('')}</div>`;
+    $('#outcomeQuestion').innerHTML = `<div class="section-kicker">${activePhase.toUpperCase()} · ${status.profile.toUpperCase()} · ${item.competency} · ${index}/${status.total}</div><h3>${item.prompt}</h3><p class="muted">送出後 first attempt 永久鎖定；重答只記 retry。正式題只量 unseen judgement，不會把 practice 題成績混進來。</p>${choiceMarkup}<p class="prediction-status" id="outcomeAnswerStatus" aria-live="polite"></p>`;
 
     if (item.answerType === 'timing') {
       let judgement = null;
@@ -103,7 +137,7 @@
     if (!panel || $('#outcomeStudyExport')) return;
     const wrap = document.createElement('div');
     wrap.id = 'outcomeStudyExport';
-    wrap.innerHTML = `<hr><div class="section-kicker">P4-C · LEARNER STUDY EXPORT</div><p class="muted">只匯出 aggregate metrics；不含題目、答案或自由文字。participant ID 請使用匿名代碼。</p><div class="input-grid"><label>Anonymous participant ID<input id="outcomeParticipantId" type="text" maxlength="64" placeholder="例如 p_001"></label></div><div class="actions"><button class="button" id="outcomeStudyDownload" type="button">匯出 study JSON</button><span class="prediction-status" id="outcomeStudyStatus"></span></div>`;
+    wrap.innerHTML = `<hr><div class="section-kicker">P4-C · LEARNER STUDY EXPORT</div><p class="muted">只匯出 aggregate metrics、outcome profile 與 competency-level accuracy；不含題目、答案或自由文字。participant ID 請使用匿名代碼。</p><div class="input-grid"><label>Anonymous participant ID<input id="outcomeParticipantId" type="text" maxlength="64" placeholder="例如 p_001"></label></div><div class="actions"><button class="button" id="outcomeStudyDownload" type="button">匯出 study JSON</button><span class="prediction-status" id="outcomeStudyStatus"></span></div>`;
     panel.appendChild(wrap);
     try {
       if (!window.CircuitOutcomeStudyV1) await loadScript('../assets/learning/outcome-study-v1.js');
@@ -115,7 +149,7 @@
         const bundle = window.CircuitOutcomeStudyV1.exportParticipant(Session.summary(), { participantId:$('#outcomeParticipantId').value });
         const blob = new Blob([JSON.stringify(bundle, null, 2) + '\n'], { type:'application/json' });
         const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${bundle.participantId}.outcome-study.json`; link.click(); URL.revokeObjectURL(link.href);
-        $('#outcomeStudyStatus').textContent = `exported ${bundle.participantId} · raw answers/prompts: no`;
+        $('#outcomeStudyStatus').textContent = `exported ${bundle.participantId} · profile ${bundle.outcomeProfile} · raw answers/prompts: no`;
       } catch (error) { $('#outcomeStudyStatus').textContent = `REJECTED: ${error.message}`; }
     });
   }
