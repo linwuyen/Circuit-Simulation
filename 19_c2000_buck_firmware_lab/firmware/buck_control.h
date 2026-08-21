@@ -41,10 +41,11 @@ typedef struct {
     float vin;
     float vout;
     float iL;
-    uint8_t sensor_valid;
-    uint8_t enable_request;
-    uint8_t command_heartbeat;
-    uint8_t clear_fault_request;
+    /* C28x has a 16-bit addressable char; keep control flags explicitly 16-bit. */
+    uint16_t sensor_valid;
+    uint16_t enable_request;
+    uint16_t command_heartbeat;
+    uint16_t clear_fault_request;
 } BuckControlInput;
 
 typedef struct {
