@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "requestedClaim": "UNCLAIMED",
+  "boardIdentity": {
+    "target": "",
+    "revision": "",
+    "mcu": "TMS320F2838x"
+  },
+  "flash": {
+    "status": "MISSING",
+    "imageArtifact": "",
+    "ccxmlArtifact": "",
+    "probe": "",
+    "flashedAt": "",
+    "resetBootObserved": false
+  },
+  "bindings": {
+    "pwmPinmuxAndPolarity": { "status": "UNBOUND", "source": null },
+    "adcChannels": { "status": "UNBOUND", "source": null },
+    "adcAcquisitionWindow": { "status": "UNBOUND", "source": null },
+    "voltageScaling": { "status": "UNBOUND", "source": null },
+    "currentScaling": { "status": "UNBOUND", "source": null },
+    "cmpssInputAndThreshold": { "status": "UNBOUND", "source": null },
+    "deadTimeAndComplementaryOutputs": { "status": "UNBOUND", "source": null },
+    "startupAndRearmPolicy": { "status": "UNBOUND", "source": null },
+    "communicationOwner": { "status": "UNBOUND", "source": null }
+  },
+  "evidence": [
+    { "id": "pwm", "status": "MISSING", "accepted": false, "acceptance": "Measured gate-command period and active duty match configured switching frequency and CMPA shadow-load behavior.", "artifact": null },
+    { "id": "gpio", "status": "MISSING", "accepted": false, "acceptance": "GPIO31 ISR pulse demonstrates sample-to-shadow-write execution time and positive deadline slack.", "artifact": null },
+    { "id": "soc", "status": "MISSING", "accepted": false, "acceptance": "ADC SOC phase is measured relative to the physical switching edge.", "artifact": null },
+    { "id": "trip", "status": "MISSING", "accepted": false, "acceptance": "CMPSS to XBAR to DCAEVT1 to Trip Zone forces PWM low without waiting for the control ISR.", "artifact": null },
+    { "id": "soft", "status": "MISSING", "accepted": false, "acceptance": "Soft-start Vout is monotonic and does not show saturation windup.", "artifact": null },
+    { "id": "load", "status": "MISSING", "accepted": false, "acceptance": "Load-step Vout and iL recover without protection chatter.", "artifact": null },
+    { "id": "timeout", "status": "MISSING", "accepted": false, "acceptance": "Stale command from the real communication owner fails closed.", "artifact": null },
+    { "id": "rearm", "status": "MISSING", "accepted": false, "acceptance": "Fault re-arm occurs only after the physical fault source and product qualifiers are safe.", "artifact": null }
+  ]
+}
