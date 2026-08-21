@@ -11,6 +11,7 @@
 
   const PHASES = Object.freeze(["pre", "post", "r1", "r2", "r3", "r4"]);
   const RETENTION_DAYS = Benchmark.RETENTION_DAYS;
+  const NEW_RECORD_PROFILE = "core8";
   const nowIso = () => new Date().toISOString();
   const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
 
@@ -25,12 +26,34 @@
   const fallback = memoryEvidence();
   const store = () => Evidence && Evidence.load && Evidence.save ? Evidence : fallback;
 
+  function normalizeRecord(record, existed) {
+    if (!record.profile) {
+      // Records created before profile support must keep the original four-competency instrument.
+      record.profile = existed ? "legacy4" : NEW_RECORD_PROFILE;
+    }
+    const definition = Benchmark.profileDefinition(record.profile);
+    if (!Number.isInteger(record.countPerCompetency) || record.countPerCompetency < 1 || record.countPerCompetency > Benchmark.MAX_CASES_PER_COMPETENCY) {
+      record.countPerCompetency = definition.defaultCountPerCompetency;
+    }
+    record.sessions = record.sessions && typeof record.sessions === "object" ? record.sessions : {};
+    record.retention = record.retention && typeof record.retention === "object" ? record.retention : {};
+    return record;
+  }
+
   function rootRecord(state) {
     state.benchmark = state.benchmark && typeof state.benchmark === "object" ? state.benchmark : {};
-    state.benchmark.outcomeV1 = state.benchmark.outcomeV1 && typeof state.benchmark.outcomeV1 === "object"
+    const existed = Boolean(state.benchmark.outcomeV1 && typeof state.benchmark.outcomeV1 === "object");
+    state.benchmark.outcomeV1 = existed
       ? state.benchmark.outcomeV1
-      : { seed: 20260821, countPerCompetency: 2, sessions: {}, retention: {}, createdAt: nowIso() };
-    return state.benchmark.outcomeV1;
+      : {
+          seed: 20260821,
+          profile: NEW_RECORD_PROFILE,
+          countPerCompetency: Benchmark.PROFILES[NEW_RECORD_PROFILE].defaultCountPerCompetency,
+          sessions: {},
+          retention: {},
+          createdAt: nowIso()
+        };
+    return normalizeRecord(state.benchmark.outcomeV1, existed);
   }
 
   function loadRecord() {
@@ -41,13 +64,18 @@
   function saveRecord(record) {
     const state = store().load();
     state.benchmark = state.benchmark && typeof state.benchmark === "object" ? state.benchmark : {};
-    state.benchmark.outcomeV1 = clone(record);
+    state.benchmark.outcomeV1 = clone(normalizeRecord(record, true));
     store().save(state);
-    return clone(record);
+    return clone(state.benchmark.outcomeV1);
   }
 
   function phaseCases(record, phase) {
-    return Benchmark.generateBenchmarkSet({ seed: record.seed, phase, countPerCompetency: record.countPerCompetency });
+    return Benchmark.generateBenchmarkSet({
+      seed: record.seed,
+      phase,
+      countPerCompetency: record.countPerCompetency,
+      profile: record.profile
+    });
   }
 
   function ensurePhase(record, phase) {
@@ -89,11 +117,16 @@
     return permission;
   }
 
-  function configure({ seed, countPerCompetency } = {}) {
+  function configure({ seed, countPerCompetency, profile } = {}) {
     const record = loadRecord();
     const hasAttempts = Object.values(record.sessions || {}).some(session => Object.keys(session.firstAttempts || {}).length > 0);
     if (hasAttempts) throw new Error("benchmark configuration is immutable after the first attempt");
     if (seed != null) record.seed = Number(seed) >>> 0;
+    if (profile != null) {
+      const definition = Benchmark.profileDefinition(profile);
+      record.profile = definition.id;
+      if (countPerCompetency == null) record.countPerCompetency = definition.defaultCountPerCompetency;
+    }
     if (countPerCompetency != null) {
       if (!Number.isInteger(countPerCompetency) || countPerCompetency < 1 || countPerCompetency > Benchmark.MAX_CASES_PER_COMPETENCY) {
         throw new RangeError("invalid countPerCompetency");
@@ -165,6 +198,7 @@
     const due = /^r[1-4]$/.test(phase) ? permission.allowed : phase === "pre" || (phase === "post" && permission.allowed);
     return Object.freeze({
       phase,
+      profile: record.profile,
       total: cases.length,
       attempted: attempts.length,
       completed: Boolean(session && session.completedAt),
@@ -192,6 +226,7 @@
     const retention = ["r1", "r2", "r3", "r4"].map(phase => phaseStatus(phase, at));
     return Object.freeze({
       seed: record.seed,
+      profile: record.profile,
       countPerCompetency: record.countPerCompetency,
       pre: phaseStatus("pre", at),
       post: phaseStatus("post", at),

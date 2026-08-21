@@ -15,6 +15,31 @@
     return id;
   }
 
+  const OUTCOME_PROFILES = Object.freeze(["legacy4", "core8"]);
+  const PROFILE_COMPETENCIES = Object.freeze({
+    legacy4: Object.freeze(["physics", "timing", "next-measurement", "transfer"]),
+    core8: Object.freeze(["physics", "sensing", "feedback", "timing", "dynamics", "safety", "production", "evidence"])
+  });
+
+  function safeProfile(value) {
+    const profile = String(value || "legacy4").trim();
+    if (!OUTCOME_PROFILES.includes(profile)) throw new Error("invalid outcome profile");
+    return profile;
+  }
+
+  function competencyMetrics(score) {
+    const rows = score && score.byCompetency && typeof score.byCompetency === "object" ? score.byCompetency : {};
+    const result = {};
+    for (const [competency, metric] of Object.entries(rows)) {
+      if (!/^[A-Za-z0-9_-]{1,64}$/.test(competency)) continue;
+      const attempted = Number(metric && metric.attempted || 0);
+      const correct = Number(metric && metric.correct || 0);
+      const accuracy = finite(metric && metric.accuracy) ? Number(metric.accuracy) : null;
+      result[competency] = Object.freeze({ attempted, correct, accuracy });
+    }
+    return Object.freeze(result);
+  }
+
   function phaseMetric(status) {
     const value = status && typeof status === "object" ? status : {};
     const score = value.score && typeof value.score === "object" ? value.score : {};
@@ -24,13 +49,15 @@
       completed:value.completed === true,
       accuracy:finite(score.accuracy) ? Number(score.accuracy) : null,
       nextMeasurementAccuracy:finite(score.nextMeasurementAccuracy) ? Number(score.nextMeasurementAccuracy) : null,
-      transferAccuracy:finite(score.transferAccuracy) ? Number(score.transferAccuracy) : null
+      transferAccuracy:finite(score.transferAccuracy) ? Number(score.transferAccuracy) : null,
+      byCompetency:competencyMetrics(score)
     });
   }
 
   function exportParticipant(summary, { participantId, exportedAt = new Date().toISOString() } = {}) {
     if (!summary || typeof summary !== "object") throw new Error("outcome summary is required");
     const id = safeId(participantId);
+    const profile = safeProfile(summary.profile || "legacy4");
     const phases = {};
     phases.pre = phaseMetric(summary.pre);
     phases.post = phaseMetric(summary.post);
@@ -42,6 +69,7 @@
     return Object.freeze({
       schema:"circuit-outcome-study",
       version:1,
+      outcomeProfile:profile,
       participantId:id,
       exportedAt,
       phases:Object.freeze(phases),
@@ -56,22 +84,66 @@
   function validateParticipant(bundle) {
     const value = bundle && typeof bundle === "object" ? bundle : {};
     let idValid = true;
+    let profileValid = true;
     try { safeId(value.participantId); } catch (_) { idValid = false; }
+    try { safeProfile(value.outcomeProfile || "legacy4"); } catch (_) { profileValid = false; }
+    const profile = profileValid ? safeProfile(value.outcomeProfile || "legacy4") : "legacy4";
+    const allowedCompetencies = new Set(PROFILE_COMPETENCIES[profile]);
     const phases = value.phases && typeof value.phases === "object" ? value.phases : {};
     const phaseRows = PHASES.map(phase => {
       const item = phases[phase] && typeof phases[phase] === "object" ? phases[phase] : {};
-      const valid = Number.isInteger(Number(item.attempted)) && Number.isInteger(Number(item.total)) && Number(item.attempted) >= 0 && Number(item.total) >= Number(item.attempted) && (item.accuracy == null || (finite(item.accuracy) && Number(item.accuracy) >= 0 && Number(item.accuracy) <= 1));
-      return Object.freeze({ phase, valid });
+      const rows = item.byCompetency && typeof item.byCompetency === "object" ? item.byCompetency : {};
+      const competenciesValid = Object.entries(rows).every(([key, metric]) => {
+        const attempted = Number(metric && metric.attempted);
+        const correct = Number(metric && metric.correct);
+        const accuracy = metric && metric.accuracy;
+        return allowedCompetencies.has(key) &&
+          Number.isInteger(attempted) && attempted >= 0 &&
+          Number.isInteger(correct) && correct >= 0 && correct <= attempted &&
+          (accuracy == null || (finite(accuracy) && Number(accuracy) >= 0 && Number(accuracy) <= 1));
+      });
+      const valid = Number.isInteger(Number(item.attempted)) &&
+        Number.isInteger(Number(item.total)) &&
+        Number(item.attempted) >= 0 &&
+        Number(item.total) >= Number(item.attempted) &&
+        (item.accuracy == null || (finite(item.accuracy) && Number(item.accuracy) >= 0 && Number(item.accuracy) <= 1)) &&
+        competenciesValid;
+      return Object.freeze({ phase, valid, competenciesValid });
     });
     const privacyValid = value.containsRawAnswers === false && value.containsPrompts === false;
-    const valid = value.schema === "circuit-outcome-study" && Number(value.version) === 1 && idValid && privacyValid && phaseRows.every(row => row.valid);
-    return Object.freeze({ valid, idValid, privacyValid, phaseRows:Object.freeze(phaseRows) });
+    const valid = value.schema === "circuit-outcome-study" &&
+      Number(value.version) === 1 &&
+      idValid &&
+      profileValid &&
+      privacyValid &&
+      phaseRows.every(row => row.valid);
+    return Object.freeze({ valid, idValid, profileValid, privacyValid, phaseRows:Object.freeze(phaseRows) });
+  }
+
+  function aggregateCompetencies(bundles, phase) {
+    const keys = new Set();
+    for (const bundle of bundles) {
+      const rows = bundle.phases?.[phase]?.byCompetency || {};
+      Object.keys(rows).forEach(key => keys.add(key));
+    }
+    const result = {};
+    for (const key of [...keys].sort()) {
+      const values = bundles
+        .map(bundle => bundle.phases?.[phase]?.byCompetency?.[key]?.accuracy)
+        .filter(finite)
+        .map(Number);
+      result[key] = Object.freeze({ n: values.length, meanAccuracy: mean(values) });
+    }
+    return Object.freeze(result);
   }
 
   function aggregate(bundles = []) {
     const valid = bundles.filter(bundle => validateParticipant(bundle).valid);
     const ids = valid.map(bundle => bundle.participantId);
     if (new Set(ids).size !== ids.length) throw new Error("duplicate participantId in cohort");
+    const profiles = new Set(valid.map(bundle => safeProfile(bundle.outcomeProfile || "legacy4")));
+    if (profiles.size > 1) throw new Error("mixed outcome profiles cannot be aggregated");
+    const outcomeProfile = profiles.size ? [...profiles][0] : null;
     const paired = valid.filter(bundle => bundle.pairedPrePost === true && finite(bundle.delta));
     const metric = (phase, key, rows = valid) => mean(rows.map(bundle => bundle.phases[phase] && bundle.phases[phase][key]).filter(finite).map(Number));
     const retention = {};
@@ -84,6 +156,7 @@
     return Object.freeze({
       schema:"circuit-outcome-study-summary",
       version:1,
+      outcomeProfile,
       participants:valid.length,
       pairedPrePost:pairedN,
       evidenceStatus,
@@ -92,9 +165,10 @@
       meanDelta:mean(paired.map(bundle => Number(bundle.delta))),
       meanPostNextMeasurementAccuracy:metric("post","nextMeasurementAccuracy",paired),
       meanPostTransferAccuracy:metric("post","transferAccuracy",paired),
+      meanPostByCompetency:aggregateCompetencies(paired, "post"),
       retention:Object.freeze(retention),
       causalClaimAllowed:false,
-      interpretation:"observational learner evidence from de-identified metric bundles; not a causal course-effect estimate"
+      interpretation:"observational learner evidence from de-identified metric bundles using one outcome profile; not a causal course-effect estimate"
     });
   }
 

@@ -16,6 +16,33 @@ function completePhase(phase, at) {
   for (const item of cases) Session.recordAttempt(phase, item.id, answerFor(item), at);
 }
 
+test("fresh outcome record uses core8 while keeping eight total questions", () => {
+  Session.reset();
+  const record = Session.loadRecord();
+  assert.equal(record.profile, "core8");
+  assert.equal(record.countPerCompetency, 1);
+  const status = Session.phaseStatus("pre");
+  assert.equal(status.total, 8);
+  assert.deepEqual(status.cases.map(item => item.competency), Benchmark.CORE8_COMPETENCIES);
+});
+
+test("benchmark profile can change before evidence and locks after the first attempt", () => {
+  Session.reset();
+  Session.configure({ profile: "legacy4" });
+  let status = Session.phaseStatus("pre");
+  assert.equal(status.profile, "legacy4");
+  assert.equal(status.total, 8);
+  assert.equal(new Set(status.cases.map(item => item.competency)).size, 4);
+
+  Session.configure({ profile: "core8" });
+  status = Session.phaseStatus("pre");
+  assert.equal(status.profile, "core8");
+  assert.equal(status.total, 8);
+  const item = status.cases[0];
+  Session.recordAttempt("pre", item.id, answerFor(item));
+  assert.throws(() => Session.configure({ profile: "legacy4" }), /immutable/);
+});
+
 test("first attempt is immutable and retries cannot change score", () => {
   Session.reset();
   const pre = Session.startPhase("pre");
@@ -54,7 +81,9 @@ test("completed post schedules 1/7/30/90 day retention", () => {
   completePhase("post");
   assert.equal(Session.phaseStatus("post").completed, true);
   const summary = Session.summary();
+  assert.equal(summary.profile, "core8");
   assert.equal(summary.comparison.post.accuracy, 1);
+  assert.equal(summary.comparison.post.competencyCount, 8);
   assert.deepEqual(summary.retention.map(item => item.phase), ["r1", "r2", "r3", "r4"]);
   const record = Session.loadRecord();
   assert.deepEqual(Object.values(record.retention).map(item => item.dueAfterDays), [1, 7, 30, 90]);

@@ -27,6 +27,35 @@ test("pre/post benchmark sets are deterministic and content-disjoint", () => {
   const preContent = new Set(fingerprints(preA));
   assert.equal(fingerprints(post).some(fingerprint => preContent.has(fingerprint)), false);
   assert.equal(new Set(preA.map(item => item.competency)).size, 4);
+  assert.deepEqual([...new Set(preA.map(item => item.competency))], Benchmark.COMPETENCIES);
+});
+
+test("core8 profile measures all eight causal layers without increasing phase length", () => {
+  const pre = Benchmark.generateBenchmarkSet({ seed: 20260821, phase: "pre", profile: "core8" });
+  assert.equal(pre.length, 8);
+  assert.deepEqual(pre.map(item => item.competency), Benchmark.CORE8_COMPETENCIES);
+  assert.equal(new Set(pre.map(item => item.competency)).size, 8);
+  assert.ok(pre.every(item => item.answerType === "choice" || item.answerType === "timing"));
+});
+
+test("core8 PRE/POST/R1-R4 are content-disjoint at the visible-case fingerprint level", () => {
+  const phases = ["pre", "post", "r1", "r2", "r3", "r4"];
+  const all = phases.flatMap(phase => Benchmark.generateBenchmarkSet({ seed: 20260821, phase, profile: "core8" }));
+  assert.equal(all.length, 48);
+  assert.equal(new Set(fingerprints(all)).size, all.length);
+});
+
+test("core8 scoring reports layer-level first-attempt coverage", () => {
+  const cases = Benchmark.generateBenchmarkSet({ seed: 99, phase: "pre", profile: "core8" });
+  const score = Benchmark.scoreFirstAttempts(cases, perfectAttempts(cases));
+  assert.equal(score.attempted, 8);
+  assert.equal(score.correct, 8);
+  assert.equal(score.competencyCount, 8);
+  assert.equal(score.attemptedCompetencies, 8);
+  assert.deepEqual(Object.keys(score.byCompetency), Benchmark.CORE8_COMPETENCIES);
+  assert.equal(score.nextMeasurementAccuracy, null);
+  assert.equal(score.transferAccuracy, null);
+  assert.equal(score.status, "usable");
 });
 
 test("all pre/post/retention phase namespaces are content-disjoint", () => {
@@ -101,4 +130,10 @@ test("retention plan generates content-fresh R1/R2/R3/R4 sets at 1/7/30/90 days"
   const cases = plan.flatMap(item => item.cases);
   assert.equal(new Set(cases.map(item => item.id)).size, cases.length);
   assert.equal(new Set(fingerprints(cases)).size, cases.length);
+});
+
+test("core8 retention plan keeps eight questions per checkpoint", () => {
+  const plan = Benchmark.retentionPlan({ seed: 456, profile: "core8" });
+  assert.ok(plan.every(item => item.cases.length === 8));
+  assert.ok(plan.every(item => item.cases.map(testCase => testCase.competency).join(",") === Benchmark.CORE8_COMPETENCIES.join(",")));
 });
