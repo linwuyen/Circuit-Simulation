@@ -52,14 +52,27 @@ test("same seed and phase is deterministic, and family contract fingerprint is s
   assert.match(Instrument.familyContractFingerprint(), /^core8-families-v2-[0-9a-f]{8}$/);
 });
 
-test("timing v2 preserves strict exactly-on-load miss semantics", () => {
-  let exact = null;
-  for (let seed = 0; seed < 32 && !exact; seed += 1) {
-    exact = Instrument.generateBenchmarkSet({ seed, phase:"pre" }).find(item => item.competency === "timing" && item.familyId === "timing.shadow-load-deadline" && item.parameters.ratio === 1);
+test("timing v2 family delegates to authoritative strict shadow-load truth", () => {
+  const seen = new Set();
+  for (let seed = 0; seed < 16; seed += 1) {
+    const item = Instrument.generateBenchmarkSet({ seed, phase:"pre" }).find(testCase =>
+      testCase.competency === "timing" && testCase.familyId === "timing.shadow-load-deadline"
+    );
+    if (!item) continue;
+    const truth = Benchmark.strictSampleToActuate({
+      switchingHz:item.parameters.switchingHz,
+      completionS:item.parameters.completionUs * 1e-6
+    });
+    assert.equal(item.expected.judgement, truth.firstLoadMet ? "met" : "missed");
+    assert.equal(item.expected.commitUs, Number((truth.commitS * 1e6).toFixed(3)));
+    seen.add(item.expected.judgement);
   }
-  assert.ok(exact, "expected to find exact-deadline timing family variant");
-  assert.equal(exact.expected.judgement, "missed");
-  assert.ok(exact.expected.commitUs > exact.parameters.periodUs);
+  assert.equal(seen.has("met"), true);
+  assert.equal(seen.has("missed"), true);
+
+  const exact = Benchmark.strictSampleToActuate({ switchingHz:100000, completionS:10e-6 });
+  assert.equal(exact.firstLoadMet, false);
+  assert.equal(exact.commitCycle, 2);
 });
 
 test("v2 refuses longer forms instead of silently increasing learner burden", () => {
