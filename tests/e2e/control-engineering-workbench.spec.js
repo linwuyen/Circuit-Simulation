@@ -3,7 +3,8 @@ const {test,expect}=require("@playwright/test");
 test("engineering workbench closes model to code to evidence flow",async({page})=>{
   await page.goto("/18_control_unification/engineering-workbench.html");
   await expect(page.getByRole("heading",{name:/plant → loop → timing → code → measurement/})).toBeVisible();
-  await expect(page.getByText(/MODEL → CODE → EVIDENCE/)).toBeVisible();
+  // The badge is intentionally hidden on narrow mobile layouts; its contract text must still exist in the DOM.
+  await expect(page.locator(".topbar .badge")).toHaveText("MODEL → CODE → EVIDENCE");
   await expect(page.locator("#loopStatus")).not.toHaveText("CALCULATING");
   await expect(page.locator("#kp")).not.toHaveText("—");
   await expect(page.locator("#b0")).not.toHaveText("—");
