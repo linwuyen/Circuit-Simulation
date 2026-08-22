@@ -147,9 +147,10 @@
   function inverterLclGridCurrentAt({ dcBusV, l1H, l2H, capF }, frequencyHz) {
     const Vdc=positive(dcBusV,"dcBusV"), L1=positive(l1H,"l1H"), L2=positive(l2H,"l2H"), C=positive(capF,"capF"), f=frequency(frequencyHz), w=2*pi*f;
     const denomImag=w*(L1+L2)-w*w*w*L1*L2*C;
-    if (Math.abs(denomImag)<1e-18) return Object.freeze({ real:0, imag:denomImag>=0?Number.NEGATIVE_INFINITY:Number.POSITIVE_INFINITY, magnitude:Number.POSITIVE_INFINITY, magnitudeDb:Number.POSITIVE_INFINITY, phaseDeg:denomImag>=0?-90:90, topology:"INVERTER_LCL", frequencyHz:f, units:"A/modulation", singular:true, fidelity:"EQUATION_GRADE_IDEAL_UNDAMPED_LCL" });
+    if (Math.abs(denomImag)<1e-18) return Object.freeze({ real:0, imag:Number.POSITIVE_INFINITY, magnitude:Number.POSITIVE_INFINITY, magnitudeDb:Number.POSITIVE_INFINITY, phaseDeg:-180, topology:"INVERTER_LCL", frequencyHz:f, units:"A/modulation", singular:true, fidelity:"EQUATION_GRADE_IDEAL_UNDAMPED_LCL" });
     const response=phasor(0,-Vdc/denomImag);
-    return Object.freeze({ ...response, topology:"INVERTER_LCL", frequencyHz:f, units:"A/modulation", singular:false, fidelity:"EQUATION_GRADE_IDEAL_UNDAMPED_LCL" });
+    const phaseDeg=denomImag>0 ? -90 : -270;
+    return Object.freeze({ ...response, phaseDeg, topology:"INVERTER_LCL", frequencyHz:f, units:"A/modulation", singular:false, fidelity:"EQUATION_GRADE_IDEAL_UNDAMPED_LCL" });
   }
 
   function transferConstraint(topology, params) {
