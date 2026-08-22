@@ -42,7 +42,11 @@
     const omega0=(1-D)/Math.sqrt(L*C), Q=op.qualityFactor;
     const nr=op.dcGain, ni=-op.dcGain*w/op.rhpzRadS;
     const dr=1-(w/omega0)*(w/omega0), di=w/(Q*omega0);
-    return Object.freeze({ ...divideComplex(nr,ni,dr,di), topology:"BOOST_CCM", frequencyHz:f, units:"V/duty", fidelity:"EQUATION_GRADE_IDEAL_CCM" });
+    const base=divideComplex(nr,ni,dr,di);
+    const numeratorPhase=-Math.atan(w/op.rhpzRadS)*180/pi;
+    const denominatorPhase=Math.atan2(di,dr)*180/pi;
+    const phaseDeg=numeratorPhase-denominatorPhase;
+    return Object.freeze({ ...base, phaseDeg, topology:"BOOST_CCM", frequencyHz:f, units:"V/duty", fidelity:"EQUATION_GRADE_IDEAL_CCM" });
   }
 
   function pfcBoost({ vrms, powerW, vbus, busCapF, lineHz, efficiency=0.97, inductanceH=null }) {
