@@ -35,10 +35,14 @@
     const eoc = t.sampleUs + t.acquisitionUs + t.conversionUs;
     const isr = eoc + t.irqUs;
     const write = isr + t.computeUs;
-    const missed = write > periodUs;
-    const apply = missed ? periodUs * Math.ceil(write / periodUs) : periodUs;
+    // A compare write must finish strictly before the shadow-load event.  A
+    // write exactly on the boundary is treated fail-closed as a missed load.
+    const epsilonUs = Math.max(1e-9, periodUs * 1e-9);
+    const missedLoads = Math.floor((write + epsilonUs) / periodUs);
+    const missed = missedLoads > 0;
+    const apply = periodUs * (missedLoads + 1);
     const actuation = apply - t.sampleUs;
-    return { periodUs, eoc, isr, write, missed, apply, actuation, sampleUs: t.sampleUs };
+    return { periodUs, eoc, isr, write, missed, missedLoads, apply, actuation, sampleUs: t.sampleUs };
   }
 
   function simulatePi(state) {
@@ -50,7 +54,7 @@
     const stepIndex = 500;
     const tau = 1.2e-3;
     const ts = 1 / p.fsw;
-    const delayCycles = t.missed ? 1 : 0;
+    const delayCycles = t.missedLoads;
     const queue = Array.from({ length: delayCycles + 1 }, () => p.duty);
     let y = initialVout;
     let integrator = p.duty;
@@ -75,7 +79,7 @@
     const finalMeasured = measureVout(finalPhysical, state.sensing).firmwareVout;
     const maxAfter = Math.max.apply(null, phys.slice(Math.floor(stepIndex / 12)));
     const overshoot = c.vref > 0 ? Math.max(0, (maxAfter - c.vref) / c.vref * 100) : 0;
-    return { phys, meas, refs, duties, finalPhysical, finalMeasured, finalDuty: duties[duties.length - 1], overshoot, initialVout };
+    return { phys, meas, refs, duties, finalPhysical, finalMeasured, finalDuty: duties[duties.length - 1], overshoot, initialVout, delayCycles };
   }
 
   function linePath(values, width, height, minY, maxY) {
@@ -89,7 +93,6 @@
   }
 
   const complex = (re, im) => ({ re, im });
-  const cadd = (a, b) => complex(a.re + b.re, a.im + b.im);
   const cmul = (a, b) => complex(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re);
   function cdiv(a, b) {
     const d = b.re * b.re + b.im * b.im || 1e-20;
@@ -102,14 +105,27 @@
   function buckLoopPoint(freq, delayUs, state) {
     const p = state.plant, c = state.control;
     const w = 2 * Math.PI * freq;
-    const numPlant = cadd(complex(1, 0), complex(0, w * p.esr * p.capacitance));
-    const denPlant = cadd(cadd(complex(1, 0), complex(0, w * p.inductance / p.load)), complex(-w * w * p.inductance * p.capacitance, 0));
+
+    // Normalized CCM Buck Gvd/Vin with load R and capacitor ESR Rc:
+    // (1 + s Rc C) /
+    // [1 + s(L/R + Rc C) + s^2 L C (1 + Rc/R)].
+    // The controller uses e/Vin, so the Vin plant gain cancels by construction.
+    const rc = Number(p.esr) || 0;
+    const numPlant = complex(1, w * rc * p.capacitance);
+    const denPlant = complex(
+      1 - w * w * p.inductance * p.capacitance * (1 + rc / p.load),
+      w * (p.inductance / p.load + rc * p.capacitance)
+    );
     const plant = cdiv(numPlant, denPlant);
     const controller = complex(c.kp, -c.ki / Math.max(w, 1e-9));
     const theta = -w * delayUs * 1e-6;
     const delay = complex(Math.cos(theta), Math.sin(theta));
     const loop = cmul(cmul(controller, plant), delay);
-    return { magDb: 20 * Math.log10(Math.max(cabs(loop), 1e-12)), phase: cphase(loop) };
+
+    // Do not wrap the displayed phase back into [-180, 180]. A pure digital
+    // delay can contribute several full turns near Nyquist.
+    const phase = cphase(controller) + cphase(plant) - 360 * freq * delayUs * 1e-6;
+    return { magDb: 20 * Math.log10(Math.max(cabs(loop), 1e-12)), phase };
   }
 
   function unwrap(phases) {
@@ -131,8 +147,16 @@
     return { freq: Math.pow(10, logF), phase: p1 + ratio * (p2 - p1) };
   }
 
+  function loopFrequencyBand(state) {
+    const minHz = 1;
+    const nyquistGuardHz = Math.max(10, Number(state.plant.fsw) * 0.45);
+    const maxHz = Math.min(50000, nyquistGuardHz);
+    return { minHz, maxHz };
+  }
+
   function analyzeLoop(state, delayUs) {
-    const freqs = logspace(2, Math.log10(50000), 240);
+    const band = loopFrequencyBand(state);
+    const freqs = logspace(Math.log10(band.minHz), Math.log10(band.maxHz), 360);
     const points = freqs.map(f => buckLoopPoint(f, delayUs, state));
     const mags = points.map(p => p.magDb);
     const phases = unwrap(points.map(p => p.phase));
@@ -141,16 +165,16 @@
       if (mags[i] === 0 || mags[i] * mags[i + 1] < 0) crossings.push(interpolateCrossing(freqs[i], freqs[i + 1], mags[i], mags[i + 1], phases[i], phases[i + 1]));
     }
     crossings.forEach(c => { c.phaseMargin = 180 + c.phase; });
-    return { freqs, mags, phases, crossings, status: crossings.length === 0 ? "NO_CROSSOVER" : crossings.length === 1 ? "SINGLE" : "MULTIPLE" };
+    return { freqs, mags, phases, crossings, minHz:band.minHz, maxHz:band.maxHz, status: crossings.length === 0 ? "NO_CROSSOVER" : crossings.length === 1 ? "SINGLE" : "MULTIPLE" };
   }
 
   const PLANTS = Object.freeze({
-    buck: { id:"buck", name:"Buck", controlVariable:"Duty", output:"Vout", plant:"LC double pole + ESR zero", threat:"LC resonance / digital delay", actuator:"CMPA / duty", response:"mono", model:"CCM small-signal" },
-    boost: { id:"boost", name:"Boost", controlVariable:"Duty", output:"Vout", plant:"LC + RHP zero", threat:"RHP zero limits bandwidth", actuator:"CMPA / duty", response:"rhp", model:"CCM non-minimum phase" },
-    pfc: { id:"pfc", name:"PFC", controlVariable:"Current command + duty", output:"IL + Vbus", plant:"inner current + outer voltage", threat:"2ω ripple / line feed-forward", actuator:"current-loop PWM", response:"ripple", model:"two-loop averaged" },
-    psfb: { id:"psfb", name:"PSFB", controlVariable:"Phase shift", output:"Vout / Iout", plant:"LC + commutation", threat:"duty loss / ZVS boundary", actuator:"phase compare", response:"deadzone", model:"phase-shift averaged" },
-    llc: { id:"llc", name:"LLC", controlVariable:"Switching frequency", output:"Vout", plant:"resonant gain vs operating point", threat:"gain slope changes / mode", actuator:"TBPRD / frequency", response:"resonant", model:"qualitative resonant" },
-    inverter: { id:"inverter", name:"Inverter", controlVariable:"Modulation / current cmd", output:"Vac / Iac", plant:"LC/LCL + grid", threat:"PLL / grid impedance", actuator:"SPWM / SVPWM", response:"sine", model:"grid-connected qualitative" }
+    buck: { id:"buck", name:"Buck", controlVariable:"Duty", output:"Vout", plant:"LC double pole + ESR zero", threat:"LC resonance / digital delay", actuator:"CMPA / duty", response:"mono", model:"qualitative normalized signature · not a transfer-function plot" },
+    boost: { id:"boost", name:"Boost", controlVariable:"Duty", output:"Vout", plant:"LC + RHP zero", threat:"RHP zero limits bandwidth", actuator:"CMPA / duty", response:"rhp", model:"qualitative normalized signature · RHP direction only" },
+    pfc: { id:"pfc", name:"PFC", controlVariable:"Current command + duty", output:"IL + Vbus", plant:"inner current + outer voltage", threat:"2ω ripple / line feed-forward", actuator:"current-loop PWM", response:"ripple", model:"qualitative normalized signature · two-loop concept" },
+    psfb: { id:"psfb", name:"PSFB", controlVariable:"Phase shift", output:"Vout / Iout", plant:"LC + commutation", threat:"duty loss / ZVS boundary", actuator:"phase compare", response:"deadzone", model:"qualitative normalized signature · commutation concept" },
+    llc: { id:"llc", name:"LLC", controlVariable:"Switching frequency", output:"Vout", plant:"resonant gain vs operating point", threat:"gain slope changes / mode", actuator:"TBPRD / frequency", response:"resonant", model:"qualitative normalized signature · operating-point concept" },
+    inverter: { id:"inverter", name:"Inverter", controlVariable:"Modulation / current cmd", output:"Vac / Iac", plant:"LC/LCL + grid", threat:"PLL / grid impedance", actuator:"SPWM / SVPWM", response:"sine", model:"qualitative normalized signature · AC-control concept" }
   });
 
   function topologyResponse(type) {
@@ -187,5 +211,5 @@
     return { before, after: safeAfter, reduction, bits };
   }
 
-  global.CircuitPowerModelsV1 = { clamp, fmt, buckTruth, measureVout, timingState, simulatePi, linePath, buckLoopPoint, analyzeLoop, PLANTS, topologyResponse, HYPOTHESES, DEBUG_SCENARIOS, applyMeasurement };
+  global.CircuitPowerModelsV1 = { clamp, fmt, buckTruth, measureVout, timingState, simulatePi, linePath, buckLoopPoint, analyzeLoop, loopFrequencyBand, PLANTS, topologyResponse, HYPOTHESES, DEBUG_SCENARIOS, applyMeasurement };
 })(window);

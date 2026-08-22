@@ -44,7 +44,17 @@
       <div class="metric"><span class="tag amber">UNSEEN Δ</span><h3>${comparison && comparison.delta != null ? `${comparison.delta >= 0 ? '+' : ''}${Math.round(comparison.delta * 100)} pp` : '—'}</h3><p>learner change, not causal claim</p></div>
       ${profileMetrics(summary)}
       <div class="metric"><span class="tag rose">RETENTION</span><h3>${summary.nextDue ? summary.nextDue.phase.toUpperCase() : '—'}</h3><p>${summary.nextDue ? `due ${due(summary.nextDue.dueAt)}` : 'POST 後建立 1/7/30/90d'}</p></div>`;
-    hero.insertAdjacentElement('afterend', section);
+
+    // First-principles learning stays above measurement dashboards.  When the
+    // Journey layer is present, outcome metrics belong in its collapsed
+    // evidence drawer rather than between the hero and the causal learning path.
+    const evidenceDrawer = main.querySelector('.journey-advanced-evidence');
+    if (evidenceDrawer) evidenceDrawer.appendChild(section);
+    else {
+      const journey = main.querySelector('.journey-shell');
+      if (journey) journey.insertAdjacentElement('afterend', section);
+      else hero.insertAdjacentElement('afterend', section);
+    }
   }
 
   Learning.renderHome = function renderHomeWithOutcome(rootId) {
