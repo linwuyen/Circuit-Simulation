@@ -1,5 +1,15 @@
 const {test,expect}=require("@playwright/test");
 
+test("Module 18 exposes a direct Engineering Workbench entry",async({page})=>{
+  await page.goto("/18_control_unification/index.html");
+  const entry=page.getByRole("link",{name:/Open Digital Power Engineering Workbench/});
+  await expect(entry).toBeVisible();
+  await expect(entry).toHaveAttribute("href","engineering-workbench.html");
+  await entry.click();
+  await expect(page).toHaveURL(/18_control_unification\/engineering-workbench\.html$/);
+  await expect(page.getByRole("heading",{name:/plant → loop → timing → code → measurement/})).toBeVisible();
+});
+
 test("engineering workbench closes model to code to evidence flow",async({page})=>{
   await page.goto("/18_control_unification/engineering-workbench.html");
   await expect(page.getByRole("heading",{name:/plant → loop → timing → code → measurement/})).toBeVisible();
