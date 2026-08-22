@@ -166,8 +166,15 @@ test("outcome benchmark records immutable core8 first attempts and home surfaces
   await expect(page.locator("#outcomeDashboard")).toContainText("1/8 first attempts");
 
   await page.goto("/");
-  await expect(page.locator("[data-outcome-home]")).toBeVisible();
-  await expect(page.locator("[data-outcome-home]")).toContainText("1/8 first attempts");
+  const homeOutcome = page.locator("[data-outcome-home]");
+  const advancedEvidence = page.locator(".journey-advanced-evidence");
+  await expect(homeOutcome).toBeAttached();
+  await expect(homeOutcome).not.toBeVisible();
+  await expect(advancedEvidence).not.toHaveAttribute("open", "");
+  await advancedEvidence.locator("summary").click();
+  await expect(advancedEvidence).toHaveAttribute("open", "");
+  await expect(homeOutcome).toBeVisible();
+  await expect(homeOutcome).toContainText("1/8 first attempts");
 });
 
 test("homepage makes Module 19 the single core path and hides the topic library by default", async ({ page }) => {
