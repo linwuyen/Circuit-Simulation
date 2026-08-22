@@ -5,10 +5,11 @@
   if(raw.modules.some(m=>m&&m.id==="control-unification"))return;
   raw.modules.push({
     id:"control-unification",number:"18",tag:"Control Unifier",title:"Universal Control Loop · 16→17 Bridge",entry:"18_control_unification/index.html",
-    oneLine:"把 Module 16 的 Laplace/Bode/Z/delay/SFRA，套到 Module 17 的 Buck、Boost、PFC、PSFB、LLC、Inverter，收斂成同一個 r→e→C(z)→u→P(s)→y→feedback 框架。",
+    oneLine:"把 Module 16 的 Laplace/Bode/Z/delay/SFRA，套到 Module 17 的 Buck、Boost、PFC、PSFB、LLC、Inverter，並用 Engineering Workbench 收斂成 operating point→plant→controller→timing→measurement→evidence 的可驗證閉環。",
     analogy:"16 是控制世界的文法，17 是六種不同個性的 power plant；18 像翻譯器，把每一種新拓撲先翻成相同的 reference、controller、actuator、plant、sensor、feedback 問題。",
-    whyUseful:"遇到新 topology 不再從『要用哪組 PI』開始，而會先定義 u/y、建立 P(s)、找 pole/zero 與 bandwidth boundary，再處理 sampling/delay、C2000 actuator semantics 與 SFRA 驗證。",
+    whyUseful:"遇到新 topology 不再從『要用哪組 PI』開始，而會先定義 u/y、建立 P(s)、找 pole/zero 與 bandwidth boundary，再處理 sampling/delay、C2000 actuator semantics、controller coefficients 與 SFRA correlation。",
     lessons:[
+      ["engineering-workbench.html","Digital Power Engineering Workbench：model → code → evidence","把 plant、PI/2P2Z、ZOH/delay、C2000 cycle timing、operating envelope、SFRA/CSV correlation、robustness 與 model contract 放進同一個工程閉環。","從 Module 18 頁面直接進 Workbench；先設計 loop，再故意 miss PWM load，最後匯入 synthetic measurement 驗證 correlation/evidence gate。","能從數學模型一路追到數位控制、韌體時序與量測證據，而不是只看單一動畫或公式。"],
       ["index.html#universal-loop","Universal Loop Mapper：六種電源先抽象成同一條 feedback loop","用 r、e、C(z)、u、P(s)、y、H 描述所有 topology，再看真正會換的是 actuator、plant、sensor 與 operating point。","切 Buck/Boost/PFC/PSFB/LLC/Inverter，逐一說出 u、y、P(s) personality。","能把陌生 power stage 先翻譯成同一套控制語言，而不是先找 Kp/Ki。"],
       ["index.html#five-lenses","用 Module 16 的五副鏡頭看 Module 17 的 plant","對同一個 topology 依序問 Laplace、Bode、Z、C2000 timing、SFRA 五層問題。","切 topology 後再切五個 lens，觀察問題如何保持相同但答案隨 plant 改變。","能區分『共同方法』與『不同 plant 答案』。"],
       ["index.html#same-not-same","Same skeleton ≠ same PI","明確分開 feedback grammar 與 power-stage personality。","讀六種 topology matrix，比較 duty、phase shift、switching frequency、modulation 與 nested loops。","不會把『同一套控制理論』誤解成『同一組 PI 參數』。"],
@@ -27,4 +28,16 @@
       ["新 topology 不知道從哪開始","把拓撲名稱當成知識入口，而不是先定義 control variables。","固定問 u、y、P(s)、pole/zero、bandwidth、Ts/Td、verification。","用 Module 18 的七問模板先建第一版控制模型。","18_control_unification/index.html#new-topology"]
     ]
   });
+
+  // Keep the advanced workbench discoverable from the Module 18 page itself.
+  const topbar=document.querySelector(".topbar");
+  if(topbar&&!topbar.querySelector("[data-engineering-workbench]")){
+    const link=document.createElement("a");
+    link.href="engineering-workbench.html";
+    link.dataset.engineeringWorkbench="true";
+    link.textContent="Engineering Workbench →";
+    link.setAttribute("aria-label","Open Digital Power Engineering Workbench");
+    const badge=topbar.querySelector(".badge");
+    topbar.insertBefore(link,badge||null);
+  }
 })(window);
