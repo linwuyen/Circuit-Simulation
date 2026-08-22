@@ -94,6 +94,16 @@ test("Inverter ideal LC and undamped LCL plants reproduce their resonance identi
   assert.equal(below.fidelity,"EQUATION_GRADE_IDEAL_UNDAMPED_LCL");
 });
 
+test("undamped LCL Bode phase stays continuous as -90 to -270 rather than wrapping to +90", () => {
+  const params={ dcBusV:400, l1H:2e-3, l2H:1e-3, capF:10e-6 };
+  const op=Transfer.inverter({ mode:"lcl", modulationIndex:0.8, ...params });
+  const below=Transfer.inverterLclGridCurrentAt(params,op.resonanceHz/4);
+  const above=Transfer.inverterLclGridCurrentAt(params,op.resonanceHz*4);
+  close(below.phaseDeg,-90);
+  close(above.phaseDeg,-270);
+  assert.ok(above.phaseDeg < below.phaseDeg);
+});
+
 test("P5 unseen challenge set covers every transfer topology", () => {
   const cases=Transfer.challengeSet(42);
   assert.deepEqual(cases.map(item=>item.topology),["boost","pfc","psfb","llc","inverter"]);
