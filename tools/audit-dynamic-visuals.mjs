@@ -57,7 +57,8 @@ export function runAudit(){
   return {manifest,visualRows,summary:{modules:20,interactiveFiles:visualRows.length,canvases:visualRows.reduce((a,x)=>a+x.canvases,0),svgs:visualRows.reduce((a,x)=>a+x.svgs,0),ranges:visualRows.reduce((a,x)=>a+x.ranges,0),selects:visualRows.reduce((a,x)=>a+x.selects,0)}};
 }
 
-if(import.meta.url===new URL(`file://${process.argv[1]}`).href){
+const invokedPath=process.argv[1] ? path.resolve(process.argv[1]) : "";
+if(invokedPath && fileURLToPath(import.meta.url)===invokedPath){
   const {summary,visualRows}=runAudit();
   console.log(`Dynamic visualization audit PASS: ${summary.modules} modules, ${summary.interactiveFiles} interactive HTML files, ${summary.canvases} canvases, ${summary.svgs} SVGs, ${summary.ranges} range controls, ${summary.selects} selects.`);
   for(const module of Array.from({length:20},(_,i)=>i)){
