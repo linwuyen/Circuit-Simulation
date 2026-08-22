@@ -1,0 +1,11 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+const contracts=JSON.parse(fs.readFileSync(new URL("../assets/learning/model-contracts-v1.json",import.meta.url),"utf8"));
+const byId=new Map(contracts.visuals.map(x=>[x.id,x]));
+test("model contracts are unique and complete for all Module 17 quantitative canvases",()=>{assert.equal(byId.size,contracts.visuals.length);assert.deepEqual([...byId.keys()].sort(),["boostBode","buckBode","invBode","llcGainCanvas","pfcCurrentBode","pfcVoltageBode","psfbBode"].sort());for(const x of contracts.visuals){assert.equal(x.module,17);assert.equal(x.fidelity,"EQUATION_GRADE");for(const f of["modelId","units","equation","validRegion","knownBoundary"])assert.ok(String(x[f]).trim(),`${x.id}:${f}`);assert.ok(Array.isArray(x.assumptions)&&x.assumptions.length);assert.ok(Array.isArray(x.boundaryTests)&&x.boundaryTests.length);assert.ok(Array.isArray(x.derivation)&&x.derivation.length);assert.equal(typeof x.dimension,"object")}});
+test("Boost contract preserves non-minimum-phase RHP-zero boundary",()=>{const x=byId.get("boostBode");assert.match(x.equation,/RHPZ/i);assert.match(x.knownBoundary,/non-minimum-phase/i);assert.ok(x.boundaryTests.some(t=>/negative/i.test(t)))});
+test("PFC outer contract separates double-line disturbance from plant pole",()=>{const x=byId.get("pfcVoltageBode");assert.match(x.knownBoundary,/forced disturbance/i);assert.match(x.knownBoundary,/not this plant pole/i);assert.ok(x.boundaryTests.some(t=>/never.*plant pole/i.test(t)))});
+test("LLC contract cannot be mistaken for dynamic loop phase",()=>{const x=byId.get("llcGainCanvas");assert.match(x.validRegion,/steady-state/i);assert.match(x.knownBoundary,/not dynamic loop phase/i);assert.doesNotMatch(x.equation,/e\^-s|zoh|delay/i)});
+test("PSFB contract does not promote ZVS estimate to hardware proof",()=>{assert.match(byId.get("psfbBode").knownBoundary,/not proof of hardware ZVS/i)});
+test("LCL contract keeps real damping and grid impedance outside ideal plant",()=>{const x=byId.get("invBode");assert.match(x.knownBoundary,/damping/i);assert.match(x.knownBoundary,/grid impedance/i);assert.ok(x.boundaryTests.some(t=>/-90 to -270/.test(t)))});
