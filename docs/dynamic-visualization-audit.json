@@ -1,14 +1,7 @@
 {
-  "version": "1.0.0",
-  "contract": {
-    "EQUATION_GRADE": "Equation, units, assumptions and valid region are explicit; numerical output is regression-testable inside that boundary.",
-    "PHYSICAL_APPROXIMATION": "Physical equation with intentionally omitted parasitics or modes; numerical values are meaningful only inside the stated approximation.",
-    "TEACHING_SURROGATE": "Causal comparison model. Do not infer hardware settling time, bandwidth, phase margin or absolute latency.",
-    "QUALITATIVE_SIGNATURE": "Direction/features only. Axes or normalized traces are not physical measurements.",
-    "HARDWARE_EVIDENCE": "Claim closes only with board/scope/SFRA or configuration-specific evidence.",
-    "MIXED": "Page contains more than one fidelity class; each quantitative card must state its own boundary."
-  },
-  "modules": [
+  "version":"1.1.0",
+  "contract":{"EQUATION_GRADE":"Equation, units, assumptions and valid region are explicit; numerical output is regression-testable inside that boundary.","PHYSICAL_APPROXIMATION":"Physical equation with intentionally omitted parasitics or modes; numerical values are meaningful only inside the stated approximation.","TEACHING_SURROGATE":"Causal comparison model. Do not infer hardware settling time, bandwidth, phase margin or absolute latency.","QUALITATIVE_SIGNATURE":"Direction/features only. Axes or normalized traces are not physical measurements.","HARDWARE_EVIDENCE":"Claim closes only with board/scope/SFRA or configuration-specific evidence.","MIXED":"Page contains more than one fidelity class; each quantitative card must state its own boundary."},
+  "modules":[
     {"module":0,"pathPrefix":"0_buck_converter_/","defaultFidelity":"PHYSICAL_APPROXIMATION","model":"Buck volt-second balance, CCM ripple and LC/ESR identities","validRegion":"declared CCM/ideal-switch assumptions on each calculator","knownBoundary":"DCM, switch/diode loss, inductor DCR and digital delay are not universal defaults","action":"keep numerical axes tied to equations; do not generalize CCM identities into DCM"},
     {"module":1,"pathPrefix":"1_c2000_adc_calculator/","defaultFidelity":"PHYSICAL_APPROXIMATION","model":"divider/scaling/ideal ADC quantization","validRegion":"declared Vref, divider and ideal quantizer","knownBoundary":"ACQPS settling, source impedance, noise, INL/DNL and reference error require device/board data","action":"quantization step must never be labeled total measurement accuracy"},
     {"module":2,"pathPrefix":"2_code_artifact/","defaultFidelity":"MIXED","model":"firmware/SPWM/state demonstrations","validRegion":"per-card equation or architecture boundary","knownBoundary":"rendered PWM/state behavior is not automatically a power-stage plant","action":"separate exact timer/modulation identities from topology teaching visuals"},
@@ -26,17 +19,8 @@
     {"module":14,"pathPrefix":"14_power_protection/","defaultFidelity":"HARDWARE_EVIDENCE","model":"protection authority/state logic plus configurable comparator/filter paths","validRegion":"logic truth is deterministic; latency is configuration/device/gate specific","knownBoundary":"no universal fixed fault-to-gate microseconds","action":"require CMPSS/XBAR/TZ configuration and scope measurement for absolute latency"},
     {"module":15,"pathPrefix":"15_power_capstone/","defaultFidelity":"TEACHING_SURROGATE","model":"synthetic diagnosis challenge bank","validRegion":"deterministic case-bank logic","knownBoundary":"candidate elimination is not a measured Bayesian fault probability","action":"keep Module 19 as authoritative executable/board-evidence capstone"},
     {"module":16,"pathPrefix":"16_control_transforms/","defaultFidelity":"MIXED","model":"Fourier/Laplace/Z/coordinate-transform identities plus control interpretation","validRegion":"mathematical identities are equation-grade","knownBoundary":"illustrative signal animations do not create plant-specific dynamics","action":"axes/domains must explicitly distinguish continuous, discrete and normalized variables"},
-    {"module":17,"pathPrefix":"17_power_topology_control/","defaultFidelity":"MIXED","model":"Buck/Boost/PFC/PSFB/LLC/Inverter topology plants","validRegion":"each topology section declares its equation-grade averaged/FHA boundary","knownBoundary":"parasitics, mode transitions, digital delay and hardware evidence remain outside ideal plants","action":"Boost/PFC/PSFB/LLC/Inverter equation-grade upgrade implemented in this audit"},
-    {"module":18,"pathPrefix":"18_control_unification/","defaultFidelity":"TEACHING_SURROGATE","model":"unified control-language/mental-model visualizations","validRegion":"causal architecture and mapping","knownBoundary":"unified diagrams do not replace topology-specific G(s)","action":"link every numerical claim back to the owning equation-grade module"},
+    {"module":17,"pathPrefix":"17_power_topology_control/","defaultFidelity":"MIXED","model":"Buck/Boost/PFC/PSFB/LLC/Inverter topology plants","validRegion":"each topology section declares its equation-grade averaged/FHA boundary","knownBoundary":"parasitics, mode transitions, digital delay and hardware evidence remain outside ideal plants","action":"quantitative visual ownership lives in assets/learning/model-contracts-v1.json"},
+    {"module":18,"pathPrefix":"18_control_unification/","defaultFidelity":"MIXED","model":"unified control grammar plus equation-backed sampled-data engineering workbench","validRegion":"architecture cards are causal mappings; workbench numerics inherit explicit model contracts and timing assumptions","knownBoundary":"unified diagrams do not replace topology-specific G(s); imported measurements do not become hardware evidence without provenance","action":"connect plant, controller, ZOH/delay, PWM commit and measurement without duplicating model contracts"},
     {"module":19,"pathPrefix":"19_c2000_buck_firmware_lab/","defaultFidelity":"MIXED","model":"authoritative executable Buck firmware capstone, timing/SIL/board evidence contracts","validRegion":"host SIL and deterministic firmware models are executable; board claims are evidence-gated","knownBoundary":"physical-board behavior remains UNCLAIMED without bound evidence","action":"preserve fail-closed board-claim and exact sample→actuate timing semantics"}
-  ],
-  "module17Visuals": [
-    {"id":"buckBode","fidelity":"EQUATION_GRADE","units":"V/duty","boundary":"CCM averaged Buck with capacitor ESR; no DCR/digital delay"},
-    {"id":"boostBode","fidelity":"EQUATION_GRADE","units":"V/duty","boundary":"ideal voltage-mode CCM Boost; LC double pole + RHP zero"},
-    {"id":"pfcCurrentBode","fidelity":"EQUATION_GRADE","units":"A/duty","boundary":"stiff Vbus fast inner averaged plant"},
-    {"id":"pfcVoltageBode","fidelity":"EQUATION_GRADE","units":"V/Apeak-command","boundary":"slow averaged bus-energy plant with resistive output load"},
-    {"id":"psfbBode","fidelity":"EQUATION_GRADE","units":"V/degree","boundary":"ideal buck-derived no-commutation-duty-loss output plant"},
-    {"id":"llcGainCanvas","fidelity":"EQUATION_GRADE","units":"normalized M vs normalized fn","boundary":"steady-state normalized FHA only; not dynamic loop phase"},
-    {"id":"invBode","fidelity":"EQUATION_GRADE","units":"V/modulation or A/modulation","boundary":"ideal averaged LC or undamped stiff-grid LCL"}
   ]
 }
