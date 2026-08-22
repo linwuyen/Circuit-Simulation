@@ -10,10 +10,15 @@ test("power topology control atlas connects six power stages to control models",
   await page.locator("#dutyBuck").evaluate(el => { el.value = "25"; el.dispatchEvent(new Event("input", { bubbles: true })); });
   await expect(page.locator("#buckVout")).toHaveText("12.00 V");
 
+  // Equation-grade Boost contract: expose the physical LC pole and RHP zero.
+  // Do not resurrect the old fc/10 heuristic that the fidelity redesign removed.
   await expect(page.locator("#boostRhpz")).toContainText("kHz");
-  await expect(page.locator("#boostFc10")).toContainText("Hz");
+  await expect(page.locator("#boostF0")).toContainText("Hz");
+  await expect(page.locator("#boostQ")).not.toHaveText("");
+
+  // PFC keeps the forced 2ω disturbance separate from the outer energy-plant pole.
   await expect(page.locator("#pfcRippleHz")).toHaveText("120 Hz");
-  await expect(page.locator("#pfcRippleV")).toContainText("Vpk");
+  await expect(page.locator("#pfcOuterPole")).toContainText("Hz");
 
   await expect(page.locator("#psfbM")).toHaveText("0.500");
   await expect(page.locator("#psfbZvs")).toContainText("×");
