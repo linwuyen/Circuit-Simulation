@@ -50,6 +50,8 @@ int main(void)
     BuckControl_init(&s);
     in.enable_request = 1u;
     in.sensor_valid = 1u;
+    in.peripherals_ready = 1u;
+    in.calibration_valid = 1u;
 
     for (n = 0; n < 12000; ++n) {
         in.vin = p.vin;
@@ -97,6 +99,25 @@ int main(void)
         return 4;
     }
 
-    puts("C2000 Buck host SIL PASS: regulation, OCP veto, command timeout, idle-off");
+    BuckControl_init(&s);
+    in.enable_request = 1u;
+    in.command_heartbeat = 1u;
+    in.calibration_valid = 0u;
+    BuckControl_tick(&c, &in, &s);
+    if ((s.fault_latch & BUCK_FAULT_SENSOR) == 0u || s.duty != 0.0f) {
+        fprintf(stderr, "invalid calibration must fail closed\n");
+        return 5;
+    }
+
+    BuckControl_init(&s);
+    in.calibration_valid = 1u;
+    in.hardware_trip_active = 1u;
+    BuckControl_tick(&c, &in, &s);
+    if ((s.fault_latch & BUCK_FAULT_OCP) == 0u || s.duty != 0.0f) {
+        fprintf(stderr, "hardware trip must mirror into software OCP latch\n");
+        return 6;
+    }
+
+    puts("C2000 Buck host SIL PASS: regulation, OCP/hardware veto, validity, timeout, idle-off");
     return 0;
 }

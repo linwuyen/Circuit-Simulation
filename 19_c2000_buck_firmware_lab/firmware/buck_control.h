@@ -43,6 +43,9 @@ typedef struct {
     float iL;
     /* C28x has a 16-bit addressable char; keep control flags explicitly 16-bit. */
     uint16_t sensor_valid;
+    uint16_t peripherals_ready;
+    uint16_t calibration_valid;
+    uint16_t hardware_trip_active;
     uint16_t enable_request;
     uint16_t command_heartbeat;
     uint16_t clear_fault_request;

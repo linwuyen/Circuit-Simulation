@@ -53,12 +53,33 @@
     };
   }
 
+  function createCommandTracker() {
+    return { lastSequence: 0, lastClearFaultToken: 0 };
+  }
+
+  function consumeCommand(tracker, snapshot = {}) {
+    const sequence = Number(snapshot.sequence) >>> 0;
+    const clearFaultToken = Number(snapshot.clearFaultToken) >>> 0;
+    const enable = snapshot.enable === undefined
+      ? true
+      : snapshot.enable !== false && Number(snapshot.enable) !== 0;
+    const heartbeat = sequence !== tracker.lastSequence;
+    const clearFault = clearFaultToken !== tracker.lastClearFaultToken;
+    if (heartbeat) tracker.lastSequence = sequence;
+    if (clearFault) tracker.lastClearFaultToken = clearFaultToken;
+    return { enable, heartbeat, clearFault };
+  }
+
   function controlStep(s, input = {}) {
     const c = s.cfg;
     const dt = c.controlPeriodS;
     const heartbeat = input.heartbeat === true;
     const enable = input.enable !== false;
     const sensorValid = input.sensorValid !== false;
+    const peripheralsReady = input.peripheralsReady !== false;
+    const calibrationValid = input.calibrationValid !== false;
+    const hardwareTripActive = input.hardwareTripActive === true;
+    const clearFault = input.clearFault === true;
     const measuredVin = Number.isFinite(input.measuredVin) ? input.measuredVin : c.vin;
     const measuredVout = Number.isFinite(input.measuredVout) ? input.measuredVout : s.vout;
     const measuredCurrent = Number.isFinite(input.measuredCurrent) ? input.measuredCurrent : s.iL;
@@ -66,7 +87,8 @@
     if (heartbeat) s.commandAge = 0;
     else s.commandAge += 1;
 
-    if (!sensorValid || measuredVin <= 0.1 || dt <= 0) s.faultLatch |= FAULT.SENSOR;
+    if (!sensorValid || !peripheralsReady || !calibrationValid || measuredVin <= 0.1 || dt <= 0) s.faultLatch |= FAULT.SENSOR;
+    if (hardwareTripActive) s.faultLatch |= FAULT.OCP;
     if (measuredCurrent > c.currentLimit * 1.08) s.faultLatch |= FAULT.OCP;
     if (measuredVout > c.ovp) s.faultLatch |= FAULT.OVP;
     if (enable && s.commandAge > c.commandTimeoutTicks) s.faultLatch |= FAULT.COMMAND_TIMEOUT;
@@ -77,6 +99,14 @@
       s.duty = 0;
       s.iref = 0;
       s.currentI = 0;
+      if (clearFault && sensorValid && peripheralsReady && calibrationValid && measuredVin > 0.1 &&
+          measuredCurrent < c.currentLimit * 0.20 && measuredVout < c.vref * 0.50 &&
+          s.commandAge <= c.commandTimeoutTicks) {
+        s.faultLatch = 0;
+        s.state = "OFF";
+        s.softVref = 0;
+        s.voltageI = 0;
+      }
       return;
     }
 
@@ -152,6 +182,14 @@
         input.sensorValid = false;
         if (eventTick == null) eventTick = n;
       }
+      if (name === "adc-overflow" && n === 5000) {
+        input.sensorValid = false;
+        eventTick = n;
+      }
+      if (name === "hardware-trip" && n === 5000) {
+        input.hardwareTripActive = true;
+        eventTick = n;
+      }
       if (name === "command-timeout" && n >= 5000) {
         input.heartbeat = false;
         if (eventTick == null) eventTick = n;
@@ -180,6 +218,8 @@
       "idle-off": 0,
       ocp: FAULT.OCP,
       "adc-stuck": FAULT.SENSOR,
+      "adc-overflow": FAULT.SENSOR,
+      "hardware-trip": FAULT.OCP,
       "command-timeout": FAULT.COMMAND_TIMEOUT,
       ovp: FAULT.OVP
     }[name];
@@ -210,6 +250,40 @@
     };
   }
 
+  function runFaultClearScenario() {
+    const s = createState();
+    const tracker = createCommandTracker();
+
+    s.tick = 1;
+    controlStep(s, { ...consumeCommand(tracker, { sequence: 1, clearFaultToken: 0 }), sensorValid: false });
+
+    s.tick = 2;
+    controlStep(s, {
+      ...consumeCommand(tracker, { sequence: 2, clearFaultToken: 1 }),
+      measuredCurrent: s.cfg.currentLimit * 0.30,
+      measuredVout: 0
+    });
+    const unsafeClearRejected = s.faultLatch !== 0 && s.state === "FAULT_LATCHED";
+
+    s.tick = 3;
+    controlStep(s, {
+      ...consumeCommand(tracker, { sequence: 3, clearFaultToken: 1 }),
+      measuredCurrent: 0,
+      measuredVout: 0
+    });
+    const heldLevelRejected = s.faultLatch !== 0 && s.state === "FAULT_LATCHED";
+
+    s.tick = 4;
+    controlStep(s, {
+      ...consumeCommand(tracker, { sequence: 4, clearFaultToken: 2 }),
+      measuredCurrent: 0,
+      measuredVout: 0
+    });
+    const freshClearAccepted = s.faultLatch === 0 && s.state === "OFF";
+
+    return { unsafeClearRejected, heldLevelRejected, freshClearAccepted, state: s.state, faultLatch: s.faultLatch };
+  }
+
   function boardEvidenceContract() {
     return [
       { id: "pwm", signal: "PWM gate command", criterion: "measured period matches configured fsw and active duty matches CMPA after the defined shadow-load event" },
@@ -223,5 +297,5 @@
     ];
   }
 
-  return { DEFAULTS, FAULT, createState, controlStep, plantStep, runScenario, boardEvidenceContract };
+  return { DEFAULTS, FAULT, createState, createCommandTracker, consumeCommand, controlStep, plantStep, runScenario, runFaultClearScenario, boardEvidenceContract };
 });

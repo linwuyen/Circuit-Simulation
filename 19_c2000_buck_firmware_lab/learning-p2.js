@@ -12,9 +12,22 @@
     dynamics: { selector: "#dynLoad", mode: "guided" },
     safety: { selector: "#safeCmp", mode: "guided" },
     production: { selector: "#prodTimeout", mode: "guided" },
-    transfer: { selector: "#transferVin", mode: "guided" },
-    evidence: { selector: "#boardClaim", mode: "debug" }
+    transfer: { selector: "#transferVin", mode: "sandbox" },
+    evidence: { selector: '[data-core-layer-panel="evidence"]', mode: "guided" }
   });
+
+  const coreLayers = Object.freeze([
+    { key: "physics", label: "01 物理", status: "問題：開關每一拍如何搬運能量？｜先量：switch node + iL ripple。" },
+    { key: "sensing", label: "02 量測", status: "問題：物理量如何變成可信的 ADC count？｜先量：DMM → ADC pin → raw count。" },
+    { key: "feedback", label: "03 回授", status: "問題：error 的方向如何改變 duty？｜先量：reference、feedback、error、duty request。" },
+    { key: "timing", label: "04 時序", status: "問題：算出的 duty 何時真的生效？｜先量：SOCA → EOC → ISR → shadow → ZERO。" },
+    { key: "dynamics", label: "05 動態", status: "問題：儲能與 delay 如何限制閉環？｜先量：load step，再用 frequency lens。" },
+    { key: "safety", label: "06 安全", status: "問題：危險發生時哪條 veto 最先贏？｜先量：fault edge → Trip Zone → gate LOW。" },
+    { key: "production", label: "07 量產", status: "問題：誰擁有 command freshness 與 re-arm？｜先量：sequence、age、clear token、authority。" },
+    { key: "evidence", label: "08 證據", status: "問題：目前證據真正能支持哪一層主張？｜依序：Model → SIL → HIL → Image → Binding → Board。" }
+  ]);
+
+  let activateCoreLayer = null;
 
   const measurementChoices = Object.freeze([
     ["power-path", "Switch node + iL + Vout"],
@@ -193,10 +206,77 @@
     render(chooseRandomChallenge());
   }
 
+  function installCoreFlow() {
+    const root = $("[data-core-flow]");
+    if (!root) return;
+    const panels = new Map(coreLayers.map(layer => [layer.key, $(`[data-core-layer-panel="${layer.key}"]`)]));
+    const buttons = $$('[data-core-step]');
+    const status = root.querySelector('[data-core-status]');
+    const previous = root.querySelector('[data-core-prev]');
+    const next = root.querySelector('[data-core-next]');
+
+    activateCoreLayer = (key, options = {}) => {
+      const index = coreLayers.findIndex(layer => layer.key === key);
+      if (index < 0 || !panels.get(key)) return;
+      if (options.ensureGuided !== false && document.body.dataset.activeLearningMode !== 'guided') {
+        $(`[data-learning-mode="guided"]`)?.click();
+      }
+      document.body.dataset.activeCoreStep = key;
+      panels.forEach((panel, panelKey) => {
+        panel?.classList.toggle('is-core-active', panelKey === key);
+        if (panelKey === key) panel.dataset.coreFocus = key;
+        else panel?.removeAttribute('data-core-focus');
+      });
+      $$('[data-core-support]').forEach(panel => panel.classList.toggle('is-core-active', panel.dataset.coreSupport === key));
+      buttons.forEach(button => {
+        const selected = button.dataset.coreStep === key;
+        button.classList.toggle('selected', selected);
+        if (selected) button.setAttribute('aria-current', 'step');
+        else button.removeAttribute('aria-current');
+      });
+      status.textContent = coreLayers[index].status;
+      previous.disabled = index === 0;
+      next.disabled = index === coreLayers.length - 1;
+      previous.textContent = index === 0 ? '← 已在起點' : `← ${coreLayers[index - 1].label}`;
+      next.textContent = index === coreLayers.length - 1 ? '八層主線完成' : `${coreLayers[index + 1].label} →`;
+
+      if (options.updateUrl !== false) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('layer', key);
+        history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+      }
+      if (options.scroll !== false) {
+        const panel = panels.get(key);
+        window.requestAnimationFrame(() => {
+          panel.scrollIntoView({ behavior: options.instant ? 'auto' : 'smooth', block: 'start' });
+          panel.setAttribute('tabindex', '-1');
+          panel.focus({ preventScroll: true });
+        });
+      }
+    };
+
+    buttons.forEach(button => button.addEventListener('click', () => activateCoreLayer(button.dataset.coreStep)));
+    previous.addEventListener('click', () => {
+      const index = coreLayers.findIndex(layer => layer.key === document.body.dataset.activeCoreStep);
+      if (index > 0) activateCoreLayer(coreLayers[index - 1].key);
+    });
+    next.addEventListener('click', () => {
+      const index = coreLayers.findIndex(layer => layer.key === document.body.dataset.activeCoreStep);
+      if (index >= 0 && index < coreLayers.length - 1) activateCoreLayer(coreLayers[index + 1].key);
+    });
+
+    const requested = new URLSearchParams(window.location.search).get('layer');
+    activateCoreLayer(coreLayers.some(layer => layer.key === requested) ? requested : 'physics', { scroll: false, updateUrl: false });
+  }
+
   function focusRequestedLayer() {
     const key = new URLSearchParams(window.location.search).get("layer");
     const target = layerTargets[key];
     if (!target) return;
+    if (coreLayers.some(layer => layer.key === key) && activateCoreLayer) {
+      activateCoreLayer(key, { instant: true, updateUrl: false });
+      return;
+    }
     const mode = $(`[data-learning-mode="${target.mode}"]`);
     mode?.click();
     const element = $(target.selector);
@@ -209,5 +289,6 @@
   installOwnershipLedger();
   installTransferBridge();
   installDiagnosticChallenge();
+  installCoreFlow();
   focusRequestedLayer();
 })();

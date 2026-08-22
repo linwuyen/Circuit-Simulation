@@ -23,10 +23,13 @@
 #define CONTROL_SWITCHING_HZ    100000UL
 #define CONTROL_EPWMCLK_DIV     2UL
 #define CONTROL_TBPRD           ((uint16_t)((DEVICE_SYSCLK_FREQ / CONTROL_EPWMCLK_DIV) / CONTROL_SWITCHING_HZ))
-#define CONTROL_OCP_DAC_CODE    3000U
 #define CONTROL_ADC_ACQPS       20U
 #define CONTROL_ADC_FULL_SCALE  4095.0f
 #define CONTROL_ADC_VREF        3.3f
+
+#ifndef BUCK_BOARD_CALIBRATION_VALID
+#define BUCK_BOARD_CALIBRATION_VALID 0U
+#endif
 
 /* Reference-lab scaling only. Replace from the board calibration record. */
 #define VOUT_VOLTS_PER_ADC_V    5.0f
@@ -34,11 +37,14 @@
 #define IL_ZERO_ADC_V           1.65f
 /* ±9.9 A span gives measurable headroom above the 8.64 A software OCP point. */
 #define IL_AMPS_PER_ADC_V       6.0f
+#define CONTROL_HW_OCP_AMPS     8.6f
+#define CONTROL_OCP_DAC_VOLTS   (IL_ZERO_ADC_V + (CONTROL_HW_OCP_AMPS / IL_AMPS_PER_ADC_V))
+#define CONTROL_OCP_DAC_CODE    ((uint16_t)((CONTROL_OCP_DAC_VOLTS / CONTROL_ADC_VREF) * CONTROL_ADC_FULL_SCALE))
 
 typedef struct {
     volatile uint32_t sequence;
+    volatile uint32_t clear_fault_token;
     volatile uint16_t enable;
-    volatile uint16_t clear_fault;
 } BuckCommandSlot;
 
 typedef struct {
@@ -48,8 +54,8 @@ typedef struct {
 
 typedef struct {
     uint32_t sequence;
+    uint32_t clear_fault_token;
     uint16_t enable;
-    uint16_t clear_fault;
 } BuckCommandSnapshot;
 
 static BuckControlConfig gConfig = {
@@ -70,8 +76,12 @@ static BuckControlConfig gConfig = {
 static BuckControlState gState;
 static BuckCommandMailbox gCommand = {{{0U, 0U, 0U}, {0U, 0U, 0U}}, 0U};
 static uint32_t gLastCommandSequence = 0U;
+static uint32_t gLastClearFaultToken = 0U;
+static uint32_t gPublishedClearFaultToken = 0U;
+static uint16_t gPublishedClearFaultLevel = 0U;
 static volatile uint32_t gHardwareTripCount = 0U;
 static uint16_t gHardwareTripActive = 0U;
+static uint16_t gPeripheralsReady = 0U;
 
 /*
  * The communication owner calls this only after a command frame passes its
@@ -82,13 +92,18 @@ void BuckTarget_publishCommand(uint16_t enable, uint16_t clear_fault)
     const uint16_t active = (uint16_t)(gCommand.active_slot & 1U);
     const uint16_t next = (uint16_t)(active ^ 1U);
     const uint32_t sequence = gCommand.slots[active].sequence + 1U;
+    const uint16_t normalizedClear = clear_fault ? 1U : 0U;
+
+    /* A held clear level creates exactly one token; re-arm requires release + assert. */
+    if (clear_fault && !gPublishedClearFaultLevel) gPublishedClearFaultToken++;
+    gPublishedClearFaultLevel = normalizedClear;
 
     /*
      * Write the inactive slot completely, then publish it with one 16-bit
      * selector store. The ADC ISR never spins waiting for a pre-empted writer.
      */
     gCommand.slots[next].enable = enable ? 1U : 0U;
-    gCommand.slots[next].clear_fault = clear_fault ? 1U : 0U;
+    gCommand.slots[next].clear_fault_token = gPublishedClearFaultToken;
     gCommand.slots[next].sequence = sequence;
     gCommand.active_slot = next;
 }
@@ -98,8 +113,8 @@ static BuckCommandSnapshot commandSnapshot(void)
     BuckCommandSnapshot snapshot;
     const uint16_t active = (uint16_t)(gCommand.active_slot & 1U);
     snapshot.sequence = gCommand.slots[active].sequence;
+    snapshot.clear_fault_token = gCommand.slots[active].clear_fault_token;
     snapshot.enable = gCommand.slots[active].enable;
-    snapshot.clear_fault = gCommand.slots[active].clear_fault;
     return snapshot;
 }
 
@@ -211,30 +226,34 @@ __interrupt void adca1ISR(void)
     BuckCommandSnapshot command;
     uint16_t tzFlags;
     uint16_t hardwareTripActive;
+    const uint16_t adcOverflow = ADC_getInterruptOverflowStatus(CONTROL_ADC_BASE, CONTROL_ADC_INT) ? 1U : 0U;
     const uint16_t rawVout = ADC_readResult(CONTROL_ADCRESULT_BASE, CONTROL_SOC_VOUT);
     const uint16_t rawVin = ADC_readResult(CONTROL_ADCRESULT_BASE, CONTROL_SOC_VIN);
     const uint16_t rawIL = ADC_readResult(CONTROL_ADCRESULT_BASE, CONTROL_SOC_IL);
 
     GPIO_writePin(CONTROL_EVIDENCE_GPIO, 1U);
     command = commandSnapshot();
-
-    input.vin = adcCountsToVin(rawVin);
-    input.vout = adcCountsToVout(rawVout);
-    input.iL = adcCountsToIL(rawIL);
-    input.sensor_valid = 1U;
-    input.enable_request = command.enable;
-    input.command_heartbeat = (command.sequence != gLastCommandSequence) ? 1U : 0U;
-    input.clear_fault_request = command.clear_fault;
-    if (input.command_heartbeat) gLastCommandSequence = command.sequence;
-
-    BuckControl_tick(&gConfig, &input, &gState);
-    EPWM_setCounterCompareValue(CONTROL_EPWM_BASE, EPWM_COUNTER_COMPARE_A,
-                                (uint16_t)(gState.duty * (float)CONTROL_TBPRD));
-
     tzFlags = EPWM_getTripZoneFlagStatus(CONTROL_EPWM_BASE);
     hardwareTripActive = ((tzFlags & EPWM_TZ_FLAG_DCAEVT1) != 0U) ? 1U : 0U;
     if (hardwareTripActive && !gHardwareTripActive) gHardwareTripCount++;
     gHardwareTripActive = hardwareTripActive;
+
+    input.vin = adcCountsToVin(rawVin);
+    input.vout = adcCountsToVout(rawVout);
+    input.iL = adcCountsToIL(rawIL);
+    input.sensor_valid = adcOverflow ? 0U : 1U;
+    input.peripherals_ready = gPeripheralsReady;
+    input.calibration_valid = BUCK_BOARD_CALIBRATION_VALID;
+    input.hardware_trip_active = hardwareTripActive;
+    input.enable_request = command.enable;
+    input.command_heartbeat = (command.sequence != gLastCommandSequence) ? 1U : 0U;
+    input.clear_fault_request = (command.clear_fault_token != gLastClearFaultToken) ? 1U : 0U;
+    if (input.command_heartbeat) gLastCommandSequence = command.sequence;
+    if (input.clear_fault_request) gLastClearFaultToken = command.clear_fault_token;
+
+    BuckControl_tick(&gConfig, &input, &gState);
+    EPWM_setCounterCompareValue(CONTROL_EPWM_BASE, EPWM_COUNTER_COMPARE_A,
+                                (uint16_t)(gState.duty * (float)CONTROL_TBPRD));
 
     if ((gState.state == BUCK_STATE_FAULT_LATCHED) || !input.enable_request) {
         EPWM_forceTripZoneEvent(CONTROL_EPWM_BASE, EPWM_TZ_FORCE_EVENT_OST);
@@ -251,6 +270,7 @@ __interrupt void adca1ISR(void)
     }
 
     GPIO_writePin(CONTROL_EVIDENCE_GPIO, 0U);
+    if (adcOverflow) ADC_clearInterruptOverflowStatus(CONTROL_ADC_BASE, CONTROL_ADC_INT);
     ADC_clearInterruptStatus(CONTROL_ADC_BASE, CONTROL_ADC_INT);
     Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);
 }
@@ -269,6 +289,7 @@ int main(void)
 
     Interrupt_register(INT_ADCA1, &adca1ISR);
     Interrupt_enable(INT_ADCA1);
+    gPeripheralsReady = 1U;
     EINT;
     ERTM;
     /* Start PWM/SOCA only after the ADC ISR ownership is fully installed. */
