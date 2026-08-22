@@ -47,8 +47,14 @@
     const sampledA = at(phase), jitterPhase = Math.max(0, Number(sampling.jitterNs || 0)) / 1000 / periodUs;
     const low = at(phase - jitterPhase), high = at(phase + jitterPhase), jitterBandA = Math.abs(high - low) / 2;
     const sourceTau = Math.max(1e-6, Number(sampling.sourceTauUs || 0.08)), settlingResidual = Math.exp(-Math.max(0, t.acquisitionUs) / sourceTau);
-    const synchronous = sampling.synchronous !== false, aliasBeatHz = synchronous ? 0 : p.fsw * Math.abs(Number(sampling.freeRunOffsetPct || 0.7)) / 100;
-    return { phase, phasePct: phase * 100, sampledA, averageA: truth.iavg, rippleErrorA: sampledA - truth.iavg, jitterBandA, settlingResidual, periodUs, region: region.region, modelValid: region.region === "CCM", synchronous, aliasRisk: synchronous ? "PHASE_LOCKED" : "ALIAS_BEAT_RISK", aliasBeatHz };
+    const synchronous = sampling.synchronous !== false;
+    const explicitSampleHz = Number(sampling.sampleHz);
+    const fallbackOffsetPct = Number(sampling.freeRunOffsetPct || 0.7);
+    const sampleHz = synchronous ? p.fsw : (Number.isFinite(explicitSampleHz) && explicitSampleHz > 0 ? explicitSampleHz : p.fsw * (1 + fallbackOffsetPct / 100));
+    const aliasOrder = synchronous ? 1 : Math.max(1, Math.round(p.fsw / sampleHz));
+    const aliasBeatHz = synchronous ? 0 : Math.abs(p.fsw - aliasOrder * sampleHz);
+    const aliasRateSource = synchronous ? "PWM_LOCKED" : (Number.isFinite(explicitSampleHz) && explicitSampleHz > 0 ? "EXPLICIT_SAMPLE_RATE" : "OFFSET_DERIVED_SAMPLE_RATE");
+    return { phase, phasePct: phase * 100, sampledA, averageA: truth.iavg, rippleErrorA: sampledA - truth.iavg, jitterBandA, settlingResidual, periodUs, region: region.region, modelValid: region.region === "CCM", synchronous, aliasRisk: synchronous ? "PHASE_LOCKED" : "ALIAS_BEAT_RISK", sampleHz, aliasOrder, aliasBeatHz, aliasRateSource };
   }
 
   function ccCvPoint(state, loadOverride) {
