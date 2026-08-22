@@ -9,7 +9,7 @@
   const us = seconds => seconds * 1e6;
 
   function setMode(mode) {
-    document.body.dataset.learningMode = mode;
+    document.body.dataset.activeLearningMode = mode;
     $$('[data-learning-mode]').forEach(button => button.classList.toggle('selected', button.dataset.learningMode === mode));
     $$('[data-show-modes]').forEach(section => {
       const modes = section.dataset.showModes.split(/\s+/);

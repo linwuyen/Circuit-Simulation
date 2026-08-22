@@ -218,7 +218,7 @@
     activateCoreLayer = (key, options = {}) => {
       const index = coreLayers.findIndex(layer => layer.key === key);
       if (index < 0 || !panels.get(key)) return;
-      if (options.ensureGuided !== false && document.body.dataset.learningMode !== 'guided') {
+      if (options.ensureGuided !== false && document.body.dataset.activeLearningMode !== 'guided') {
         $(`[data-learning-mode="guided"]`)?.click();
       }
       document.body.dataset.coreStep = key;
