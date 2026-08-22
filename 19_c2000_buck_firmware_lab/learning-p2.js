@@ -221,7 +221,7 @@
       if (options.ensureGuided !== false && document.body.dataset.activeLearningMode !== 'guided') {
         $(`[data-learning-mode="guided"]`)?.click();
       }
-      document.body.dataset.coreStep = key;
+      document.body.dataset.activeCoreStep = key;
       panels.forEach((panel, panelKey) => {
         panel?.classList.toggle('is-core-active', panelKey === key);
         if (panelKey === key) panel.dataset.coreFocus = key;
@@ -257,11 +257,11 @@
 
     buttons.forEach(button => button.addEventListener('click', () => activateCoreLayer(button.dataset.coreStep)));
     previous.addEventListener('click', () => {
-      const index = coreLayers.findIndex(layer => layer.key === document.body.dataset.coreStep);
+      const index = coreLayers.findIndex(layer => layer.key === document.body.dataset.activeCoreStep);
       if (index > 0) activateCoreLayer(coreLayers[index - 1].key);
     });
     next.addEventListener('click', () => {
-      const index = coreLayers.findIndex(layer => layer.key === document.body.dataset.coreStep);
+      const index = coreLayers.findIndex(layer => layer.key === document.body.dataset.activeCoreStep);
       if (index >= 0 && index < coreLayers.length - 1) activateCoreLayer(coreLayers[index + 1].key);
     });
 
