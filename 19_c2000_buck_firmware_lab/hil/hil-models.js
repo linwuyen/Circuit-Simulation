@@ -60,11 +60,14 @@
   function consumeCommand(tracker, snapshot = {}) {
     const sequence = Number(snapshot.sequence) >>> 0;
     const clearFaultToken = Number(snapshot.clearFaultToken) >>> 0;
+    const enable = snapshot.enable === undefined
+      ? true
+      : snapshot.enable !== false && Number(snapshot.enable) !== 0;
     const heartbeat = sequence !== tracker.lastSequence;
     const clearFault = clearFaultToken !== tracker.lastClearFaultToken;
     if (heartbeat) tracker.lastSequence = sequence;
     if (clearFault) tracker.lastClearFaultToken = clearFaultToken;
-    return { enable: snapshot.enable !== false, heartbeat, clearFault };
+    return { enable, heartbeat, clearFault };
   }
 
   function controlStep(s, input = {}) {

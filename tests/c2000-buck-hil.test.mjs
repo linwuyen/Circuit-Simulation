@@ -37,6 +37,17 @@ test("fault clear is a fresh one-shot command event, not a held mailbox level", 
   assert.equal(result.faultLatch, 0);
 });
 
+test("HIL command snapshots preserve C uint16 enable semantics", () => {
+  const tracker = Hil.createCommandTracker();
+  const disabled = Hil.consumeCommand(tracker, { sequence: 1, clearFaultToken: 0, enable: 0 });
+  const enabled = Hil.consumeCommand(tracker, { sequence: 2, clearFaultToken: 0, enable: 1 });
+  const booleanDisabled = Hil.consumeCommand(tracker, { sequence: 3, clearFaultToken: 0, enable: false });
+
+  assert.equal(disabled.enable, false);
+  assert.equal(enabled.enable, true);
+  assert.equal(booleanDisabled.enable, false);
+});
+
 test("stale enabled command trips only after the freshness budget", () => {
   const result = Hil.runScenario("command-timeout");
   assert.equal(result.pass, true);
