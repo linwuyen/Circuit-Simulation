@@ -1,6 +1,8 @@
 # Dynamic Visualization Audit · Modules 0–19
 
-This repository treats visual fidelity as an engineering contract, not a styling label. The machine-readable source of truth is `docs/dynamic-visualization-audit.json`; `tools/audit-dynamic-visuals.mjs` walks every numbered module and fails CI if an interactive HTML page has no module policy. Module 17 additionally requires every canvas to have an explicit per-visual fidelity, units and boundary.
+This repository treats visual fidelity as an engineering contract, not a styling label. The machine-readable source of truth is `docs/dynamic-visualization-audit.json`; `tools/audit-dynamic-visuals.mjs` walks every numbered module and fails CI if an interactive HTML page has no module policy. The scanner inventories canvas surfaces, range/select-driven pages, and SVGs whose own or descendant IDs are actually mutated by local/inline JavaScript. Static/decorative SVG is not promoted to a dynamic visualization merely because it exists. Module 17 additionally requires every canvas to have an explicit per-visual fidelity, units and boundary.
+
+The inventory is deliberately conservative static analysis, not a browser execution engine and not proof that a curve is physically correct. Scientific closure is layered: `Visualization → Model/Equation → Units → Assumptions → Valid Region → Boundary Test → Fidelity → Evidence`. Inventory coverage proves that a live surface is governed by an audit policy; model/equation tests prove numerical identities inside the declared region; hardware-evidence gates prevent configuration- and board-dependent claims from being presented as measured facts.
 
 ## Fidelity levels
 
@@ -76,6 +78,14 @@ Two ideal averaged plants are explicit:
 
 The ideal LCL model is singular at resonance by construction. Real grid impedance, ESR and active/passive damping regularize that peak and must be included before controller sign-off.
 
+## Scanner boundary and future SVG rule
+
+The SVG detector intentionally recognizes a bounded set of DOM mutation forms (`setAttribute`, `removeAttribute`, `replaceChildren`, `appendChild`, `textContent`, `innerHTML`, `classList`, and `style`) when they target an SVG or one of its descendants by ID through local or inline scripts. This catches SVG-only live plots without turning every icon or schematic into an audited dynamic graph.
+
+If a future visualization uses a mutation pattern outside those rules (for example, a framework abstraction, generated selector, or external runtime), add a detector regression or an explicit registration at the same time as the visualization. Do not bypass the audit by hiding a live graph behind an unsupported mutation mechanism.
+
+Machine inventory is not permission to claim measurement-grade precision. A non-equation visualization may remain a teaching surrogate or qualitative signature when that is the scientifically correct class. Conversely, a board-dependent latency or non-ideality stays **HARDWARE_EVIDENCE** until configuration-derived timing and/or measured scope/SFRA/board evidence exists.
+
 ## Regression / future-change rule
 
-Run `node tools/audit-dynamic-visuals.mjs` for a readable inventory, and `npm test` for the enforceable contract. Any new numbered-module interactive HTML must inherit an audit policy; every new Module 17 canvas must additionally declare units and a validity boundary in the manifest. A visual can be downgraded to a teaching surrogate if that is the scientifically correct description; it must not be made to look equation-grade merely to satisfy UI consistency.
+Run `node tools/audit-dynamic-visuals.mjs` for a readable inventory, and `npm test` for the enforceable contract. Any new numbered-module interactive HTML must inherit an audit policy; JS-mutated SVG-only pages are included in that inventory; every new Module 17 canvas must additionally declare units and a validity boundary in the manifest. A visual can be downgraded to a teaching surrogate if that is the scientifically correct description; it must not be made to look equation-grade merely to satisfy UI consistency.
