@@ -85,12 +85,19 @@
   }
 
   function calibrationBudget(state) {
-    const s = state.sensing || {}, cal = state.calibration || {};
+    const s = state.sensing || {}, cal = state.calibration || {}, plant = state.plant || {};
     const adcMax = Math.max(1, Number(s.adcMax || 1));
+    const adcVref = Number(s.adcVref), divider = Number(s.divider);
     const candidateCodes = [cal.operatingAdcCode, s.operatingCode, s.adcCode].map(Number);
     const explicitCode = candidateCodes.find(v => Number.isFinite(v) && v > 0);
-    const operatingAdcCode = clamp(explicitCode == null ? adcMax : explicitCode, 1, adcMax);
-    const normalization = explicitCode == null ? "FULL_SCALE_FALLBACK" : "OPERATING_POINT_CODE";
+    const explicitOutputV = explicitCode != null && Number.isFinite(adcVref) && adcVref > 0 && Number.isFinite(divider) && divider > 0 ? explicitCode / adcMax * adcVref * divider : NaN;
+    const plantOutputV = Number.isFinite(Number(plant.vout)) ? Number(plant.vout) : Number(plant.vin) * Number(plant.duty);
+    const derivedCode = Number.isFinite(plantOutputV) && plantOutputV > 0 && Number.isFinite(adcVref) && adcVref > 0 && Number.isFinite(divider) && divider > 0 ? plantOutputV / divider / adcVref * adcMax : NaN;
+    let rawCode, normalization, operatingOutputV;
+    if (explicitCode != null) { rawCode = explicitCode; normalization = "OPERATING_POINT_CODE"; operatingOutputV = explicitOutputV; }
+    else if (Number.isFinite(derivedCode) && derivedCode > 0) { rawCode = derivedCode; normalization = "PLANT_DERIVED_CODE"; operatingOutputV = plantOutputV; }
+    else { rawCode = adcMax; normalization = "FULL_SCALE_FALLBACK"; operatingOutputV = Number.isFinite(adcVref) && Number.isFinite(divider) ? adcVref * divider : NaN; }
+    const operatingAdcCode = clamp(rawCode, 1, adcMax);
     const gainPct = Math.abs(Number(cal.dividerGainErrorPct || 0.5));
     const vrefPct = Math.abs(Number(cal.vrefErrorPpm || 500)) / 10000;
     const adcInlPct = Math.abs(Number(cal.adcInlLsb || 1.5)) / operatingAdcCode * 100;
@@ -102,7 +109,7 @@
     const worstCasePct = Object.values(contributors).reduce((sum, v) => sum + v, 0);
     const regulationPct = Number((state.contract||{}).regulationPct || 1);
     return { contributors, rssPct, worstCasePct, regulationPct, marginPct: regulationPct - worstCasePct,
-      qualified: worstCasePct <= regulationPct, deltaTempC:Number(cal.deltaTempC || 50), operatingAdcCode, adcMax, normalization };
+      qualified: worstCasePct <= regulationPct, deltaTempC:Number(cal.deltaTempC || 50), operatingAdcCode, operatingOutputV, adcMax, normalization };
   }
 
   const TOPOLOGY_CONTROL = Object.freeze({
