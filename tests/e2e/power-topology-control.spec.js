@@ -2,7 +2,8 @@ const { test, expect } = require("@playwright/test");
 
 test("power topology control atlas connects six power stages to control models", async ({ page }) => {
   await page.goto("/17_power_topology_control/index.html");
-  await expect(page.getByRole("heading", { name: /同一套控制理論/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /同一套控制語言/ })).toBeVisible();
+  await expect(page.getByText(/FIDELITY BEFORE PRETTY CURVES/)).toBeVisible();
   await expect(page.locator("#buckVout")).toHaveText("24.00 V");
   await expect(page.locator("#buckF0")).toContainText("Hz");
 
