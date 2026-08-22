@@ -44,7 +44,8 @@
       const input = sampling.querySelector("[data-v2-jitter]"); if (input) input.value = state.sampling.jitterNs;
       const syncInput = sampling.querySelector("[data-v2-sync]"); if (syncInput) syncInput.checked = state.sampling.synchronous !== false;
       text(sampling, "[data-v2-jitter-readout]", `${Math.round(state.sampling.jitterNs)} ns`);
-      text(sampling, "[data-v2-alias-readout]", s.synchronous ? "PHASE LOCKED" : `ALIAS BEAT ≈ ${fmt(s.aliasBeatHz,0)} Hz`);
+      const aliasSource = s.aliasRateSource === "EXPLICIT_SAMPLE_RATE" ? "explicit fsample" : "offset-derived fsample";
+      text(sampling, "[data-v2-alias-readout]", s.synchronous ? "PHASE LOCKED" : `ALIAS BEAT = ${fmt(s.aliasBeatHz,0)} Hz · fsample ${fmt(s.sampleHz/1000,3)} kHz · ${aliasSource}`);
       text(sampling, "[data-v2-sample-phase]", `${fmt(s.phasePct,1)}% of Ts`);
       text(sampling, "[data-v2-sampled-il]", `${fmt(s.sampledA,3)} A`);
       text(sampling, "[data-v2-average-il]", `${fmt(s.averageA,3)} A`);

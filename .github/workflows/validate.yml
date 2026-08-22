@@ -27,6 +27,9 @@ jobs:
       - name: Validate links, curriculum and JavaScript
         run: node tools/validate-project.mjs
 
+      - name: Audit dynamic visualizations
+        run: node tools/audit-dynamic-visuals.mjs
+
       - name: Run engineering and learning tests
         run: npm test
 

@@ -15,11 +15,6 @@
     const iminA = iavgA - deltaOnA / 2, imaxA = iavgA + deltaOnA / 2;
     const irmsA = Math.sqrt(Math.max(0, iavgA * iavgA + deltaOnA * deltaOnA / 12));
     const deadTimeS = Math.max(0, Number(sw.deadTimeNs || 0)) * 1e-9;
-    // For positive-current CCM Buck operation, one high-side turn-on dead-time
-    // interval is a useful first-order estimate of effective HS duty loss. Two
-    // dead-time windows per cycle are relevant to body-diode conduction loss.
-    // Neither is a universal dead-time transfer model: polarity, DB mode and
-    // device drops must be verified on the real bridge.
     const deadTimeWindowFraction = Math.min(0.50, 2 * deadTimeS / periodS);
     const deadTimeDutyLoss = Math.min(0.25, deadTimeS / periodS);
     const rds = Math.max(0, Number(sw.mosfetRdsOnOhm || 0.018));
@@ -47,9 +42,6 @@
     const m2 = Math.max(1e-9, vout / p.inductance);
     const slopeCompRatio = Math.max(0, Number(pc.slopeCompRatio || 0));
     const mc = slopeCompRatio * m2;
-    // Cycle-to-cycle perturbations alternate sign. The magnitude condition is
-    // |(m2-mc)/(m1+mc)| < 1; keeping the minus sign makes the displayed pole
-    // physically consistent with period-doubling behavior.
     const perturbationPole = -(m2 - mc) / (m1 + mc);
     const requiredMc = Math.max(0, (m2 - m1) / 2);
     const requiredRatio = requiredMc / m2;
@@ -93,11 +85,23 @@
   }
 
   function calibrationBudget(state) {
-    const s = state.sensing, cal = state.calibration || {};
+    const s = state.sensing || {}, cal = state.calibration || {}, plant = state.plant || {};
+    const adcMax = Math.max(1, Number(s.adcMax || 1));
+    const adcVref = Number(s.adcVref), divider = Number(s.divider);
+    const candidateCodes = [cal.operatingAdcCode, s.operatingCode, s.adcCode].map(Number);
+    const explicitCode = candidateCodes.find(v => Number.isFinite(v) && v > 0);
+    const explicitOutputV = explicitCode != null && Number.isFinite(adcVref) && adcVref > 0 && Number.isFinite(divider) && divider > 0 ? explicitCode / adcMax * adcVref * divider : NaN;
+    const plantOutputV = Number.isFinite(Number(plant.vout)) ? Number(plant.vout) : Number(plant.vin) * Number(plant.duty);
+    const derivedCode = Number.isFinite(plantOutputV) && plantOutputV > 0 && Number.isFinite(adcVref) && adcVref > 0 && Number.isFinite(divider) && divider > 0 ? plantOutputV / divider / adcVref * adcMax : NaN;
+    let rawCode, normalization, operatingOutputV;
+    if (explicitCode != null) { rawCode = explicitCode; normalization = "OPERATING_POINT_CODE"; operatingOutputV = explicitOutputV; }
+    else if (Number.isFinite(derivedCode) && derivedCode > 0) { rawCode = derivedCode; normalization = "PLANT_DERIVED_CODE"; operatingOutputV = plantOutputV; }
+    else { rawCode = adcMax; normalization = "FULL_SCALE_FALLBACK"; operatingOutputV = Number.isFinite(adcVref) && Number.isFinite(divider) ? adcVref * divider : NaN; }
+    const operatingAdcCode = clamp(rawCode, 1, adcMax);
     const gainPct = Math.abs(Number(cal.dividerGainErrorPct || 0.5));
     const vrefPct = Math.abs(Number(cal.vrefErrorPpm || 500)) / 10000;
-    const adcInlPct = Math.abs(Number(cal.adcInlLsb || 1.5)) / Math.max(1, s.adcMax) * 100;
-    const offsetPct = Math.abs(Number(cal.offsetCounts || 2)) / Math.max(1, s.adcMax) * 100;
+    const adcInlPct = Math.abs(Number(cal.adcInlLsb || 1.5)) / operatingAdcCode * 100;
+    const offsetPct = Math.abs(Number(cal.offsetCounts || 2)) / operatingAdcCode * 100;
     const driftPct = Math.abs(Number(cal.tempDriftPpmC || 60) * Number(cal.deltaTempC || 50)) / 10000;
     const residualPct = Math.abs(Number(cal.residualPct || 0.15));
     const contributors = { gainPct, vrefPct, adcInlPct, offsetPct, driftPct, residualPct };
@@ -105,7 +109,7 @@
     const worstCasePct = Object.values(contributors).reduce((sum, v) => sum + v, 0);
     const regulationPct = Number((state.contract||{}).regulationPct || 1);
     return { contributors, rssPct, worstCasePct, regulationPct, marginPct: regulationPct - worstCasePct,
-      qualified: worstCasePct <= regulationPct, deltaTempC:Number(cal.deltaTempC || 50) };
+      qualified: worstCasePct <= regulationPct, deltaTempC:Number(cal.deltaTempC || 50), operatingAdcCode, operatingOutputV, adcMax, normalization };
   }
 
   const TOPOLOGY_CONTROL = Object.freeze({
