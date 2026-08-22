@@ -1,91 +1,66 @@
 # Dynamic Visualization Audit · Modules 0–19
 
-This repository treats visual fidelity as an engineering contract, not a styling label. The machine-readable source of truth is `docs/dynamic-visualization-audit.json`; `tools/audit-dynamic-visuals.mjs` walks every numbered module and fails CI if an interactive HTML page has no module policy. The scanner inventories canvas surfaces, range/select-driven pages, and SVGs whose own or descendant IDs are actually mutated by local/inline JavaScript. Static/decorative SVG is not promoted to a dynamic visualization merely because it exists. Module 17 additionally requires every canvas to have an explicit per-visual fidelity, units and boundary.
+Visual fidelity is an engineering contract, not a styling label. Ownership is intentionally split by responsibility:
 
-The inventory is deliberately conservative static analysis, not a browser execution engine and not proof that a curve is physically correct. Scientific closure is layered: `Visualization → Model/Equation → Units → Assumptions → Valid Region → Boundary Test → Fidelity → Evidence`. Inventory coverage proves that a live surface is governed by an audit policy; model/equation tests prove numerical identities inside the declared region; hardware-evidence gates prevent configuration- and board-dependent claims from being presented as measured facts.
+- `docs/dynamic-visualization-audit.json` owns **module-level policy**: default fidelity, model family, valid region, known boundary, closure action.
+- `assets/learning/model-contracts-v1.json` owns **quantitative model metadata**: model id, equation, input/output, units/dimensional signature, assumptions, valid region, known boundary, derivation and boundary tests.
+- `tools/audit-dynamic-visuals.mjs` inventories live surfaces and joins those two sources. Module 17 canvases must have a matching equation-grade model contract.
+
+This removes the previous duplicate `module17Visuals` metadata from the audit manifest. A change to a Module 17 equation or units now has one authoritative record.
+
+The scientific closure chain is:
+
+`Visualization → Model/Equation → Units → Assumptions → Valid Region → Boundary Test → Fidelity → Evidence`
+
+Inventory coverage is not proof that a curve is physically correct. Analytical tests prove identities only inside the declared model boundary. Board/configuration claims remain evidence-gated.
 
 ## Fidelity levels
 
-- **EQUATION_GRADE** — equation, units, assumptions and valid region are explicit; outputs are regression-testable inside that region.
-- **PHYSICAL_APPROXIMATION** — numerical physical model with intentional omissions such as parasitics or alternate conduction modes.
-- **TEACHING_SURROGATE** — causal comparison only; do not infer hardware bandwidth, settling time, phase margin or absolute latency.
-- **QUALITATIVE_SIGNATURE** — direction/features only; normalized axes are not measurements.
-- **HARDWARE_EVIDENCE** — the claim closes only with device/configuration/board evidence.
-- **MIXED** — a page contains multiple classes and must label each quantitative surface locally.
+- **EQUATION_GRADE** — explicit equation, units, assumptions, valid region and regression boundary tests.
+- **PHYSICAL_APPROXIMATION** — numerical physical model with declared omissions.
+- **TEACHING_SURROGATE** — causal comparison; do not infer hardware bandwidth, settling, phase margin or latency.
+- **QUALITATIVE_SIGNATURE** — directional/features-only visualization.
+- **HARDWARE_EVIDENCE** — closure requires device/configuration/board evidence.
+- **MIXED** — a page contains more than one class; quantitative cards keep their local contract.
 
-## 0–19 audit result / engineering boundary
-
-| Module | Default fidelity | What is numerically defensible | Main boundary / closure rule |
-| ---: | --- | --- | --- |
-| 0 Buck | Physical approximation | CCM volt-second balance, ripple, LC/ESR identities | DCM/loss/DCR/digital delay must be added explicitly |
-| 1 ADC | Physical approximation | divider/scaling/ideal quantization | ACQPS settling, noise, INL/DNL, Vref error are separate |
-| 2 Code artifact | Mixed | exact timer/modulation identities where parameterized | UI/state animation is not automatically a plant |
-| 3 FOC | Mixed | Clarke/Park identities | motor dynamics need an explicit machine model |
-| 4 PI | Mixed | selected discrete PI arithmetic | generic response surrogate is not the attached plant |
-| 5 SPI | Physical approximation | frame/bit timing | DMA/ISR/SI/pad delay require configuration/hardware evidence |
-| 6 10 µs loop | Mixed | explicit sample/compute/commit event timing | generic transient curves cannot imply LC settling |
-| 7 BMS | Mixed | deterministic state/logic paths | electrochemistry and absolute fault latency are separate |
-| 8 DAC | Physical approximation | ideal code-to-output mapping | settling/glitch/op-amp/startup behavior requires datasheet/board model |
-| 9 AFE | Mixed | declared ideal gain/filter equations | GBW/slew/noise/tolerance/ADC loading can invalidate ideal response |
-| 10 ACMC | Mixed | per-loop equations | current plant, voltage plant, line disturbance and delay are distinct |
-| 11 DDS | Physical approximation | phase accumulator/frequency identities | jitter/spurs/reconstruction filter are separate |
-| 12 Op-amp SR | Mixed | declared SR/GBW models | real device macro-model/recovery/output-current limits vary |
-| 13 Sync | Mixed | declared transforms/discrete equations | grid distortion/delay/quantization alter lock dynamics |
-| 14 Protection | Hardware evidence | authority/state logic | no universal fixed fault→gate time; measure configured path |
-| 15 Debug bank | Teaching surrogate | deterministic case-bank elimination | not measured fault probability; Module 19 owns executable capstone |
-| 16 Transforms | Mixed | Fourier/Laplace/Z/coordinate identities | animations do not create a topology-specific plant |
-| 17 Topology atlas | Mixed, per-canvas contract | Buck/Boost/PFC/PSFB/Inverter ideal averaged plants + LLC FHA steady state | parasitics/mode changes/digital delay/SFRA remain separate |
-| 18 Unification | Teaching surrogate | causal mapping between control concepts | numerical claims must link back to owning plant/model |
-| 19 C2000 Buck lab | Mixed | executable firmware/SIL/timing contracts | physical-board claims remain evidence-gated |
-
-## Module 17 equation-grade upgrades
+## Key scientific boundaries
 
 ### Boost CCM
 
-The duty-to-output model is the ideal CCM voltage-mode small-signal plant:
-
-`Gvd(s) = Vin/(1-D)^2 · (1-s/ωRHPZ) / [1+s/(Qω0)+(s/ω0)^2]`
-
-with `ω0=(1-D)/sqrt(LC)`, `Q=R(1-D)sqrt(C/L)` and `ωRHPZ=R(1-D)^2/L`. The RHP zero therefore contributes increasing magnitude and *negative* phase. ESR/DCR/current-mode/digital delay are outside this boundary.
+`Gvd(s)=Vin/(1-D)^2 · (1-s/ωRHPZ) / [1+s/(Qω0)+(s/ω0)^2]`, with `ωRHPZ=R(1-D)^2/L`. The RHP zero is non-minimum-phase and contributes negative phase. It is not a controller-zero cancellation target.
 
 ### Boost PFC
 
-The page deliberately does **not** collapse PFC into one transfer function. It renders two averaged plants:
-
-- fast inner, stiff-bus approximation: `îL/d̂ = Vbus/(Ls)`;
-- slow outer energy plant, peak-current command to bus voltage: `ηVrms/(sqrt(2) C Vbus) / [s+2/(Rload C)]`.
-
-The 100/120 Hz bus ripple is shown conceptually as a forced `2ω` energy disturbance, not mislabeled as the outer plant pole.
+Fast inner current plant and slow bus-energy plant remain separate. The 100/120 Hz `2ω` bus ripple is a forced line-power disturbance, **not** the outer plant pole.
 
 ### PSFB
 
-The Bode plot is equation-grade only for the ideal buck-derived, no-commutation-duty-loss output stage:
-
-`Gvφ(s)=(nVin/180)/[1+sLo/R+s²LoCo]` in V/degree.
-
-The ZVS energy ratio remains a teaching budget, because nonlinear Coss, leakage/magnetizing current, dead-time and duty-cycle loss determine actual commutation.
+The equation-grade Bode plant is the ideal no-commutation-duty-loss output filter. The ZVS energy ratio remains a teaching estimate; nonlinear Coss, leakage/magnetizing current, dead time and real switching waveforms determine hardware ZVS.
 
 ### LLC
 
-The normalized FHA gain equation remains a **steady-state** equation. This audit adds the local normalized sensitivity `dln(M)/dln(f)` so an operating point has a quantitative frequency-to-gain slope. It intentionally does not invent loop phase or settling time; those require a defined small-signal linearization or SFRA at the target Vin/load point.
+Normalized FHA is a **steady-state conversion-gain** approximation. Its local gain sensitivity is numerical; it does not create dynamic loop phase or transient settling.
 
-### Inverter
+### Inverter LCL
 
-Two ideal averaged plants are explicit:
+The ideal undamped stiff-grid model is singular at resonance and preserves the unwrapped phase transition from approximately -90° to -270°. Real damping and grid impedance must be added before controller sign-off.
 
-- standalone LC: `Vout/m = Vdc/[LCs²+(L/R)s+1]`;
-- stiff-grid undamped LCL: `Igrid/m = Vdc/[L1L2Cs³+(L1+L2)s]`.
+### C2000 timing / protection
 
-The ideal LCL model is singular at resonance by construction. Real grid impedance, ESR and active/passive damping regularize that peak and must be included before controller sign-off.
+Absolute sample-to-actuate or fault-to-gate latency is configuration-dependent. Cycle-level models may compute latency from declared clocks/events, but universal fixed microseconds are forbidden without configuration and/or scope evidence.
 
-## Scanner boundary and future SVG rule
+## Module 18 workbench
 
-The SVG detector intentionally recognizes a bounded set of DOM mutation forms (`setAttribute`, `removeAttribute`, `replaceChildren`, `appendChild`, `textContent`, `innerHTML`, `classList`, and `style`) when they target an SVG or one of its descendants by ID through local or inline scripts. This catches SVG-only live plots without turning every icon or schematic into an audited dynamic graph.
+Module 18 is now `MIXED`: architecture/unification cards remain teaching-level, while the engineering workbench contains equation-backed sampled-data calculations. The workbench factorizes
 
-If a future visualization uses a mutation pattern outside those rules (for example, a framework abstraction, generated selector, or external runtime), add a detector regression or an explicit registration at the same time as the visualization. Do not bypass the audit by hiding a live graph behind an unsupported mutation mechanism.
+`L = C · P · H_zoh · H_delay · H_sensor`
 
-Machine inventory is not permission to claim measurement-grade precision. A non-equation visualization may remain a teaching surrogate or qualitative signature when that is the scientifically correct class. Conversely, a board-dependent latency or non-ideality stays **HARDWARE_EVIDENCE** until configuration-derived timing and/or measured scope/SFRA/board evidence exists.
+and separately models PWM shadow-load timing, measurement correlation, evidence provenance, operating-envelope movement, robustness, and known model-breaking cases. Imported CSV can become numerically `CORRELATED`; it does **not** become hardware evidence until provenance is bound.
 
-## Regression / future-change rule
+## SVG scanner boundary
 
-Run `node tools/audit-dynamic-visuals.mjs` for a readable inventory, and `npm test` for the enforceable contract. Any new numbered-module interactive HTML must inherit an audit policy; JS-mutated SVG-only pages are included in that inventory; every new Module 17 canvas must additionally declare units and a validity boundary in the manifest. A visual can be downgraded to a teaching surrogate if that is the scientifically correct description; it must not be made to look equation-grade merely to satisfy UI consistency.
+The scanner recognizes bounded local/inline DOM mutation forms (`setAttribute`, `removeAttribute`, `replaceChildren`, `appendChild`, `textContent`, `innerHTML`, `classList`, `style`) targeting an SVG or descendant by ID. Static/decorative SVG is intentionally ignored. New runtime mutation patterns require a detector regression rather than an audit bypass.
+
+## Regression rule
+
+Run `node tools/audit-dynamic-visuals.mjs` for the inventory and `npm test` for enforceable contracts. New interactive module pages must inherit a module policy. New Module 17 quantitative canvases must be added to `model-contracts-v1.json` with units, equation, valid region, known boundary and boundary tests. Hardware-evidence claims may never be upgraded merely to make the UI look complete.
