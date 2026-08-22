@@ -18,7 +18,7 @@ test('sampling phase, jitter and asynchronous sampling expose switching-ripple m
 
 test('asynchronous alias beat is computed from an explicit sample rate when supplied', () => { Store.reset(); const s=Store.snapshot(); s.sampling.synchronous=false; s.sampling.sampleHz=99750; const sample=Models.sampleInductorCurrent(s); assert.equal(sample.aliasRisk,'ALIAS_BEAT_RISK'); assert.equal(sample.sampleHz,99750); assert.equal(sample.aliasOrder,1); assert.equal(sample.aliasBeatHz,250); assert.equal(sample.aliasRateSource,'EXPLICIT_SAMPLE_RATE'); });
 
-test('legacy offset only derives a sample rate explicitly labeled as fallback', () => { Store.reset(); const s=Store.snapshot(); s.sampling.synchronous=false; delete s.sampling.sampleHz; s.sampling.freeRunOffsetPct=0.7; const sample=Models.sampleInductorCurrent(s); assert.equal(sample.sampleHz,100700); assert.equal(sample.aliasBeatHz,700); assert.equal(sample.aliasRateSource,'OFFSET_DERIVED_SAMPLE_RATE'); });
+test('legacy offset only derives a sample rate explicitly labeled as fallback', () => { Store.reset(); const s=Store.snapshot(); s.sampling.synchronous=false; delete s.sampling.sampleHz; s.sampling.freeRunOffsetPct=0.7; const sample=Models.sampleInductorCurrent(s); assert.ok(Math.abs(sample.sampleHz-100700)<1e-9); assert.ok(Math.abs(sample.aliasBeatHz-700)<1e-9); assert.equal(sample.aliasRateSource,'OFFSET_DERIVED_SAMPLE_RATE'); });
 
 test('CC/CV authority hands control to current limit under overload', () => { Store.reset(); const normal=Models.ccCvPoint(Store.snapshot(),6), overload=Models.ccCvPoint(Store.snapshot(),2); assert.equal(normal.mode,'CV'); assert.equal(overload.mode,'CC'); assert.equal(overload.currentA,10); assert.equal(overload.targetV,20); });
 
