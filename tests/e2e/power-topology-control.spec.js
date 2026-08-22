@@ -30,6 +30,12 @@ test("power topology control atlas connects six power stages to control models",
   await expect(page.locator("#invModeText")).toHaveText("Grid-tied LCL");
   await expect(page.locator("#invDebug")).toContainText("LCL resonance");
 
-  await expect(page.locator("#workflow")).toContainText("POWER STAGE");
-  await expect(page.locator("#workflow")).toContainText("SFRA");
+  // The current debugging contract is evidence-flow-first, not a stale topology slogan.
+  await expect(page.locator("#workflow")).toContainText("OPERATING POINT");
+  await expect(page.locator("#workflow")).toContainText("EQUATION");
+  await expect(page.locator("#workflow")).toContainText("DIGITAL");
+  await expect(page.locator("#workflow")).toContainText("MEASURE");
+  await expect(page.locator("#workflow")).toContainText("COMPARE");
+  await expect(page.locator("#workflow")).toContainText("EXTEND MODEL");
+  await expect(page.locator("#workflow")).toContainText("scope / SFRA / board test");
 });
