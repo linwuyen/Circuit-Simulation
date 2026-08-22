@@ -6,6 +6,10 @@ test("guided Buck capstone is equation-backed across all eight layers", async ({
   await page.goto("/19_c2000_buck_firmware_lab/");
 
   await expect(page.locator('[data-learning-mode="guided"]')).toHaveClass(/selected/);
+  await expect(page.locator('[data-core-step]')).toHaveCount(8);
+  await expect(page.locator('[data-core-layer-panel].is-core-active')).toHaveCount(1);
+  await expect(page.locator('[data-core-layer-panel="physics"]')).toBeVisible();
+  await expect(page.locator('[data-core-layer-panel="timing"]')).not.toBeVisible();
   await expect(page.locator("[data-pipeline]").first()).toContainText("Power Stage");
   await expect(page.locator("[data-mental-view-button]")).toHaveCount(5);
   await expect(page.locator("[data-mental-view-stage]")).toContainText("能量真的怎麼流");
@@ -28,6 +32,8 @@ test("guided Buck capstone is equation-backed across all eight layers", async ({
   await expect(page.locator("#physicsRipple")).toHaveText("0.225 A");
   await expect(page.locator("#buckWaveform .current-wave")).toHaveAttribute("d", /L/);
 
+  await page.locator('[data-core-step="timing"]').click();
+  await expect(page.locator('[data-core-layer-panel="timing"]')).toBeVisible();
   await expect(page.locator("#timingPeriod")).toHaveText("10.00 µs");
   await expect(page.locator("#timingDone")).toHaveText("5.50 µs");
   await expect(page.locator("#timingCommit")).toHaveText("10.00 µs");
@@ -39,6 +45,7 @@ test("guided Buck capstone is equation-backed across all eight layers", async ({
   await expect(page.locator("#timingMiss")).toHaveText("1");
 
   await expect(page.locator("[data-layer-coach]")).toHaveCount(6);
+  await page.locator('[data-core-step="sensing"]').click();
   await expect(page.locator("#sensePhase")).toBeDisabled();
   await page.locator('[data-layer-coach="sensing"] [data-layer-coach-choice="increase"]').click();
   await expect(page.locator('[data-layer-coach="sensing"] [data-layer-coach-status]')).toContainText("先量：");
@@ -47,15 +54,19 @@ test("guided Buck capstone is equation-backed across all eight layers", async ({
   await page.locator("#sensePhase").fill("90");
   await expect(page.locator("#sensePhysical")).toHaveText("12.1000 V");
 
+  await page.locator('[data-core-step="feedback"]').click();
   await expect(page.locator("#feedbackPlot .current-wave")).toHaveAttribute("d", /L/);
   await expect(page.locator("#feedbackFinal")).toContainText("V");
 
+  await page.locator('[data-core-step="dynamics"]').click();
   await expect(page.locator("[data-dynamics-story]")).toContainText("負載突然增加");
   await expect(page.locator("[data-dynamics-story]")).toContainText("Bode 的用途");
   await expect(page.locator("#dynDelayPhase")).toHaveText("-36.0°");
+  await page.locator('[data-core-step="safety"]').click();
   await expect(page.locator("#safeHardware")).toHaveText("230 ns");
   await expect(page.locator("#safeSoftware")).toHaveText("5.50 µs");
 
+  await page.locator('[data-core-step="production"]').click();
   await expect(page.locator("#prodFaultAt")).toHaveText("501 ticks / 5.01 ms");
   await expect(page.locator("#prodState")).toHaveText("RUN");
   await expect(page.locator("[data-authority-model] .authority-equation")).toContainText("PWM_AUTHORITY");
@@ -71,6 +82,7 @@ test("guided Buck capstone is equation-backed across all eight layers", async ({
   await expect(page.locator('[data-authority-condition="fresh"]')).toHaveAttribute("data-pass", "0");
   await expect(page.locator("[data-authority-result]")).toContainText("DENIED");
 
+  await page.locator('[data-learning-mode="sandbox"]').click();
   await expect(page.locator("#transferDuty")).toHaveText("50.00 %");
   await expect(page.locator("#transferRhp")).toContainText("kHz");
   await expect(page.locator("[data-transfer-bridge]")).toContainText("Boost PFC");
@@ -87,6 +99,7 @@ test("guided layer coaches unlock outside guided mode without leaking first-atte
   await expect(page.locator("#feedbackRef")).toBeEnabled();
 
   await page.locator('[data-learning-mode="guided"]').click();
+  await page.locator('[data-core-step="feedback"]').click();
   await expect(page.locator("#feedbackRef")).toBeDisabled();
   await page.locator('[data-layer-coach="feedback"] [data-layer-coach-choice="both-up"]').click();
   await expect(page.locator("#feedbackRef")).toBeEnabled();
@@ -129,9 +142,9 @@ test("deep links select the authoritative Module 19 layer and evidence mode", as
   await expect(page.locator('[data-learning-mode="guided"]')).toHaveClass(/selected/);
 
   await page.goto("/19_c2000_buck_firmware_lab/?layer=evidence&debug_case=stale-command");
-  await expect(page.locator('[data-learning-mode="debug"]')).toHaveClass(/selected/);
-  await expect(page.locator("#boardClaim").locator("xpath=ancestor::section[1]")).toHaveAttribute("data-core-focus", "evidence");
-  await expect(page.locator("#boardClaim").locator("xpath=ancestor::section[1]")).not.toHaveClass(/mode-hidden/);
+  await expect(page.locator('[data-learning-mode="guided"]')).toHaveClass(/selected/);
+  await expect(page.locator('[data-core-layer-panel="evidence"]')).toHaveAttribute("data-core-focus", "evidence");
+  await expect(page.locator('[data-core-layer-panel="evidence"]')).toBeVisible();
 });
 
 test("debug mode exposes deterministic HIL and board claim is manifest-backed", async ({ page }) => {
@@ -141,7 +154,7 @@ test("debug mode exposes deterministic HIL and board claim is manifest-backed", 
   await page.locator('[data-learning-mode="debug"]').click();
 
   await expect(page.locator("#hilPass")).toHaveText("PASS");
-  for (const scenario of ["load-step", "ocp", "ovp", "adc-stuck", "command-timeout", "idle-off"]) {
+  for (const scenario of ["load-step", "ocp", "hardware-trip", "ovp", "adc-stuck", "adc-overflow", "command-timeout", "idle-off"]) {
     await page.locator(`[data-scenario="${scenario}"]`).click();
     await expect(page.locator("#hilScenario")).toHaveText(scenario);
     await expect(page.locator("#hilPass")).toHaveText("PASS");
@@ -153,11 +166,13 @@ test("debug mode exposes deterministic HIL and board claim is manifest-backed", 
   await expect(page.locator("#boardEvidence .evidence-slot")).toHaveCount(8);
   await expect(page.locator("#evidenceCount")).toHaveText("0/8");
   await expect(page.locator("#boardBoundary")).toContainText("Fail-closed");
+  await expect(page.locator("#faultClearContract")).toContainText("held level 不重播");
   expect(errors).toEqual([]);
 });
 
 test("outcome benchmark records immutable core8 first attempts and home surfaces real state", async ({ page }) => {
   await page.goto("/19_c2000_buck_firmware_lab/");
+  await page.locator('[data-core-step="evidence"]').click();
   await expect(page.locator("#outcomeDashboard")).toHaveAttribute("data-profile", "core8");
   await expect(page.locator("#outcomeDashboard")).toContainText("CORE LAYERS");
   await expect(page.locator("#outcomeDashboard")).toContainText("0/8 first attempts");

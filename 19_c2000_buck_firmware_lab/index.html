@@ -21,12 +21,31 @@
     </section>
 
     <nav class="mode-tabs" aria-label="學習模式">
-      <button type="button" class="selected" data-learning-mode="guided">GUIDED<br><small>一次一個問題</small></button>
+      <button type="button" class="selected" data-learning-mode="guided">主線學習<br><small>八層、一次一層</small></button>
       <button type="button" data-learning-mode="explain">EXPLAIN<br><small>公式與因果</small></button>
       <button type="button" data-learning-mode="firmware">FIRMWARE<br><small>C2000 mapping</small></button>
       <button type="button" data-learning-mode="debug">DEBUG<br><small>Fault injection</small></button>
       <button type="button" data-learning-mode="sandbox">SANDBOX<br><small>全部打開</small></button>
     </nav>
+
+    <section class="core-flow" data-core-flow aria-label="Buck 韌體八層主線">
+      <div class="core-flow-head"><div><span class="section-kicker">ONE BUCK · ONE CAUSAL PATH</span><h2>沿著能量、訊號、時間、權限一路走到底</h2></div><p>主線只顯示目前一層；公式、韌體、除錯與全部視圖是需要時才打開的工具。</p></div>
+      <div class="core-flow-steps" role="list">
+        <button type="button" data-core-step="physics"><small>01</small>物理</button>
+        <button type="button" data-core-step="sensing"><small>02</small>量測</button>
+        <button type="button" data-core-step="feedback"><small>03</small>回授</button>
+        <button type="button" data-core-step="timing"><small>04</small>時序</button>
+        <button type="button" data-core-step="dynamics"><small>05</small>動態</button>
+        <button type="button" data-core-step="safety"><small>06</small>安全</button>
+        <button type="button" data-core-step="production"><small>07</small>量產</button>
+        <button type="button" data-core-step="evidence"><small>08</small>證據</button>
+      </div>
+      <div class="core-flow-route">
+        <button class="button" type="button" data-core-prev>← 上一層</button>
+        <p data-core-status aria-live="polite"></p>
+        <button class="button" type="button" data-core-next>下一層 →</button>
+      </div>
+    </section>
 
     <section class="lab-panel" data-show-modes="guided explain firmware debug sandbox">
       <div class="section-kicker">STICKY MENTAL MODEL</div>
@@ -43,7 +62,7 @@
     </section>
 
     <section class="lab-grid" data-show-modes="guided explain sandbox">
-      <article class="lab-panel guided-example" data-physics-example>
+      <article class="lab-panel guided-example" data-physics-example data-core-layer-panel="physics">
         <div class="section-kicker">01 · POWER PHYSICS</div>
         <h2>只改 L：電感電流 ripple 會怎麼變？</h2>
         <p>先不要碰公式。假設 Vin=48 V、Vout=12 V、fsw=100 kHz；把 L 從 200 µH 增加，ΔIL 會？</p>
@@ -70,7 +89,7 @@
         </div></details>
       </article>
 
-      <article class="lab-panel guided-example" data-timing-example>
+      <article class="lab-panel guided-example" data-timing-example data-core-layer-panel="timing">
         <div class="section-kicker">04 · REAL-TIME TIMING</div>
         <h2>算完 ≠ duty 已經生效</h2>
         <p>SOCA 在 ZERO。ADC 1.2 µs + ISR entry 0.3 µs。若 compute 從 4 µs 拉到 9 µs，新 CMPA 還能在第一個 10 µs ZERO 生效嗎？</p>
@@ -93,16 +112,16 @@
       </article>
     </section>
 
-    <section class="section-head" data-show-modes="guided explain sandbox"><h2>其餘六層：同樣用可執行模型，不用裝飾圖</h2><p class="muted">每一張圖都標出 model boundary；BOARD 數字仍必須由實測替換。</p></section>
+    <section class="section-head" data-core-overview data-show-modes="guided explain sandbox"><h2>其餘層：同樣用可執行模型，不用裝飾圖</h2><p class="muted">每一張圖都標出 model boundary；BOARD 數字仍必須由實測替換。</p></section>
     <section class="lab-grid layer-live-grid" data-show-modes="guided explain sandbox">
-      <article class="lab-panel">
+      <article class="lab-panel" data-core-layer-panel="sensing">
         <div class="section-kicker">02 · SENSING</div><h2>sample phase → ADC count → reconstructed V</h2>
         <div class="input-grid"><label>Ripple Vpp<input id="senseRipple" type="number" step="0.05" value="0.2"></label><label>Sample phase <b id="sensePhaseOut">0°</b><input id="sensePhase" type="range" min="0" max="360" step="5" value="0"></label><label>Divider<input id="senseDivider" type="number" min="0.01" max="0.27" step="0.01" value="0.2"></label></div>
         <div class="metric-grid"><div><span>PHYSICAL</span><b id="sensePhysical"></b></div><div><span>ADC PIN</span><b id="senseAdcV"></b></div><div><span>COUNT</span><b id="senseCode"></b></div><div><span>RECONSTRUCT</span><b id="senseRecon"></b></div><div><span>ERROR</span><b id="senseError"></b></div></div>
         <p class="truth-box" id="senseBoundary"></p>
       </article>
 
-      <article class="lab-panel">
+      <article class="lab-panel" data-core-layer-panel="feedback">
         <div class="section-kicker">03 · FEEDBACK</div><h2>reference → PI → duty → averaged Buck</h2>
         <div class="input-grid"><label>Initial V<input id="feedbackInitial" type="number" step="0.5" value="8"></label><label>Reference V<input id="feedbackRef" type="number" step="0.5" value="12"></label><label>Kp<input id="feedbackKp" type="number" step="0.05" value="0.3"></label><label>Ki<input id="feedbackKi" type="number" step="10" value="100"></label></div>
         <svg class="lesson-plot" id="feedbackPlot" viewBox="0 0 720 250" role="img" aria-label="averaged Buck feedback response"></svg>
@@ -110,14 +129,14 @@
         <p class="truth-box" id="feedbackBoundary"></p>
       </article>
 
-      <article class="lab-panel">
+      <article class="lab-panel" data-core-layer-panel="dynamics">
         <div class="section-kicker">05 · DYNAMICS</div><h2>LC plant 與 sample-to-actuate delay 分開看</h2>
         <div class="input-grid"><label>Load Ω<input id="dynLoad" type="number" step="1" value="6"></label><label>Probe f (kHz)<input id="dynFc" type="number" step="1" value="10"></label><label>Delay (µs)<input id="dynDelay" type="number" step="1" value="10"></label></div>
         <div class="metric-grid"><div><span>LC f0</span><b id="dynRes"></b></div><div><span>|Gvd|</span><b id="dynMag"></b></div><div><span>PLANT φ</span><b id="dynPlantPhase"></b></div><div><span>DELAY φ</span><b id="dynDelayPhase"></b></div><div><span>SUM</span><b id="dynTotalPhase"></b></div></div>
         <p class="truth-box" id="dynBoundary"></p>
       </article>
 
-      <article class="lab-panel">
+      <article class="lab-panel" data-core-layer-panel="safety">
         <div class="section-kicker">06 · SAFETY</div><h2>hardware veto 和 software reaction 不是同一條 latency</h2>
         <div class="input-grid"><label>CMPSS ns<input id="safeCmp" type="number" step="10" value="80"></label><label>XBAR ns<input id="safeXbar" type="number" step="10" value="20"></label><label>TZ ns<input id="safeTz" type="number" step="10" value="30"></label><label>Gate ns<input id="safeGate" type="number" step="10" value="100"></label><label>ADC µs<input id="safeAdc" type="number" step="0.1" value="1.2"></label><label>ISR µs<input id="safeIsr" type="number" step="0.1" value="0.3"></label><label>Compute µs<input id="safeCompute" type="number" step="0.1" value="4"></label></div>
         <svg class="lesson-plot" id="safetyPlot" viewBox="0 0 720 250" role="img" aria-label="hardware trip versus software reaction latency"></svg>
@@ -125,15 +144,15 @@
         <p class="truth-box" id="safeBoundary"></p>
       </article>
 
-      <article class="lab-panel">
+      <article class="lab-panel" data-core-layer-panel="production">
         <div class="section-kicker">07 · PRODUCTION</div><h2>freshness 是外部 ownership，不是 ISR 自我續命</h2>
         <div class="input-grid"><label>Timeout ticks<input id="prodTimeout" type="number" min="0" step="1" value="500"></label><label>Missed ticks<input id="prodMissed" type="range" min="0" max="650" step="1" value="0"></label><label class="checkbox-line"><input id="prodEnable" type="checkbox" checked> enable authority</label></div>
         <div class="metric-grid"><div><span>AGE</span><b id="prodAge"></b></div><div><span>FAULT AT</span><b id="prodFaultAt"></b></div><div><span>STATE</span><b id="prodState"></b></div></div>
         <p class="truth-box" id="prodBoundary"></p>
       </article>
 
-      <article class="lab-panel">
-        <div class="section-kicker">08 · TRANSFER / CAPSTONE</div><h2>同一 grammar 遷移到 Boost，但 plant constraint 變了</h2>
+      <article class="lab-panel" data-optional-tool="transfer">
+        <div class="section-kicker">OPTIONAL · UNSEEN TRANSFER</div><h2>同一 grammar 遷移到 Boost，但 plant constraint 變了</h2>
         <div class="input-grid"><label>Vin V<input id="transferVin" type="number" step="1" value="24"></label><label>Vout V<input id="transferVout" type="number" step="1" value="48"></label><label>L µH<input id="transferL" type="number" step="10" value="200"></label><label>Load Ω<input id="transferLoad" type="number" step="1" value="12"></label></div>
         <div class="metric-grid"><div><span>D</span><b id="transferDuty"></b></div><div><span>RHP ZERO</span><b id="transferRhp"></b></div><div><span>fc ≤ fRHP/5</span><b id="transferFcMax"></b></div></div>
         <p class="truth-box" id="transferBoundary"></p>
@@ -157,18 +176,19 @@
       </article>
       <article class="lab-panel">
         <div class="section-kicker">C2000 BINDING</div><h2>Target 必須真的形成閉環</h2>
-        <ul class="contract-list"><li><b>ePWM：</b>TBCLK / UP-count / CMPA shadow@ZERO / AQ 明確配置。</li><li><b>ADC：</b>prescaler / mode / startup / Vout+Vin+iL SOC。</li><li><b>Safety：</b>CMPSS1 CTRIPH → TRIP4 → DCAEVT1 async → TZ LOW。</li><li><b>Command：</b>只有 communication owner publication 才刷新 heartbeat。</li><li><b>Flash：</b>codestart 位於 0x080000，link map/HEX 由 CI 驗證。</li></ul>
+        <ul class="contract-list"><li><b>ePWM：</b>TBCLK / UP-count / CMPA shadow@ZERO / AQ 明確配置。</li><li><b>ADC：</b>prescaler / mode / startup / Vout+Vin+iL SOC；overflow 使 sensor truth 失效。</li><li><b>Safety：</b>CMPSS1 CTRIPH → TRIP4 → DCAEVT1 async → TZ LOW，並鏡射進 software OCP latch。</li><li><b>Command：</b>只有 communication owner publication 才刷新 heartbeat；clear-fault 用 release→assert token。</li><li><b>Calibration：</b>未明確提供 <code>BUCK_BOARD_CALIBRATION_VALID=1</code> 時 fail closed。</li><li><b>Flash：</b>codestart 位於 0x080000，link map/HEX 由 CI 驗證。</li></ul>
       </article>
     </section>
 
     <section class="lab-panel" data-show-modes="debug sandbox">
       <div class="section-kicker">DEBUG · DETERMINISTIC HIL</div><h2>Fault injection：先問「哪條權限路徑該贏？」</h2>
-      <div class="scenario-row"><button class="selected" type="button" data-scenario="nominal">Nominal</button><button type="button" data-scenario="load-step">Load step</button><button type="button" data-scenario="ocp">OCP</button><button type="button" data-scenario="ovp">OVP</button><button type="button" data-scenario="adc-stuck">ADC invalid</button><button type="button" data-scenario="command-timeout">Command timeout</button><button type="button" data-scenario="idle-off">Idle / OFF</button></div>
+      <div class="scenario-row"><button class="selected" type="button" data-scenario="nominal">Nominal</button><button type="button" data-scenario="load-step">Load step</button><button type="button" data-scenario="ocp">Software OCP</button><button type="button" data-scenario="hardware-trip">DCAEVT1</button><button type="button" data-scenario="ovp">OVP</button><button type="button" data-scenario="adc-stuck">ADC invalid</button><button type="button" data-scenario="adc-overflow">ADC overflow</button><button type="button" data-scenario="command-timeout">Command timeout</button><button type="button" data-scenario="idle-off">Idle / OFF</button></div>
       <div class="metric-grid"><div><span>SCENARIO</span><b id="hilScenario"></b></div><div><span>RESULT</span><b id="hilPass"></b></div><div><span>VOUT</span><b id="hilVout"></b></div><div><span>DUTY</span><b id="hilDuty"></b></div><div><span>STATE</span><b id="hilState"></b></div><div><span>FAULT</span><b id="hilFault"></b></div><div><span>TRIP LATENCY</span><b id="hilLatency"></b></div></div>
       <div class="trace-wrap"><table><thead><tr><th>tick</th><th>Vout</th><th>iL</th><th>duty</th><th>state</th></tr></thead><tbody id="hilTrace"></tbody></table></div>
+      <p class="truth-box" id="faultClearContract"></p>
     </section>
 
-    <section class="lab-panel outcome-panel" data-show-modes="guided debug sandbox">
+    <section class="lab-panel outcome-panel" data-core-support="evidence" data-show-modes="guided debug sandbox">
       <div class="section-kicker">LEARNING OUTCOME · REAL FIRST ATTEMPTS</div><h2>PRE → POST → R1/R2/R3/R4</h2>
       <p>不同 phase 使用 content-disjoint unseen variants；第一次答案 immutable。POST 之後自動產生 1/7/30/90 天 retention due date，資料寫入 `circuit-learning-state-v5`。</p>
       <div class="metric-grid" id="outcomeDashboard"></div>
@@ -191,8 +211,8 @@
       <p class="truth-box" id="boardBoundary"></p>
     </section>
 
-    <section class="lab-panel" data-show-modes="firmware debug sandbox">
-      <div class="section-kicker">VERIFICATION LADDER</div><h2>每一層只能證明自己的事情</h2>
+    <section class="lab-panel" data-core-layer-panel="evidence" data-show-modes="guided explain firmware debug sandbox">
+      <div class="section-kicker">08 · EVIDENCE / CAPSTONE</div><h2>每一層只能證明自己的事情</h2>
       <div class="pipeline verification-pipeline"><span>PHYSICS<br><small>equation invariants</small></span><i>→</i><span>HOST SIL<br><small>same C controller</small></span><i>→</i><span>HIL<br><small>deterministic faults</small></span><i>→</i><span>TI IMAGE<br><small>.out/.map/.hex</small></span><i>→</i><span>BOARD BINDING<br><small>9 verified sources</small></span><i>→</i><span>BOARD<br><small>8 physical artifacts</small></span></div>
     </section>
   </main>

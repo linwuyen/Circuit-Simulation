@@ -7,12 +7,16 @@ const src=fs.readFileSync(new URL('../assets/engineering-sandbox-core.js',import
 vm.runInThisContext(src,{filename:'engineering-sandbox-core.js'});
 const Core=globalThis.CircuitEngineeringSandboxCore;
 
-test('timing margin now controls whether the new duty is actually applied',()=>{
+test('a late shadow write is delayed to its next eligible ZERO instead of discarded',()=>{
   const ok=Core.simulateSystem({cycles:220,samplePct:50,adcLatencyUs:1.2,isrLatencyUs:.8,computeUs:1.7,pwmCommitUs:.3});
   assert.equal(ok.summary.missedCommits,0);
-  const late=Core.simulateSystem({cycles:220,samplePct:60,adcLatencyUs:1.5,isrLatencyUs:1,computeUs:2,pwmCommitUs:.5});
+  const late=Core.simulateSystem({cycles:900,samplePct:60,adcLatencyUs:1.5,isrLatencyUs:1,computeUs:2,pwmCommitUs:.5,tripCurrent:30});
   assert.ok(late.summary.missedCommits>0);
   assert.ok(late.trace.some(x=>x.timingMiss&&x.computedDuty!==x.appliedDuty));
+  assert.ok(late.trace.some(x=>x.timingMiss&&x.scheduledApplyCycle===x.k+2));
+  assert.ok(late.trace.some(x=>x.loadedFromCycle===x.k-2));
+  assert.ok(late.summary.finalV>5,'late writes should still reach the plant after the extra-cycle delay');
+  assert.ok(late.events.some(x=>x.type==='PWM_COMMIT_MISSED'&&x.tUs>(x.cycle+1)*late.config.controlPeriodUs));
 });
 
 test('ISR jitter can create intermittent real PWM misses near the deadline',()=>{

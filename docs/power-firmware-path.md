@@ -42,6 +42,8 @@ r → e → C(z) → u → P(s) → y
 Safety veto: CMPSS / Trip / State → PWM OFF
 ```
 
+The default Module 19 route is one ordered eight-step rail and shows one active layer at a time. `EXPLAIN`, `FIRMWARE`, `DEBUG`, and `SANDBOX` are supporting lenses, not competing learning paths. Boost transfer remains an optional hand-off to Module 17 rather than being mislabeled as the eighth Buck layer; the eighth layer is Evidence / Capstone.
+
 Every guided layer converges on the same learner loop:
 
 ```text
@@ -120,6 +122,8 @@ PWM_AUTHORITY =
 ```
 
 Command freshness belongs to the external producer; the ADC/control ISR cannot refresh a heartbeat on the producer's behalf. Even when software authority is granted, CMPSS / Trip Zone may independently veto PWM.
+
+Fault clear is also producer-owned. A held clear level is not reusable: only a release→assert transition creates a fresh token, and the consumer accepts that event only when current, voltage, sensing, peripheral readiness, calibration and command-age qualifiers are safe. ADC overflow invalidates the sensor bundle, while a latched DCAEVT1 is mirrored into the software OCP truth without weakening the asynchronous hardware veto.
 
 ## Capability target
 

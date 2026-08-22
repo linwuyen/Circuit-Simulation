@@ -11,6 +11,8 @@ This lab keeps one controller contract across model, Host SIL, deterministic HIL
 - `iL` — inductor-current feedback in amperes.
 - `control_period_s` — controller integration cadence owned by configuration.
 - `soft_start_volts_per_second` — SI rate multiplied by `control_period_s`.
+- `sensor_valid`, `peripherals_ready`, `calibration_valid` — independent fail-closed validity gates.
+- `hardware_trip_active` — the asynchronous DCAEVT1 truth mirrored into the software OCP latch.
 
 Duty feed-forward is `soft_vref / vin`; neither the pure C controller nor HIL hard-codes 48 V.
 
@@ -70,9 +72,10 @@ The script refuses to guess a probe, board revision, security setting or flash o
 4. CMPSS1 CTRIPH → ePWM X-BAR TRIP4 → DCAH/DCAEVT1 → Trip Zone LOW.
 5. TBCLKSYNC enabled only after the ADC ISR ownership is installed.
 6. ADC ISR reading `Vin`, `Vout`, `iL`, executing the pure controller, then writing CMPA shadow.
-7. command freshness owned only by `BuckTarget_publishCommand()`.
+7. ADC overflow invalidating the sensor bundle, and DCAEVT1 mirroring into the software fault latch.
+8. command freshness and one-shot fault-clear tokens owned only by `BuckTarget_publishCommand()`.
 
-The command mailbox uses two payload slots plus a 16-bit active-slot selector; the ADC ISR never spins waiting for a pre-empted publisher.
+The command mailbox uses two payload slots plus a 16-bit active-slot selector; the ADC ISR never spins waiting for a pre-empted publisher. A held `clear_fault=1` creates only one token. The producer must publish `0` and then a new `1` to request another clear.
 
 ## Target truth boundary
 
@@ -87,6 +90,7 @@ The linked target remains a **reference-lab binding**, not a board certificate. 
 - real communication freshness owner
 
 Reference scale/threshold constants are not measured board calibration.
+The target therefore defaults `BUCK_BOARD_CALIBRATION_VALID` to `0` and remains fail-closed. A board build may set it to `1` only after the board-specific calibration record is actually validated.
 
 ## Command ownership
 
@@ -96,11 +100,11 @@ A communication layer calls:
 BuckTarget_publishCommand(enable, clear_fault);
 ```
 
-only after its frame passes its own validity/ownership checks. The control ISR resets command age only when the published sequence changes. A stale enabled command fails closed; disabled authority remains OFF without fabricated heartbeats.
+only after its frame passes its own validity/ownership checks. The control ISR resets command age only when the published sequence changes. Fault clear is a release→assert event token, not a reusable level. A stale enabled command fails closed; disabled authority remains OFF without fabricated heartbeats.
 
 ## Deterministic HIL
 
-The browser/Node HIL uses the same cadence, `vin` and `iL` semantics as C and injects nominal, load-step, OCP, OVP, ADC invalid, command timeout and idle/OFF scenarios.
+The browser/Node HIL uses the same cadence, `vin` and `iL` semantics as C and injects nominal, load-step, software OCP, hardware trip, OVP, ADC invalid/overflow, command timeout and idle/OFF scenarios. It also verifies that an unsafe clear is rejected, a held clear is not replayed, and a fresh clear token is accepted only with safe qualifiers.
 
 HIL is deterministic training evidence. It is not physical board proof.
 

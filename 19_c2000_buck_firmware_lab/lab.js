@@ -9,11 +9,13 @@
   const us = seconds => seconds * 1e6;
 
   function setMode(mode) {
+    document.body.dataset.learningMode = mode;
     $$('[data-learning-mode]').forEach(button => button.classList.toggle('selected', button.dataset.learningMode === mode));
     $$('[data-show-modes]').forEach(section => {
       const modes = section.dataset.showModes.split(/\s+/);
       section.classList.toggle('mode-hidden', !modes.includes(mode));
     });
+    document.dispatchEvent(new CustomEvent('buck:mode-change', { detail: { mode } }));
   }
 
   $$('[data-learning-mode]').forEach(button => button.addEventListener('click', () => setMode(button.dataset.learningMode)));
@@ -223,6 +225,11 @@
     const checked = $$('[data-evidence]:checked').length;
     $('#evidenceCount').textContent = `${checked}/${evidence.length}`;
   });
+
+  const clearContract = Hil.runFaultClearScenario();
+  $('#faultClearContract').textContent = clearContract.unsafeClearRejected && clearContract.heldLevelRejected && clearContract.freshClearAccepted
+    ? 'PASS · clear-fault 是一次性 token：不安全時拒絕、held level 不重播、release → assert 的新 token 才能 re-arm。'
+    : 'FAIL · fault-clear one-shot contract 未閉合。';
 
   setMode('guided');
   renderPhysics();

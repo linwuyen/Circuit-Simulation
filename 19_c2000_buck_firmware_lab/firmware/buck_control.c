@@ -39,7 +39,9 @@ void BuckControl_tick(
     if (input->command_heartbeat) state->command_age_ticks = 0u;
     else if (state->command_age_ticks < 0xFFFFFFFFu) state->command_age_ticks++;
 
-    if (!input->sensor_valid || input->vin <= 0.1f || dt <= 0.0f) detected |= BUCK_FAULT_SENSOR;
+    if (!input->sensor_valid || !input->peripherals_ready || !input->calibration_valid ||
+        input->vin <= 0.1f || dt <= 0.0f) detected |= BUCK_FAULT_SENSOR;
+    if (input->hardware_trip_active) detected |= BUCK_FAULT_OCP;
     if (input->iL > config->current_limit * 1.08f) detected |= BUCK_FAULT_OCP;
     if (input->vout > config->ovp_threshold) detected |= BUCK_FAULT_OVP;
     /* A stale command is hazardous only while external authority requests PWM. */
@@ -57,6 +59,8 @@ void BuckControl_tick(
 
         if (input->clear_fault_request &&
             input->sensor_valid &&
+            input->peripherals_ready &&
+            input->calibration_valid &&
             input->vin > 0.1f &&
             input->iL < config->current_limit * 0.20f &&
             input->vout < config->vref * 0.50f &&

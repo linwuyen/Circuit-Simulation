@@ -69,16 +69,24 @@
     const base=defaults(input),c=applyCodeBug(base),random=rng(c.seed),T=c.controlPeriodUs,dtPlant=Math.max(.02,Math.min(c.plantDtUs,T)),substeps=Math.max(1,Math.ceil(T/dtPlant)),dtUs=T/substeps,dt=dtUs*1e-6,L=c.inductanceUh*1e-6,C=c.capacitanceUf*1e-6;
     const state=stateRuntime(c),program=new Map();
     for(const x of c.stateProgram||[]){if(!program.has(x.cycle))program.set(x.cycle,[]);program.get(x.cycle).push(x.action);}
-    let iL=0,vOut=0,vInt=0,iInt=0,appliedDuty=0,nextDuty=0,tripDueAbs=null,faultEnergy=0;
+    let iL=0,vOut=0,vInt=0,iInt=0,appliedDuty=0,loadedDuty=0,nextDuty=0,tripDueAbs=null,faultEnergy=0,pendingDutyWrites=[];
     let producerSeq=0,publishedSeq=0,completeSeq=0,consumedSeq=0,lastProducerCommand=profileAt(c.commandProfile,0,"vref"),lastCompleteCommand=lastProducerCommand;
     const commandHistory=[],trace=[],events=[],commViolations=[];
     let lastSample={rawV:0,rawI:0,measuredV:0,measuredI:0,physicalV:0,physicalI:0},missedCommits=0;
     for(let k=0;k<c.cycles;k++){
       const cycleStart=k*T;
+      let loadedFromCycle=null;
       for(const action of program.get(k)||[])applyStateAction(state,action);
       const producerCommand=profileAt(c.commandProfile,k,"vref"),load=Math.max(.1,profileAt(c.loadProfile,k,"ohm"));
       const commandChanged=k===0||producerCommand!==lastProducerCommand;
       events.push({tUs:cycleStart,type:"PWM_ZERO",cycle:k});
+      const dueWrites=pendingDutyWrites.filter(x=>x.applyCycle<=k);
+      if(dueWrites.length){
+        const loaded=dueWrites.reduce((latest,x)=>x.writeAbsUs>latest.writeAbsUs?x:latest);
+        loadedDuty=loaded.duty;loadedFromCycle=loaded.sourceCycle;
+        events.push({tUs:cycleStart,type:"PWM_SHADOW_LOAD",cycle:k,sourceCycle:loaded.sourceCycle,duty:loaded.duty});
+      }
+      pendingDutyWrites=pendingDutyWrites.filter(x=>x.applyCycle>k);
       if(commandChanged){
         producerSeq++;events.push({tUs:cycleStart+.02,type:"DMA_START",cycle:k,seq:producerSeq});
         if(c.communicationMode==="early-publish"){
@@ -98,7 +106,7 @@
         const old=commandHistory[Math.max(0,k-c.ringSize)];consumedCommand=old.command;consumedSeq=old.seq;commViolations.push("ring-wrap-index-corrupt");events.push({tUs:cycleStart+.12,type:"WRAP_BUG",cycle:k,seq:producerSeq});
       } else {consumedSeq=completeSeq;consumedCommand=lastCompleteCommand;}
       events.push({tUs:cycleStart+.14,type:"CONSUME",cycle:k,seq:consumedSeq});
-      appliedDuty=(state.state==="RUN"&&!state.fault)?nextDuty:0;
+      appliedDuty=(state.state==="RUN"&&!state.fault)?loadedDuty:0;
       const sampleAt=T*c.samplePct/100,pwmEdge=appliedDuty*T;
       let sampleCaptured=false,sample=lastSample,peakIThis=iL;
       for(let s=0;s<substeps;s++){
@@ -130,16 +138,20 @@
       }
       let computedDuty=(state.state==="RUN"&&!state.fault)?inner.output:0;
       if(c.dutyClamp!==null&&c.dutyClamp!==undefined)computedDuty=Math.min(computedDuty,finite(c.dutyClamp,c.dutyMax));
-      const jitter=(random()-.5)*2*c.jitterUs,isrAt=sampleAt+c.adcLatencyUs+c.isrLatencyUs+jitter,doneAt=isrAt+c.computeUs,commitAt=doneAt+c.pwmCommitUs,margin=T-commitAt,timingMiss=commitAt>T;
-      events.push({tUs:cycleStart+isrAt,type:"ISR",cycle:k});events.push({tUs:cycleStart+doneAt,type:"CONTROL_DONE",cycle:k});events.push({tUs:cycleStart+Math.min(commitAt,T),type:timingMiss?"PWM_COMMIT_MISSED":"PWM_COMMIT",cycle:k});
-      if(timingMiss){missedCommits++;nextDuty=appliedDuty;}else nextDuty=(state.state==="RUN"&&!state.fault)?computedDuty:0;
+      const jitter=(random()-.5)*2*c.jitterUs,isrAt=sampleAt+c.adcLatencyUs+c.isrLatencyUs+jitter,doneAt=isrAt+c.computeUs,commitAt=doneAt+c.pwmCommitUs,margin=T-commitAt,writeAbsUs=cycleStart+commitAt,scheduledApplyCycle=Math.floor(writeAbsUs/T)+1,timingMiss=scheduledApplyCycle>k+1;
+      events.push({tUs:cycleStart+isrAt,type:"ISR",cycle:k});events.push({tUs:cycleStart+doneAt,type:"CONTROL_DONE",cycle:k});events.push({tUs:writeAbsUs,type:timingMiss?"PWM_COMMIT_MISSED":"PWM_COMMIT",cycle:k,scheduledApplyCycle});
+      if(timingMiss)missedCommits++;
+      pendingDutyWrites.push({sourceCycle:k,writeAbsUs,applyCycle:scheduledApplyCycle,duty:(state.state==="RUN"&&!state.fault)?computedDuty:0});
+      const nextWrites=pendingDutyWrites.filter(x=>x.applyCycle<=k+1);
+      nextDuty=nextWrites.length?nextWrites.reduce((latest,x)=>x.writeAbsUs>latest.writeAbsUs?x:latest).duty:loadedDuty;
       const mode=outer.unsat>=c.currentLimit-.0001?"CC":"CV";
-      trace.push({k,tUs:cycleStart,vOut,iL,peakIThis,load,producerCommand,consumedCommand,producerSeq,publishedSeq,completeSeq,consumedSeq,state:state.state,mode,computedDuty,appliedDuty,nextDuty,sampledV:sample.measuredV,sampledI:sample.measuredI,rawV:sample.rawV,rawI:sample.rawI,samplePhysicalV:sample.physicalV,samplePhysicalI:sample.physicalI,edgeDistanceUs:sample.edgeDistanceUs,timingMarginUs:margin,timingMiss,controlSaturated:inner.saturated,currentRef:outer.output});
+      trace.push({k,tUs:cycleStart,vOut,iL,peakIThis,load,producerCommand,consumedCommand,producerSeq,publishedSeq,completeSeq,consumedSeq,state:state.state,mode,computedDuty,appliedDuty,nextDuty,loadedFromCycle,scheduledApplyCycle,pendingDutyCount:pendingDutyWrites.length,sampledV:sample.measuredV,sampledI:sample.measuredI,rawV:sample.rawV,rawI:sample.rawI,samplePhysicalV:sample.physicalV,samplePhysicalI:sample.physicalI,edgeDistanceUs:sample.edgeDistanceUs,timingMarginUs:margin,timingMiss,controlSaturated:inner.saturated,currentRef:outer.output});
     }
+    events.sort((a,b)=>a.tUs-b.tUs||String(a.type).localeCompare(String(b.type)));
     const tail=trace.slice(Math.floor(trace.length*.8)),avgV=tail.reduce((s,x)=>s+x.vOut,0)/Math.max(1,tail.length),last=trace[trace.length-1]||{},maxSeqLag=Math.max(...trace.map(x=>Math.max(0,x.publishedSeq-x.consumedSeq)));
     return{config:c,trace,events,communication:{producerSeq,publishedSeq,completeSeq,consumedSeq,lag:Math.max(0,publishedSeq-consumedSeq),maxLag:maxSeqLag,violations:[...new Set(commViolations)]},state:{state:state.state,precheck:state.precheck,fault:state.fault,violations:[...new Set(state.violations)]},summary:{finalV:last.vOut||0,finalI:last.iL||0,avgV,voltageError:profileAt(c.commandProfile,c.cycles-1,"vref")-avgV,peakV:Math.max(...trace.map(x=>x.vOut)),peakI:Math.max(...trace.map(x=>x.peakIThis)),mode:last.mode||"CV",missedCommits,faultEnergyProxy:faultEnergy,tripSeen:events.some(x=>x.type==="TRIP_ACTUATE"),state:last.state||state.state,publishedSeq,consumedSeq,commandLag:Math.max(0,publishedSeq-consumedSeq),maxCommandLag:maxSeqLag}};
   }
-  function timingWindow(input){const c=defaults(input),T=c.controlPeriodUs,soc=T*c.samplePct/100,ready=soc+c.adcLatencyUs,isr=ready+c.isrLatencyUs,done=isr+c.computeUs,commit=done+c.pwmCommitUs,margin=T-commit;return{period:T,soc,ready,isr,done,commit,margin,closed:margin>=0};}
+  function timingWindow(input){const c=defaults(input),T=c.controlPeriodUs,soc=T*c.samplePct/100,ready=soc+c.adcLatencyUs,isr=ready+c.isrLatencyUs,done=isr+c.computeUs,commit=done+c.pwmCommitUs,margin=T-commit;return{period:T,soc,ready,isr,done,commit,margin,closed:margin>0};}
   function simulateConverter(input){const x=Object.assign({},input||{});if(x.dtUs!==undefined&&x.controlPeriodUs===undefined)x.controlPeriodUs=x.dtUs;if(x.steps!==undefined&&x.cycles===undefined)x.cycles=x.steps;return simulateSystem(x);}
   function dmaScenario(input){const x=Object.assign({controlPeriodUs:10,cycles:220,commandProfile:[{cycle:0,vref:24},{cycle:40,vref:48},{cycle:120,vref:36}],loadProfile:[{cycle:0,ohm:12}],communicationMode:"safe",staleCommandCycles:20},input||{});if(x.mode){x.communicationMode=x.mode==="early-publish"?"early-publish":x.mode==="wrap-bug"?"wrap-bug":"safe";}const r=simulateSystem(x);return{config:r.config,events:r.events.filter(e=>/DMA|PUBLISH|CONSUME|WRAP/.test(e.type)),published:r.communication.publishedSeq,consumed:r.communication.consumedSeq,dropped:r.communication.violations.includes("ring-wrap-index-corrupt")?1:0,violations:r.communication.violations,pass:r.communication.violations.length===0,finalV:r.summary.finalV,commandLag:r.summary.commandLag,system:r};}
   const STATE_ORDER=["OFF","PRECHECK","READY","RUN","FAULT","RECOVERY"];
