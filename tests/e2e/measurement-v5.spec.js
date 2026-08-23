@@ -40,6 +40,7 @@ test('simulator-first workflow is explicitly marked post-hoc', async ({ page }) 
 
 test('numeric open response is graded without multiple-choice recognition', async ({ page }) => {
   await page.goto('/quiz.html?module=buck');
+  await page.locator('.core-page-library > summary').click();
   await page.locator('[data-numeric-answer="buck-open-inductance"]').fill('90');
   await page.locator('[data-numeric-submit="buck-open-inductance"]').click();
   await expect(page.locator('[data-numeric-result="buck-open-inductance"]')).toContainText('正確');
@@ -47,6 +48,7 @@ test('numeric open response is graded without multiple-choice recognition', asyn
 
 test('diagnostic game exposes entropy-derived information gain', async ({ page }) => {
   await page.goto('/troubleshooting.html');
+  await page.locator('.core-page-library > summary').click();
   await page.locator('[data-game-test="spi-overrun-game"][data-test="fifo-level"]').click();
   await expect(page.locator('[data-game="spi-overrun-game"] .game-evidence')).toContainText('overflow flag');
   await expect(page.locator('[data-game="spi-overrun-game"] .game-evidence')).toContainText('bits');

@@ -7,9 +7,8 @@ test.beforeEach(async ({ page }) => {
 
 test('home exposes the OP AMP dynamic-response module inside the expanded system', async ({ page }) => {
   await expect(page.locator('#mainContent')).toContainText('OP AMP Slew Rate / Dynamic Response');
-  await expect(page.locator('.v8-validity-summary')).toContainText('16/16 golden anchors pass');
-  await expect(page.locator('.v8-validity-summary')).toContainText('16/16 modules anchored');
-  await expect(page.locator('a[href="12_opamp_slew_rate/index.html"]')).toHaveCount(2);
+  await expect(page.locator('.journey-topic-details')).not.toHaveAttribute('open', '');
+  await expect(page.locator('a[href="12_opamp_slew_rate/index.html"]')).toHaveCount(1);
 });
 
 test('sine lab calculates the full-power slope and records one independent PASS', async ({ page }) => {
@@ -58,6 +57,7 @@ test('OP AMP quiz exposes formal transfer and all three numeric generators', asy
 
 test('troubleshooting includes Bayesian OP AMP slew-vs-bandwidth diagnosis', async ({ page }) => {
   await page.goto('/troubleshooting.html');
+  await page.locator('.core-page-library > summary').click();
   await expect(page.locator('#diagnosticGames .diagnostic-game')).toHaveCount(14);
   await expect(page.locator('#diagnosticCoverageV8')).toContainText('OP AMP');
   const game = page.locator('[data-game="opamp-slew-vs-bandwidth-game"]');

@@ -3,7 +3,7 @@ const { test, expect } = require("@playwright/test");
 test("item calibration export is explicit, privacy-minimized and first-attempt only", async ({ page }) => {
   const errors = [];
   page.on("pageerror", error => errors.push(String(error)));
-  await page.goto("/19_c2000_buck_firmware_lab/");
+  await page.goto("/19_c2000_buck_firmware_lab/?layer=evidence");
 
   await expect(page.locator("#outcomeDashboard")).toHaveAttribute("data-instrument-version", "2");
   await expect(page.locator("#outcomeDashboard")).toContainText("CORE8 V2");

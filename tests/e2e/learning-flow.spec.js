@@ -5,7 +5,7 @@ test('all top-level pages load without runtime errors', async ({ page }) => {
   page.on('pageerror', error => errors.push(error.message));
   for (const path of ['/', '/beginner.html', '/labs.html', '/troubleshooting.html', '/progress.html', '/quiz.html', '/search.html', '/glossary.html', '/report.html']) {
     await page.goto(path);
-    await expect(page.locator('nav')).toBeVisible();
+    await expect(page.locator('nav.topnav')).toBeVisible();
     await expect(page.locator('#mainContent')).toBeVisible();
   }
   expect(errors).toEqual([]);
@@ -13,6 +13,7 @@ test('all top-level pages load without runtime errors', async ({ page }) => {
 
 test('lab link keeps the full lab id and selects the exact worksheet', async ({ page }) => {
   await page.goto('/labs.html');
+  await page.locator('.core-page-library > summary').click();
   const link = page.locator('a[href*="report.html?labId="]').first();
   const href = await link.getAttribute('href');
   expect(href).toMatch(/labId=[^&]+\.lab\./);
