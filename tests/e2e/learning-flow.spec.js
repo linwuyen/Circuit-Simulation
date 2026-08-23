@@ -5,7 +5,7 @@ test('all top-level pages load without runtime errors', async ({ page }) => {
   page.on('pageerror', error => errors.push(error.message));
   for (const path of ['/', '/beginner.html', '/labs.html', '/troubleshooting.html', '/progress.html', '/quiz.html', '/search.html', '/glossary.html', '/report.html']) {
     await page.goto(path);
-    await expect(page.locator('nav')).toBeVisible();
+    await expect(page.locator('nav.topnav')).toBeVisible();
     await expect(page.locator('#mainContent')).toBeVisible();
   }
   expect(errors).toEqual([]);
@@ -13,6 +13,7 @@ test('all top-level pages load without runtime errors', async ({ page }) => {
 
 test('lab link keeps the full lab id and selects the exact worksheet', async ({ page }) => {
   await page.goto('/labs.html');
+  await page.locator('.core-page-library > summary').click();
   const link = page.locator('a[href*="report.html?labId="]').first();
   const href = await link.getAttribute('href');
   expect(href).toMatch(/labId=[^&]+\.lab\./);
@@ -68,4 +69,28 @@ test('mobile pages do not overflow horizontally', async ({ page }) => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
     expect(overflow).toBe(false);
   }
+});
+
+test('core flow persists completion and resumes the next layer from home', async ({ page }) => {
+  await page.goto('/19_c2000_buck_firmware_lab/');
+  await page.evaluate(() => localStorage.removeItem('circuit-core-flow-v1'));
+  await page.reload();
+
+  await expect(page.locator('[data-core-layer-panel="physics"]')).toBeVisible();
+  await page.locator('[data-physics-predict="lower"]').click();
+  await page.locator('#inductanceRange').fill('250');
+  const complete = page.locator('[data-core-footer="physics"] [data-core-complete]');
+  await expect(complete).toBeEnabled();
+  await complete.click();
+  await expect(page.locator('[data-core-layer-panel="sensing"]')).toBeVisible();
+  await expect(page.locator('[data-core-step="physics"]')).toHaveAttribute('data-complete', '1');
+
+  await page.reload();
+  await expect(page.locator('[data-core-layer-panel="sensing"]')).toBeVisible();
+  await expect(page.locator('[data-layer-coach="sensing"]')).toHaveAttribute('data-answered', '0');
+
+  await page.goto('/');
+  await expect(page.locator('[data-core-resume]')).toHaveAttribute('href', '19_c2000_buck_firmware_lab/index.html?layer=sensing');
+  await expect(page.locator('[data-journey-stage="physics"]')).toHaveClass(/is-complete/);
+  await expect(page.locator('[data-journey-stage="sensing"]')).toHaveClass(/is-active/);
 });

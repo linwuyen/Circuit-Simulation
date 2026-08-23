@@ -7,7 +7,8 @@ test.beforeEach(async ({ page }) => {
 
 test('progress exposes uncertainty and measurement coverage instead of silent green', async ({ page }) => {
   await page.goto('/progress.html');
-  await expect(page.locator('#mainContent')).toContainText('VERY LOW evidence');
+  await expect(page.locator('.core-page-resume')).toContainText('0/8 層');
+  await expect(page.locator('.core-page-library')).not.toHaveAttribute('open', '');
   await expect(page.locator('#mainContent')).toContainText('Measurement coverage matrix');
   await expect(page.locator('#coverageMatrix')).toContainText('buck.current-ripple.relationship');
   await expect(page.locator('#coverageMatrix')).toContainText('verified');

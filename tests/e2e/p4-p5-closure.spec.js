@@ -22,7 +22,7 @@ test('P4-A/P4-B physical workspaces are fail-closed by default', async ({ page }
 });
 
 test('P4-C learner study export is available without exposing raw answers', async ({ page }) => {
-  await page.goto('/19_c2000_buck_firmware_lab/');
+  await page.goto('/19_c2000_buck_firmware_lab/?layer=evidence');
   await expect(page.locator('#outcomeStudyExport')).toBeVisible();
   await expect(page.locator('#outcomeStudyExport')).toContainText('不含題目、答案');
   await page.locator('#outcomeParticipantId').fill('p_001');

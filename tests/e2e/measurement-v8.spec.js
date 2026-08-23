@@ -58,6 +58,7 @@ test('FOC has a seeded family and the prerequisite DAG changes sequencing eligib
 
 test('Bayesian diagnostic coverage expands to fourteen real engineering scenarios', async ({ page }) => {
   await page.goto('/troubleshooting.html');
+  await page.locator('.core-page-library > summary').click();
   await expect(page.locator('#diagnosticGames .diagnostic-game')).toHaveCount(14);
   await expect(page.locator('#diagnosticCoverageV8')).toContainText('14 Bayesian cases');
   const game = page.locator('[data-game="foc-angle-game"]');

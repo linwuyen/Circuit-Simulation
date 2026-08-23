@@ -5,16 +5,15 @@ test.beforeEach(async ({ page }) => {
   await page.evaluate(() => localStorage.clear());
 });
 
-test('home exposes the six-layer Power Electronics Firmware Engineer path', async ({ page }) => {
-  const path = page.locator('#powerFirmwarePath');
-  await expect(path).toContainText('Power Electronics Firmware Engineer Path');
-  await expect(path).toContainText('Power Physics');
-  await expect(path).toContainText('System Integration');
-  await expect(path.locator('a[href="13_power_sync/index.html"]')).toHaveCount(1);
-  await expect(path.locator('a[href="14_power_protection/index.html"]')).toHaveCount(1);
-  await expect(path.locator('a[href="15_power_capstone/index.html"]')).toHaveCount(1);
-  await expect(page.locator('.v8-validity-summary')).toContainText('16/16 golden anchors pass');
-  await expect(page.locator('.v8-validity-summary')).toContainText('16/16 modules anchored');
+test('home exposes the integrated eight-layer Power Firmware path', async ({ page }) => {
+  await expect(page.locator('[data-journey-stage]')).toHaveCount(8);
+  await expect(page.locator('[data-journey-stage="physics"]')).toContainText('物理');
+  await expect(page.locator('[data-journey-stage="production"]')).toContainText('量產');
+  await expect(page.locator('[data-journey-stage="evidence"]')).toContainText('證據');
+  await expect(page.locator('.journey-specializations a[href="15_power_capstone/index.html"]')).toHaveCount(1);
+  await expect(page.locator('.journey-specializations a[href="16_control_transforms/index.html"]')).toHaveCount(1);
+  await expect(page.locator('.journey-specializations a[href="17_power_topology_control/index.html"]')).toHaveCount(1);
+  await expect(page.locator('.journey-specializations a[href="18_control_unification/index.html"]')).toHaveCount(1);
 });
 
 test('PWM ADC timing lab records independently verified same-cycle timing', async ({ page }) => {

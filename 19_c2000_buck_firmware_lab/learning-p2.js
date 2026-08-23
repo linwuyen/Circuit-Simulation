@@ -3,6 +3,7 @@
 
   const $ = selector => document.querySelector(selector);
   const $$ = selector => [...document.querySelectorAll(selector)];
+  const Flow = window.CircuitCoreFlowV1;
 
   const layerTargets = Object.freeze({
     physics: { selector: "#inductanceRange", mode: "guided" },
@@ -215,6 +216,48 @@
     const previous = root.querySelector('[data-core-prev]');
     const next = root.querySelector('[data-core-next]');
 
+    panels.forEach((panel, key) => {
+      if (!panel || panel.querySelector('[data-core-footer]')) return;
+      const footer = document.createElement('nav');
+      footer.className = 'core-layer-footer';
+      footer.dataset.coreFooter = key;
+      footer.setAttribute('aria-label', `${coreLayers.find(layer => layer.key === key)?.label || key} 完成與續學`);
+      footer.innerHTML = `
+        <button class="button" type="button" data-core-footer-prev>← 上一層</button>
+        <p data-core-footer-status aria-live="polite"></p>
+        <button class="button primary" type="button" data-core-complete>先完成預測</button>`;
+      panel.append(footer);
+    });
+
+    function syncProgress(key) {
+      const state = Flow?.snapshot() || { completed: {}, predictions: {}, interactions: {} };
+      const index = coreLayers.findIndex(layer => layer.key === key);
+      const completed = Boolean(state.completed[key]);
+      const predicted = Boolean(state.predictions[key]);
+      const interacted = Boolean(state.interactions[key]);
+      const ready = predicted && interacted;
+      buttons.forEach(button => {
+        const done = Boolean(state.completed[button.dataset.coreStep]);
+        button.classList.toggle('is-complete', done);
+        button.dataset.complete = done ? '1' : '0';
+      });
+      next.disabled = index === coreLayers.length - 1 || !completed;
+      if (index === coreLayers.length - 1) next.textContent = completed ? '八層主線完成 ✓' : '完成證據層後結束';
+      else next.textContent = completed ? `${coreLayers[index + 1].label} →` : '完成本層後繼續 →';
+      const footer = panels.get(key)?.querySelector('[data-core-footer]');
+      if (!footer) return;
+      const footerPrevious = footer.querySelector('[data-core-footer-prev]');
+      const completeButton = footer.querySelector('[data-core-complete]');
+      const footerStatus = footer.querySelector('[data-core-footer-status]');
+      footerPrevious.disabled = index === 0;
+      footerPrevious.textContent = index === 0 ? '← 已在起點' : `← ${coreLayers[index - 1].label}`;
+      completeButton.disabled = !ready && !completed;
+      completeButton.textContent = completed
+        ? (index === coreLayers.length - 1 ? '八層主線完成 ✓' : `已完成 · 前往 ${coreLayers[index + 1].label} →`)
+        : (ready ? '完成本層並繼續 →' : (predicted ? '先操作一個變因' : '先完成上方預測'));
+      footerStatus.textContent = completed ? '本層已持久化；重新整理不會遺失。' : (ready ? '已完成預測與單變因操作，可以完成本層。' : (predicted ? '預測已鎖定；請操作一個變因並觀察結果。' : '先預測方向，再操作與觀察。'));
+    }
+
     activateCoreLayer = (key, options = {}) => {
       const index = coreLayers.findIndex(layer => layer.key === key);
       if (index < 0 || !panels.get(key)) return;
@@ -236,9 +279,9 @@
       });
       status.textContent = coreLayers[index].status;
       previous.disabled = index === 0;
-      next.disabled = index === coreLayers.length - 1;
       previous.textContent = index === 0 ? '← 已在起點' : `← ${coreLayers[index - 1].label}`;
-      next.textContent = index === coreLayers.length - 1 ? '八層主線完成' : `${coreLayers[index + 1].label} →`;
+      if (Flow && options.persist !== false) Flow.select(key);
+      syncProgress(key);
 
       if (options.updateUrl !== false) {
         const url = new URL(window.location.href);
@@ -265,8 +308,60 @@
       if (index >= 0 && index < coreLayers.length - 1) activateCoreLayer(coreLayers[index + 1].key);
     });
 
+    panels.forEach((panel, key) => {
+      const footer = panel?.querySelector('[data-core-footer]');
+      footer?.querySelector('[data-core-footer-prev]')?.addEventListener('click', () => {
+        const index = coreLayers.findIndex(layer => layer.key === key);
+        if (index > 0) activateCoreLayer(coreLayers[index - 1].key);
+      });
+      footer?.querySelector('[data-core-complete]')?.addEventListener('click', () => {
+        if (!Flow) return;
+        const index = coreLayers.findIndex(layer => layer.key === key);
+        const state = Flow.snapshot();
+        if (!state.completed[key]) Flow.complete(key);
+        if (index < coreLayers.length - 1) activateCoreLayer(coreLayers[index + 1].key);
+        else syncProgress(key);
+      });
+    });
+
+    window.addEventListener('circuit:core-flow-change', () => {
+      const active = document.body.dataset.activeCoreStep || 'physics';
+      syncProgress(active);
+    });
+
     const requested = new URLSearchParams(window.location.search).get('layer');
-    activateCoreLayer(coreLayers.some(layer => layer.key === requested) ? requested : 'physics', { scroll: false, updateUrl: false });
+    const resumed = Flow?.snapshot().currentLayer;
+    const initial = coreLayers.some(layer => layer.key === requested) ? requested : (resumed || 'physics');
+    activateCoreLayer(initial, { scroll: false, updateUrl: false });
+  }
+
+  function installEvidencePrediction() {
+    const status = $('[data-evidence-predict-status]');
+    const buttons = $$('[data-evidence-predict]');
+    if (!status || !buttons.length) return;
+    const restore = Flow?.snapshot().predictions.evidence;
+    const apply = prediction => {
+      if (!prediction) return;
+      buttons.forEach(button => {
+        button.disabled = true;
+        button.classList.toggle('selected', button.dataset.evidencePredict === prediction.choice);
+        if (button.dataset.evidencePredict === 'no') button.dataset.correct = '1';
+      });
+      status.dataset.result = prediction.correct ? 'pass' : 'fail';
+      status.textContent = prediction.correct
+        ? '✓ 正確。CI/HIL/Image 只證明各自的層；BOARD_PASS 仍需要 binding 與實體量測。'
+        : '✗ Claim 過度延伸。沒有 board binding 與 physical captures，就不能宣稱實板已驗證。';
+    };
+    if (restore && !Flow?.snapshot().interactions.evidence) Flow?.recordInteraction('evidence');
+    apply(restore);
+    buttons.forEach(button => button.addEventListener('click', () => {
+      if (Flow?.snapshot().predictions.evidence) return;
+      const choice = button.dataset.evidencePredict;
+      const correct = choice === 'no';
+      Flow?.recordPrediction('evidence', choice, correct);
+      Flow?.recordInteraction('evidence');
+      apply({ choice, correct });
+    }));
   }
 
   function focusRequestedLayer() {
@@ -289,6 +384,7 @@
   installOwnershipLedger();
   installTransferBridge();
   installDiagnosticChallenge();
+  installEvidencePrediction();
   installCoreFlow();
   focusRequestedLayer();
 })();

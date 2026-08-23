@@ -10,6 +10,8 @@ test("guided Buck capstone is equation-backed across all eight layers", async ({
   await expect(page.locator('[data-core-layer-panel].is-core-active')).toHaveCount(1);
   await expect(page.locator('[data-core-layer-panel="physics"]')).toBeVisible();
   await expect(page.locator('[data-core-layer-panel="timing"]')).not.toBeVisible();
+  await expect(page.locator("[data-pipeline]").first()).not.toBeVisible();
+  await page.locator('[data-learning-mode="explain"]').click();
   await expect(page.locator("[data-pipeline]").first()).toContainText("Power Stage");
   await expect(page.locator("[data-mental-view-button]")).toHaveCount(5);
   await expect(page.locator("[data-mental-view-stage]")).toContainText("能量真的怎麼流");
@@ -20,6 +22,7 @@ test("guided Buck capstone is equation-backed across all eight layers", async ({
   await page.locator('[data-mental-view-button="authority"]').click();
   await expect(page.locator("[data-mental-view-stage]")).toContainText("PWM grant");
   await expect(page.locator(".capstone-role-note")).toContainText("Module 15 Debug Challenge Bank");
+  await page.locator('[data-learning-mode="guided"]').click();
 
   await expect(page.locator("#inductanceRange")).toBeDisabled();
   await expect(page.locator("#physicsDuty")).toHaveText("25.00 %");
@@ -170,7 +173,7 @@ test("debug mode exposes deterministic HIL and board claim is manifest-backed", 
   expect(errors).toEqual([]);
 });
 
-test("outcome benchmark records immutable core8 first attempts and home surfaces real state", async ({ page }) => {
+test("outcome benchmark stays scoped to the evidence layer", async ({ page }) => {
   await page.goto("/19_c2000_buck_firmware_lab/");
   await page.locator('[data-core-step="evidence"]').click();
   await expect(page.locator("#outcomeDashboard")).toHaveAttribute("data-profile", "core8");
@@ -181,29 +184,22 @@ test("outcome benchmark records immutable core8 first attempts and home surfaces
   await expect(page.locator("#outcomeDashboard")).toContainText("1/8 first attempts");
 
   await page.goto("/");
-  const homeOutcome = page.locator("[data-outcome-home]");
-  const advancedEvidence = page.locator(".journey-advanced-evidence");
-  await expect(homeOutcome).toBeAttached();
-  await expect(homeOutcome).not.toBeVisible();
-  await expect(advancedEvidence).not.toHaveAttribute("open", "");
-  await advancedEvidence.locator("summary").click();
-  await expect(advancedEvidence).toHaveAttribute("open", "");
-  await expect(homeOutcome).toBeVisible();
-  await expect(homeOutcome).toContainText("1/8 first attempts");
+  await expect(page.locator("[data-outcome-home]")).toHaveCount(0);
+  await expect(page.locator("[data-core-resume]")).toHaveCount(1);
+  await expect(page.locator(".journey-advanced-evidence")).not.toHaveAttribute("open", "");
 });
 
 test("homepage makes Module 19 the single core path and hides the topic library by default", async ({ page }) => {
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     await page.goto("/");
-    await expect(page.locator("[data-c2000-buck-lab-entry]")).toBeVisible();
-    await expect(page.locator('[data-c2000-buck-lab-entry] a').first()).toHaveAttribute("href", "19_c2000_buck_firmware_lab/index.html?layer=physics");
-    await expect(page.locator('[data-journey-stage] .journey-enter[data-core-layer]')).toHaveCount(8);
+    await expect(page.locator("[data-core-resume]")).toHaveCount(1);
+    await expect(page.locator('[data-journey-stage]')).toHaveCount(8);
     for (const layer of ["physics", "sensing", "feedback", "timing", "dynamics", "safety", "production", "evidence"]) {
-      await expect(page.locator(`.journey-enter[data-core-layer="${layer}"]`)).toHaveAttribute("href", `19_c2000_buck_firmware_lab/index.html?layer=${layer}`);
+      await expect(page.locator(`[data-journey-stage="${layer}"]`)).toHaveAttribute("href", `19_c2000_buck_firmware_lab/index.html?layer=${layer}`);
     }
-    await expect(page.locator("[data-topic-index]")).not.toHaveAttribute("open", "");
-    await expect(page.locator("[data-topic-index] summary")).toContainText("不是建議學習順序");
+    await expect(page.locator(".journey-topic-details")).not.toHaveAttribute("open", "");
+    await expect(page.locator(".journey-topic-details summary")).toContainText("完整模組索引");
     let overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(2);
 
