@@ -26,8 +26,9 @@
   const intervalText = interval => interval ? `${interval.low}–${interval.high}%` : "—";
 
   function nav(active){
-    const items=[["index.html","總入口","home"],["beginner.html","初學路線","beginner"],["labs.html","實驗任務","labs"],["troubleshooting.html","故障速查","trouble"],["progress.html","進度","progress"],["quiz.html","診斷測驗","quiz"],["glossary.html","詞彙表","glossary"],["search.html","搜尋","search"],["report.html","工程工作單","report"]];
-    return `<a class="skip-link" href="#mainContent">跳到主要內容</a><nav class="topnav" aria-label="主要導覽"><a class="brand" href="index.html"><span class="brand-mark">SIM</span><span>電路模擬說明</span></a><div class="navlinks">${items.map(item=>`<a ${item[2]===active?'aria-current="page" class="active"':""} href="${item[0]}">${item[1]}</a>`).join("")}</div></nav>`;
+    const items=[["index.html","學習","home"],["labs.html","練習","labs"],["troubleshooting.html","除錯","trouble"],["progress.html","進度","progress"]];
+    const tools=[["beginner.html","初學導覽"],["quiz.html","診斷測驗"],["report.html","工程工作單"],["glossary.html","詞彙表"],["search.html","搜尋"]];
+    return `<a class="skip-link" href="#mainContent">跳到主要內容</a><nav class="topnav" aria-label="主要導覽"><a class="brand" href="index.html"><span class="brand-mark">SIM</span><span>Power Firmware</span></a><div class="navlinks">${items.map(item=>`<a ${item[2]===active?'aria-current="page" class="active"':""} href="${item[0]}">${item[1]}</a>`).join("")}<details class="nav-tools"${tools.some(item=>item[0].startsWith(active))?' open':""}><summary>工具</summary><div>${tools.map(item=>`<a href="${item[0]}">${item[1]}</a>`).join("")}</div></details></div></nav>`;
   }
 
   function modelCards(module){

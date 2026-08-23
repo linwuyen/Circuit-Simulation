@@ -1,6 +1,7 @@
 (() => {
   "use strict";
   const Models = window.CircuitGuidedLayerModelsV1;
+  const Flow = window.CircuitCoreFlowV1;
   if (!Models) return;
   const $ = selector => document.querySelector(selector);
   const number = (selector, fallback = 0) => Number($(selector)?.value ?? fallback);
@@ -144,19 +145,28 @@
     inputGrid.before(coach);
 
     const status = coach.querySelector("[data-layer-coach-status]");
+    const applyAnswer = choice => {
+      const correct = choice === config.correct;
+      coach.dataset.answered = "1";
+      coach.dataset.firstAttempt = correct ? "pass" : "miss";
+      coach.querySelectorAll("[data-layer-coach-choice]").forEach(button => {
+        button.disabled = true;
+        button.dataset.selected = button.dataset.layerCoachChoice === choice ? "1" : "0";
+        if (button.dataset.layerCoachChoice === config.correct) button.dataset.correct = "1";
+      });
+      status.dataset.result = correct ? "pass" : "fail";
+      status.textContent = `${correct ? "✓ 方向正確。" : "✗ 方向先修正。"} ${config.explain} ${config.measure}`;
+      setCoachLock(config, false);
+    };
+    const restored = Flow?.snapshot().predictions[config.id];
+    if (restored) applyAnswer(restored.choice);
     coach.querySelectorAll("[data-layer-coach-choice]").forEach(button => {
       button.addEventListener("click", () => {
         if (coach.dataset.answered === "1") return;
-        const correct = button.dataset.layerCoachChoice === config.correct;
-        coach.dataset.answered = "1";
-        coach.dataset.firstAttempt = correct ? "pass" : "miss";
-        coach.querySelectorAll("[data-layer-coach-choice]").forEach(choice => {
-          choice.disabled = true;
-          if (choice.dataset.layerCoachChoice === config.correct) choice.dataset.correct = "1";
-        });
-        button.dataset.selected = "1";
-        status.textContent = `${correct ? "✓ 方向正確。" : "✗ 方向先修正。"} ${config.explain} ${config.measure}`;
-        setCoachLock(config, false);
+        const choice = button.dataset.layerCoachChoice;
+        const correct = choice === config.correct;
+        Flow?.recordPrediction(config.id, choice, correct);
+        applyAnswer(choice);
       });
     });
   }
@@ -363,11 +373,12 @@
   });
   syncCoachLocks();
 
-  ['#senseRipple','#sensePhase','#senseDivider'].forEach(id => $(id)?.addEventListener('input', renderSensing));
-  ['#feedbackInitial','#feedbackRef','#feedbackKp','#feedbackKi'].forEach(id => $(id)?.addEventListener('input', renderFeedback));
-  ['#dynLoad','#dynFc','#dynDelay'].forEach(id => $(id)?.addEventListener('input', renderDynamics));
-  ['#safeCmp','#safeXbar','#safeGate','#safeTz','#safeAdc','#safeIsr','#safeCompute'].forEach(id => $(id)?.addEventListener('input', renderSafety));
-  ['#prodTimeout','#prodMissed','#prodEnable'].forEach(id => $(id)?.addEventListener('input', renderProduction));
+  const bindLayerInputs = (selectors, layer, render) => selectors.forEach(id => $(id)?.addEventListener('input', () => { Flow?.recordInteraction(layer); render(); }));
+  bindLayerInputs(['#senseRipple','#sensePhase','#senseDivider'], 'sensing', renderSensing);
+  bindLayerInputs(['#feedbackInitial','#feedbackRef','#feedbackKp','#feedbackKi'], 'feedback', renderFeedback);
+  bindLayerInputs(['#dynLoad','#dynFc','#dynDelay'], 'dynamics', renderDynamics);
+  bindLayerInputs(['#safeCmp','#safeXbar','#safeGate','#safeTz','#safeAdc','#safeIsr','#safeCompute'], 'safety', renderSafety);
+  bindLayerInputs(['#prodTimeout','#prodMissed','#prodEnable'], 'production', renderProduction);
   ['#transferVin','#transferVout','#transferL','#transferLoad'].forEach(id => $(id)?.addEventListener('input', renderTransfer));
 
   renderSensing(); renderFeedback(); renderDynamics(); renderSafety(); renderProduction(); renderTransfer();

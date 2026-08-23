@@ -4,7 +4,7 @@ test('Power Firmware Journey keeps the 16/17 dark theme contract readable', asyn
   test.skip(testInfo.project.name !== 'desktop', 'Contrast contract only needs one desktop pass.');
   await page.goto('/');
   await expect(page.locator('[data-journey-stage]')).toHaveCount(8);
-  await expect(page.locator('.journey-system-sticky')).toBeVisible();
+  await expect(page.locator('.journey-system')).toBeVisible();
 
   const audit = await page.evaluate(() => {
     const parseRgb = value => {
@@ -58,10 +58,8 @@ test('Power Firmware Journey keeps the 16/17 dark theme contract readable', asyn
     const panel = resolvedToken('var(--panel)');
     const ink = resolvedToken('var(--ink)');
     const selectors = [
-      '[data-journey-stage="0"]',
-      '.journey-system-sticky',
-      '[data-v2-region-card]',
-      '.power-v3-card'
+      '[data-journey-stage="physics"]',
+      '.journey-system'
     ];
     const samples = selectors.map(selector => {
       const el = document.querySelector(selector);

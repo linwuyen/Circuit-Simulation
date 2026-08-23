@@ -2,6 +2,7 @@
   "use strict";
   const Models = window.CircuitGuidedPowerModelsV1;
   const Hil = window.C2000BuckHil;
+  const Flow = window.CircuitCoreFlowV1;
   if (!Models || !Hil) return;
 
   const $ = selector => document.querySelector(selector);
@@ -92,9 +93,12 @@
   }
 
   $$('[data-physics-predict]').forEach(button => button.addEventListener('click', () => {
+    const saved = Flow?.snapshot().predictions.physics;
+    if (saved && button.dataset.physicsPredict !== saved.choice) return;
     physicsPrediction = button.dataset.physicsPredict;
     $$('[data-physics-predict]').forEach(item => item.classList.toggle('selected', item === button));
     const pass = physicsPrediction === 'lower';
+    Flow?.recordPrediction('physics', physicsPrediction, pass);
     const status = $('[data-physics-predict-status]');
     status.dataset.result = pass ? 'pass' : 'fail';
     status.textContent = pass
@@ -102,10 +106,11 @@
       : '方向先修正：同樣 vL 下，L 變大會讓 di/dt 變小。假設仍是 ideal CCM。真板先量：switch node 與 iL ripple；不要先用 controller 參數解釋 switching physics。';
     $('[data-physics-control]').disabled = false;
     $('[data-play-cycle]').disabled = false;
+    $$('[data-physics-predict]').forEach(item => { item.disabled = true; });
     renderPhysics();
   }));
 
-  ['#inductanceRange', '#physicsVin', '#physicsVout', '#physicsFsw'].forEach(selector => $(selector).addEventListener('input', renderPhysics));
+  ['#inductanceRange', '#physicsVin', '#physicsVout', '#physicsFsw'].forEach(selector => $(selector).addEventListener('input', () => { Flow?.recordInteraction('physics'); renderPhysics(); }));
 
   $('[data-play-cycle]').addEventListener('click', () => {
     const model = renderPhysics();
@@ -173,9 +178,12 @@
   }
 
   $$('[data-timing-predict]').forEach(button => button.addEventListener('click', () => {
+    const saved = Flow?.snapshot().predictions.timing;
+    if (saved && button.dataset.timingPredict !== saved.choice) return;
     timingPrediction = button.dataset.timingPredict;
     $$('[data-timing-predict]').forEach(item => item.classList.toggle('selected', item === button));
     const pass = timingPrediction === 'next';
+    Flow?.recordPrediction('timing', timingPrediction, pass);
     const status = $('[data-timing-predict-status]');
     status.dataset.result = pass ? 'pass' : 'fail';
     status.textContent = pass
@@ -184,12 +192,13 @@
     $('[data-timing-control]').disabled = false;
     $('[data-timing-fault]').disabled = false;
     $('[data-timing-transfer]').disabled = false;
+    $$('[data-timing-predict]').forEach(item => { item.disabled = true; });
     renderTiming();
   }));
 
-  ['#computeRange', '#timingFsw', '#timingFc', '#timingAdc', '#timingIsr'].forEach(selector => $(selector).addEventListener('input', renderTiming));
-  $('[data-timing-fault]').addEventListener('click', () => { $('#timingFsw').value = '100'; $('#computeRange').value = '9'; renderTiming(); });
-  $('[data-timing-transfer]').addEventListener('click', () => { $('#timingFsw').value = '200'; $('#computeRange').value = '4'; renderTiming(); });
+  ['#computeRange', '#timingFsw', '#timingFc', '#timingAdc', '#timingIsr'].forEach(selector => $(selector).addEventListener('input', () => { Flow?.recordInteraction('timing'); renderTiming(); }));
+  $('[data-timing-fault]').addEventListener('click', () => { $('#timingFsw').value = '100'; $('#computeRange').value = '9'; Flow?.recordInteraction('timing'); renderTiming(); });
+  $('[data-timing-transfer]').addEventListener('click', () => { $('#timingFsw').value = '200'; $('#computeRange').value = '4'; Flow?.recordInteraction('timing'); renderTiming(); });
 
   const scenarioButtons = $$('[data-scenario]');
   const faultNames = [
@@ -231,6 +240,9 @@
     ? 'PASS · clear-fault 是一次性 token：不安全時拒絕、held level 不重播、release → assert 的新 token 才能 re-arm。'
     : 'FAIL · fault-clear one-shot contract 未閉合。';
 
+  const savedPredictions = Flow?.snapshot().predictions || {};
+  if (savedPredictions.physics) $(`[data-physics-predict="${savedPredictions.physics.choice}"]`)?.click();
+  if (savedPredictions.timing) $(`[data-timing-predict="${savedPredictions.timing.choice}"]`)?.click();
   setMode('guided');
   renderPhysics();
   renderTiming();

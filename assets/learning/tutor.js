@@ -106,6 +106,17 @@
     return { tag: "主題總覽", goal: ctx.module.oneLine, action: first ? first.action : "先選一個最小模擬頁操作。", result: first ? first.expectedObservation : ctx.module.whyUseful, reportLab: ctx.module.labs[0] || null };
   }
 
+  function contextNavigation(ctx) {
+    const rows = [
+      { ref: ctx.module.entry, title: "主題入口" },
+      ...(ctx.module.lessons || []).map(item => ({ ref: item.href, title: item.title })),
+      ...(ctx.module.labs || []).map(item => ({ ref: item.href, title: item.title })),
+      ...(ctx.module.faults || []).map(item => ({ ref: item.href, title: item.symptom }))
+    ].filter((row, index, all) => row.ref && all.findIndex(candidate => candidate.ref === row.ref) === index);
+    const index = Math.max(0, rows.findIndex(row => row.ref === ctx.ref));
+    return { previous: rows[index - 1] || null, current: rows[index] || rows[0], next: rows[index + 1] || null };
+  }
+
   function relatedFaults(module) {
     return module.faults.slice(0, 3).map(fault => '<li><a href="' + rel(fault.href) + '">' + esc(fault.symptom) + '</a><span>' + esc(fault.cause) + '</span></li>').join("");
   }
@@ -176,6 +187,8 @@
     root.className = "clt-root";
     root.dataset.mode = mode;
     root.innerHTML = '<button class="clt-button" type="button" aria-expanded="false">教學助手</button><aside class="clt-panel" aria-label="教學助手"><div class="clt-head"><div><span class="clt-tag">' + esc(ctx.module.tag) + '</span><h2>' + esc(contextTitle(ctx)) + '</h2></div><button class="clt-close" type="button" aria-label="關閉">×</button></div><div class="clt-body"><div class="clt-toggle"><button type="button" data-clt-mode="beginner">新手模式</button><button type="button" data-clt-mode="engineering">工程模式</button></div><section class="clt-section"><h3>一句話先懂</h3><p>' + esc(ctx.module.oneLine) + '</p></section><section class="clt-section"><h3>' + esc(main.tag) + '</h3><p><b>目標：</b>' + esc(main.goal) + '</p><p><b>操作：</b>' + esc(main.action) + '</p><p><b>判讀：</b>' + esc(main.result) + '</p></section><section class="clt-section"><h3>本頁驗收</h3><div class="clt-checks">' + steps.map(step => '<label class="clt-check"><input type="checkbox" data-clt-check="' + step[0] + '"' + (checks[step[0]] ? " checked" : "") + '><span>' + esc(step[1]) + '</span></label>').join("") + '</div><div class="clt-proof"><b>Canonical Evidence ID</b><code>' + esc(itemId) + '</code><span class="clt-muted">Simulator snapshots: ' + Number(evidence.machineCount || 0) + '</span></div></section><section class="clt-section clt-engineering"><h3>相關故障</h3><ul class="clt-mini-list">' + relatedFaults(ctx.module) + '</ul></section><section class="clt-section clt-engineering"><h3>相關詞彙</h3><ul class="clt-mini-list">' + glossaryHits(curriculum, ctx.module) + '</ul></section><div class="clt-grid"><a class="clt-link primary" href="' + rel(ctx.module.entry) + '">主題入口</a><a class="clt-link" href="' + rel("labs.html") + '">實驗任務</a><a class="clt-link" href="' + rel("troubleshooting.html") + '">故障速查</a><a class="clt-link" href="' + rel("glossary.html") + '">詞彙表</a><a class="clt-link" href="' + rel("search.html") + '">搜尋</a><a class="clt-link" href="' + rel("report.html" + (reportLabId ? "?labId=" + encodeURIComponent(reportLabId) : "")) + '">寫工作單</a></div></div></aside>';
+    const position = contextNavigation(ctx);
+    root.querySelector(".clt-grid")?.insertAdjacentHTML("beforebegin", `<section class="clt-section"><h3>課內動線</h3><div class="clt-grid">${position.previous ? `<a class="clt-link" href="${rel(position.previous.ref)}">← ${esc(position.previous.title)}</a>` : '<span class="clt-link" aria-disabled="true">← 已在起點</span>'}<span class="clt-proof"><b>目前</b>${esc(position.current.title)}</span>${position.next ? `<a class="clt-link primary" href="${rel(position.next.ref)}">${esc(position.next.title)} →</a>` : '<a class="clt-link primary" href="' + rel("index.html") + '">回主線 →</a>'}</div></section>`);
     document.body.appendChild(root);
     setMode(mode, root);
 

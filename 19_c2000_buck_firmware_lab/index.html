@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="../assets/learning/learning.css">
   <link rel="stylesheet" href="../assets/learning/learning-v3.css">
   <link rel="stylesheet" href="lab.css">
+  <link rel="stylesheet" href="core-flow-v1.css">
 </head>
 <body class="cl-theme-1617">
   <main class="shell lab-shell">
@@ -47,7 +48,7 @@
       </div>
     </section>
 
-    <section class="lab-panel" data-show-modes="guided explain firmware debug sandbox">
+    <section class="lab-panel" data-show-modes="explain firmware debug sandbox">
       <div class="section-kicker">STICKY MENTAL MODEL</div>
       <h2>一條控制迴路，兩條權限路徑</h2>
       <div class="pipeline" data-pipeline>
@@ -188,7 +189,7 @@
       <p class="truth-box" id="faultClearContract"></p>
     </section>
 
-    <section class="lab-panel outcome-panel" data-show-modes="guided debug sandbox">
+    <section class="lab-panel outcome-panel" data-core-support="evidence" data-show-modes="guided debug sandbox">
       <div class="section-kicker">LEARNING OUTCOME · REAL FIRST ATTEMPTS</div><h2>PRE → POST → R1/R2/R3/R4</h2>
       <p>不同 phase 使用 content-disjoint unseen variants；第一次答案 immutable。POST 之後自動產生 1/7/30/90 天 retention due date，資料寫入 `circuit-learning-state-v5`。</p>
       <div class="metric-grid" id="outcomeDashboard"></div>
@@ -214,6 +215,14 @@
     <section class="lab-panel" data-core-layer-panel="evidence" data-show-modes="guided explain firmware debug sandbox">
       <div class="section-kicker">08 · EVIDENCE / CAPSTONE</div><h2>每一層只能證明自己的事情</h2>
       <div class="pipeline verification-pipeline"><span>PHYSICS<br><small>equation invariants</small></span><i>→</i><span>HOST SIL<br><small>same C controller</small></span><i>→</i><span>HIL<br><small>deterministic faults</small></span><i>→</i><span>TI IMAGE<br><small>.out/.map/.hex</small></span><i>→</i><span>BOARD BINDING<br><small>9 verified sources</small></span><i>→</i><span>BOARD<br><small>8 physical artifacts</small></span></div>
+      <div class="guided-example core-evidence-check">
+        <p><b>最後一個 truth boundary：</b>CI、SIL、HIL 與 target image 都 PASS，能否直接宣稱實板已驗證？</p>
+        <div class="prediction-row" aria-label="證據層預測">
+          <button type="button" data-evidence-predict="no">不能；仍需 binding 與 physical captures</button>
+          <button type="button" data-evidence-predict="yes">可以；CI PASS 已足夠</button>
+        </div>
+        <p class="prediction-status" data-evidence-predict-status aria-live="polite">先判斷 claim boundary，才完成八層主線。</p>
+      </div>
     </section>
   </main>
 
@@ -223,6 +232,7 @@
   <script src="../assets/learning/outcome-benchmark-v1.js"></script>
   <script src="../assets/learning/outcome-session-v1.js"></script>
   <script src="../assets/learning/board-evidence-v1.js"></script>
+  <script src="../assets/learning/core-flow-v1.js"></script>
   <script src="hil/hil-models.js"></script>
   <script src="lab.js"></script>
   <script src="layer-live.js"></script>
