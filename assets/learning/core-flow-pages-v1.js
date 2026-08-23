@@ -99,8 +99,9 @@
     if (!main || !list) return;
     const cards = [...list.querySelectorAll(":scope > .quiz-card")];
     if (!cards.length) return;
-    const questionId = card => card.querySelector("[data-question]")?.dataset.question || "";
-    let index = Math.max(0, cards.findIndex(card => questionId(card) === view.questionId));
+    const cardKey = card => card.querySelector("[data-family]")?.dataset.family || card.querySelector("[data-question]")?.dataset.question || card.dataset.currentQuestion || "";
+    const matched = cards.findIndex(card => cardKey(card) === view.cardKey);
+    let index = matched >= 0 ? matched : Math.max(0, Math.min(cards.length - 1, view.index || 0));
     let pager = main.querySelector(".core-quiz-pager");
     if (!pager) {
       pager = document.createElement("nav");
@@ -110,7 +111,8 @@
     }
     const show = next => {
       index = Math.max(0, Math.min(cards.length - 1, next));
-      view.questionId = questionId(cards[index]);
+      view.index = index;
+      view.cardKey = cardKey(cards[index]);
       cards.forEach((card, cardIndex) => { card.hidden = cardIndex !== index; });
       const position = `${index + 1}/${cards.length}`;
       const label = pager.querySelector("[data-quiz-position]");
@@ -128,7 +130,7 @@
   Learning.renderQuiz = function renderCoreQuiz(rootId) {
     previousQuiz(rootId);
     const root = document.getElementById(rootId);
-    const view = { questionId: "" };
+    const view = { cardKey: "", index: 0 };
     simplifyQuiz(root, view);
     const observer = new MutationObserver(() => global.requestAnimationFrame(() => simplifyQuiz(root, view)));
     observer.observe(root, { childList: true, subtree: true });

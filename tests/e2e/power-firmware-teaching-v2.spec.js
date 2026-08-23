@@ -24,10 +24,10 @@ test('top-level learning pages prioritize one current action and collapse the li
   await expect(page.locator('.quiz-card:visible')).toHaveCount(1);
   await expect(page.locator('.core-quiz-pager')).toBeVisible();
   await page.locator('[data-quiz-next]').click();
-  const secondQuestion = await page.locator('.quiz-card:visible [data-question]').first().getAttribute('data-question');
+  const secondFamily = await page.locator('.quiz-card:visible [data-family]').first().getAttribute('data-family');
   await page.locator('.quiz-card:visible [data-option]').first().click();
   await expect(page.locator('.quiz-card:visible')).toHaveCount(1);
-  await expect(page.locator('.quiz-card:visible [data-question]').first()).toHaveAttribute('data-question', secondQuestion);
+  await expect(page.locator('.quiz-card:visible [data-family]').first()).toHaveAttribute('data-family', secondFamily);
   await expect(page.locator('[data-quiz-position]')).toContainText('2/');
 });
 
