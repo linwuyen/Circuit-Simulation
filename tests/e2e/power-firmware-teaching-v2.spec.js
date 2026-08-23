@@ -8,7 +8,7 @@ test('top-level learning pages prioritize one current action and collapse the li
   await expect(page.locator('.core-page-library .lab')).toHaveCount(16);
 
   await page.goto('/labs.html');
-  await expect(page.locator('.core-page-resume')).toContainText('目前層');
+  await expect(page.locator('.core-page-resume')).toContainText('RECOMMENDED NOW');
   await expect(page.locator('.core-page-library')).not.toHaveAttribute('open', '');
   expect(await page.locator('#labGrid .lab').count()).toBeGreaterThanOrEqual(50);
 
