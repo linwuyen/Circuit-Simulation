@@ -13,7 +13,7 @@ test('top-level learning pages prioritize one current action and collapse the li
   expect(await page.locator('#labGrid .lab').count()).toBeGreaterThanOrEqual(50);
 
   await page.goto('/troubleshooting.html');
-  await expect(page.locator('.core-page-resume')).toContainText('先量第一個分歧點');
+  await expect(page.locator('.core-page-resume')).toContainText('DEBUG ROUTINE');
   await expect(page.locator('.core-page-library')).not.toHaveAttribute('open', '');
 
   await page.goto('/progress.html');
