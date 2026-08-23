@@ -93,28 +93,34 @@
     wrapNodes(main, optional, "進階證據：coverage、CI、retention 與狀態備份", "core-page-library");
   };
 
-  function simplifyQuiz(root) {
+  function simplifyQuiz(root, view) {
     const main = root?.querySelector("main");
     const list = main?.querySelector(".quiz-list");
-    if (!main || !list || list.dataset.paged === "1") return;
-    list.dataset.paged = "1";
+    if (!main || !list) return;
     const cards = [...list.querySelectorAll(":scope > .quiz-card")];
     if (!cards.length) return;
-    let index = 0;
-    const pager = document.createElement("nav");
-    pager.className = "core-quiz-pager";
-    pager.innerHTML = '<button class="button" type="button" data-quiz-prev>← 上一題</button><span data-quiz-position></span><button class="button" type="button" data-quiz-next>下一題 →</button>';
-    list.after(pager);
+    const questionId = card => card.querySelector("[data-question]")?.dataset.question || "";
+    let index = Math.max(0, cards.findIndex(card => questionId(card) === view.questionId));
+    let pager = main.querySelector(".core-quiz-pager");
+    if (!pager) {
+      pager = document.createElement("nav");
+      pager.className = "core-quiz-pager";
+      pager.innerHTML = '<button class="button" type="button" data-quiz-prev>← 上一題</button><span data-quiz-position></span><button class="button" type="button" data-quiz-next>下一題 →</button>';
+      list.after(pager);
+    }
     const show = next => {
       index = Math.max(0, Math.min(cards.length - 1, next));
+      view.questionId = questionId(cards[index]);
       cards.forEach((card, cardIndex) => { card.hidden = cardIndex !== index; });
-      pager.querySelector("[data-quiz-position]").textContent = `${index + 1}/${cards.length}`;
+      const position = `${index + 1}/${cards.length}`;
+      const label = pager.querySelector("[data-quiz-position]");
+      if (label.textContent !== position) label.textContent = position;
       pager.querySelector("[data-quiz-prev]").disabled = index === 0;
       pager.querySelector("[data-quiz-next]").disabled = index === cards.length - 1;
     };
-    pager.querySelector("[data-quiz-prev]").addEventListener("click", () => show(index - 1));
-    pager.querySelector("[data-quiz-next]").addEventListener("click", () => show(index + 1));
-    show(0);
+    pager.querySelector("[data-quiz-prev]").onclick = () => show(index - 1);
+    pager.querySelector("[data-quiz-next]").onclick = () => show(index + 1);
+    show(index);
     const numericHead = [...main.querySelectorAll(":scope > .section-head")].find(head => head.textContent.includes("Parameterized numeric"));
     if (numericHead && numericHead.nextElementSibling) wrapNodes(main, [numericHead, numericHead.nextElementSibling], "數值開放題（進階）", "core-page-library");
   }
@@ -122,8 +128,9 @@
   Learning.renderQuiz = function renderCoreQuiz(rootId) {
     previousQuiz(rootId);
     const root = document.getElementById(rootId);
-    simplifyQuiz(root);
-    const observer = new MutationObserver(() => global.requestAnimationFrame(() => simplifyQuiz(root)));
+    const view = { questionId: "" };
+    simplifyQuiz(root, view);
+    const observer = new MutationObserver(() => global.requestAnimationFrame(() => simplifyQuiz(root, view)));
     observer.observe(root, { childList: true, subtree: true });
   };
 })(window);

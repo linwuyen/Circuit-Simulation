@@ -23,6 +23,12 @@ test('top-level learning pages prioritize one current action and collapse the li
   await page.goto('/quiz.html');
   await expect(page.locator('.quiz-card:visible')).toHaveCount(1);
   await expect(page.locator('.core-quiz-pager')).toBeVisible();
+  await page.locator('[data-quiz-next]').click();
+  const secondQuestion = await page.locator('.quiz-card:visible [data-question]').first().getAttribute('data-question');
+  await page.locator('.quiz-card:visible [data-option]').first().click();
+  await expect(page.locator('.quiz-card:visible')).toHaveCount(1);
+  await expect(page.locator('.quiz-card:visible [data-question]').first()).toHaveAttribute('data-question', secondQuestion);
+  await expect(page.locator('[data-quiz-position]')).toContainText('2/');
 });
 
 test('simplified pages stay within the document viewport', async ({ page }) => {
