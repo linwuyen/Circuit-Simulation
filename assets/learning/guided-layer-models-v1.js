@@ -20,27 +20,81 @@
     return Object.freeze({ sampledPhysicalV, adcInputV, code, maxCode, reconstructedV, quantizationErrorV: reconstructedV - sampledPhysicalV, clipped: adcInputV !== clippedV });
   }
 
-  function feedbackResponse({ vin = 48, initialV = 8, referenceV = 12, loadOhm = 6, L = 200e-6, C = 470e-6, dt = 10e-6, durationS = 0.008, kp = 0.3, ki = 100, dutyMax = 0.9 } = {}) {
-    if (!(vin > 0 && loadOhm > 0 && L > 0 && C > 0 && dt > 0 && durationS > dt)) throw new RangeError("invalid feedback parameters");
+  function feedbackResponse({
+    vin = 48,
+    initialV = 8,
+    referenceV = 12,
+    loadOhm = 6,
+    L = 200e-6,
+    C = 470e-6,
+    dt = 10e-6,
+    durationS = 0.012,
+    kp = 0.3,
+    ki = 100,
+    currentKp = 0.02,
+    currentKi = 500,
+    currentLimit = 8,
+    dutyMax = 0.9
+  } = {}) {
+    if (!(vin > 0 && loadOhm > 0 && L > 0 && C > 0 && dt > 0 && durationS > dt && currentLimit > 0 && dutyMax > 0)) {
+      throw new RangeError("invalid feedback parameters");
+    }
+
     let v = initialV;
     let iL = Math.max(0, initialV / loadOhm);
-    let integrator = 0;
+    let voltageIntegrator = 0;
+    let currentIntegrator = 0;
     let duty = clamp(referenceV / vin, 0, dutyMax);
+    let currentReference = 0;
     const points = [];
     const steps = Math.floor(durationS / dt);
+
     for (let n = 0; n <= steps; n += 1) {
       const t = n * dt;
-      const error = referenceV - v;
-      const raw = referenceV / vin + kp * error / Math.max(vin, 1) + integrator;
-      duty = clamp(raw, 0, dutyMax);
-      if ((duty > 0 && duty < dutyMax) || (duty >= dutyMax && error < 0) || (duty <= 0 && error > 0)) {
-        integrator = clamp(integrator + ki * error * dt / Math.max(vin, 1), -0.25, 0.25);
+      const voltageError = referenceV - v;
+      const voltageU = kp * voltageError + voltageIntegrator;
+      currentReference = clamp(voltageU, 0, currentLimit);
+
+      if ((currentReference > 0 && currentReference < currentLimit) ||
+          (currentReference >= currentLimit && voltageError < 0) ||
+          (currentReference <= 0 && voltageError > 0)) {
+        voltageIntegrator = clamp(voltageIntegrator + ki * voltageError * dt, 0, currentLimit);
       }
+
+      const currentError = currentReference - iL;
+      const currentU = currentKp * currentError + currentIntegrator;
+      const dutyUnsat = referenceV / vin + currentU;
+      duty = clamp(dutyUnsat, 0, dutyMax);
+
+      if ((duty > 0 && duty < dutyMax) ||
+          (duty >= dutyMax && currentError < 0) ||
+          (duty <= 0 && currentError > 0)) {
+        currentIntegrator = clamp(currentIntegrator + currentKi * currentError * dt, -0.25, 0.25);
+      }
+
       iL = Math.max(0, iL + (duty * vin - v) / L * dt);
       v = Math.max(0, v + (iL - v / loadOhm) / C * dt);
-      if (n % Math.max(1, Math.floor(steps / 120)) === 0 || n === steps) points.push(Object.freeze({ tS: t, voutV: v, iLA: iL, duty }));
+
+      if (n % Math.max(1, Math.floor(steps / 120)) === 0 || n === steps) {
+        points.push(Object.freeze({ tS: t, voutV: v, iLA: iL, currentReferenceA: currentReference, duty }));
+      }
     }
-    return Object.freeze({ points: Object.freeze(points), finalV: v, finalIL: iL, finalDuty: duty, errorV: referenceV - v });
+
+    return Object.freeze({
+      architecture: "CASCADED_VOLTAGE_CURRENT_PI",
+      points: Object.freeze(points),
+      finalV: v,
+      finalIL: iL,
+      finalCurrentReference: currentReference,
+      finalDuty: duty,
+      errorV: referenceV - v,
+      assumptions: Object.freeze([
+        "averaged CCM Buck plant",
+        "fixed reference; soft-start omitted in this layer",
+        "same voltage/current PI topology and anti-windup direction as buck_control.c",
+        "no switching ripple, ADC quantization, dead-time or sample-to-actuate delay"
+      ])
+    });
   }
 
   function dynamicsAt({ vin = 48, L = 200e-6, C = 470e-6, loadOhm = 6, frequencyHz = 10000, delayS = 10e-6 } = {}) {
