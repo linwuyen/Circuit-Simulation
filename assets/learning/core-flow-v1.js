@@ -7,11 +7,11 @@
   "use strict";
 
   const STORAGE_KEY = "circuit-core-flow-v1";
-  const VERSION = 1;
+  const VERSION = 2;
   const layers = Object.freeze([
     { key: "physics", number: "01", label: "物理", question: "開關每一拍如何搬運能量？", measurement: "switch node + iL ripple" },
     { key: "sensing", number: "02", label: "量測", question: "物理量如何變成可信的 ADC count？", measurement: "DMM → ADC pin → raw count" },
-    { key: "feedback", number: "03", label: "回授", question: "error 的方向如何改變 duty？", measurement: "reference、feedback、error、duty request" },
+    { key: "feedback", number: "03", label: "回授", question: "error 如何先變成 Iref，再由 current loop 變成 duty？", measurement: "reference、V feedback、Iref、iL、duty request" },
     { key: "timing", number: "04", label: "時序", question: "算出的 duty 何時真的生效？", measurement: "SOCA → EOC → ISR → shadow → ZERO" },
     { key: "dynamics", number: "05", label: "動態", question: "儲能與 delay 如何限制閉環？", measurement: "load step + sample-to-actuate delay" },
     { key: "safety", number: "06", label: "安全", question: "危險發生時哪條 veto 最先贏？", measurement: "fault edge → Trip Zone → gate LOW" },
@@ -25,12 +25,13 @@
   function isLayer(key) { return layerKeys.includes(key); }
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
   function emptyState() {
-    return { version: VERSION, currentLayer: layerKeys[0], completed: {}, predictions: {}, interactions: {}, updatedAt: null };
+    return { version: VERSION, currentLayer: layerKeys[0], completed: {}, predictions: {}, remediations: {}, interactions: {}, updatedAt: null };
   }
   function normalize(raw) {
     const source = raw && typeof raw === "object" ? raw : {};
     const completed = {};
     const predictions = {};
+    const remediations = {};
     const interactions = {};
     layerKeys.forEach(key => {
       const done = source.completed && source.completed[key];
@@ -43,6 +44,8 @@
           answeredAt: prediction.answeredAt || now()
         };
       }
+      const remediation = source.remediations && source.remediations[key];
+      if (remediation) remediations[key] = typeof remediation === "string" ? remediation : now();
       const interaction = source.interactions && source.interactions[key];
       if (interaction) interactions[key] = typeof interaction === "string" ? interaction : now();
     });
@@ -52,6 +55,7 @@
       currentLayer: isLayer(source.currentLayer) ? source.currentLayer : firstIncomplete,
       completed,
       predictions,
+      remediations,
       interactions,
       updatedAt: source.updatedAt || null
     };
@@ -92,6 +96,14 @@
     state.currentLayer = key;
     return write(state, "prediction");
   }
+  function recordRemediation(key, correct) {
+    if (!isLayer(key) || !correct) return snapshot();
+    const state = read();
+    if (!state.predictions[key] || state.predictions[key].correct) return clone(state);
+    if (!state.remediations[key]) state.remediations[key] = now();
+    state.currentLayer = key;
+    return write(state, "remediation");
+  }
   function recordInteraction(key) {
     if (!isLayer(key)) return snapshot();
     const state = read();
@@ -99,14 +111,28 @@
     state.currentLayer = key;
     return write(state, "interaction");
   }
+  function mastered(key) {
+    const state = read();
+    const prediction = state.predictions[key];
+    return Boolean(isLayer(key) && prediction && (prediction.correct || state.remediations[key]));
+  }
+  function needsRemediation(key) {
+    const state = read();
+    const prediction = state.predictions[key];
+    return Boolean(isLayer(key) && prediction && !prediction.correct && !state.remediations[key]);
+  }
   function ready(key) {
     const state = read();
-    return Boolean(isLayer(key) && state.predictions[key] && state.interactions[key]);
+    const prediction = state.predictions[key];
+    const conceptReady = Boolean(prediction && (prediction.correct || state.remediations[key]));
+    return Boolean(isLayer(key) && conceptReady && state.interactions[key]);
   }
   function complete(key) {
     if (!isLayer(key)) return snapshot();
     const state = read();
-    if (!state.predictions[key] || !state.interactions[key]) return clone(state);
+    const prediction = state.predictions[key];
+    const conceptReady = Boolean(prediction && (prediction.correct || state.remediations[key]));
+    if (!conceptReady || !state.interactions[key]) return clone(state);
     if (!state.completed[key]) state.completed[key] = now();
     const index = layerKeys.indexOf(key);
     state.currentLayer = layerKeys[Math.min(index + 1, layerKeys.length - 1)];
@@ -134,5 +160,5 @@
     });
   }
 
-  return Object.freeze({ STORAGE_KEY, VERSION, layers, layerKeys: Object.freeze(layerKeys), snapshot, select, recordPrediction, recordInteraction, ready, complete, progress, href, reset });
+  return Object.freeze({ STORAGE_KEY, VERSION, layers, layerKeys: Object.freeze(layerKeys), snapshot, select, recordPrediction, recordRemediation, recordInteraction, mastered, needsRemediation, ready, complete, progress, href, reset });
 });
