@@ -167,6 +167,7 @@
     if (heading) heading.textContent = 'Voltage loop 先產生 Iref，Current loop 才產生 duty';
 
     const coach = panel.querySelector('[data-layer-coach="feedback"]');
+    let syncInnerLock = () => {};
     if (coach) {
       const paragraphs = coach.querySelectorAll('p');
       if (paragraphs[0]) paragraphs[0].textContent = '負回授不是「V error 直接變 duty」：在這份 target controller 中，外電壓環先決定允許多少電流，內電流環再決定 duty。';
@@ -175,13 +176,14 @@
       if (correctButton) correctButton.textContent = 'error ↑、Iref ↑、duty 傾向 ↑';
       coach.querySelectorAll('[data-layer-coach-choice]').forEach(button => button.addEventListener('click', () => {
         requestAnimationFrame(() => {
+          syncInnerLock();
           const status = coach.querySelector('[data-layer-coach-status]');
           if (!status) return;
           const correct = button.dataset.layerCoachChoice === 'both-up';
           status.dataset.result = correct ? 'pass' : 'fail';
           status.textContent = correct
-            ? '✓ 方向正確。V error ↑ → Voltage PI 使 Iref ↑ → current error 傾向 ↑ → Current PI 讓 duty correction ↑。這條資料路徑與 buck_control.c 對齊。真板先 trace Vref / Vout / Iref / iL / duty。'
-            : '✗ 先修正資料路徑：外電壓環的輸出是 Iref，不是 duty；duty 是內電流環的輸出。先 trace Vref / Vout / Iref / iL / duty，再談 gain。';
+            ? '✓ 方向正確。r − ŷ 形成 V error；V error ↑ → Voltage PI 使 Iref ↑ → current error 傾向 ↑ → Current PI 讓 duty correction ↑。這條資料路徑與 buck_control.c 對齊。真板先 trace Vref / Vout / Iref / iL / duty。'
+            : '✗ 先修正資料路徑：r − ŷ 先進 Voltage PI，而外電壓環的輸出是 Iref，不是 duty；duty 是內電流環的輸出。先 trace Vref / Vout / Iref / iL / duty，再談 gain。';
         });
       }));
     }
@@ -194,6 +196,17 @@
       if (kiLabel) kiLabel.childNodes[0].textContent = 'Voltage Ki ';
       inputGrid.insertAdjacentHTML('beforeend', '<label>Current Kp<input id="feedbackCurrentKp" type="number" step="0.005" value="0.02"></label><label>Current Ki<input id="feedbackCurrentKi" type="number" step="50" value="500"></label>');
     }
+
+    syncInnerLock = () => {
+      const guided = document.body.dataset.activeLearningMode === 'guided';
+      const answered = coach?.dataset.answered === '1';
+      ['#feedbackCurrentKp', '#feedbackCurrentKi'].forEach(selector => {
+        const input = $(selector);
+        if (input) input.disabled = Boolean(guided && !answered);
+      });
+    };
+    document.addEventListener('buck:mode-change', syncInnerLock);
+    syncInnerLock();
 
     const architecture = document.createElement('div');
     architecture.className = 'feedback-architecture';
