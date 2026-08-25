@@ -14,11 +14,23 @@ test("sensing model quantizes and reconstructs through divider", () => {
   assert.equal(result.clipped, false);
 });
 
-test("feedback model moves an 8 V plant toward 12 V", () => {
+test("feedback model uses voltage PI -> Iref -> current PI -> duty like buck_control.c", () => {
   const result = Models.feedbackResponse();
+  assert.equal(result.architecture, "CASCADED_VOLTAGE_CURRENT_PI");
   assert.ok(result.finalV > 8);
-  assert.ok(Math.abs(result.errorV) < 1.0);
+  assert.ok(Math.abs(result.errorV) < 0.5);
+  assert.ok(result.finalCurrentReference > 0);
+  assert.ok(result.finalIL > 0);
   assert.ok(result.points.length > 20);
+  assert.ok(result.points.every(point => Number.isFinite(point.currentReferenceA)));
+  assert.ok(result.assumptions.some(text => text.includes("buck_control.c")));
+});
+
+test("feedback inner-current gain changes the command path without changing architecture", () => {
+  const slow = Models.feedbackResponse({ currentKp: 0.005, currentKi: 100, durationS: 0.002 });
+  const fast = Models.feedbackResponse({ currentKp: 0.05, currentKi: 1000, durationS: 0.002 });
+  assert.equal(slow.architecture, fast.architecture);
+  assert.notEqual(slow.finalDuty, fast.finalDuty);
 });
 
 test("dynamics model exposes LC resonance and pure-delay phase", () => {
