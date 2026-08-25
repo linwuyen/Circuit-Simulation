@@ -68,9 +68,24 @@
     URL.revokeObjectURL(link.href);
   });
 
-  loadReference();
+  function loadExtension(src, onload) {
+    const extension = document.createElement('script');
+    extension.src = src;
+    if (onload) extension.addEventListener('load', onload, { once:true });
+    document.body.appendChild(extension);
+  }
 
-  const extension = document.createElement('script');
-  extension.src = 'physical-closure-ui.js';
-  document.body.appendChild(extension);
+  function loadPrecisionTeaching() {
+    if (!document.querySelector('link[data-precision-teaching]')) {
+      const style = document.createElement('link');
+      style.rel = 'stylesheet';
+      style.href = 'precision-teaching-v1.css';
+      style.dataset.precisionTeaching = '1';
+      document.head.appendChild(style);
+    }
+    loadExtension('precision-teaching-v1.js');
+  }
+
+  loadReference();
+  loadExtension('physical-closure-ui.js', loadPrecisionTeaching);
 })();
