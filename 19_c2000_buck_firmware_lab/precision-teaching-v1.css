@@ -1,0 +1,135 @@
+.precision-card {
+  margin: 14px 0 18px;
+  padding: 16px;
+  border: 1px solid rgba(86, 211, 255, .28);
+  border-radius: 14px;
+  background: rgba(8, 22, 38, .72);
+}
+
+.precision-card h3,
+.precision-remediation h3,
+.feedback-architecture h3 {
+  margin: 0 0 10px;
+  font-size: 1.02rem;
+}
+
+.precision-summary {
+  margin: 0 0 12px;
+  font-size: 1.02rem;
+  line-height: 1.7;
+}
+
+.precision-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.precision-grid article {
+  padding: 11px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .035);
+}
+
+.precision-grid small {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--ui-muted);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.precision-grid p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.precision-chain,
+.feedback-loop-chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.precision-chain span,
+.feedback-loop-chain span {
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, .13);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .035);
+  font-size: .92rem;
+}
+
+.precision-chain i,
+.feedback-loop-chain i {
+  color: var(--ui-muted);
+  font-style: normal;
+}
+
+.feedback-architecture {
+  margin: 14px 0 18px;
+  padding: 15px;
+  border-left: 4px solid #56d3ff;
+  border-radius: 10px;
+  background: rgba(86, 211, 255, .07);
+}
+
+.feedback-code-map {
+  margin: 10px 0 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .9rem;
+  line-height: 1.55;
+}
+
+.precision-remediation {
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid rgba(255, 190, 92, .42);
+  border-radius: 12px;
+  background: rgba(255, 190, 92, .07);
+}
+
+.precision-remediation[data-pass="1"] {
+  border-color: rgba(85, 214, 139, .5);
+  background: rgba(85, 214, 139, .07);
+}
+
+.precision-remediation .prediction-row {
+  margin-top: 10px;
+}
+
+.precision-remediation-status {
+  margin: 10px 0 0;
+  color: var(--ui-muted);
+}
+
+.precision-remediation-status[data-result="pass"] {
+  color: #55d68b;
+}
+
+.precision-remediation-status[data-result="fail"] {
+  color: #ffbe5c;
+}
+
+.precision-legend {
+  margin-top: 8px;
+  color: var(--ui-muted);
+  font-size: .9rem;
+}
+
+@media (max-width: 720px) {
+  .precision-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .precision-chain,
+  .feedback-loop-chain {
+    align-items: stretch;
+  }
+
+  .precision-chain span,
+  .feedback-loop-chain span {
+    flex: 1 1 42%;
+  }
+}
