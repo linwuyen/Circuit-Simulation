@@ -83,7 +83,7 @@
       style.dataset.precisionTeaching = '1';
       document.head.appendChild(style);
     }
-    loadExtension('precision-teaching-v1.js');
+    loadExtension('precision-teaching-v1.js', () => loadExtension('core-mastery-ui-v1.js'));
   }
 
   loadReference();
