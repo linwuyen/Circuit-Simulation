@@ -38,6 +38,10 @@ body[data-active-learning-mode="guided"] [data-core-support]:not(.is-core-active
   display: none !important;
 }
 
+body[data-active-learning-mode="guided"] .lab-grid {
+  grid-template-columns: 1fr;
+}
+
 .core-evidence-check {
   margin-top: 20px;
 }
