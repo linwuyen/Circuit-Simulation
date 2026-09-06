@@ -16,6 +16,42 @@
   const MAX_MACHINE_PER_ITEM = 40;
   const STRENGTH = { none: 0, C: 1, B: 2, A: 3 };
   const memory = new Map();
+  let pending = false;
+  let corruptRaw = null;
+  let persistence = { saved: true, reason: null };
+
+  function updatePersistence(saved, reason) {
+    persistence = { saved, reason: reason || null };
+    const doc = root && root.document;
+    if (!doc || !doc.body) return;
+    let notice = doc.getElementById('learning-storage-status');
+    if (saved) { if (notice) notice.remove(); return; }
+    if (notice) return;
+    notice = doc.createElement('aside');
+    notice.id = 'learning-storage-status';
+    notice.setAttribute('role', 'alert');
+    notice.style.cssText = 'position:fixed;bottom:12px;left:12px;right:12px;z-index:10000;padding:16px;background:#fff3cd;color:#332701;border:2px solid #856404;border-radius:8px';
+    const message = doc.createElement('p');
+    message.textContent = '學習紀錄尚未儲存，關閉或重新整理可能遺失。請重試或先匯出備份。';
+    notice.appendChild(message);
+    const retry = doc.createElement('button');
+    retry.textContent = '重試儲存';
+    retry.onclick = () => retrySave();
+    notice.appendChild(retry);
+    const download = doc.createElement('button');
+    download.textContent = '匯出備份';
+    download.onclick = () => {
+      const url = root.URL.createObjectURL(new root.Blob([exportBackup()], { type: 'application/json' }));
+      const link = doc.createElement('a');
+      link.href = url; link.download = 'circuit-learning-backup.json';
+      link.click(); root.setTimeout(() => root.URL.revokeObjectURL(url), 1000);
+    };
+    notice.appendChild(download);
+    doc.body.appendChild(notice);
+  }
+
+  function exportBackup() { return pending && memory.has(KEY) ? memory.get(KEY) : JSON.stringify(load()); }
+  function retrySave() { save(load()); return { ...persistence }; }
 
   const now = () => new Date().toISOString();
   const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
@@ -30,12 +66,19 @@
   }
 
   function read(key, fallback) {
+    if (key === KEY && pending && memory.has(key)) return JSON.parse(memory.get(key));
+    let raw;
     try {
-      const raw = storage().getItem(key);
+      raw = storage().getItem(key);
       if (!raw) return fallback;
       const value = JSON.parse(raw);
+      if (key === KEY && (!value || value.schema !== SCHEMA || value.version !== VERSION)) throw new Error('Invalid learning state');
       return value == null ? fallback : value;
-    } catch (_) { return fallback; }
+    } catch (_) {
+      if (key === KEY && raw) corruptRaw = raw;
+      updatePersistence(false, raw ? 'corrupt' : 'unavailable');
+      return memory.has(key) ? JSON.parse(memory.get(key)) : fallback;
+    }
   }
 
   function emptyState() {
@@ -111,7 +154,21 @@
   function save(state) {
     const normalized = normalizeState(state);
     normalized.updatedAt = now();
-    storage().setItem(KEY, JSON.stringify(normalized));
+    const serialized = JSON.stringify(normalized);
+    memory.set(KEY, serialized);
+    pending = true;
+    try {
+      const target = root.localStorage;
+      if (corruptRaw !== null) {
+        target.setItem(KEY + '-corrupt-backup', corruptRaw);
+        corruptRaw = null;
+      }
+      target.setItem(KEY, serialized);
+      pending = false;
+      updatePersistence(true);
+    } catch (error) {
+      updatePersistence(false, error && error.name || 'unavailable');
+    }
     return normalized;
   }
 
@@ -392,11 +449,15 @@
   function resetForTests() {
     [KEY, V4_KEY, V3_KEY, V2_KEY].forEach(key => storage().removeItem(key));
     memory.clear();
+    pending = false;
+    corruptRaw = null;
+    persistence = { saved: true, reason: null };
   }
 
   const api = {
     KEY, SCHEMA, VERSION, STRENGTH,
-    emptyState, normalizeState, load, save,
+    emptyState, normalizeState, load, save, retrySave, exportBackup,
+    storageStatus: () => ({ ...persistence }),
     evidenceLevel, recordEvidence, recordStep, recordMachine, machineEvents, getEvidence,
     commitPrediction, getPrediction, predictionStatus,
     setReport, getReport, getReportHistory,

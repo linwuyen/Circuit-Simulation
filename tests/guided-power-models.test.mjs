@@ -1,10 +1,11 @@
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import path from "node:path";
 
 const require = createRequire(import.meta.url);
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const Models = require(path.join(root, "assets", "learning", "guided-power-models-v1.js"));
 
 test("ideal Buck lesson is equation-backed and volt-second balanced", () => {

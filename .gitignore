@@ -9,3 +9,10 @@ desktop.ini
 
 .cache/
 .claude/logs/
+
+node_modules/
+test-results/
+playwright-report/
+playwright-failures.jsonl
+build/
+.ci/

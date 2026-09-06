@@ -1,10 +1,11 @@
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import path from "node:path";
 
 const require = createRequire(import.meta.url);
-const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const Benchmark = require(path.join(repoRoot, "assets", "learning", "outcome-benchmark-v1.js"));
 globalThis.CircuitOutcomeBenchmarkV1 = Benchmark;
 

@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -5,7 +6,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const manifestPath = path.join(repoRoot, "19_c2000_buck_firmware_lab", "board", "board-binding.reference.json");
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 const Board = require(path.join(repoRoot, "assets", "learning", "board-evidence-v1.js"));
