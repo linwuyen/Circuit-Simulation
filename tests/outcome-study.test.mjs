@@ -1,10 +1,11 @@
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const Study = require(path.join(root, "assets", "learning", "outcome-study-v1.js"));
 
 function summary(pre, post, delta, retentionAccuracy = null, profile = "legacy4", instrumentVersion = 1) {

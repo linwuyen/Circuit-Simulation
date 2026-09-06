@@ -1,10 +1,11 @@
 #!/usr/bin/env node
+import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const Study = require(path.join(repoRoot, "assets", "learning", "outcome-study-v1.js"));
 
 const files = process.argv.slice(2).filter(arg => !arg.startsWith("--"));

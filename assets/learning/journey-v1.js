@@ -4,7 +4,6 @@
   const Flow = global.CircuitCoreFlowV1;
   if (!Learning || !Learning.renderHome || !Flow) return;
 
-  const previousRenderHome = Learning.renderHome;
   const layerMeta = {
     physics: { tag: "POWER PHYSICS", why: "用 ON/OFF、volt-second balance 與 iL 建立能量直覺。" },
     sensing: { tag: "SENSING", why: "確認 physical → AFE → ADC pin → count → engineering unit。" },
@@ -105,9 +104,9 @@
     main.querySelector(":scope > .notice")?.remove();
   }
 
-  Learning.renderHome = function renderJourney(rootId) {
-    previousRenderHome(rootId);
+  function render(rootId) {
+    Learning.renderHome(rootId);
     enhance(rootId);
-  };
-  global.CircuitJourneyV1 = { enhance };
+  }
+  global.CircuitJourneyV1 = { enhance, render };
 })(window);

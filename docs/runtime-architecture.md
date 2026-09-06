@@ -75,7 +75,7 @@ A verification record contains:
 - agreement failures, if any;
 - acceptance target/measured value/pass-fail.
 
-Current independent oracles cover Buck current ripple and ADC divider. All other simulators remain interaction evidence until an independent reference and acceptance rule exist.
+The original V6 baseline covered Buck current ripple and ADC divider. Current production also loads lab contracts and module extensions, including OP AMP, power firmware, control transforms, power topology control and control unification. Consult `lab-verification-contracts.js` and each module's `*-verification.js` for executable acceptance rules; the runtime coverage summary is the source of truth. Do not interpret the historical V6 baseline as current coverage.
 
 ## V5 state under V6 semantics
 
@@ -189,3 +189,27 @@ Tutor consumes normalized `item.id`; new/touched curriculum items should use exp
 8. A-grade evidence requires preregistration, independent agreement, acceptance and reasoning pass.
 9. Keep V5 storage compatibility unless a real schema incompatibility appears.
 10. Production pages may not reintroduce legacy learning runtimes or parallel persistence.
+## Homepage initialization
+
+`index.html` uses ordered deferred classic scripts, followed by `home-entry.js`.
+The entry checks required globals and explicitly calls `CircuitJourneyV1.render`.
+Journey exposes a render function instead of replacing `CircuitLearning.renderHome`.
+The V7/V8 verification wrappers remain compatibility adapters; a full ES-module
+conversion is not implied by this incremental change. Preserve dependency order.
+
+## Persistence failures
+
+V5 remains the storage schema. A failed write keeps the latest state in memory;
+subsequent changes read that pending state rather than the stale persisted copy.
+The page shows an unsaved notice with retry and JSON backup actions. Memory is
+session-only. A successful retry clears the notice. Invalid persisted V5 JSON or
+schema is copied to `circuit-learning-state-v5-corrupt-backup` before replacement;
+if that backup cannot be written, the original is left intact.
+
+## Reproducible checks
+
+Use `npm ci`, `npm test`, `node tools/validate-project.mjs`, and
+`node tools/audit-dynamic-visuals.mjs`. CI runs static/unit checks on Windows and
+Linux, and independently runs Chromium desktop/mobile tests and the TI firmware
+build. The architecture sections above describing V6 are historical semantics;
+current module coverage should be read from executable contracts.

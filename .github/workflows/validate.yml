@@ -10,29 +10,33 @@ permissions:
 
 jobs:
   validate:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: node tools/validate-project.mjs
+      - run: node tools/audit-dynamic-visuals.mjs
+      - run: npm test
+
+  firmware:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      - name: Install test dependencies
-        run: npm install --no-audit --no-fund
-
-      - name: Validate links, curriculum and JavaScript
-        run: node tools/validate-project.mjs
-
-      - name: Audit dynamic visualizations
-        run: node tools/audit-dynamic-visuals.mjs
-
-      - name: Run engineering and learning tests
-        run: npm test
-
+          cache: npm
+      - run: npm ci --no-audit --no-fund
       - name: Build and run C2000 Buck host SIL
         run: |
           gcc -std=c11 -Wall -Wextra -Werror \
@@ -77,6 +81,17 @@ jobs:
             build/f2838x-flash/c2000-buck-f2838x.hex
           if-no-files-found: error
 
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 

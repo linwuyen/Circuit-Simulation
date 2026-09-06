@@ -1,10 +1,11 @@
 #!/usr/bin/env node
+import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const Validation = require(path.join(repoRoot, "assets", "learning", "control-validation-v1.js"));
 
 const input = process.argv[2];
