@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  validate-platform:
     strategy:
       fail-fast: false
       matrix:
@@ -107,3 +107,18 @@ jobs:
             playwright-failures.jsonl
             test-results/
           if-no-files-found: ignore
+
+  validate:
+    if: always()
+    needs: [validate-platform, browser, firmware]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all validation jobs to pass
+        env:
+          PLATFORM_RESULT: ${{ needs.validate-platform.result }}
+          BROWSER_RESULT: ${{ needs.browser.result }}
+          FIRMWARE_RESULT: ${{ needs.firmware.result }}
+        run: |
+          test "$PLATFORM_RESULT" = success
+          test "$BROWSER_RESULT" = success
+          test "$FIRMWARE_RESULT" = success
