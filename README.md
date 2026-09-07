@@ -173,6 +173,12 @@ PWM_AUTHORITY =
 
 此 repository 只保存可公開、去產品化的通用教材。不要 commit proprietary schematic / PCB net / internal model / command payload / calibration / threshold / unsanitized measurement log。真實 board evidence 若要放進 public repo，必須先 sanitized；learner study bundle 只保留匿名 metrics。
 
+## 實作訓練擴充
+
+Module 15 現在提供 [CCM/DCM 與量測重播](15_power_capstone/lab_sandbox.html#training-workbench)、[盲測維修與新工況驗證](15_power_capstone/lab_multifault.html#repair-training)，以及四類錯題短實驗。
+完整備份包含八層主線進度；匿名試用統計由學員自願下載，不自動上傳。
+模型邊界、重播格式與真人試用流程見 [實作訓練文件](docs/training-lab.md)。
+
 ## Validation
 
 ```bash

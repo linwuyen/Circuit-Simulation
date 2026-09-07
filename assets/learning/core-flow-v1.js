@@ -20,6 +20,10 @@
   ]);
   const layerKeys = layers.map(layer => layer.key);
   let memoryState = null;
+  let pending = false;
+  let corruptRaw = null;
+  const Evidence = root.CircuitEvidence || (typeof require === "function" ? require("./learning-evidence.js") : null);
+  function notifyStorage() { Evidence?.refreshStorageStatus?.(); }
 
   function now() { return new Date().toISOString(); }
   function isLayer(key) { return layerKeys.includes(key); }
@@ -61,10 +65,18 @@
     };
   }
   function read() {
+    if (pending && memoryState) return normalize(memoryState);
+    let saved;
     try {
-      const saved = root.localStorage && root.localStorage.getItem(STORAGE_KEY);
-      if (saved) return normalize(JSON.parse(saved));
-    } catch (_) {}
+      saved = root.localStorage && root.localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (!parsed || ![1, VERSION].includes(parsed.version)) throw new Error("Invalid core flow state");
+        return normalize(parsed);
+      }
+    } catch (_) {
+      if (saved) corruptRaw = saved;
+    }
     return normalize(memoryState || emptyState());
   }
   function emit(state, reason) {
@@ -77,11 +89,41 @@
     const state = normalize({ ...next, updatedAt: now() });
     state.updatedAt = now();
     memoryState = state;
-    try {
-      if (root.localStorage) root.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch (_) {}
+    pending = true;
+    flush();
     emit(state, reason);
     return clone(state);
+  }
+  function flush() {
+    if (!pending) return true;
+    try {
+      if (!root.localStorage) throw new Error("Storage unavailable");
+      if (corruptRaw !== null) {
+        root.localStorage.setItem(STORAGE_KEY + "-corrupt-backup", corruptRaw);
+        corruptRaw = null;
+      }
+      root.localStorage.setItem(STORAGE_KEY, JSON.stringify(memoryState));
+      pending = false;
+    } catch (_) { pending = true; }
+    notifyStorage();
+    return !pending;
+  }
+  function restore(raw) {
+    if (!raw || ![1, VERSION].includes(raw.version)) throw new Error("Unsupported core flow backup");
+    const incoming = normalize(raw), current = read();
+    for (const key of layerKeys) {
+      const original = current.predictions[key];
+      if (!original && incoming.predictions[key]) current.predictions[key] = incoming.predictions[key];
+      const compatible = !original || (incoming.predictions[key]?.choice === original.choice && incoming.predictions[key]?.correct === original.correct);
+      if (compatible && incoming.remediations[key] && !current.remediations[key]) current.remediations[key] = incoming.remediations[key];
+      if (incoming.interactions[key] && !current.interactions[key]) current.interactions[key] = incoming.interactions[key];
+      const prediction = current.predictions[key];
+      if (incoming.completed[key] && prediction && (prediction.correct || current.remediations[key]) && current.interactions[key]) {
+        current.completed[key] ||= incoming.completed[key];
+      }
+    }
+    current.currentLayer = layerKeys.find(key => !current.completed[key]) || layerKeys.at(-1);
+    return write(current, "restore");
   }
   function snapshot() { return clone(read()); }
   function select(key) {
@@ -149,7 +191,8 @@
   }
   function reset() {
     memoryState = emptyState();
-    try { if (root.localStorage) root.localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+    pending = true;
+    flush();
     emit(memoryState, "reset");
     return clone(memoryState);
   }
@@ -160,5 +203,9 @@
     });
   }
 
-  return Object.freeze({ STORAGE_KEY, VERSION, layers, layerKeys: Object.freeze(layerKeys), snapshot, select, recordPrediction, recordRemediation, recordInteraction, mastered, needsRemediation, ready, complete, progress, href, reset });
+  Evidence?.registerStore?.("coreFlow", {
+    key: STORAGE_KEY, snapshot, restore, retry: flush, isPending: () => pending,
+    validate: raw => Boolean(raw && [1, VERSION].includes(raw.version) && typeof raw.predictions === "object")
+  });
+  return Object.freeze({ storageStatus: () => ({ saved: !pending }), retrySave: flush, restore, STORAGE_KEY, VERSION, layers, layerKeys: Object.freeze(layerKeys), snapshot, select, recordPrediction, recordRemediation, recordInteraction, mastered, needsRemediation, ready, complete, progress, href, reset });
 });
