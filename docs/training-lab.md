@@ -65,3 +65,5 @@ node tools/learning/summarize-training-pilot.mjs p-a.training-pilot.json p-b.tra
 - `tests/training-storage.test.mjs`：兩套儲存失敗、恢復與首答保留。
 - `tests/training-pilot.test.mjs`：匿名 allowlist、缺失資料、分母。
 - `tests/e2e/training-lab.spec.js`：表單、SVG、匯入/匯出、備份、手機版。
+
+正式測驗備份：全新裝置還原完整 outcomeV1（含 PRE/POST/retention）。若本機已有正式首答，保留本機整份 protocol，外來版本保存在 outcomeBackupArchives，並在匯入結果明示；不混合不同 seed 或快取成績。

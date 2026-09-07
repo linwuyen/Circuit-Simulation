@@ -45,3 +45,17 @@ test('full restore preserves local first answers while restoring other mainline 
   assert.equal(target.Evidence.load().evidence.lab.level, 2);
   const blank = fixture(); blank.Evidence.merge(backup); assert.equal(blank.Flow.progress().done, 1);
 });
+
+test('full backup restores formal outcomes on a fresh device and archives conflicting first attempts', () => {
+  const source = fixture(), state = source.Evidence.load();
+  state.benchmark.outcomeV1 = { seed: 1, profile: 'core8', instrumentVersion: 2, sessions: { pre: { firstAttempts: { a: { correct: true } } } }, retention: { r1: 'due' } };
+  source.Evidence.save(state);
+  const backup = JSON.parse(source.Evidence.exportBackup());
+  const target = fixture(); target.Evidence.merge(backup);
+  assert.equal(target.Evidence.load().benchmark.outcomeV1.seed, 1);
+  assert.equal(target.Evidence.load().benchmark.outcomeV1.retention.r1, 'due');
+  const conflict = structuredClone(backup); conflict.benchmark.outcomeV1.seed = 2;
+  target.Evidence.merge(conflict);
+  assert.equal(target.Evidence.load().benchmark.outcomeV1.seed, 1);
+  assert.equal(target.Evidence.load().benchmark.outcomeBackupArchives[0].seed, 2);
+});

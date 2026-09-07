@@ -466,6 +466,25 @@
     Object.entries(payload.openResponses || {}).forEach(([id, items]) => { state.openResponses[id] = unionById(state.openResponses[id], items); });
     Object.entries(payload.diagnosticGames || {}).forEach(([id, items]) => { state.diagnosticGames[id] = unionById(state.diagnosticGames[id], items); });
     Object.assign(state.identityAliases, payload.identityAliases || {});
+    // A fresh device must restore the complete formal PRE/POST/retention protocol.
+    // If this device already has first attempts, keep that protocol intact rather
+    // than mixing cached scores or seeds; preserve the incoming protocol in backup archives.
+    for (const [key, incoming] of Object.entries(payload.benchmark || {})) {
+      if (["trainingPractice", "__proto__", "constructor", "prototype"].includes(key)) continue;
+      if (key === "outcomeV1") {
+        const current = state.benchmark.outcomeV1;
+        const hasAttempts = current && Object.values(current.sessions || {}).some(phase =>
+          Object.keys(phase?.firstAttempts || {}).length > 0 || (phase?.retries || []).length > 0);
+        if (!hasAttempts) state.benchmark.outcomeV1 = clone(incoming);
+        else if (stableJson(current) !== stableJson(incoming)) {
+          state.benchmark.outcomeBackupArchives ||= [];
+          if (!state.benchmark.outcomeBackupArchives.some(record => stableJson(record) === stableJson(incoming))) {
+            state.benchmark.outcomeBackupArchives.push(clone(incoming));
+          }
+          state.benchmark.outcomeImportPreservedLocal = true;
+        }
+      } else if (!Object.hasOwn(state.benchmark, key)) state.benchmark[key] = clone(incoming);
+    }
     // Preserve experiment logs carried by full backups without replacing local first attempts.
     const imported = payload.benchmark && payload.benchmark.trainingPractice;
     if (imported && Array.isArray(imported.sessions)) {

@@ -24,8 +24,9 @@
   $("training-backup").onclick = () => { Records.download("circuit-learning-backup.json", Evidence.exportBackup()); $("pilot-status").textContent = "完整備份含個人作答、實驗與八層進度；與匿名試用統計分開保存。"; };
   $("training-restore").onchange = async event => {
     try {
-      Evidence.merge(await Records.readFile(event.target.files[0]));
-      refresh(); $("pilot-status").textContent = "已合併學習紀錄與主線進度，保留本機首次作答。重新整理可載入最近的實驗。";
+      const restored = Evidence.merge(await Records.readFile(event.target.files[0]));
+      refresh(); $("pilot-status").textContent = "已合併學習紀錄與主線進度，保留本機首次作答。重新整理可載入最近的實驗。" +
+        (restored.benchmark.outcomeImportPreservedLocal ? " 此裝置已有正式測驗首答，因此保留本機測驗；外來測驗已保存在完整備份的 outcomeBackupArchives，未混合成績。" : "");
     } catch (error) { $("pilot-status").textContent = error.message; }
     event.target.value = "";
   };
