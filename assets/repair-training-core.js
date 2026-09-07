@@ -54,7 +54,7 @@
       return clone({ seed, modelVersion: VERSION, engineVersion: Engine.version,
         symptom: "輸出與命令不一致或偶爾掉拍。系統有兩個根因；先量測，再修正，最後換工況驗證。",
         targetV: 36, initialConditions: { vin: 80, finalLoadOhm: 6 }, measurements, repairs,
-        diagnosisCommitted: diagnosis !== null, revealed, attempts,
+        diagnosisCommitted: diagnosis !== null, diagnosis: diagnosis ? clone(diagnosis) : null, revealed, attempts,
         result: last || null, phase: last?.passed ? "complete" : diagnosis ? "repair" : "diagnose",
         measurementCost: measurements.length, elapsedSeconds: Math.max(0, Math.round((Date.now() - startedAt) / 1000)) });
     }

@@ -63,6 +63,9 @@ test('blind repair locks first judgment, fixes real faults and validates changed
   for (const id of ['seq','duty']) await page.locator(`#repair-evidence input[value="${id}"]`).check();
   await page.locator('#repair-submit').click();
   await expect(page.locator('#repair-submit')).toBeDisabled();
+  await page.reload();
+  await expect(page.locator('#repair-status')).toContainText('續接');
+  await expect(page.locator('#repair-guesses input[value="staleCommand"]')).toBeChecked();
   for (const id of ['staleCommand','dutyClamp']) await page.locator(`[data-repair="${id}"]`).click();
   await page.locator('#repair-verify').click();
   await expect(page.locator('#repair-status')).toContainText('完成本次盲測維修');

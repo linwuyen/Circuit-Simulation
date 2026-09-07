@@ -26,14 +26,14 @@
     if (!session) return;
     const view = session.view();
     text("repair-symptom", `${view.symptom} 原工況 Vin=${view.initialConditions.vin} V，最終命令 ${view.targetV} V，負載 ${view.initialConditions.finalLoadOhm} Ω。`);
-    text("repair-mode", rehearsal ? "重播／重複案例：練習模式，不加入首次獨立成績。" : view.revealed ? "已看答案：練習模式，不計入獨立完成。" : "首次案例：答案在提交前不會回饋。若離開頁面，請先匯出維修重播。");
+    text("repair-mode", rehearsal ? "重播／重複案例：練習模式，不加入首次獨立成績。" : view.revealed ? "已看答案：練習模式，不計入獨立完成。" : "首次案例：答案在提交前不會回饋。未完成案例會在本機續接；也可先匯出維修重播。");
     text("repair-budget", `已用 ${view.measurementCost}/5 次量測；已執行 ${view.repairs.length} 項修正。`);
     $("repair-log").replaceChildren();
     view.measurements.forEach(row => { const li = document.createElement("li"); li.textContent = row.text; $("repair-log").append(li); });
-    const selected = checked("repair-evidence"); $("repair-evidence").replaceChildren();
+    const selected = view.diagnosis ? view.diagnosis.evidenceIds : checked("repair-evidence"); $("repair-evidence").replaceChildren();
     view.measurements.forEach(row => checkbox("repair-evidence", row.id, Core.MEASUREMENTS[row.id], selected.includes(row.id)));
     $("repair-evidence").querySelectorAll("input").forEach(input => { input.disabled = view.diagnosisCommitted; });
-    $("repair-guesses").querySelectorAll("input").forEach(input => { input.disabled = view.diagnosisCommitted; });
+    $("repair-guesses").querySelectorAll("input").forEach(input => { input.disabled = view.diagnosisCommitted; if (view.diagnosis) input.checked = view.diagnosis.guesses.includes(input.value); });
     $("repair-submit").disabled = view.diagnosisCommitted || view.measurementCost < 2;
     $("repair-measures").querySelectorAll("button").forEach(button => { button.disabled = view.diagnosisCommitted || view.measurements.some(x => x.id === button.dataset.measurement) || view.measurementCost >= 5; });
     $("repair-actions").querySelectorAll("button").forEach(button => { button.disabled = !view.diagnosisCommitted || view.repairs.includes(button.dataset.repair) || view.phase === "complete"; });
@@ -93,5 +93,16 @@
     } catch (error) { text("repair-status", error.message); }
     event.target.value = "";
   };
-  safe(start);
+  safe(() => {
+    const unfinished = Records.read().sessions.filter(row => row.kind === "repair" && !row.rehearsal && !row.passed && !row.revealed && row.replay).at(-1);
+    if (unfinished) {
+      try {
+        session = Core.replay(unfinished.replay); recordId = unfinished.id; rehearsal = false;
+        started = Date.now() - (unfinished.elapsedSeconds || 0) * 1000; $("repair-seed").value = session.view().seed;
+        text("repair-status", "已續接本機未完成案例，首次判斷保持鎖定。");
+        return;
+      } catch (_) { /* Incompatible old replay does not prevent opening a fresh case. */ }
+    }
+    start();
+  });
 })();
