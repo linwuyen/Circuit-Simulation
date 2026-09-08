@@ -44,7 +44,7 @@
         </div>
         <div class="journey-resume">
           <span>${progress.done}/${progress.total} 層 · ${progress.percent}%</span>
-          <a class="button primary" data-core-resume href="${layerLink(current.key)}">繼續 ${current.number} ${current.label} →</a>
+          <a class="button primary" data-core-resume href="${layerLink(current.key)}">八層課程入口：${current.number} ${current.label} →</a>
         </div>
       </header>
       <div class="journey-progress" aria-label="核心主線進度"><i style="width:${progress.percent}%"></i></div>

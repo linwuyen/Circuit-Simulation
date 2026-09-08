@@ -151,6 +151,7 @@
       transfer = Core.question(question.kind, transfer.seed + 1, true); text("tr-transfer-question", transfer.prompt); answerControls("tr-transfer-controls", transfer);
     }
     storeRemediation();
+    if (transferred) document.dispatchEvent(new CustomEvent("learning:remediation-passed", { detail: { category: question.kind, first, miniCompleted: miniDone, transferPassed: transferred, at: Date.now() } }));
   }, "tr-transfer-result");
   const requested = new URLSearchParams(location.search).get("remediation");
   if (["physics", "unit", "timing", "model"].includes(requested)) { $("tr-remediation-kind").value = requested; $("training-remediation").open = true; }
@@ -159,4 +160,18 @@
     if (saved?.record) experiment = Core.validateExperiment(saved.record).record;
   } catch (_) { /* A damaged optional experiment must not hide the lesson. */ }
   render(); newQuestion();
+  function installSharedSettings() {
+    const U=globalThis.CircuitUnifiedLearning;
+    if(!U||document.getElementById('shared-settings'))return;
+    const panel=document.createElement('section');panel.id='shared-settings';panel.className='card';
+    const title=document.createElement('h3');title.textContent='沿用同一案例的設定';
+    const note=document.createElement('p');note.textContent='只共用下方固定導通比例的 Buck 穩態模型。套用會另開一份實驗；上方閉環故障機器與既有紀錄不受影響。';
+    const preview=document.createElement('p'),status=document.createElement('p');status.setAttribute('role','status');
+    function describe(){try{const s=U.validateScenario(U.read().scenarios?.['buck-steady-v1']);preview.textContent=`待套用：Vin ${s.model.vin} V、導通比例 ${s.model.duty}、L ${s.model.inductanceUh} µH、頻率 ${s.model.fswKhz} kHz、負載 ${s.model.loadOhm} Ω、C ${s.model.capacitanceUf} µF、ESR ${s.model.esrOhm} Ω。`;}catch(_){preview.textContent='尚無可套用的同模型設定。';}}
+    const publish=document.createElement('button');publish.type='button';publish.textContent='保存目前電路為共用設定';publish.onclick=()=>safe(()=>{U.saveScenario(Core.replay(experiment).model,'sandbox');describe();status.textContent=globalThis.CircuitEvidence.storageStatus().saved?'已保存，可在同一案例頁套用。':'暫存於記憶體，離開前請下載備份。';});
+    const apply=document.createElement('button');apply.type='button';apply.textContent='套用上述設定，另開實驗';apply.onclick=()=>{try{const shared=U.validateScenario(U.read().scenarios?.['buck-steady-v1']);experiment=Core.createExperiment(shared.model,{});render();save();status.textContent='已開啟同模型新實驗，量測設定恢復預設。';}catch(e){status.textContent=e.message;}};
+    const a=document.createElement('a');a.href='../learning-case.html';a.textContent='同一案例：電路／量測／時序／控制';
+    panel.append(title,note,preview,publish,apply,a,status);document.getElementById('boundary-lab').before(panel);describe();window.addEventListener('learning:unified-change',describe);
+  }
+  document.addEventListener('learning:bridge-ready',installSharedSettings);installSharedSettings();
 })();

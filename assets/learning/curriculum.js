@@ -377,5 +377,5 @@
     ["預充", "先用電阻替 DC bus 電容充電，再合主接觸器。", "避免接觸器閉合瞬間突波。"]
   ];
 
-  global.CircuitCurriculum = { modules: modules, glossary: glossary };
+  global.CircuitCurriculum = { modules: modules, glossary: glossary.map(row => global.CircuitLearningTermAliases?.[row[0]] ? [row[0], global.CircuitLearningTermAliases[row[0]], row[2]] : row) };
 })(window);
