@@ -471,7 +471,14 @@
     // than mixing cached scores or seeds; preserve the incoming protocol in backup archives.
     for (const [key, incoming] of Object.entries(payload.benchmark || {})) {
       if (["trainingPractice", "__proto__", "constructor", "prototype"].includes(key)) continue;
-      if (key === "outcomeV1") {
+      if (key === "beginnerLessons" && incoming?.version === 1 && incoming.rows) {
+        const current = state.benchmark.beginnerLessons;
+        if (!current || current.version !== 1) state.benchmark.beginnerLessons = clone(incoming);
+        else for (const id of ["duty", "inductor", "load", "probe", "timing"]) {
+          current.rows ||= {};
+          if (!current.rows[id]?.first && incoming.rows[id]) current.rows[id] = clone(incoming.rows[id]);
+        }
+      } else if (key === "outcomeV1") {
         const current = state.benchmark.outcomeV1;
         const hasAttempts = current && Object.values(current.sessions || {}).some(phase =>
           Object.keys(phase?.firstAttempts || {}).length > 0 || (phase?.retries || []).length > 0);
