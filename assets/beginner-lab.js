@@ -76,6 +76,8 @@
     $('control-value').textContent=value+(l.id==='duty'||l.id==='inductor'?'%':l.id==='probe'?'×':'');
     $('output-voltage').textContent=model.vout.toFixed(2)+' V'; $('actual-current').textContent=model.avgI.toFixed(2)+' A';
     $('display-metric').hidden=l.id!=='probe'; $('display-current').textContent=(model.avgI*value/10).toFixed(2)+' A';
+    $('electrical-metrics').hidden=l.id==='timing';
+    $('model-boundary').hidden=l.id==='timing';
     $('circuit-panel').hidden=l.id==='timing'; $('timing-panel').hidden=l.id!=='timing';
     const max=model.peakI*1.2, xy=row=>`${55+row.tUs/model.periodUs*635},${205-row.iL/max*175}`;
     $('wave-line').setAttribute('points',model.rows.map(xy).join(' '));
