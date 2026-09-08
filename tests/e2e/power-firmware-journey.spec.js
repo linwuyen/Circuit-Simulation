@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/catalog.html');
   await page.evaluate(() => localStorage.removeItem('circuit-core-flow-v1'));
   await page.reload();
 });
@@ -26,7 +26,7 @@ test('core path exposes one Buck in the ordered eight-layer causal chain', async
 test('journey has no document-level horizontal overflow on desktop or mobile', async ({ page }) => {
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
-    await page.goto('/');
+    await page.goto('/catalog.html');
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(2);
   }

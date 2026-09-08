@@ -2,13 +2,17 @@
 
 > 線上教材：`https://linwuyen.github.io/Circuit-Simulation/`
 
-這是一套以 **預測 → 操作 → 獨立驗證 → 因果解釋 → 未見遷移 → 間隔取回 → 外部錨定** 為核心的電路、韌體與電力電子學習系統。
+從一個問題開始：先猜、動手觀察、說出原因，再換條件試試。這套互動教材帶你從看懂開關電路，逐步進入量測與自動調整。
 
-真正 KPI 不是完成頁數，而是：面對沒看過的工程條件時，第一次判斷是否正確、知道下一個該量什麼、能建立可否證的因果鏈，並在之後仍能取回與遷移。
+[開始八課練習](index.html) · [完整教材](catalog.html) · [詳細學習紀錄](map.html)
+
+首頁只呈現目前那一課與一個主要按鈕。操作滑桿不會自動算學會；要辨認變化、判斷原因並通過新條件題，才完成本版練習。舊的首次作答紀錄保留。
+
+教學設計、進度相容方式與真人試用方法見[一步一步學](docs/plain-guided-learning.md)。
 
 ## Power Firmware Core Path
 
-首頁 authoritative path 是「一台 Buck、八層能力」：
+完成入門後，可從進階教材選擇「一台 Buck、八層能力」：
 
 ```text
 01 Power Physics
@@ -201,11 +205,11 @@ CI 額外執行 Host SIL、TI target compile、Flash link、HEX generation。Req
 
 不要再為 framework 本身擴版。優先做真實 engineering scenario、fault injection、system-level transfer、target/board evidence，以及真 learner outcome data。
 
-### 初學者：五課看懂降壓電路
+### 初學者：五堂電路基礎，再接三堂自動調整
 
 [入門模式](15_power_capstone/learn_basics.html)提供導通比例、電感續流、輕載邊界、量測倍率與更新時刻五個短任務。先猜、單一變因操作、分段提示，再以新條件確認理解；電路路徑與波形可同步播放或單步查看。能力紀錄為本機練習狀態，沿用完整備份，不代表實體操作認證。
 
 
 ### 整合學習入口
 
-[能力總覽與繼續學習](learn.html)整合入門、八層主線、補強往返、既有題庫與正式間隔複習。[同一案例實驗](learning-case.html)可在電路、量測、時序與控制視圖間切換，並與相容的進階 Buck 模型共用設定。詳見[整合與模型界線](docs/integrated-learning.md)。
+[能力總覽與繼續學習](map.html)整合入門、八層主線、補強往返、既有題庫與正式間隔複習。[同一案例實驗](learning-case.html)可在電路、量測、時序與控制視圖間切換，並與相容的進階 Buck 模型共用設定。詳見[整合與模型界線](docs/integrated-learning.md)。

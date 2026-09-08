@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 
-test('homepage separates unified resume from the preserved eight-layer entry', async ({ page }) => {
-  await page.goto('/');
+test('advanced catalog preserves unified resume and eight-layer entry', async ({ page }) => {
+  await page.goto('/catalog.html');
   await expect(page.locator('.journey-shell')).toBeVisible();
   await expect(page.locator('[data-core-resume]')).toHaveCount(1);
   await expect(page.locator('[data-unified-resume]')).toHaveCount(1);

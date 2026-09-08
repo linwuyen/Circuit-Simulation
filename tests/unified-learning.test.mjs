@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {createRequire} from 'node:module';import fs from 'node:fs';import vm from 'node:vm';
 const require=createRequire(import.meta.url),U=require('../assets/learning/unified-learning.js'),C=require('../assets/learning/shared-case-core.js');
-const done={first:{correct:false},observed:true,transferPassed:true};
+const done={first:{correct:false},observed:true,proof:{observation:true,reason:true},transferPassed:true};
 test('one recommendation resumes beginners, preserves advanced progress and prioritizes due review',()=>{
  assert.equal(U.next().id,'basic-duty');
  const e={benchmark:{beginnerLessons:{rows:{duty:done}}}};assert.equal(U.next(e).id,'basic-inductor');

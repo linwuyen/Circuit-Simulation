@@ -478,10 +478,10 @@
           current.scenarios ||= {};
           if (!current.scenarios['buck-steady-v1'] && incoming.scenarios?.['buck-steady-v1']) current.scenarios['buck-steady-v1'] = clone(incoming.scenarios['buck-steady-v1']);
         }
-      } else if (key === "beginnerLessons" && incoming?.version === 1 && incoming.rows) {
-        const current = state.benchmark.beginnerLessons;
-        if (!current || current.version !== 1) state.benchmark.beginnerLessons = clone(incoming);
-        else for (const id of ["duty", "inductor", "load", "probe", "timing"]) {
+      } else if (["beginnerLessons", "bridgeLessons"].includes(key) && incoming?.version === 1 && incoming.rows) {
+        const current = state.benchmark[key];
+        if (!current || current.version !== 1) state.benchmark[key] = clone(incoming);
+        else for (const id of (key === "bridgeLessons" ? ["error", "adjust", "overshoot"] : ["duty", "inductor", "load", "probe", "timing"])) {
           current.rows ||= {};
           if (!current.rows[id]?.first && incoming.rows[id]) current.rows[id] = clone(incoming.rows[id]);
         }

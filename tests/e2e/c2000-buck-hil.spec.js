@@ -183,16 +183,16 @@ test("outcome benchmark stays scoped to the evidence layer", async ({ page }) =>
   await page.locator("[data-outcome-choice]").first().click();
   await expect(page.locator("#outcomeDashboard")).toContainText("1/8 first attempts");
 
-  await page.goto("/");
+  await page.goto("/catalog.html");
   await expect(page.locator("[data-outcome-home]")).toHaveCount(0);
   await expect(page.locator("[data-core-resume]")).toHaveCount(1);
   await expect(page.locator(".journey-advanced-evidence")).not.toHaveAttribute("open", "");
 });
 
-test("homepage makes Module 19 the single core path and hides the topic library by default", async ({ page }) => {
+test("advanced catalog makes Module 19 the single core path and hides the topic library by default", async ({ page }) => {
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
-    await page.goto("/");
+    await page.goto("/catalog.html");
     await expect(page.locator("[data-core-resume]")).toHaveCount(1);
     await expect(page.locator('[data-journey-stage]')).toHaveCount(8);
     for (const layer of ["physics", "sensing", "feedback", "timing", "dynamics", "safety", "production", "evidence"]) {

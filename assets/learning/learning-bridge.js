@@ -1,6 +1,6 @@
 (async()=>{
   'use strict';
-  if(window.top!==window)return;
+  if(window.top!==window||document.body.matches(".plain-learning,[data-simple-course]"))return;
   const base=new URL('../../',document.currentScript.src);
   const load=path=>new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=new URL(path,base);s.onload=resolve;s.onerror=()=>reject(new Error('教材導航載入失敗'));document.head.append(s);});
   try{
@@ -40,6 +40,7 @@
         make('p',n.reason,details);
         const active=U.stages.find(s=>s.layers.includes(here().replace('core-',''))||s.basics.includes(here().replace('basic-',''))||s.modules.includes(Number(here().replace('module-',''))));
         if(active){make('p',active.focus,details);const list=make('div',null,details);list.className='learning-links';for(const m of CircuitLearningMap.filter(m=>active.modules.includes(m.number)))link(list,m.title,U.route('module-'+m.number,U.validTask(origin)?origin:here()));}
+        link(details,'能力地圖與詳細紀錄','map.html');link(details,'完整教材目錄','catalog.html');
         const words=make('details',null,details);make('summary','查一個詞，不必離開目前任務',words);
         for(const [term,meaning]of Object.entries(CircuitLearningGlossary)){const d=make('details',null,words);make('summary',term,d);make('p',meaning,d);}
         if(document.querySelector('[data-learning-hub]'))renderHub(n);
@@ -59,6 +60,7 @@
         const a=U.ability(stage,e,flow);make('p',[a.basicTotal?`入門練習 ${a.basics}/${a.basicTotal} · 入門新條件 ${a.transfer}/${a.basicTotal}（練習）`:null,a.coreTotal?`主線完成 ${a.core}/${a.coreTotal}`:null].filter(Boolean).join(' · ')||'依應用選擇專題，沿用前面學會的量測、回授與時序觀念。',section);
         const actions=make('div',null,section);actions.className='learning-links';
         for(const id of stage.basics)if(!U.basicDone(e.benchmark?.beginnerLessons?.rows?.[id]))link(actions,'補基礎：'+U.task('basic-'+id).title,U.route('basic-'+id));
+        if(stage.id==='feedback'){make('p','銜接練習：先看差距，再看調整與調過頭。',section);for(const id of ['error','adjust','overshoot'])link(actions,(U.basicDone(e.benchmark?.bridgeLessons?.rows?.[id])?'回顧：':'先練習：')+U.task('bridge-'+id).title,U.route('bridge-'+id));}
         for(const id of stage.layers)link(actions,(flow.completed?.[id]?'回顧：':'主線：')+U.task('core-'+id).title,U.route('core-'+id));
         const tools=make('details',null,section);make('summary','需要時展開專題工具',tools);const list=make('div',null,tools);list.className='learning-links';
         for(const m of CircuitLearningMap.filter(m=>stage.modules.includes(m.number)))link(list,m.title,U.route('module-'+m.number,stage.layers[0]?'core-'+stage.layers[0]:undefined));

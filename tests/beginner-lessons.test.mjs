@@ -14,10 +14,11 @@ test('beginner claims match the existing Buck model and timing rule',()=>{
   assert.equal(buck({vin:36,duty:.5}).vout,lessons[0].expected);
   assert.equal(updateAt(9),10);assert.equal(updateAt(10),20);assert.equal(updateAt(11),20);assert.equal(updateAt(6,5),10);
 });
-test('completion needs first prediction, actual observation and transfer; blank is not a numeric answer',()=>{
+test('completion needs first prediction, observation proof, reason and transfer; blank is not a numeric answer',()=>{
   assert.equal(complete({first:{correct:true},observed:false,transferPassed:true}),false);
   assert.equal(complete({observed:true,transferPassed:true}),false);
-  assert.equal(complete({first:{correct:false},observed:true,transferPassed:true}),true);
+  assert.equal(complete({first:{correct:false},observed:true,transferPassed:true}),false);
+  assert.equal(complete({first:{correct:false},proof:{observation:true,reason:true},transferPassed:true}),true);
   assert.equal(accepts(0,''),false);assert.equal(accepts(.3,'0.3'),true);assert.equal(accepts(18,'Infinity'),false);
 });
 test('full backup restores beginner practice without replacing local first attempts',()=>{

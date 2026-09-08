@@ -10,7 +10,7 @@ const root = path.resolve(here, '..');
 const require = createRequire(import.meta.url);
 
 const productionPages = [
-  'index.html',
+  'catalog.html',
   'beginner.html',
   'labs.html',
   'troubleshooting.html',
@@ -21,7 +21,7 @@ const productionPages = [
   'report.html'
 ];
 
-test('every production page loads only the V3 learning runtime', () => {
+test('every advanced page loads only the V3 learning runtime', () => {
   for (const relative of productionPages) {
     const html = fs.readFileSync(path.join(root, relative), 'utf8');
     assert.match(html, /curriculum-schema-v3\.js/, `${relative}: missing V3 schema`);
