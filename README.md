@@ -204,3 +204,8 @@ CI 額外執行 Host SIL、TI target compile、Flash link、HEX generation。Req
 ### 初學者：五課看懂降壓電路
 
 [入門模式](15_power_capstone/learn_basics.html)提供導通比例、電感續流、輕載邊界、量測倍率與更新時刻五個短任務。先猜、單一變因操作、分段提示，再以新條件確認理解；電路路徑與波形可同步播放或單步查看。能力紀錄為本機練習狀態，沿用完整備份，不代表實體操作認證。
+
+
+### 整合學習入口
+
+[能力總覽與繼續學習](learn.html)整合入門、八層主線、補強往返、既有題庫與正式間隔複習。[同一案例實驗](learning-case.html)可在電路、量測、時序與控制視圖間切換，並與相容的進階 Buck 模型共用設定。詳見[整合與模型界線](docs/integrated-learning.md)。
