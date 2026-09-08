@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }) => {
 
 test('capstone explains the unified machine in plain language', async ({ page }) => {
   await page.goto('/15_power_capstone/lab_sandbox.html');
-  await expect(page.getByText('不是五個小遊戲')).toBeVisible();
+  await expect(page.getByRole('heading', { name: '進階模式：觀察同一台電源的完整運作' })).toBeVisible();
   await expect(page.getByText('ADC 量到什麼，控制器就相信什麼')).toBeVisible();
   await expect(page.locator('#sandbox-scope polyline')).toHaveCount(3);
   const first=await page.evaluate(()=>window.__sandboxLast);
