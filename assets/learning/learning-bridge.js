@@ -13,7 +13,8 @@
     const U=CircuitUnifiedLearning,E=CircuitEvidence,F=CircuitCoreFlowV1;
     U.registerModules(CircuitLearningMap);
     const url=(href)=>new URL(href,base).href;
-    const path=decodeURIComponent(location.pathname).slice(decodeURIComponent(base.pathname).length);
+    const relativePath=decodeURIComponent(location.pathname).slice(decodeURIComponent(base.pathname).length);
+    const path=!relativePath||relativePath.endsWith('/')?relativePath+'index.html':relativePath;
     const params=new URLSearchParams(location.search),origin=params.get('learnFrom');
     function here(){
       if(path==='15_power_capstone/learn_basics.html')return 'basic-'+(U.basics.find(([id])=>'#'+id===location.hash)?.[0]||'duty');
