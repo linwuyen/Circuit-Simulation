@@ -2,7 +2,7 @@ const { test, expect } = require('@playwright/test');
 
 test('Power Firmware Journey keeps the 16/17 dark theme contract readable', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'Contrast contract only needs one desktop pass.');
-  await page.goto('/');
+  await page.goto('/catalog.html');
   await expect(page.locator('[data-journey-stage]')).toHaveCount(8);
   await expect(page.locator('.journey-system')).toBeVisible();
 
@@ -87,7 +87,7 @@ test('Power Firmware Journey keeps the 16/17 dark theme contract readable', asyn
     };
   });
 
-  expect(audit.themed, 'index.html must opt into the cl-theme-1617 compatibility token bridge').toBe(true);
+  expect(audit.themed, 'catalog.html must opt into the cl-theme-1617 compatibility token bridge').toBe(true);
   expect(audit.panelLuminance, `--panel must resolve dark, got ${JSON.stringify(audit.panel)}`).toBeLessThan(0.2);
   expect(audit.inkLuminance, `--ink must resolve light, got ${JSON.stringify(audit.ink)}`).toBeGreaterThan(0.7);
   expect(audit.tokenContrast, 'core --ink/--panel contrast must remain comfortably readable').toBeGreaterThanOrEqual(7);

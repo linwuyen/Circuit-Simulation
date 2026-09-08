@@ -4,6 +4,8 @@
   const E = CircuitEvidence, $ = id => document.getElementById(id);
   const stored = E.load().benchmark.beginnerLessons;
   const progress = stored && stored.version === 1 && stored.rows && typeof stored.rows === 'object' ? stored : { version:1, rows:{} };
+  let viewStep=null;
+  const P=CircuitPlainCourse;
   let index = 0, value, phase = .1, model, timer = null;
   const lesson = () => lessons[index];
   const record = () => {
@@ -35,13 +37,35 @@
       li.append(link); $('abilities').append(li);
     });
     $('next-lesson').disabled = !complete(record());
+    renderSteps();
   }
+
+  function renderSteps(){
+    const r=record(),stage=P.stage(r),shown=viewStep===null?stage:viewStep;
+    $('simple-steps').replaceChildren();
+    ['先猜','觀察','說原因','換條件'].forEach((name,i)=>{const b=document.createElement('button');b.type='button';b.textContent=`${i+1}. ${name}`;b.disabled=i>stage;b.setAttribute('aria-current',shown===i?'step':'false');b.onclick=()=>{viewStep=i;renderSteps();};$('simple-steps').append(b);});
+    document.querySelectorAll('[data-stage]').forEach(n=>n.hidden=Number(n.dataset.stage)!==shown);
+    $('lesson-help').hidden=shown===0||shown===4;
+    $('focus').hidden=shown!==1;
+    $('simple-result').hidden=stage!==4;
+    $('next-lesson').hidden=stage!==4;
+    proof('observation',P.checks[lesson().id].observation,P.checks[lesson().id].observations,P.checks[lesson().id].observed);
+    proof('reason',P.checks[lesson().id].reason,P.checks[lesson().id].reasons,P.checks[lesson().id].because);
+    const l=lesson(),baseline=CircuitTrainingExperiments.buck(l.id==='duty'?{duty:l.initial/100}:l.id==='load'?{loadOhm:l.initial}:{});
+    $('before-after').textContent=l.id==='timing'?`改動前：${l.initial} 微秒算完 → ${updateAt(l.initial)} 微秒生效。現在：${value} 微秒算完 → ${updateAt(value)} 微秒生效。`:l.id==='probe'?`電路電流一直是 ${model.avgI.toFixed(2)} A；畫面從 ${(baseline.avgI*l.initial/10).toFixed(2)} A 變成 ${(model.avgI*value/10).toFixed(2)} A。`:l.id==='inductor'?`先前在這輪的 ${l.initial}%；現在在 ${value}%。看關掉開關後，電流是否還能沿另一條路繼續流。`:`改動前輸出 ${baseline.vout.toFixed(2)} V、平均電流 ${baseline.avgI.toFixed(2)} A；現在 ${model.vout.toFixed(2)} V、${model.avgI.toFixed(2)} A。`;
+  }
+  function proof(kind,prompt,choices,answer){
+    const box=$(kind+'-proof'),r=record();box.replaceChildren();const field=document.createElement('fieldset'),legend=document.createElement('legend'),opts=document.createElement('div'),button=document.createElement('button'),status=document.createElement('p');
+    legend.textContent=prompt;options(opts,kind,choices,r[kind+'First']?.answer);field.append(legend,opts);button.type='button';button.id=kind+'-submit';button.textContent=r.proof?.[kind]?'已通過，接著學':'檢查我的判斷';status.id=kind+'-status';status.setAttribute('role','status');box.append(field,button,status);
+    button.onclick=()=>{if(kind==='observation'&&!r.operated){status.textContent='先把控制項調到上方指定數值，再比較前後。';return;}if(kind==='reason'&&!r.proof?.observation)return;const value=box.querySelector('input:checked')?.value;if(!value){status.textContent='請先選一個答案。';return;}const correct=P.correct(answer,value);r[kind+'First']||={answer:value,correct};r.edition=2;if(correct){r.proof||={};r.proof[kind]=true;if(kind==='observation')r.observed=true;viewStep=null;save();}else{const state=E.load();state.benchmark.beginnerLessons=progress;E.save(state);status.textContent=kind==='observation'?'再比較改動前與現在的數字或線條，區分電路真的改變和畫面顯示改變。':'再想一次：哪個選項能解釋你剛才看到的變化？可以打開提示，再回來判斷。';}};
+  }
+
   function stop() { if (timer !== null) clearInterval(timer); timer = null; $('play').textContent = '播放慢動作'; }
   function select(i, focus=false) {
-    stop(); index = i; const l = lesson(), r = record();
+    stop(); viewStep=null; index = i; const l = lesson(), r = record();
     value = Number.isFinite(r.value) && r.value >= l.min && r.value <= l.max ? r.value : l.initial;
     phase = l.id === 'inductor' ? value/100 : .1;
-    $('lesson-count').textContent = `第 ${i+1} 課 / 共 5 課`;
+    $('lesson-count').textContent = `第 ${i+1} 課 / 共 8 課`;
     $('lesson-title').textContent=l.title; $('lesson-intro').textContent=l.intro; $('focus').textContent=l.focus;
     $('question').textContent=l.question;
     options($('prediction-options'),'prediction',l.choices,r.first?.answer);
@@ -64,7 +88,7 @@
       $('transfer-controls').replaceChildren(label);
     }
     $('transfer-status').textContent=r.transferPassed ? '這課的新條件練習已通過，可以再試一次。' : '';
-    $('advanced-link').href=l.next; $('next-lesson').textContent=i===lessons.length-1 ? '完成入門，前往主線課程' : '下一課';
+    $('advanced-link').href=l.next; $('next-lesson').textContent=i===lessons.length-1 ? '接著學：離目標還差多少？' : '下一課';
     [...$('lesson-nav').children].forEach((b,n)=>{ if(n===i)b.setAttribute('aria-current','step');else b.removeAttribute('aria-current'); });
     render(); renderProgress(); if(focus)$('lesson-title').focus();
   }
@@ -88,7 +112,7 @@
     $('ready-marker').setAttribute('x1',40+value*30); $('ready-marker').setAttribute('x2',40+value*30);
     $('ready-label').setAttribute('x',Math.min(500,40+value*30)); $('ready-label').textContent=`${value} 微秒：算完`;
     $('timing-result').textContent=`${value} 微秒算完 → ${updateAt(value)} 微秒才套用新命令。`;
-    $('observation').textContent=record().observed ? '已完成指定觀察。看過解釋後，試試下方的新條件題目。' : '尚未完成指定觀察。先記下判斷，再操作到目標設定。';
+    $('observation').textContent=record().proof?.observation ? '你已辨認出這次變化。接著說明原因。' : '先操作到指定設定，再回答下方「看到了什麼」。';
     drawInstant();
   }
   function drawInstant() {
@@ -105,15 +129,15 @@
     const l=lesson(),r=record(); if(!r.first)return;
     value=v; r.value=v;
     if(l.id==='inductor')phase=v/100;
-    if(accepts(l.target,v))r.observed=true;
+    r.edition=2; if(accepts(l.target,v))r.operated=true;
     $('transfer-section').hidden=!r.observed; render(); save();
   }
-  function appendHint(n) { const li=document.createElement('li');li.textContent=lesson().hints[n];$('hints').append(li); }
+  function appendHint(n) { const li=document.createElement('li');li.textContent=n===0?(P.checks[lesson().id].wrong[record().first?.answer]||lesson().hints[n]):lesson().hints[n];$('hints').append(li); }
   $('predict').addEventListener('click',()=>{
     const answer=document.querySelector('input[name=prediction]:checked')?.value;
     if(!answer){$('prediction-status').textContent='請先選一個判斷。';return;}
     if(record().first)return;
-    record().first={answer,correct:accepts(lesson().answer,answer)};save();select(index);
+    record().edition=2;record().first={answer,correct:accepts(lesson().answer,answer)};save();select(index);
   });
   $('experiment-control').addEventListener('input',e=>{stop();changeValue(Number(e.target.value));});
   $('time-cursor').addEventListener('input',e=>{stop();if(lesson().id==='inductor'&&record().first){$('experiment-control').value=e.target.value;changeValue(Number(e.target.value));}else{phase=Number(e.target.value)/100;drawInstant();}});
@@ -123,18 +147,18 @@
   $('hint').addEventListener('click',()=>{const r=record(),n=Math.min(3,Number(r.hints)||0);if(n>=3)return;appendHint(n);r.hints=n+1;r.assisted=true;$('hint').disabled=r.hints>=3;$('hint').textContent='再給我一個提示';save();});
   $('explanation').addEventListener('toggle',()=>{if($('explanation').open){record().assisted=true;save();}});
   $('transfer-submit').addEventListener('click',()=>{
-    const l=lesson(),r=record();if(!r.first||!r.observed)return;
+    const l=lesson(),r=record();if(!r.first||!r.proof?.observation||!r.proof?.reason)return;
     const answer=l.transferChoices?document.querySelector('input[name=transfer]:checked')?.value:$('transfer-value').value;
     if(answer===undefined||String(answer).trim()===''){$('transfer-status').textContent='請先填寫或選擇答案。';return;}
     const correct=accepts(l.expected,answer);r.transferFirst ||= {answer,correct};r.transferAttempts=(r.transferAttempts||0)+1;
     if(correct)r.transferPassed=true;
     $('transfer-status').textContent=correct?'新條件驗證通過！這項能力已完成練習。':'還沒對。請回到觀察重點，使用分段提示，再試一次；首次答案仍會保留。';save();
   });
-  $('next-lesson').addEventListener('click',()=>{if(!complete(record()))return;if(index<lessons.length-1)location.hash=lessons[index+1].id;else location.href='../19_c2000_buck_firmware_lab/index.html';});
+  $('next-lesson').addEventListener('click',()=>{if(!complete(record()))return;if(index<lessons.length-1)location.hash=lessons[index+1].id;else location.href='../control-basics.html';});
   $('backup').addEventListener('click',()=>{const url=URL.createObjectURL(new Blob([E.exportBackup()],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='circuit-learning-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
   const glossary=globalThis.CircuitLearningGlossary;
   for(const [term,meaning] of Object.entries(glossary)){const d=document.createElement('details'),s=document.createElement('summary'),p=document.createElement('p');s.textContent=term;p.textContent=meaning;d.append(s,p);$('glossary').append(d);}
-  lessons.forEach((l,i)=>{const b=document.createElement('button');b.type='button';b.textContent=`${i+1}. ${['導通比例','電感續流','負載變輕','量測倍率','更新時刻'][i]}`;b.addEventListener('click',()=>{if(location.hash==='#'+l.id)select(i,true);else location.hash=l.id;});$('lesson-nav').append(b);});
+  lessons.forEach((l,i)=>{const b=document.createElement('button');b.type='button';b.textContent=`${i+1}. ${['開關時間','關閉後的電流','用電變少','儀器顯示','何時生效'][i]}`;b.addEventListener('click',()=>{if(location.hash==='#'+l.id)select(i,true);else location.hash=l.id;});$('lesson-nav').append(b);});
   function fromHash(focus=false){const i=lessons.findIndex(l=>'#'+l.id===location.hash);select(i<0?0:i,focus);}
   window.addEventListener('hashchange',()=>fromHash(true));fromHash();
 })();

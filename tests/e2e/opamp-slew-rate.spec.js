@@ -1,11 +1,11 @@
 const { test, expect } = require('@playwright/test');
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/catalog.html');
   await page.evaluate(() => localStorage.clear());
 });
 
-test('home exposes the OP AMP dynamic-response module inside the expanded system', async ({ page }) => {
+test('advanced catalog exposes the OP AMP dynamic-response module inside the expanded system', async ({ page }) => {
   await expect(page.locator('#mainContent')).toContainText('OP AMP Slew Rate / Dynamic Response');
   await expect(page.locator('.journey-topic-details')).not.toHaveAttribute('open', '');
   await expect(page.locator('a[href="12_opamp_slew_rate/index.html"]')).toHaveCount(1);

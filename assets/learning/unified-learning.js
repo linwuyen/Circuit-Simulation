@@ -15,11 +15,12 @@
   const tasks={home:{title:'學習總覽',href:'learn.html'},case:{title:'同一案例實驗',href:'learning-case.html'},sandbox:{title:'進階 Buck 量測',href:'15_power_capstone/lab_sandbox.html#training-workbench'},repair:{title:'盲測維修',href:'15_power_capstone/lab_multifault.html#repair-training'},formal:{title:'正式測驗與間隔複習',href:'19_c2000_buck_firmware_lab/index.html?layer=evidence'},quiz:{title:'既有題庫複習',href:'quiz.html'}};
   basics.forEach(([id,title])=>tasks['basic-'+id]={title,href:'15_power_capstone/learn_basics.html#'+id});
   layers.forEach(([id,title])=>tasks['core-'+id]={title:title+'主線任務',href:'19_c2000_buck_firmware_lab/index.html?layer='+id});
+  ['error','adjust','overshoot'].forEach((id,i)=>tasks['bridge-'+id]={title:['離目標還差多少','讓輸出自己靠近目標','理解調過頭'][i],href:'control-basics.html#'+id});
   const clone=x=>JSON.parse(JSON.stringify(x));
   function registerModules(modules){for(const m of modules)tasks['module-'+m.number]={title:m.title,href:m.href};}
   function validTask(id){return typeof id==='string'&&Object.hasOwn(tasks,id);}
   function task(id){return validTask(id)?tasks[id]:tasks.home;}
-  function basicDone(r){return !!(r?.first&&r.observed===true&&r.transferPassed===true);}
+  function basicDone(r){return !!(r?.first&&r.observed===true&&r.transferPassed===true&&(r.proof?.observation===true&&r.proof?.reason===true));}
   function dueReview(e,at=Date.now()){
     const o=e?.benchmark?.outcomeV1;if(!o?.sessions?.post?.completedAt)return null;
     return ['r1','r2','r3','r4'].find(k=>!o.sessions[k]?.completedAt&&Number.isFinite(Date.parse(o.retention?.[k]?.dueAt))&&Date.parse(o.retention[k].dueAt)<=at)||null;
@@ -36,6 +37,7 @@
     const begun=Object.keys(flow.predictions||{}).length>0||Object.keys(flow.completed||{}).length>0;
     if(u.track==='beginner'||(!begun&&u.track!=='core'&&u.track!=='specialize')){
       const missing=basics.find(([id])=>!basicDone(rows[id]));if(missing)return{id:'basic-'+missing[0],reason:'接續尚未完成的入門練習；已完成的課不重做。'};
+      const bridge=['error','adjust','overshoot'].find(id=>!basicDone(e.benchmark?.bridgeLessons?.rows?.[id]));if(bridge)return{id:'bridge-'+bridge,reason:'接著練習目標、調整與調過頭，再進入完整電路。'};
     }
     if(u.track==='specialize')return{id:'module-17',reason:'你選擇進階選修，可從應用分流挑選專題。'};
     const missing=layers.find(([id])=>!flow.completed?.[id]);

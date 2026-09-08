@@ -5,9 +5,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const pages = ['index.html','beginner.html','labs.html','troubleshooting.html','progress.html','quiz.html','search.html','glossary.html','report.html'];
+const pages = ['catalog.html','beginner.html','labs.html','troubleshooting.html','progress.html','quiz.html','search.html','glossary.html','report.html'];
 
-test('all production pages load canonical models, evidence and assessment before learning runtime', () => {
+test('advanced pages load canonical models, evidence and assessment before learning runtime', () => {
   for (const page of pages) {
     const html = fs.readFileSync(path.join(root, page), 'utf8');
     assert.ok(!html.includes('learning-v2.js'), page + ' must not load v2 runtime');

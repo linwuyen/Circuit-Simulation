@@ -3,7 +3,7 @@ const { test, expect } = require('@playwright/test');
 test('all top-level pages load without runtime errors', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  for (const path of ['/', '/beginner.html', '/labs.html', '/troubleshooting.html', '/progress.html', '/quiz.html', '/search.html', '/glossary.html', '/report.html']) {
+  for (const path of ['/catalog.html', '/beginner.html', '/labs.html', '/troubleshooting.html', '/progress.html', '/quiz.html', '/search.html', '/glossary.html', '/report.html']) {
     await page.goto(path);
     await expect(page.locator('nav.topnav')).toBeVisible();
     await expect(page.locator('#mainContent')).toBeVisible();
@@ -64,7 +64,7 @@ test('quiz exposes misconception feedback and progress survives reload', async (
 });
 
 test('mobile pages do not overflow horizontally', async ({ page }) => {
-  for (const path of ['/', '/beginner.html', '/report.html', '/quiz.html']) {
+  for (const path of ['/catalog.html', '/beginner.html', '/report.html', '/quiz.html']) {
     await page.goto(path);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
     expect(overflow).toBe(false);
@@ -89,7 +89,7 @@ test('core flow persists completion and resumes the next layer from home', async
   await expect(page.locator('[data-core-layer-panel="sensing"]')).toBeVisible();
   await expect(page.locator('[data-layer-coach="sensing"]')).toHaveAttribute('data-answered', '0');
 
-  await page.goto('/');
+  await page.goto('/catalog.html');
   await expect(page.locator('[data-core-resume]')).toHaveAttribute('href', '19_c2000_buck_firmware_lab/index.html?layer=sensing');
   await expect(page.locator('[data-journey-stage="physics"]')).toHaveClass(/is-complete/);
   await expect(page.locator('[data-journey-stage="sensing"]')).toHaveClass(/is-active/);

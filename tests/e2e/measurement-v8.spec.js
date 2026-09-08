@@ -20,7 +20,7 @@ async function seedTransfer(page, familyId) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/catalog.html');
   await page.evaluate(() => localStorage.clear());
 });
 
