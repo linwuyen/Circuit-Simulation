@@ -19,9 +19,14 @@
   let pending = false;
   let corruptRaw = null;
   let persistence = { saved: true, reason: null };
+  const stores = new Map();
+  function registerStore(name, store) { stores.set(name, store); refreshStorageStatus(); }
+  function refreshStorageStatus() { updatePersistence(!pending, pending ? "unavailable" : null); }
+
 
   function updatePersistence(saved, reason) {
-    persistence = { saved, reason: reason || null };
+    saved = saved && [...stores.values()].every(store => !store.isPending());
+    persistence = { saved, reason: saved ? null : reason || "unavailable" };
     const doc = root && root.document;
     if (!doc || !doc.body) return;
     let notice = doc.getElementById('learning-storage-status');
@@ -32,7 +37,7 @@
     notice.setAttribute('role', 'alert');
     notice.style.cssText = 'position:fixed;bottom:12px;left:12px;right:12px;z-index:10000;padding:16px;background:#fff3cd;color:#332701;border:2px solid #856404;border-radius:8px';
     const message = doc.createElement('p');
-    message.textContent = '學習紀錄尚未儲存，關閉或重新整理可能遺失。請重試或先匯出備份。';
+    message.textContent = '學習紀錄或八層主線進度尚未儲存，關閉或重新整理可能遺失。請重試或先匯出完整備份。';
     notice.appendChild(message);
     const retry = doc.createElement('button');
     retry.textContent = '重試儲存';
@@ -50,8 +55,23 @@
     doc.body.appendChild(notice);
   }
 
-  function exportBackup() { return pending && memory.has(KEY) ? memory.get(KEY) : JSON.stringify(load()); }
-  function retrySave() { save(load()); return { ...persistence }; }
+  function exportBackup() {
+    const state = clone(load());
+    state.auxiliary = {};
+    for (const [name, store] of stores) state.auxiliary[name] = store.snapshot();
+    // Lesson pages may not load CoreFlow, but their backups must still contain it.
+    if (!state.auxiliary.coreFlow) {
+      const core = read("circuit-core-flow-v1", null);
+      if (core) state.auxiliary.coreFlow = core;
+    }
+    return JSON.stringify(state);
+  }
+  function retrySave() {
+    save(load());
+    for (const store of stores.values()) store.retry();
+    refreshStorageStatus();
+    return { ...persistence };
+  }
 
   const now = () => new Date().toISOString();
   const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
@@ -411,6 +431,10 @@
 
   function merge(payload) {
     if (!payload || payload.schema !== SCHEMA) throw new Error("不支援的學習狀態格式");
+    for (const [name, raw] of Object.entries(payload.auxiliary || {})) {
+      const store = stores.get(name);
+      if (!store || !store.validate(raw)) throw new Error("請在完整實驗備份頁面匯入，或檢查主線備份格式");
+    }
     const state = load();
 
     Object.entries(payload.evidence || {}).forEach(([id, incoming]) => {
@@ -442,6 +466,37 @@
     Object.entries(payload.openResponses || {}).forEach(([id, items]) => { state.openResponses[id] = unionById(state.openResponses[id], items); });
     Object.entries(payload.diagnosticGames || {}).forEach(([id, items]) => { state.diagnosticGames[id] = unionById(state.diagnosticGames[id], items); });
     Object.assign(state.identityAliases, payload.identityAliases || {});
+    // A fresh device must restore the complete formal PRE/POST/retention protocol.
+    // If this device already has first attempts, keep that protocol intact rather
+    // than mixing cached scores or seeds; preserve the incoming protocol in backup archives.
+    for (const [key, incoming] of Object.entries(payload.benchmark || {})) {
+      if (["trainingPractice", "__proto__", "constructor", "prototype"].includes(key)) continue;
+      if (key === "outcomeV1") {
+        const current = state.benchmark.outcomeV1;
+        const hasAttempts = current && Object.values(current.sessions || {}).some(phase =>
+          Object.keys(phase?.firstAttempts || {}).length > 0 || (phase?.retries || []).length > 0);
+        if (!hasAttempts) state.benchmark.outcomeV1 = clone(incoming);
+        else if (stableJson(current) !== stableJson(incoming)) {
+          state.benchmark.outcomeBackupArchives ||= [];
+          if (!state.benchmark.outcomeBackupArchives.some(record => stableJson(record) === stableJson(incoming))) {
+            state.benchmark.outcomeBackupArchives.push(clone(incoming));
+          }
+          state.benchmark.outcomeImportPreservedLocal = true;
+        }
+      } else if (!Object.hasOwn(state.benchmark, key)) state.benchmark[key] = clone(incoming);
+    }
+    // Preserve experiment logs carried by full backups without replacing local first attempts.
+    const imported = payload.benchmark && payload.benchmark.trainingPractice;
+    if (imported && Array.isArray(imported.sessions)) {
+      const current = state.benchmark.trainingPractice || { sessions: [] };
+      current.sessions = unionById(current.sessions, imported.sessions).slice(-12);
+      current.studySessions = unionById(current.studySessions, Array.isArray(imported.studySessions) ? imported.studySessions : []);
+      const incomingSeeds = Array.isArray(imported.seenRepairSeeds) ? imported.seenRepairSeeds.filter(seed => Number.isInteger(seed) && seed >= 1 && seed <= 1000000) : [];
+      current.seenRepairSeeds = [...new Set([...(current.seenRepairSeeds || []), ...incomingSeeds])];
+      if (!current.pilot && imported.pilot) current.pilot = imported.pilot;
+      state.benchmark.trainingPractice = current;
+    }
+    for (const [name, raw] of Object.entries(payload.auxiliary || {})) stores.get(name).restore(raw);
     pushEvent(state, { type: "import", fromVersion: payload.version || "unknown" });
     return save(state);
   }
@@ -456,7 +511,7 @@
 
   const api = {
     KEY, SCHEMA, VERSION, STRENGTH,
-    emptyState, normalizeState, load, save, retrySave, exportBackup,
+    emptyState, normalizeState, load, save, retrySave, exportBackup, registerStore, refreshStorageStatus,
     storageStatus: () => ({ ...persistence }),
     evidenceLevel, recordEvidence, recordStep, recordMachine, machineEvents, getEvidence,
     commitPrediction, getPrediction, predictionStatus,

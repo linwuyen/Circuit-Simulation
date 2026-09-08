@@ -272,6 +272,7 @@
       <div class="section-kicker">修正理解 · FIRST ATTEMPT 保留，不直接放行</div>
       <h3>${config.question}</h3>
       <div class="prediction-row">${config.choices.map(([value, label]) => `<button type="button" data-remediation-choice="${value}">${label}</button>`).join('')}</div>
+      <p><a href="../15_power_capstone/lab_sandbox.html?remediation=${({physics:'physics',sensing:'unit',timing:'timing',dynamics:'model'})[layer] || 'model'}#training-remediation">需要多一步？依錯誤分類做短實驗，再換條件驗證</a></p>
       <p class="precision-remediation-status" data-remediation-status>答對這個不同情境後，才視為概念已修正；原本第一次答錯的紀錄仍保留。</p>`;
     const anchor = findRemediationAnchor(layer, panel);
     (anchor || panel.lastElementChild)?.after(box);

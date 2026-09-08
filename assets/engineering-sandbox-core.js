@@ -19,7 +19,7 @@
     return Object.assign({
       controlPeriodUs,cycles,plantDtUs:.25,vin:80,
       commandProfile,loadProfile,
-      inductanceUh:500,capacitanceUf:2200,currentLimit:12,
+      inductanceUh:500,capacitanceUf:2200,currentLimit:12,inductorDcrOhm:0,saturationCurrentA:0,saturatedInductanceRatio:.2,
       kpV:.4,kiV:40,kpI:.05,kiI:800,dutyMax:.95,
       adcBits:12,currentFullScale:20,voltageFullScale:80,
       sensorGain:1,currentSensorGain:1,sensorOffset:0,currentSensorOffset:0,
@@ -115,7 +115,11 @@
           state.fault=true;state.state="FAULT";appliedDuty=0;events.push({tUs:tripDueAbs,type:"TRIP_ACTUATE",cycle:k});tripDueAbs=null;
         }
         const gate=state.state==="RUN"&&!state.fault&&t0<appliedDuty*T;
-        const vL=gate?(c.vin-vOut):(-vOut),di=vL/L,dv=(iL-vOut/load)/C;
+        const vL=(gate?(c.vin-vOut):(-vOut))-iL*Math.max(0,finite(c.inductorDcrOhm,0));
+        // Smooth differential-inductance teaching curve; no hysteresis or thermal claim.
+        const knee=Math.max(0,finite(c.saturationCurrentA,0)),ratio=clamp(finite(c.saturatedInductanceRatio,.2),.05,1);
+        const effectiveL=knee>0?L*(ratio+(1-ratio)/(1+Math.pow(iL/knee,4))):L;
+        const di=vL/effectiveL,dv=(iL-vOut/load)/C;
         iL=Math.max(0,iL+di*dt);vOut=Math.max(0,vOut+dv*dt);peakIThis=Math.max(peakIThis,iL);
         if(iL>=c.tripCurrent&&tripDueAbs===null&&state.state==="RUN"&&!state.fault){tripDueAbs=abs+c.tripLatencyUs;events.push({tUs:abs,type:"TRIP_DETECT",cycle:k});}
         if(iL>=c.tripCurrent&&state.state==="RUN"&&!state.fault)faultEnergy+=iL*iL*dt;
@@ -174,6 +178,6 @@
     truncation:{line:"uint16_t gain = 3/5;",effect:"integer truncation collapses the scale to zero, so feedback becomes physically wrong",measurement:"inspect runtime gain and compare scaled value with the DMM",preset:"truncation"}
   };
   function codeTrace(bug){const key=bug in CODE_BUGS?bug:"unit",meta=CODE_BUGS[key],config=defaults({cycles:650,seed:31,commandProfile:[{cycle:0,vref:24},{cycle:120,vref:48}],loadProfile:[{cycle:0,ohm:12}],codeBug:key});const system=simulateSystem(config);return{bug:key,...meta,system,measurement:measureSystem(system,key==="stale"?"seq":key==="shadow"?"timing":key==="unit"||key==="truncation"?"scaled":"duty")};}
-  const api={version:"3.0.0",defaults,simulateSystem,simulateConverter,timingWindow,dmaScenario,runStateMachine,multiFault,measureSystem,diagnosticScore,codeTrace,CODE_BUGS,FAULT_PRESETS};
+  const api={version:"3.1.0",defaults,simulateSystem,simulateConverter,timingWindow,dmaScenario,runStateMachine,multiFault,measureSystem,diagnosticScore,codeTrace,CODE_BUGS,FAULT_PRESETS};
   root.CircuitEngineeringSandboxCore=api;if(typeof module!=="undefined"&&module.exports)module.exports=api;
 })(typeof globalThis!=="undefined"?globalThis:this);
