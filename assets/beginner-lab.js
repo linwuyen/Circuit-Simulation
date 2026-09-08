@@ -122,7 +122,7 @@
     $('on-path').style.strokeDashoffset=-phase*100; $('off-path').style.strokeDashoffset=-phase*100;
     $('cursor').setAttribute('x1',55+phase*635); $('cursor').setAttribute('x2',55+phase*635);
     $('time-cursor').value=Math.round(phase*100);
-    if(lesson().id==='inductor'){$('experiment-control').value=Math.round(phase*100);$('control-value').textContent=Math.round(phase*100)+'%';}
+    if(lesson().id==='inductor'){$('experiment-control').value=Math.round(phase*100);$('control-value').textContent=Math.round(phase*100)+'%';$('before-after').textContent=`先前在這輪的 ${lesson().initial}%；目前游標在 ${Math.round(phase*100)}%。看關掉開關後，電流是否還能沿另一條路繼續流。`;}
     $('instant-state').textContent=`時間 ${(phase*model.periodUs).toFixed(2)} 微秒：`+(on?'開關導通，電源供能，電感電流上升。':zero?'電感電流已歸零，二極體停止續流，由電容供應負載。':'開關關閉，二極體續流，電感電流下降。')+` 此刻 ${current.toFixed(2)} A。`;
   }
   function changeValue(v) {
