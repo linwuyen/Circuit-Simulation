@@ -24,7 +24,7 @@
       boundary: "量測鏈若 clipped、sample 在 ringing、scale/offset 錯，調 PI 只會把錯誤藏起來。"
     },
     feedback: {
-      summary: "真實 Buck controller 是兩層：Voltage PI 先決定 Iref，Current PI 才決定 duty。",
+      summary: "本課採用電壓外環、電流內環：電壓 PI 先決定目標電流，電流 PI 再決定導通比例。",
       chain: ["Vref − Vout", "Voltage PI", "Iref", "Iref − iL", "Current PI + feed-forward", "Duty"],
       firmware: "對應 buck_control.c：voltage_error → current_reference → current_error → duty。",
       measure: "Trace Vref、Vout、voltage_error、Iref、iL、current_error、duty；不要把中間狀態省略。",
