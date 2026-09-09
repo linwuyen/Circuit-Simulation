@@ -1,7 +1,7 @@
 const {test,expect}=require('@playwright/test');
 test.beforeEach(async({page})=>{await page.goto('/map.html');await expect(page.locator('#learning-track')).toBeVisible();await page.evaluate(()=>localStorage.clear());await page.reload();await expect(page.locator('#learning-track')).toBeVisible();});
 test('resume integrates beginner progress and advanced selection without granting mastery',async({page})=>{
- await expect(page.locator('[data-learning-hub] [data-unified-resume]')).toHaveAttribute('href',/learn_basics.html#duty/);
+ await expect(page.locator('[data-learning-hub] [data-unified-resume]')).toHaveAttribute('href',/index.html#duty/);
  await page.evaluate(()=>{const e=CircuitEvidence.load();e.benchmark.beginnerLessons={version:1,rows:{duty:{first:{correct:false},observed:true,proof:{observation:true,reason:true},transferPassed:true}}};CircuitEvidence.save(e);});await page.reload();
  await expect(page.locator('[data-learning-hub] [data-unified-resume]')).toHaveAttribute('href',/#inductor/);
  await page.locator('#learning-track').selectOption('core');await expect(page.locator('[data-learning-hub] [data-unified-resume]')).toHaveAttribute('href',/layer=physics/);

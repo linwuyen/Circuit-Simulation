@@ -1,6 +1,6 @@
 (async()=>{
   'use strict';
-  if(window.top!==window||document.body.matches(".plain-learning,[data-simple-course]"))return;
+  if((window.top!==window&&!document.querySelector("[data-learning-hub]"))||document.body.matches(".plain-learning,[data-simple-course],[data-learning-workspace]"))return;
   const base=new URL('../../',document.currentScript.src);
   const load=path=>new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=new URL(path,base);s.onload=resolve;s.onerror=()=>reject(new Error('教材導航載入失敗'));document.head.append(s);});
   try{
@@ -23,7 +23,7 @@
       return 'module-'+(CircuitLearningMap.find(m=>path.startsWith(m.href.split('/')[0]+'/'))?.number??'');
     }
     const dock=document.createElement('aside');dock.className='learning-bridge';dock.id='learning-navigation';dock.setAttribute('aria-label','統一學習導航');
-    document.body.prepend(dock);
+    document.body.prepend(dock);if(window.top!==window)dock.hidden=true;
     const make=(tag,text,parent)=>{const n=document.createElement(tag);if(text)n.textContent=text;parent?.append(n);return n;};
     function link(parent,text,href){const a=make('a',text,parent);a.href=url(href);return a;}
     function nextLink(parent){const n=U.next(E.load(),F.snapshot()),href=n.remediation?U.remediationRoute(n.id,n.remediation):U.route(n.id);const a=link(parent,'繼續學習：'+U.task(n.id).title,href);a.dataset.unifiedResume='';if(n.remediation)a.addEventListener('click',()=>U.beginReturn(n.id,n.remediation));return n;}

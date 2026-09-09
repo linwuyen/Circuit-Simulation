@@ -471,7 +471,10 @@
     // than mixing cached scores or seeds; preserve the incoming protocol in backup archives.
     for (const [key, incoming] of Object.entries(payload.benchmark || {})) {
       if (["trainingPractice", "__proto__", "constructor", "prototype"].includes(key)) continue;
-      if (key === "unifiedLearning" && incoming?.version === 1) {
+      if (key === "learningWorkspace" && incoming?.version === 1) {
+        const current = state.benchmark.learningWorkspace;
+        if (!current || (!current.history?.length && !current.freeModel)) state.benchmark.learningWorkspace = clone(incoming);
+      } else if (key === "unifiedLearning" && incoming?.version === 1) {
         const current = state.benchmark.unifiedLearning;
         if (!current) state.benchmark.unifiedLearning = clone(incoming);
         else {
