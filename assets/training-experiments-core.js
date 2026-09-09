@@ -5,6 +5,15 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
   const VERSION = "1.0.0";
+  const BUCK_INPUTS = Object.freeze(Object.fromEntries(Object.entries({
+    vin: { default:48, min:5, max:100, unit:'V' },
+    duty: { default:.25, min:.05, max:.9, unit:'ratio' },
+    inductanceUh: { default:100, min:20, max:2000, unit:'µH' },
+    fswKhz: { default:100, min:20, max:500, unit:'kHz' },
+    loadOhm: { default:5, min:.5, max:500, unit:'Ω' },
+    capacitanceUf: { default:220, min:10, max:5000, unit:'µF' },
+    esrOhm: { default:0, min:0, max:.5, unit:'Ω' }
+  }).map(([key, value]) => [key, Object.freeze(value)])));
   const clone = value => JSON.parse(JSON.stringify(value));
   const mean = values => values.reduce((a, b) => a + b, 0) / values.length;
   function number(value, fallback, lo, hi) {
@@ -14,12 +23,8 @@
     return n;
   }
   function buckConfig(input = {}) {
-    return {
-      vin: number(input.vin, 48, 5, 100), duty: number(input.duty, .25, .05, .9),
-      inductanceUh: number(input.inductanceUh, 100, 20, 2000), fswKhz: number(input.fswKhz, 100, 20, 500),
-      loadOhm: number(input.loadOhm, 5, .5, 500), capacitanceUf: number(input.capacitanceUf, 220, 10, 5000),
-      esrOhm: number(input.esrOhm, 0, 0, .5)
-    };
+    return Object.fromEntries(Object.entries(BUCK_INPUTS).map(([key, spec]) =>
+      [key, number(input[key], spec.default, spec.min, spec.max)]));
   }
   // Ideal diode Buck, fixed duty, resistive load, steady state and small output ripple.
   // DCM: K*M^2 = D^2*(1-M), K = 2*L*fs/R; boundary K = 1-D.
@@ -189,5 +194,5 @@
     });
     return { record: clean, final };
   }
-  return { VERSION, buckConfig, buck, scopeConfig, acquire, question, checkAnswer, miniExperiment, fingerprint, snapshot, createExperiment, replay, changeExperiment, capture, validateExperiment };
+  return { VERSION, BUCK_INPUTS, buckConfig, buck, scopeConfig, acquire, question, checkAnswer, miniExperiment, fingerprint, snapshot, createExperiment, replay, changeExperiment, capture, validateExperiment };
 });

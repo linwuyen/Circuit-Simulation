@@ -69,38 +69,7 @@
     }
   ];
 
-  const mentalViews = {
-    physical: {
-      label: "PHYSICAL",
-      title: "能量真的怎麼流",
-      flow: ["PWM / switch state", "Switch node", "vL → di/dt", "L / C 儲能", "Load / Vout"],
-      note: "先問電流路徑與儲能元件能不能瞬間改變，再談 controller。真板高價值量測：switch node、iL、Vout。"
-    },
-    signal: {
-      label: "SIGNAL",
-      title: "物理量怎麼變成韌體數字",
-      flow: ["Vout physical", "Divider / AFE", "ADC pin", "Sample / count", "Scaling → ŷ"],
-      note: "controller 控制的是重建後的 ŷ，不是你心裡認為的 Vout。先驗 scale / offset / sample point，再調 PI。"
-    },
-    control: {
-      label: "CONTROL",
-      title: "負回授每一拍做了什麼",
-      flow: ["Reference r", "e = r − ŷ", "C(z) / PI", "Duty command", "Plant response"],
-      note: "把 reference、feedback、error、command 分開看。數學正確不代表 measurement、timing 或 actuator authority 正確。"
-    },
-    time: {
-      label: "TIME",
-      title: "算完不代表已經作用到 power stage",
-      flow: ["SOCA", "ADC ready", "ISR / CLA", "CMPA shadow write", "ZERO load → active PWM"],
-      note: "量 end-to-end sample-to-actuate latency；miss shadow-load 就是額外一拍，不要把這個 phase lag 全怪給 PI。"
-    },
-    authority: {
-      label: "AUTHORITY",
-      title: "誰真的有資格讓 PWM 導通",
-      flow: ["RUN state", "Fresh command", "Valid sensing", "No fault", "PWM grant"],
-      note: "software grant 是多個 invariant 的 AND；CMPSS / Trip Zone 仍保有獨立 hardware veto。"
-    }
-  };
+  const mentalViews = window.CircuitEngineeringCurriculum.views;
 
   function currentMode() {
     return document.querySelector('[data-learning-mode].selected')?.dataset.learningMode || "guided";
