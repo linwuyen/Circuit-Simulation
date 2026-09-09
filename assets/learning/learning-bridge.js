@@ -44,7 +44,7 @@
         link(details,'能力地圖與詳細紀錄','map.html');link(details,'完整教材目錄','catalog.html');
         const words=make('details',null,details);make('summary','查一個詞，不必離開目前任務',words);
         for(const [term,meaning]of Object.entries(CircuitLearningGlossary)){const d=make('details',null,words);make('summary',term,d);make('p',meaning,d);}
-        CircuitWorkbenchContext.mount(dock,base);
+        CircuitWorkbenchContext.mount(make('div',null,dock),base);
         if(document.querySelector('[data-learning-hub]'))renderHub(n);
       }finally{rendering=false;}
     }
