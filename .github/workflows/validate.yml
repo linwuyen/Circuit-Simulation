@@ -15,6 +15,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      VERIFICATION_SCOPE: platform-${{ matrix.os }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -23,12 +25,26 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - run: node tools/validate-project.mjs
-      - run: node tools/audit-dynamic-visuals.mjs
-      - run: npm test
+      - run: node tools/ci/verification-manifest.mjs STATIC --check project -- node tools/validate-project.mjs
+      - run: node tools/ci/verification-manifest.mjs STATIC --check visuals -- node tools/audit-dynamic-visuals.mjs
+      - run: node tools/ci/verification-manifest.mjs UNIT -- node tools/run-tests.mjs
+      - run: node tools/ci/verification-manifest.mjs MODEL -- node --test tests/model-invariants.test.mjs tests/model-contracts-v1.test.mjs tests/power-system-models.test.mjs
+      - run: node tools/ci/verification-manifest.mjs INDEPENDENT_ORACLE -- node --test tests/measurement-v6.test.mjs tests/verification-coverage-v7.test.mjs
+      - run: node tools/ci/verification-manifest.mjs INTEGRATION -- node --test tests/ownership-contracts.test.mjs tests/engineering-context.test.mjs tests/unified-learning.test.mjs
+      - run: node tools/ci/verification-manifest.mjs HIL -- node --test tests/c2000-buck-hil.test.mjs
+      - run: node tools/ci/verification-manifest.mjs PHYSICAL_CLOSURE_CONTRACT -- node --test tests/board-evidence-contract.test.mjs tests/physical-board-closure.test.mjs tests/control-validation.test.mjs
+      - name: Preserve platform evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-platform-${{ matrix.os }}
+          path: build/verification/
+          if-no-files-found: warn
 
   firmware:
     runs-on: ubuntu-latest
+    env:
+      VERIFICATION_SCOPE: firmware
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -38,12 +54,7 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - name: Build and run C2000 Buck host SIL
-        run: |
-          gcc -std=c11 -Wall -Wextra -Werror \
-            19_c2000_buck_firmware_lab/firmware/buck_control.c \
-            19_c2000_buck_firmware_lab/firmware/host_sil.c \
-            -I19_c2000_buck_firmware_lab/firmware -lm -o /tmp/c2000-buck-sil
-          /tmp/c2000-buck-sil
+        run: node tools/ci/verification-manifest.mjs HOST_SIL --artifact build/host/c2000-buck-sil -- bash tools/ci/run-host-sil.sh
 
       - name: Check out pinned C2000Ware target support
         uses: actions/checkout@v4
@@ -64,14 +75,15 @@ jobs:
       - name: Compile F2838x CPU1 target with TI cl2000
         env:
           C2000WARE_ROOT: ${{ github.workspace }}/.ci/c2000ware
-        run: bash tools/ci/build-f2838x-target.sh
+        run: node tools/ci/verification-manifest.mjs C2000_COMPILE -- bash tools/ci/build-f2838x-target.sh
 
       - name: Link F2838x flash image and generate Intel HEX
         env:
           C2000WARE_ROOT: ${{ github.workspace }}/.ci/c2000ware
-        run: bash tools/ci/build-f2838x-image.sh
+        run: node tools/ci/verification-manifest.mjs FLASH_IMAGE --artifact build/f2838x-flash/c2000-buck-f2838x.out --artifact build/f2838x-flash/c2000-buck-f2838x.map --artifact build/f2838x-flash/c2000-buck-f2838x.hex -- bash tools/ci/build-f2838x-image.sh
 
       - name: Upload F2838x flash image
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: c2000-buck-f2838x-flash-image
@@ -81,9 +93,18 @@ jobs:
             build/f2838x-flash/c2000-buck-f2838x.hex
           if-no-files-found: error
 
+      - name: Preserve firmware evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-firmware
+          path: build/verification/
+          if-no-files-found: warn
 
   browser:
     runs-on: ubuntu-latest
+    env:
+      VERIFICATION_SCOPE: browser
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -96,7 +117,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run browser smoke tests
-        run: npm run test:e2e
+        run: node tools/ci/verification-manifest.mjs BROWSER -- node node_modules/@playwright/test/cli.js test
 
       - name: Upload Playwright failure diagnostics
         if: always()
@@ -108,12 +129,40 @@ jobs:
             test-results/
           if-no-files-found: ignore
 
+      - name: Preserve browser evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-browser
+          path: build/verification/
+          if-no-files-found: warn
+
   validate:
     if: always()
     needs: [validate-platform, browser, firmware]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: verification-*
+          merge-multiple: true
+          path: build/verification/incoming
+      - name: Verify provenance and stage completeness
+        if: always()
+        run: node tools/ci/verification-manifest.mjs summarize build/verification/incoming --require-software
+      - name: Preserve consolidated verification package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-consolidated
+          path: build/verification/incoming/
+          if-no-files-found: error
       - name: Require all validation jobs to pass
+        if: always()
         env:
           PLATFORM_RESULT: ${{ needs.validate-platform.result }}
           BROWSER_RESULT: ${{ needs.browser.result }}

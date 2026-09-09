@@ -1,0 +1,20 @@
+{
+  "schema": "circuit-verification-hierarchy",
+  "version": 1,
+  "stages": [
+    {"id":0,"name":"STATIC","claim":"SOURCE_CHECK"},
+    {"id":1,"name":"UNIT","claim":"SOFTWARE_TEST"},
+    {"id":2,"name":"MODEL","claim":"MODEL_CONTRACT"},
+    {"id":3,"name":"INDEPENDENT_ORACLE","claim":"REFERENCE_INDEPENDENCE"},
+    {"id":4,"name":"INTEGRATION","claim":"SOFTWARE_INTEGRATION"},
+    {"id":5,"name":"BROWSER","claim":"BROWSER_UX"},
+    {"id":6,"name":"HOST_SIL","claim":"HOST_C_CONTROLLER"},
+    {"id":7,"name":"HIL","claim":"DETERMINISTIC_HIL"},
+    {"id":8,"name":"C2000_COMPILE","claim":"TARGET_COMPILE"},
+    {"id":9,"name":"FLASH_IMAGE","claim":"LINKED_REFERENCE_IMAGE"},
+    {"id":10,"name":"PHYSICAL_CLOSURE_CONTRACT","claim":"CONTRACT_TEST_ONLY"},
+    {"id":11,"name":"MEASURED_CONTROL","claim":"REAL_CAPTURE_REQUIRED","physical":true},
+    {"id":12,"name":"BOARD_EVIDENCE","claim":"REAL_BOARD_REQUIRED","physical":true}
+  ],
+  "boundary":"Software command success can never authorize stages 11/12. Their existing provenance-aware owners remain authoritative. A contract-test PASS at stage 10 is not a physical closure claim."
+}
