@@ -5,7 +5,7 @@ const vm = require('node:vm');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const shellPages = [
-  'index.html',
+  'catalog.html',
   'beginner.html',
   'labs.html',
   'progress.html',
