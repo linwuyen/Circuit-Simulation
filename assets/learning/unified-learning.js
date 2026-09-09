@@ -13,9 +13,9 @@
   ];
   const categories={physics:'physics',sensing:'unit',timing:'timing',dynamics:'model'};
   const tasks={home:{title:'學習總覽',href:'learn.html'},case:{title:'同一案例實驗',href:'learning-case.html'},sandbox:{title:'進階 Buck 量測',href:'15_power_capstone/lab_sandbox.html#training-workbench'},repair:{title:'盲測維修',href:'15_power_capstone/lab_multifault.html#repair-training'},formal:{title:'正式測驗與間隔複習',href:'19_c2000_buck_firmware_lab/index.html?layer=evidence'},quiz:{title:'既有題庫複習',href:'quiz.html'}};
-  basics.forEach(([id,title])=>tasks['basic-'+id]={title,href:'15_power_capstone/learn_basics.html#'+id});
+  basics.forEach(([id,title])=>tasks['basic-'+id]={title,href:'index.html#'+id});
   layers.forEach(([id,title])=>tasks['core-'+id]={title:title+'主線任務',href:'19_c2000_buck_firmware_lab/index.html?layer='+id});
-  ['error','adjust','overshoot'].forEach((id,i)=>tasks['bridge-'+id]={title:['離目標還差多少','讓輸出自己靠近目標','理解調過頭'][i],href:'control-basics.html#'+id});
+  ['error','adjust','overshoot'].forEach((id,i)=>tasks['bridge-'+id]={title:['離目標還差多少','讓輸出自己靠近目標','理解調過頭'][i],href:'index.html#'+id});
   const clone=x=>JSON.parse(JSON.stringify(x));
   function registerModules(modules){for(const m of modules)tasks['module-'+m.number]={title:m.title,href:m.href};}
   function validTask(id){return typeof id==='string'&&Object.hasOwn(tasks,id);}

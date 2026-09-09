@@ -5,7 +5,7 @@ test('advanced catalog preserves unified resume and eight-layer entry', async ({
   await expect(page.locator('.journey-shell')).toBeVisible();
   await expect(page.locator('[data-core-resume]')).toHaveCount(1);
   await expect(page.locator('[data-unified-resume]')).toHaveCount(1);
-  await expect(page.locator('[data-unified-resume]')).toHaveAttribute('href', /learn_basics.html#duty$/);
+  await expect(page.locator('[data-unified-resume]')).toHaveAttribute('href', /index.html#duty$/);
   await expect(page.locator('[data-core-resume]')).toHaveAttribute('href', '19_c2000_buck_firmware_lab/index.html?layer=physics');
   await expect(page.locator('[data-core-resume]')).toContainText('八層課程入口：01 物理');
   await expect(page.locator('.journey-advanced-evidence')).not.toHaveAttribute('open', '');
