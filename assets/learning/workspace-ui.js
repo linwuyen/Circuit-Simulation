@@ -2,6 +2,7 @@
  'use strict';
  const E=CircuitEvidence,P=CircuitPlainCourse,W=CircuitWorkspace,U=CircuitUnifiedLearning,B=CircuitTrainingExperiments,$=id=>document.getElementById(id);
  U.registerModules(CircuitLearningMap);
+ CircuitWorkbenchContext.mount(document.getElementById("workbench-context-slot"),new URL(".",location.href));
  const initial=E.load(),stored=initial.benchmark.learningWorkspace;
  let workspace=stored?.version===1?stored:{version:1,history:[]},model;
  try{model=B.buckConfig(workspace.model||W.defaults);}catch{model=B.buckConfig(W.defaults);}

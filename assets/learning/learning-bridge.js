@@ -10,6 +10,7 @@
     if(!globalThis.CircuitUnifiedLearning)await load('assets/learning/unified-learning.js');
     if(!globalThis.CircuitLearningMap)await load('assets/learning/learning-map.js');
     if(!globalThis.CircuitLearningGlossary)await load('assets/learning/learning-glossary.js');
+    if(!globalThis.CircuitWorkbenchContext)await load('assets/learning/workbench-context.js');
     const U=CircuitUnifiedLearning,E=CircuitEvidence,F=CircuitCoreFlowV1;
     U.registerModules(CircuitLearningMap);
     const url=(href)=>new URL(href,base).href;
@@ -43,6 +44,7 @@
         link(details,'能力地圖與詳細紀錄','map.html');link(details,'完整教材目錄','catalog.html');
         const words=make('details',null,details);make('summary','查一個詞，不必離開目前任務',words);
         for(const [term,meaning]of Object.entries(CircuitLearningGlossary)){const d=make('details',null,words);make('summary',term,d);make('p',meaning,d);}
+        CircuitWorkbenchContext.mount(dock,base);
         if(document.querySelector('[data-learning-hub]'))renderHub(n);
       }finally{rendering=false;}
     }
