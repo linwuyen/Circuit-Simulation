@@ -36,3 +36,36 @@ Missing hardware evidence: board identity and configuration, calibration provena
 Audit-only commit: `03426416f0cc13cc11e6714e62f328ed0ea59174`. Ownership delegation: `9f5818a601fd992d63e4c72178fccc5d571e703c`. Context adapter: `6ec3952f6bde20cbf90469e72d61e48590cdd992`. Subsequent fixes and CI packaging are separate commits in PR 44. Revert in reverse order as needed; no storage migration is required. Baseline main is `74797e5eef24b72fa21284d092cdfeb7494f62a1`.
 
 The authoritative changed-file list is the PR Files changed view; it excludes unpublished prototype files and generated local test outputs.
+
+## Changed files
+
+- `docs/architecture-map.md`
+- `docs/integration-audit.md`
+- `docs/architecture-inventory.json`
+- `assets/training-experiments-core.js`
+- `assets/learning/unified-learning.js`
+- `assets/learning/model-registry.js`
+- `assets/learning/engineering-curriculum.js`
+- `19_c2000_buck_firmware_lab/layer-live.js`
+- `19_c2000_buck_firmware_lab/index.html`
+- `tests/ownership-contracts.test.mjs`
+- `assets/learning/engineering-context.js`
+- `assets/learning/workbench-context.js`
+- `assets/learning/workbench-context.css`
+- `assets/learning/learning-bridge.js`
+- `assets/learning/workspace-ui.js`
+- `assets/learning/control-unification-module.js`
+- `index.html`
+- `learn.html`
+- `tests/engineering-context.test.mjs`
+- `tests/e2e/engineering-context.spec.js`
+- `.github/workflows/validate.yml`
+- `tools/ci/verification-stages.json`
+- `tools/ci/verification-manifest.mjs`
+- `tools/ci/run-host-sil.sh`
+- `tests/verification-manifest.test.mjs`
+- `docs/verification.md`
+- `docs/integration-delivery.md`
+- `docs/runtime-architecture.md`
+- `docs/integrated-learning.md`
+- `docs/unified-causal-kernel.md`
