@@ -28,9 +28,9 @@ jobs:
       - run: node tools/ci/verification-manifest.mjs STATIC --check project -- node tools/validate-project.mjs
       - run: node tools/ci/verification-manifest.mjs STATIC --check visuals -- node tools/audit-dynamic-visuals.mjs
       - run: node tools/ci/verification-manifest.mjs UNIT -- node tools/run-tests.mjs
-      - run: node tools/ci/verification-manifest.mjs MODEL -- node --test tests/model-invariants.test.mjs tests/model-contracts-v1.test.mjs tests/power-system-models.test.mjs
+      - run: node tools/ci/verification-manifest.mjs MODEL -- node --test tests/model-invariants.test.mjs tests/model-contracts-v1.test.mjs tests/power-system-models.test.mjs tests/continuous-kernel.test.mjs
       - run: node tools/ci/verification-manifest.mjs INDEPENDENT_ORACLE -- node --test tests/measurement-v6.test.mjs tests/verification-coverage-v7.test.mjs
-      - run: node tools/ci/verification-manifest.mjs INTEGRATION -- node --test tests/ownership-contracts.test.mjs tests/engineering-context.test.mjs tests/unified-learning.test.mjs
+      - run: node tools/ci/verification-manifest.mjs INTEGRATION -- node --test tests/ownership-contracts.test.mjs tests/engineering-context.test.mjs tests/unified-learning.test.mjs tests/continuous-course.test.mjs
       - run: node tools/ci/verification-manifest.mjs HIL -- node --test tests/c2000-buck-hil.test.mjs
       - run: node tools/ci/verification-manifest.mjs PHYSICAL_CLOSURE_CONTRACT -- node --test tests/board-evidence-contract.test.mjs tests/physical-board-closure.test.mjs tests/control-validation.test.mjs
       - name: Preserve platform evidence even on failure
