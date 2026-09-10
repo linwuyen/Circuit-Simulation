@@ -33,7 +33,7 @@
       task:unified.validTask(task)?task:null,topics,models,mapping:precise?'PAGE_MODEL':models.length?'MODULE_SCOPE':'UNMAPPED',
       competencies:[...new Set(matches.map(i=>i.competency).filter(Boolean))],
       prerequisites:module?.prerequisites||[],items:matches.map(i=>({id:i.id,title:i.title||i.symptom,competency:i.competency})),
-      evidenceOwner:entry?.number===19?'CoreFlow / outcome-session / physical-board-closure / board-evidence':'Evidence V5 / learning-assessment / lab-verification-contracts',
+      evidenceOwner:continuous?'Evidence V5 / PlainCourse 教學練習（不授予正式能力成績）':entry?.number===19?'CoreFlow / outcome-session / physical-board-closure / board-evidence':'Evidence V5 / learning-assessment / lab-verification-contracts',
       boundary:continuous?'全部連續實驗使用同一切換電路核心；每次從相同零能量起點重跑，保留條件與紀錄。這是教學模型，沒有真板或正式測驗認證。':home?'前五課是固定比例穩態電路；後三課為獨立修正示意，不是同一個閉環。':shared?'共用工作點，時間與頻率鏡頭的假設不同；不可把結果混成同一模型。':entry?.number===19?'教學、SIL、HIL、target image 與真板證據分層判定。此面板不讀取或授予 BOARD_PASS。':'這裡列出模型來源與範圍；精確數值及驗證仍由原頁面與 model owner 負責。',
       faults:Object.keys(facts.faultTaxonomy)};
   }
