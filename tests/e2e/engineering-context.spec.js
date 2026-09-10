@@ -1,7 +1,7 @@
 const {test,expect}=require('@playwright/test');
 async function open(page){const panel=page.locator('[data-engineering-context]');await panel.locator('summary').first().click();await expect(panel.locator('.ec-tabs button')).toHaveCount(5);return panel;}
 test('workspace and debug resolve existing model owners, preserve circuit and use shared five-view facts',async({page})=>{
-  const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('/');await expect(page.locator('#ws-title')).toBeVisible();await page.evaluate(()=>window.originalCircuit=document.getElementById('circuit'));
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('/#duty');await expect(page.locator('#ws-title')).toBeVisible();await page.evaluate(()=>window.originalCircuit=document.getElementById('circuit'));
   const panel=await open(page);await expect(panel).toContainText('assets/training-experiments-core.js');await panel.locator('[data-view=authority]').click();await expect(panel.locator('.ec-view')).toContainText('Valid calibration');await expect(panel.locator('.ec-view')).toContainText('Peripherals ready');
   expect(await page.evaluate(()=>window.originalCircuit===document.getElementById('circuit'))).toBe(true);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.goto('/15_power_capstone/lab_sandbox.html');const debug=await open(page);await expect(debug).toContainText('assets/engineering-sandbox-core.js');await expect(debug).toContainText('契約尚未完整');await expect(debug).toContainText('MODEL_ONLY');expect(errors).toEqual([]);
