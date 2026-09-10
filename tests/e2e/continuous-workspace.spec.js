@@ -33,3 +33,11 @@ test('context names the actual kernel and due review retains priority',async({pa
  await page.evaluate(()=>{const s=CircuitEvidence.load();s.benchmark.outcomeV1={sessions:{post:{completedAt:'2026-01-01'}},retention:{r1:{dueAt:'2026-01-02'}}};CircuitEvidence.save(s);});await page.reload();
  await expect(page.locator('#resume-task')).toHaveText('接續到期複習');await expect(page.locator('#resume-task')).toHaveAttribute('data-route',/layer=evidence/);
 });
+test('resume from embedded records returns to the outer experiment without nesting a second workspace',async({page})=>{
+ await answer(page,'up');await page.locator('#experiment-run').click();await page.evaluate(()=>window.keptCircuit=document.getElementById('circuit'));
+ await page.locator('#show-progress').click();await page.locator('#detailed-records').click();
+ await page.frameLocator('#reference-frame').locator('[data-learning-hub] [data-unified-resume]').click();
+ await expect(page.locator('#workspace-reference')).toBeHidden();await expect(page.locator('#ws-title')).toContainText('開久一點');
+ expect(await page.evaluate(()=>window.keptCircuit===document.getElementById('circuit'))).toBe(true);
+ expect(await page.evaluate(()=>CircuitEvidence.load().benchmark.learningWorkspace.experiment.rows.energy.operated)).toBe(true);
+});
