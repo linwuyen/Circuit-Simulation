@@ -20,7 +20,29 @@
     return phasor((nr*dr+ni*di)/den,(ni*dr-nr*di)/den);
   }
 
-  function boostCCM({ vin, duty: d, inductanceH, capacitanceF=null, loadOhm }) {
+  // Quantitative metadata remains in model-contracts-v1.json::buckBode.
+  // This is the existing Module 17 CCM plant, not a DCM or switched solver.
+  function buckCCM({ vin, duty: d, inductanceH, capacitanceF, loadOhm, esrOhm, switchingHz }) {
+    const V=positive(vin,"vin"), D=Number(d), L=positive(inductanceH,"inductanceH"), C=positive(capacitanceF,"capacitanceF"), R=positive(loadOhm,"loadOhm"), ESR=Number(esrOhm), fs=positive(switchingHz,"switchingHz");
+    if (!Number.isFinite(D) || D<0 || D>1) throw new RangeError("duty must be 0..1");
+    if (!Number.isFinite(ESR) || ESR<0) throw new RangeError("esrOhm must be >= 0");
+    const vout=V*D;
+    const ripple=(V-vout)*D/(L*fs);
+    const averageCurrentA=vout/R;
+    const valleyCurrentA=averageCurrentA-ripple/2;
+    const resonanceHz=1/(2*pi*Math.sqrt(L*C));
+    const esrZeroHz=1/(2*pi*ESR*C);
+    return Object.freeze({ topology:"BUCK_CCM", vout, dcGain:V, ripple, averageCurrentA, valleyCurrentA, ccmValid:valleyCurrentA>0, resonanceHz, esrZeroHz, controlVariable:"duty", fidelity:"EQUATION_GRADE_AVERAGED_CCM_WITH_ESR" });
+  }
+
+  function buckControlToOutputAt(params, frequencyHz) {
+    const op=buckCCM(params), f=frequency(frequencyHz), V=op.dcGain, L=Number(params.inductanceH), C=Number(params.capacitanceF), R=Number(params.loadOhm), ESR=Number(params.esrOhm), w=2*pi*f;
+    const nr=V, ni=V*w*ESR*C;
+    const dr=1-w*w*L*C*(1+ESR/R), di=w*(L/R+ESR*C);
+    return Object.freeze({ ...divideComplex(nr,ni,dr,di), topology:"BUCK_CCM", frequencyHz:f, units:"V/duty", ccmValid:op.ccmValid, fidelity:op.fidelity });
+  }
+
+  function boostCCM({ vin, duty: d, inductanceH, capacitanceF=null, loadOhm, switchingHz }) {
     const V=positive(vin,"vin"), D=duty(d), L=positive(inductanceH,"inductanceH"), R=positive(loadOhm,"loadOhm");
     const vout=V/(1-D);
     const dcGain=V/Math.pow(1-D,2);
@@ -33,7 +55,9 @@
       resonanceHz=omega0/(2*pi);
       qualityFactor=R*(1-D)*Math.sqrt(C/L);
     }
-    return Object.freeze({ topology:"BOOST_CCM", vout, dcGain, rhpzHz, rhpzRadS, resonanceHz, qualityFactor, conservativeFcHz:rhpzHz/10, aggressiveCeilingHz:rhpzHz/5, nonMinimumPhase:true, controlVariable:"duty", fidelity:"EQUATION_GRADE_IDEAL_CCM" });
+    const conduction={};
+    if(switchingHz!==undefined){const fs=positive(switchingHz,"switchingHz");conduction.ripple=V*D/(L*fs);conduction.averageCurrentA=vout*vout/(R*V);conduction.valleyCurrentA=conduction.averageCurrentA-conduction.ripple/2;conduction.ccmValid=conduction.valleyCurrentA>0;}
+    return Object.freeze({ ...conduction, topology:"BOOST_CCM", vout, dcGain, rhpzHz, rhpzRadS, resonanceHz, qualityFactor, conservativeFcHz:rhpzHz/10, aggressiveCeilingHz:rhpzHz/5, nonMinimumPhase:true, controlVariable:"duty", fidelity:"EQUATION_GRADE_IDEAL_CCM" });
   }
 
   function boostControlToOutputAt(params, frequencyHz) {
@@ -177,6 +201,7 @@
   }
 
   return Object.freeze({
+    buckCCM, buckControlToOutputAt,
     boostCCM, boostControlToOutputAt,
     pfcBoost, pfcCurrentPlantAt, pfcVoltagePlantAt,
     psfb, psfbControlToOutputAt,
