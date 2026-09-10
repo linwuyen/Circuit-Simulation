@@ -191,9 +191,9 @@ Tutor consumes normalized `item.id`; new/touched curriculum items should use exp
 10. Production pages may not reintroduce legacy learning runtimes or parallel persistence.
 ## Homepage initialization
 
-`index.html` uses ordered deferred classic scripts, followed by `home-entry.js`.
-The entry checks required globals and explicitly calls `CircuitJourneyV1.render`.
-Journey exposes a render function instead of replacing `CircuitLearning.renderHome`.
+`index.html` and `learn.html` initialize the same-page workspace through `workspace-ui.js`.
+`catalog.html` retains the Journey entry. The read-only engineering context joins existing
+curriculum and registry owners; it does not replace the V3 renderer or assessment engine.
 The V7/V8 verification wrappers remain compatibility adapters; a full ES-module
 conversion is not implied by this incremental change. Preserve dependency order.
 

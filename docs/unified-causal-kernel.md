@@ -37,7 +37,7 @@ protection / state
 現在規則是：
 
 ```text
-CONTROL_DONE + PWM_COMMIT <= period
+CONTROL_DONE + PWM_COMMIT < period
     → 下一拍可以吃到新 duty
 
 CONTROL_DONE + PWM_COMMIT > period

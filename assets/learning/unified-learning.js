@@ -1,7 +1,12 @@
 (function(root,factory){const api=factory(root);if(typeof module==='object'&&module.exports)module.exports=api;root.CircuitUnifiedLearning=api;})(globalThis,function(root){
   'use strict';
   const basics=[['duty','導通比例','physics'],['inductor','電感續流','physics'],['load','負載與模型邊界','physics'],['probe','量測倍率','sensing'],['timing','更新時刻','timing']];
-  const layers=[['physics','物理'],['sensing','量測'],['feedback','回授'],['timing','時序'],['dynamics','動態'],['safety','安全'],['production','資料與權限'],['evidence','驗證']];
+  function coreLayers(){
+    const owner=root.CircuitCoreFlowV1||(typeof require==='function'?require('./core-flow-v1.js'):null);
+    if(!owner)throw new Error('CoreFlow must load before resolving the engineering path');
+    return owner.layers.map(layer=>[layer.key,layer.label]);
+  }
+  function coreTasks(){for(const [id,title] of coreLayers())tasks['core-'+id]={title:title+'主線任務',href:'19_c2000_buck_firmware_lab/index.html?layer='+id};}
   const stages=[
     {id:'physics',title:'1. 看懂電路',question:'開關、電感、電容與負載如何一起作用？',modules:[0],layers:['physics'],basics:['duty','inductor','load'],focus:'先比較電感電流，再看輸出；基礎已會就接漣波與模型邊界。'},
     {id:'sensing',title:'2. 相信量測之前',question:'真實電流如何變成控制器讀到的數字？',modules:[1,9,12],layers:['sensing'],basics:['probe'],focus:'真實量 → 感測／放大 → ADC 電壓 → 數字 → 還原值。'},
@@ -14,11 +19,10 @@
   const categories={physics:'physics',sensing:'unit',timing:'timing',dynamics:'model'};
   const tasks={home:{title:'學習總覽',href:'learn.html'},case:{title:'同一案例實驗',href:'learning-case.html'},sandbox:{title:'進階 Buck 量測',href:'15_power_capstone/lab_sandbox.html#training-workbench'},repair:{title:'盲測維修',href:'15_power_capstone/lab_multifault.html#repair-training'},formal:{title:'正式測驗與間隔複習',href:'19_c2000_buck_firmware_lab/index.html?layer=evidence'},quiz:{title:'既有題庫複習',href:'quiz.html'}};
   basics.forEach(([id,title])=>tasks['basic-'+id]={title,href:'index.html#'+id});
-  layers.forEach(([id,title])=>tasks['core-'+id]={title:title+'主線任務',href:'19_c2000_buck_firmware_lab/index.html?layer='+id});
   ['error','adjust','overshoot'].forEach((id,i)=>tasks['bridge-'+id]={title:['離目標還差多少','讓輸出自己靠近目標','理解調過頭'][i],href:'index.html#'+id});
   const clone=x=>JSON.parse(JSON.stringify(x));
   function registerModules(modules){for(const m of modules)tasks['module-'+m.number]={title:m.title,href:m.href};}
-  function validTask(id){return typeof id==='string'&&Object.hasOwn(tasks,id);}
+  function validTask(id){coreTasks();return typeof id==='string'&&Object.hasOwn(tasks,id);}
   function task(id){return validTask(id)?tasks[id]:tasks.home;}
   function basicDone(r){return !!(r?.first&&r.observed===true&&r.transferPassed===true&&(r.proof?.observation===true&&r.proof?.reason===true));}
   function dueReview(e,at=Date.now()){
@@ -40,7 +44,7 @@
       const bridge=['error','adjust','overshoot'].find(id=>!basicDone(e.benchmark?.bridgeLessons?.rows?.[id]));if(bridge)return{id:'bridge-'+bridge,reason:'接著練習目標、調整與調過頭，再進入完整電路。'};
     }
     if(u.track==='specialize')return{id:'module-17',reason:'你選擇進階選修，可從應用分流挑選專題。'};
-    const missing=layers.find(([id])=>!flow.completed?.[id]);
+    const missing=coreLayers().find(([id])=>!flow.completed?.[id]);
     if(missing){const id=missing[0],p=flow.predictions?.[id];return {id:'core-'+id,remediation:p&&!p.correct&&!flow.remediations?.[id]?categories[id]:undefined,reason:p&&!p.correct&&!flow.remediations?.[id]?'這一層的首次判斷需要補強；完成後返回原任務。':'接續八層主線尚未完成的能力；原有完成紀錄保留。'};}
     return {id:'repair',reason:'八層主線已完成，使用未知故障與新條件驗證整體理解。'};
   }
@@ -54,12 +58,15 @@
   function finishReturn(category,session){const r=read().returnTask;if(!r||r.category!==category||!session?.miniCompleted||!session.transferPassed||!session.first||!Number.isFinite(session.at)||session.at<r.startedAt)return false;write({returnTask:{...r,passedAt:Date.now()}});return true;}
   function route(id,origin){const href=task(id).href;if(!validTask(origin))return href;const [p,h]=href.split('#');return p+(p.includes('?')?'&':'?')+'learnFrom='+encodeURIComponent(origin)+(h?'#'+h:'');}
   function remediationRoute(id,category){if(categories[id.replace('core-','')]!==category)throw new Error('Unknown remediation mapping');return '15_power_capstone/lab_sandbox.html?remediation='+category+'&learnFrom='+id+'#training-remediation';}
-  const schema={vin:[5,100],duty:[.05,.9],inductanceUh:[20,2000],fswKhz:[20,500],loadOhm:[.5,500],capacitanceUf:[10,5000],esrOhm:[0,.5]};
+
   function validateScenario(raw){
     if(!raw||raw.family!=='buck-steady-v1'||raw.version!==1||!raw.model)throw new Error('設定屬於不同模型，不能直接套用');
-    const model={};for(const[k,[min,max]]of Object.entries(schema)){const v=raw.model[k];if(typeof v!=='number'||!Number.isFinite(v)||v<min||v>max)throw new Error('設定超出範圍：'+k);model[k]=v;}
+    const owner=root.CircuitTrainingExperiments||(typeof require==='function'?require('../training-experiments-core.js'):null);
+    if(!owner)throw new Error('Buck model owner must load before accepting shared settings');
+    const input={};for(const k of Object.keys(owner.BUCK_INPUTS)){const v=raw.model[k];if(typeof v!=='number'||!Number.isFinite(v))throw new Error('設定超出範圍：'+k);input[k]=v;}
+    const model=owner.buckConfig(input);
     return {version:1,family:'buck-steady-v1',model,source:validTask(raw.source)?raw.source:'case',savedAt:typeof raw.savedAt==='string'?raw.savedAt:null};
   }
   function saveScenario(model,source){const scenario=validateScenario({version:1,family:'buck-steady-v1',model,source,savedAt:new Date().toISOString()});write({scenarios:{...read().scenarios,'buck-steady-v1':scenario}});return scenario;}
-  return {basics,layers,stages,tasks,categories,registerModules,validTask,task,basicDone,dueReview,next,ability,read,write,beginReturn,finishReturn,route,remediationRoute,validateScenario,saveScenario};
+  return {basics,get layers(){return coreLayers();},stages,tasks,categories,registerModules,validTask,task,basicDone,dueReview,next,ability,read,write,beginReturn,finishReturn,route,remediationRoute,validateScenario,saveScenario};
 });

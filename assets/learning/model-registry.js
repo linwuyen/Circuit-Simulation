@@ -4,10 +4,10 @@
   if (!models && typeof module === "object" && module.exports && typeof require === "function") {
     models = require("./engineering-models.js");
   }
-  const api = factory(models || {});
+  const api = factory(models || {}, root, typeof require === 'function' ? require : null);
   if (typeof module === "object" && module.exports) module.exports = api;
   root.CircuitModelRegistry = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function (Models) {
+})(typeof globalThis !== "undefined" ? globalThis : this, function (Models, root, nodeRequire) {
   "use strict";
 
   const cards = [
@@ -178,8 +178,47 @@
       invalidWhen: ["跨級耦合或保護交互作用主導"],
       references: ["energy-flow and protection-path reasoning"],
       testIds: []
+    },
+    {
+      id:'buck-steady-v1',moduleId:'buck',version:'1.0.0',title:'固定開關比例的 Buck 穩態與量測起點',
+      type:'Physical approximation',executable:true,owner:'assets/training-experiments-core.js',
+      calculate:input=>delegate('CircuitTrainingExperiments','../training-experiments-core.js','buck',input),
+      inputs:{vin:'V',duty:'ratio',inductanceUh:'µH',fswKhz:'kHz',loadOhm:'Ω',capacitanceUf:'µF',esrOhm:'Ω'},
+      outputs:{vout:'V',avgI:'A',ripple:'A',vRipple:'V',regime:'enum',periodUs:'µs'},
+      assumptions:['理想二極體 Buck','固定 duty、已達穩態','小輸出漣波；ESR 僅修正漣波'],
+      invalidWhen:['要求啟動或閉環暫態','validSmallRipple=false 時不可把小漣波波形當精確物理結果','磁飽和、溫升或開關損耗主導'],
+      references:['電感伏秒平衡','DCM: K M² = D²(1−M)','電容電流積分'],
+      testIds:['training-experiments.test.mjs','ownership-contracts.test.mjs'],
+      inputContractOwner:'assets/training-experiments-core.js::BUCK_INPUTS',
+      boundary:'與平均閉環、切換暫態與 C2000 HIL 是不同模型，不自動交換狀態。'
+    },
+    {
+      id:'generic-power-causal-kernel',moduleId:'power-capstone',version:'3.1.0',title:'Module 15 連續因果電源核心',
+      type:'Teaching surrogate',executable:true,owner:'assets/engineering-sandbox-core.js',
+      calculate:input=>delegate('CircuitEngineeringSandboxCore','../engineering-sandbox-core.js','simulateSystem',input),
+      inputs:{vin:'V',inductanceUh:'µH',capacitanceUf:'µF',controlPeriodUs:'µs',cycles:'count',sensorGain:'ratio',samplePct:'percent',computeUs:'µs'},
+      outputs:{trace:'V/A/duty per cycle',events:'typed µs timeline',summary:'physical/command/fault metrics'},
+      assumptions:['Generic cascaded voltage/current PI','Finite-step switched L/C plant','Deterministic ADC/noise and fault teaching'],
+      invalidWhen:['要求真板寄生、熱或絕對保護延遲驗證','超出 owner 的數值假設','把 generic state policy 當成 F2838x 權限實作'],
+      references:['L di/dt = switch voltage − Vout − iL DCR','C dV/dt = iL − Vout/R','取樣、計算與 PWM 更新分離'],
+      testIds:['engineering-sandbox.test.mjs','training-experiments.test.mjs'],
+      inputContractOwner:'assets/engineering-sandbox-core.js::defaults',contractStatus:'PARTIAL',
+      boundary:'教學與故障診斷用；輸入尚無全域可用範圍證明，不是 target controller 或 board evidence。'
     }
   ];
+
+  function delegate(globalName, path, method, input) {
+    const owner=root[globalName] || (nodeRequire ? nodeRequire(path) : null);
+    if(!owner || typeof owner[method] !== 'function') throw new Error('Model owner must be loaded: '+path);
+    return owner[method](input || {});
+  }
+
+  function describe(id) {
+    const card=get(id);if(!card)return null;
+    const {calculate,...metadata}=card;
+    return {...metadata,owner:card.owner || (card.executable?'assets/learning/engineering-models.js':null),
+      claim:'MODEL_ONLY',verification:'See testIds / independent acceptance; no hardware claim'};
+  }
 
   function forModule(moduleId) {
     return cards.filter(card => card.moduleId === moduleId);
@@ -209,5 +248,5 @@
     return errors;
   }
 
-  return { cards, forModule, get, run, validate };
+  return { cards, forModule, get, run, describe, validate };
 });

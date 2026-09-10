@@ -30,7 +30,8 @@
   });
 
   // Keep the advanced workbench discoverable from the Module 18 page itself.
-  const topbar=document.querySelector(".topbar");
+  const modulePage=typeof location!=='undefined' && /\/18_control_unification\/(?:index\.html)?$/.test(location.pathname);
+  const topbar=modulePage && typeof document!=='undefined' ? document.querySelector(".topbar") : null;
   if(topbar&&!topbar.querySelector("[data-engineering-workbench]")){
     const link=document.createElement("a");
     link.href="engineering-workbench.html";
