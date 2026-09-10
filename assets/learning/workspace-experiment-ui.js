@@ -85,8 +85,8 @@
    run.hidden=shown!==1;run.disabled=!prepared;run.textContent=record.operated?'再重跑一次，對照相同改動':l.action;
    $('answer-observation').hidden=shown!==1||!record.operated;$('answer-observation').onclick=()=>$('ws-question h2')?.focus();
    $('ws-result').hidden=stage!==4; $('ws-ability').textContent='已完成這個模型條件下的觀察、原因與新條件練習。';
-   $('ws-transition').textContent=currentIndex()<7?'下一個問題會沿用這份電路設定。':'八個實驗完成。接著到原有工程主線與獨立驗證檢查理解；這裡的練習不代替正式測驗。';
-   $('ws-next').textContent=currentIndex()<7?'沿用電路，進入下一個問題':'帶著紀錄進入工程主線';
+   $('ws-transition').textContent=currentIndex()<7?'下一個問題會沿用這份電路設定。':'八個實驗完成。接著取回手動實驗的條件，比較降壓與升壓；這裡的練習不代替正式測驗。';
+   $('ws-next').textContent=currentIndex()<7?'沿用電路，進入下一個問題':'沿用條件，比較降壓與升壓';
    draw();if(shown===4)return;
    const heading=el('h2',['先記下你的預測','跑過電路後，你看到了什麼？','哪個原因符合結果？','換成 36 V，還能判斷嗎？'][shown],$('ws-question'));heading.tabIndex=-1;
    el('p',shown===2?'對照真實電壓、讀值、命令與事件，選出能解釋剛才結果的原因。':l.question,$('ws-question'));
@@ -113,12 +113,13 @@
   function progress(){
    const count=lessons.filter(l=>proven(l.id)).length;$('workspace-progress').textContent=`連續電路實驗 ${count} / 8 · 電路、讀值與控制使用同一核心`;
    $('workspace-route').replaceChildren();lessons.forEach((l,i)=>{const li=el('li',undefined,$('workspace-route')),b=el('button',`${i+1}. ${proven(l.id)?'已練習：':''}${l.title}`,li);b.disabled=lessons.slice(0,i).some(x=>!proven(x.id));b.setAttribute('aria-current',l.id===id?'step':'false');b.onclick=()=>{location.hash='experiment-'+l.id;document.querySelector('.route').open=false;};});
+   const transferLink=el('a','沿用條件，比較降壓與升壓',el('li',undefined,$('workspace-route')));transferLink.href='#topology';
    $('progress-summary').textContent=`連續實驗已練習 ${count} / 8。舊八課與正式測驗成績保持各自的判定。`;$('progress-abilities').replaceChildren();lessons.forEach(l=>el('li',(proven(l.id)?'已練習：':'待練習：')+l.title,$('progress-abilities')));
    $('workspace-history').replaceChildren();for(const h of [...session.history].reverse())el('li',`${h.kind} · 輸入 ${h.config.vin} V · 平均輸出 ${fmt(h.summary.avgV)} V · ${h.summary.tripSeen?'保護觸發':'未觸發保護'}`,$('workspace-history'));
   }
   function reference(href,title){const url=new URL(href,location.href),base=new URL('.',location.href);if(url.origin!==base.origin||!url.pathname.startsWith(base.pathname))return;$('workspace-reference').hidden=false;$('reference-frame').hidden=false;$('reference-frame').src=url.href;$('reference-title').textContent=title;$('workspace-reference').scrollIntoView({block:'start'});}
   function recommendation(){const n=U.next(E.load(),CircuitCoreFlowV1.snapshot()),b=$('resume-task');b.hidden=n.id==='experiment'||/^(basic|bridge)-/.test(n.id);b.textContent=['formal','quiz'].includes(n.id)?'接續到期複習':'繼續原本的進階任務';b.dataset.route=n.remediation?U.remediationRoute(n.id,n.remediation):U.route(n.id);b.onclick=()=>{if(n.remediation)U.beginReturn(n.id,n.remediation);reference(b.dataset.route,U.task(n.id).title);};}
-  $('ws-next').onclick=()=>{if(!proven(id))return;const next=lessons[currentIndex()+1];if(next)location.hash='experiment-'+next.id;else reference(U.route('core-physics'),'工程主線：獨立驗證與韌體');};
+  $('ws-next').onclick=()=>{if(!proven(id))return;const next=lessons[currentIndex()+1];if(next)location.hash='experiment-'+next.id;else location.hash='topology';};
   $('show-progress').onclick=()=>{$('workspace-progress-panel').hidden=false;progress();$('workspace-progress-panel').scrollIntoView({block:'start'});};$('close-progress').onclick=()=>{$('workspace-progress-panel').hidden=true;$('ws-title').focus();};
   $('workspace-backup').onclick=()=>{const url=URL.createObjectURL(new Blob([E.exportBackup()],{type:'application/json'})),a=el('a');a.href=url;a.download='circuit-learning-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
   $('detailed-records').onclick=()=>reference('map.html','原有紀錄與正式測驗');$('all-materials').onclick=()=>reference('catalog.html','完整教材');

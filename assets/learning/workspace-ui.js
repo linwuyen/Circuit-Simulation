@@ -1,5 +1,6 @@
 (()=>{
  'use strict';
+ if(location.hash==='#topology'){CircuitWorkspace.mountTopology();return;}
  if(!location.hash||location.hash.startsWith('#experiment')){CircuitWorkspace.mountExperiment();return;}
 
  const E=CircuitEvidence,P=CircuitPlainCourse,W=CircuitWorkspace,U=CircuitUnifiedLearning,B=CircuitTrainingExperiments,$=id=>document.getElementById(id);

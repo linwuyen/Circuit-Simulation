@@ -63,5 +63,11 @@
     {id:'response',title:'調得更用力，一定更好嗎？',intro:'先把計算時間修回原值，避免同時改兩個因素，再加強累積誤差的修正。比較整段啟動波形，別只看最後一點。',prepare:{computeUs:1.7},action:'把累積修正強度從 40 改為 400，重跑',change:{kiV:400},question:'這組條件下，加強累積修正後，啟動時的最高電壓會？',choices:[['higher','更高，更容易越過目標'],['perfect','保證更平順且永不越過'],['same','一定完全相同']],answer:'higher',reason:'電路儲能與反應需要時間，累積修正太強可能在輸出追上前送入過多能量。',wrong:'最後接近目標，就代表整段啟動過程都沒有問題。',view:'voltage',modules:[4,16,18]},
     {id:'protection',title:'超過限制，誰能讓它停下？',intro:'沿用控制器與電路，把保護門檻降到 2 A，觀察偵測後的開關命令、電流與輸出。這是故意觸發保護的教學試驗。',action:'把過流保護門檻從 18 A 改為 2 A，重跑',change:{tripCurrent:2},question:'過流保護觸發後，控制器仍想送電時會？',choices:[['veto','開關被禁止，儲能再逐漸消退'],['continue','照常執行控制器命令'],['instant','所有電流與電壓瞬間歸零']],answer:'veto',reason:'保護擁有否決開關輸出的權限；關閉能量入口後，電感與電容的能量仍需要時間消退。',wrong:'只要誤差夠大，控制器就可以越過故障鎖定繼續輸出。',view:'voltage',modules:[14,15,19]}
   ];
-  return {workbenchLessons,views,taxonomy,moduleTopics,faultTaxonomy,diagnosticChain,viewTopics};
+  const topologySteps=[
+    {id:'prediction',label:'先猜',title:'把開關開久一點，哪個輸出會升高？',note:'輸入、電感、電容與負載相同。先分開猜降壓與升壓，之後再算。',choices:[['both','兩者都升高'],['buck','只有降壓升高'],['boost','只有升壓升高']],answer:'both'},
+    {id:'observation',label:'操作比較',title:'看完同條件比較，你發現什麼？',note:'對照兩種輸出，再看升壓動態限制那一列。',choices:[['separate','輸出都升高，但升壓的動態限制移到更低頻率'],['faster','輸出升高，代表控制一定能更快'],['same','兩種電路的輸出數值一定相同']],answer:'separate'},
+    {id:'reason',label:'說明原因',title:'為什麼升壓不能只照搬降壓的調法？',note:'升壓電路先在電感存能，開關關閉時才送往輸出。提高開啟比例，也縮短了當輪送出的時間；這會限制回授反應。',choices:[['path','能量送出的路徑不同，穩定輸出和動態反應要分開看'],['labels','只是名稱不同，任何調整值都可以直接照搬']],answer:'path'},
+    {id:'return',label:'返回降壓',title:'回到降壓電路，哪些判斷可以帶回去？',note:'現在要回去改善原本的 Buck 控制。哪些需要重新確認，哪些不能照抄？',choices:[['recheck','重新檢查量測、更新時間與保護；不要套用 Boost 特有的 RHP 零點'],['copy','直接把 Boost 的動態限制數字當成 Buck 的控制頻寬']],answer:'recheck'}
+  ];
+  return {topologySteps,workbenchLessons,views,taxonomy,moduleTopics,faultTaxonomy,diagnosticChain,viewTopics};
 });

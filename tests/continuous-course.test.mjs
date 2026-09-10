@@ -10,7 +10,7 @@ test('the existing navigator resumes experiments then advances without promoting
  assert.equal(U.next(state,{}).id,'experiment');
  state.benchmark.unifiedLearning={track:'core'};assert.equal(U.next(state,{}).id,'core-physics');
  delete state.benchmark.unifiedLearning;state.benchmark.learningWorkspace.experiment.completed=true;
- assert.equal(U.next(state,{}).id,'core-physics');assert.equal(state.benchmark.beginnerLessons,undefined);
+ assert.equal(U.next(state,{}).id,'topology');assert.equal(state.benchmark.beginnerLessons,undefined);
 });
 function verify(id,b,a){
  if(id==='energy')assert.ok(a.summary.avgV>b.summary.avgV);
