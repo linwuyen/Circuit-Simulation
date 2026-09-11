@@ -18,9 +18,9 @@ AssessmentV8.install(Assessment, Quiz);
 ChallengesV8.install(Challenges);
 Typed.install(Oracles);
 
-const expectedModules = new Set(['buck','adc','spi','inverter','foc','pi','loop10us','bms','ad5543','afe','acmc-pro','c2000-dds']);
+const expectedModules = new Set(['buck','adc','spi','inverter','foc','pi','loop10us','bms','ad5543','afe','acmc-pro','c2000-dds','power-topology-control']);
 
-test('official transfer and retention families cover all 12 modules', () => {
+test('official transfer and retention families cover the original 12 modules and topology applications', () => {
   const expanded = Assessment.expandQuestions(Quiz.questions);
   const modules = new Set(expanded.map(q => q.moduleId));
   assert.deepEqual(modules, expectedModules);

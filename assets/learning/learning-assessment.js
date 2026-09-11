@@ -249,7 +249,45 @@
       ], rng), "context");
   }
 
+  // Intentional independent assessment reference: stated ideal scaling laws only.
+  // Never call the production simulator to decide whether a learner is correct.
+  function generateTopologyScaling(base, variantId, role, depth, seed) {
+    const rng = randomFrom(seed), n = Math.max(1, Number(depth) || 1);
+    const factor = 3 + n % 4, initial = 7 + n * 3;
+    let prompt, expected, wrong, parameters, explanation;
+    if (base.id === "topology-pfc-scaling") {
+      const powerFactor = n % 2 ? 1 : 2;
+      expected = initial * powerFactor / factor;
+      wrong = [initial * factor * powerFactor, initial, initial / (factor * powerFactor + 1)];
+      prompt = `交流整流電源原本的母線電壓起伏為 ${initial} V（峰值）。電容改成 ${factor} 倍、輸出功率改成 ${powerFactor} 倍；母線電壓和電源頻率不變。依理想母線能量模型，新的起伏約為多少 V（峰值）？`;
+      explanation = "起伏與功率成正比、與電容成反比；峰值與峰對峰值不可混用。這不代表 THD 已驗證。";
+      parameters = {initial, capacitanceFactor:factor, powerFactor};
+    } else if (base.id === "topology-psfb-scaling") {
+      expected = initial / (factor * factor);
+      wrong = [initial / factor, initial * factor, initial];
+      prompt = `隔離電源的漏感儲能原本為 ${initial} µJ。電流降成原來的 1/${factor}，漏感不變。只依 E＝½LI² 估算，新儲能約多少 µJ？`;
+      explanation = "電流比例要平方；這是儲能估算，仍須檢查所需切換能量、死區與實測波形。";
+      parameters = {initial, currentFactor:1/factor};
+    } else {
+      expected = initial / factor;
+      wrong = [initial / (factor * factor), initial * factor, initial];
+      const llc = base.id === "topology-llc-scaling";
+      prompt = `${llc ? '諧振電源的串聯諧振' : '理想 LCL 濾波器的共振'}頻率原本是 ${initial} kHz。${llc ? '諧振電感' : '兩個電感'}不變，電容改成 ${factor * factor} 倍。新的自然頻率約多少 kHz？`;
+      explanation = "頻率與電容平方根成反比；自然頻率不能直接當成控制頻寬或穩定性證明。";
+      parameters = {initial, capacitanceFactor:factor*factor};
+    }
+    const unit = base.id.includes('pfc') ? 'V' : base.id.includes('psfb') ? 'µJ' : 'kHz';
+    const choices = [option('correct', `${round(expected,3)} ${unit}`, true, null, explanation),
+      ...wrong.map((value,i)=>option('wrong-'+i, `${round(value,3)} ${unit}`, false, '比例或平方關係使用錯誤', explanation))];
+    return {...generated(base, variantId, role, depth, seed, prompt, shuffled(choices,rng), 'changed-conditions'), parameters};
+  }
+
   const variantGenerators = {
+    "topology-pfc-scaling": generateTopologyScaling,
+    "topology-psfb-scaling": generateTopologyScaling,
+    "topology-llc-scaling": generateTopologyScaling,
+    "topology-inverter-scaling": generateTopologyScaling,
+
     "buck-ripple-inductance-transfer": generateBuckRipple,
     "buck-dcm-boundary": generateBuckBoundary,
     "buck-model-validity": generateBuckValidity,
@@ -470,6 +508,7 @@
   }
 
   return {
+    topologyFamilyIds: Object.keys(variantGenerators).filter(id=>id.startsWith('topology-')),
     DAY_MS, RETENTION_MS: RETENTION_INTERVALS_MS[0], RETENTION_INTERVALS_MS, MEASUREMENT_ORACLE_LABS,
     competencyPrerequisites, moduleRequirements, expandQuestions, generateVariant, familyQuestions, families, normalizeFamilyState,
     recordAttempt, metrics, mastery, nextQuestion, calibrationSummary, wilsonInterval, evidenceGrade, benchmarkSummary, coverageSummary, evaluateReasoning,

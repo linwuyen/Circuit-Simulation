@@ -49,7 +49,7 @@
     submit.onclick=()=>{const answer=field.querySelector('input:checked')?.value;if(!answer){status.textContent='請先選擇判斷。';return;}const correct=answer===(shown===2?'reason':l.answer);record.protocol='topology-application-v1';record[key]||={answer,correct,at:new Date().toISOString()};if(shown===1&&correct)record.observationPassed=true;if(shown===2&&correct)record.reasonPassed=true;session.rows[id]=record;save();if(shown!==0&&!correct){status.textContent='對照數字和適用範圍再想一次，首次判斷會保留。';return;}shown=stage();render();};
    }else{
     el('p','已完成這組條件的預測、操作、觀察與原因練習。',content);
-    const next=el('button',lessons.findIndex(l=>l.id===id)<3?'用同樣的方法，進入下一種電路':'回到工程主線做獨立驗證',content);next.id='application-next';next.className='application-primary';next.onclick=()=>{const index=lessons.findIndex(l=>l.id===id);if(index<3)choose(lessons[index+1].id,true);else location.assign(new URL(CircuitUnifiedLearning.route('core-physics'),new URL('../',location.href)));};
+    const next=el('button',lessons.findIndex(l=>l.id===id)<3?'用同樣的方法，進入下一種電路':'換一組條件，確認學會了',content);next.id='application-next';next.className='application-primary';next.onclick=()=>{const index=lessons.findIndex(l=>l.id===id);if(index<3)choose(lessons[index+1].id,true);else location.assign(new URL(CircuitUnifiedLearning.route('topology-assessment'),new URL('../',location.href)));};
    }
    el('p',l.boundary,content).className='application-boundary';const detail=el('details',undefined,content);el('summary','計算來源與已存紀錄',detail);const card=R.describe(l.modelId);el('p',card.id+' · '+card.version+' · '+card.owner,detail);el('p','工作點計算與頻率響應是不同 API；此處表格使用工作點，原圖沿用自己的頻率響應。',detail);
    if(record.operated)el('p','操作時間：'+record.operatedAt,detail);
