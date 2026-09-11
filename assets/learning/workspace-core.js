@@ -57,5 +57,26 @@
   const registry=root.CircuitModelRegistry||(typeof require==='function'?require('./model-registry.js'):null);return {params,result:registry.operatingPoint(l.modelId,params)};
  }
  function applicationProof(row){return row?.protocol==='topology-application-v1'&&!!row.first&&row.operated===true&&row.observationPassed===true&&row.reasonPassed===true;}
- return {applicationLessons,applicationPlan,applicationRun,applicationProof,topologyParams,topologyPlan,topologyCompare,topologyProof,experimentLessons,experimentPlan,experimentRun,experimentTransfer,ids,titles,abilities,resources,defaults,plan,changed,apply,transfer,locate,bucket,history};
+ // Read-only view of existing evidence. Completion flags are not proof.
+ function learningRecords(evidence={},at=Date.now()){
+  const P=root.CircuitPlainCourse||(typeof require==='function'?require('./plain-course-core.js'):null);
+  const A=root.CircuitAssessment||(typeof require==='function'?require('./learning-assessment.js'):null);
+  const Q=root.CircuitQuizBank||(typeof require==='function'?require('./quiz-bank.js'):null);
+  if(!P||!A||!Q)throw Error('學習紀錄依賴尚未載入');
+  const w=evidence.benchmark?.learningWorkspace||{};
+  const attempt=r=>r?.first?.correct===true?'首次正確':r?.first?.correct===false?'首次答錯，紀錄保留':'尚未作答';
+  const practice=(id,title,row,passed,valid=true)=>({id,title,passed:!!passed&&valid,status:!valid?'紀錄版本無法判讀':passed?'練習完成':row?'練習中':'尚未開始',first:attempt(row)});
+  const experiment=experimentLessons().map(l=>{const row=w.experiment?.rows?.[l.id];return practice(l.id,l.title,row,P.proven(row),!w.experiment||w.experiment.version===1);});
+  const topology=[practice('comparison','同條件比較降壓與升壓',w.topologyTransfer,topologyProof(w.topologyTransfer),!w.topologyTransfer||w.topologyTransfer.version===1)];
+  topology[0].first=attempt(w.topologyTransfer?.rows?.prediction);
+  const applications=applicationLessons().map(l=>{const row=w.topologyApplications?.rows?.[l.id];return practice(l.id,l.label,row,applicationProof(row),!w.topologyApplications||w.topologyApplications.version===1);});
+  const assessments=Q.questions.filter(q=>A.topologyFamilyIds.includes(q.id)).map(q=>{
+   const answer=evidence.questions?.[q.id],history=answer?.history;
+   if(answer&&(!Array.isArray(history)||history.some(h=>!h||typeof h!=='object')))return {id:q.id,title:q.kind,passed:false,status:'作答紀錄無法判讀',first:'未推定通過'};
+   const m=A.metrics(answer,at);
+   return {id:q.id,title:q.kind,passed:m.transfer,status:m.due?'複習已到期':m.retained?'已有間隔複習':m.transfer?'新條件已通過':m.attempts?'繼續換條件確認':'尚未作答',first:m.transferFirstAttempt===false?'首次新條件答錯，紀錄保留':m.transferFirstAttempt===true?'首次新條件正確':'尚未作答新條件',dueAt:m.nextReviewAt};
+  });
+  return [{id:'experiment',title:'一台電路，八步練習',rows:experiment},{id:'topology',title:'比較降壓與升壓',rows:topology},{id:'applications',title:'帶到四種電路操作',rows:applications},{id:'topology-assessment',title:'換條件評量與到期複習',rows:assessments}].map(g=>({...g,completed:g.rows.filter(r=>r.passed).length,total:g.rows.length}));
+ }
+ return {learningRecords,applicationLessons,applicationPlan,applicationRun,applicationProof,topologyParams,topologyPlan,topologyCompare,topologyProof,experimentLessons,experimentPlan,experimentRun,experimentTransfer,ids,titles,abilities,resources,defaults,plan,changed,apply,transfer,locate,bucket,history};
 });

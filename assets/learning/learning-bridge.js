@@ -11,6 +11,12 @@
     if(!globalThis.CircuitLearningMap)await load('assets/learning/learning-map.js');
     if(!globalThis.CircuitLearningGlossary)await load('assets/learning/learning-glossary.js');
     if(!globalThis.CircuitWorkbenchContext)await load('assets/learning/workbench-context.js');
+    if(document.querySelector('[data-learning-hub]')){
+      if(!globalThis.CircuitEngineeringCurriculum)await load('assets/learning/engineering-curriculum.js');
+      if(!globalThis.CircuitPlainCourse)await load('assets/learning/plain-course-core.js');
+      if(!globalThis.CircuitQuizBank)await load('assets/learning/quiz-bank.js');
+      if(!globalThis.CircuitWorkspace)await load('assets/learning/workspace-core.js');
+    }
     const U=CircuitUnifiedLearning,E=CircuitEvidence,F=CircuitCoreFlowV1;
     U.registerModules(CircuitLearningMap);
     const url=(href)=>new URL(href,base).href;
@@ -57,8 +63,20 @@
       select.value=U.read().track||'auto';select.addEventListener('change',()=>U.write({track:select.value}));
       const ticket=U.read().returnTask;if(ticket){const cancel=make('button','結束這次補強往返',resume);cancel.type='button';cancel.addEventListener('click',()=>U.write({returnTask:null}));}
       const e=E.load(),flow=F.snapshot();
+      const records=make('section',null,hub);records.id='workspace-learning-records';
+      make('h2','從操作到自己判斷',records);make('p','這裡直接讀取原本紀錄。練習完成、新條件通過與間隔複習各有自己的判準，不加成一個總分。',records);
+      for(const group of CircuitWorkspace.learningRecords(e)){
+        const section=make('section',null,records);section.className='learning-stage';section.dataset.recordGroup=group.id;
+        make('h3',group.title,section);make('p',`${group.completed} / ${group.total} ${group.id==='topology-assessment'?'個觀念通過新條件':'步練習完成'}`,section);
+        link(section,'開啟：'+group.title,U.route(group.id));
+        const detail=make('details',null,section);make('summary','查看每一步、首次判斷與複習時間',detail);
+        const list=make('ul',null,detail);list.className='learning-record-list';
+        for(const row of group.rows){const li=make('li',null,list);li.dataset.recordId=row.id;make('strong',row.title,li);make('p',row.status+' · '+row.first,li);if(row.dueAt)make('small','下一次複習：'+new Date(row.dueAt).toLocaleString(),li);}
+      }
+      const previous=make('details',null,hub);previous.id='earlier-learning-records';make('summary','工程主線、舊版八課與專題工具',previous);
+      make('p','舊版課程保留原有紀錄；不會把新實驗紀錄當成舊題答案，也不要求你為了補齊顯示而重做。',previous);
       for(const stage of U.stages){
-        const section=make('section',null,hub);section.id=stage.id;section.className='learning-stage';make('h2',stage.title,section);make('p',stage.question,section);make('p',stage.focus,section);
+        const section=make('section',null,previous);section.id=stage.id;section.className='learning-stage';make('h2',stage.title,section);make('p',stage.question,section);make('p',stage.focus,section);
         const a=U.ability(stage,e,flow);make('p',[a.basicTotal?`入門練習 ${a.basics}/${a.basicTotal} · 入門新條件 ${a.transfer}/${a.basicTotal}（練習）`:null,a.coreTotal?`主線完成 ${a.core}/${a.coreTotal}`:null].filter(Boolean).join(' · ')||'依應用選擇專題，沿用前面學會的量測、回授與時序觀念。',section);
         const actions=make('div',null,section);actions.className='learning-links';
         for(const id of stage.basics)if(!U.basicDone(e.benchmark?.beginnerLessons?.rows?.[id]))link(actions,'補基礎：'+U.task('basic-'+id).title,U.route('basic-'+id));
