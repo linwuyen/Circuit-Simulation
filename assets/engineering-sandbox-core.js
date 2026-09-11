@@ -66,12 +66,14 @@
     return c;
   }
   function simulateSystem(input){
+    if(input?.controlMode!==undefined&&!['feedback','manual'].includes(input.controlMode))throw new Error('Unknown control mode');
+    if(input?.controlMode==='manual'&&(!Number.isFinite(input.manualDuty)||input.manualDuty<0||input.manualDuty>.95))throw new Error('Manual duty must be between 0 and 0.95');
     const base=defaults(input),c=applyCodeBug(base),random=rng(c.seed),T=c.controlPeriodUs,dtPlant=Math.max(.02,Math.min(c.plantDtUs,T)),substeps=Math.max(1,Math.ceil(T/dtPlant)),dtUs=T/substeps,dt=dtUs*1e-6,L=c.inductanceUh*1e-6,C=c.capacitanceUf*1e-6;
     const state=stateRuntime(c),program=new Map();
     for(const x of c.stateProgram||[]){if(!program.has(x.cycle))program.set(x.cycle,[]);program.get(x.cycle).push(x.action);}
     let iL=0,vOut=0,vInt=0,iInt=0,appliedDuty=0,loadedDuty=0,nextDuty=0,tripDueAbs=null,faultEnergy=0,pendingDutyWrites=[];
     let producerSeq=0,publishedSeq=0,completeSeq=0,consumedSeq=0,lastProducerCommand=profileAt(c.commandProfile,0,"vref"),lastCompleteCommand=lastProducerCommand;
-    const commandHistory=[],trace=[],events=[],commViolations=[];
+    const commandHistory=[],trace=[],events=[],commViolations=[],waveform=[];
     let lastSample={rawV:0,rawI:0,measuredV:0,measuredI:0,physicalV:0,physicalI:0},missedCommits=0;
     for(let k=0;k<c.cycles;k++){
       const cycleStart=k*T;
@@ -121,6 +123,7 @@
         const effectiveL=knee>0?L*(ratio+(1-ratio)/(1+Math.pow(iL/knee,4))):L;
         const di=vL/effectiveL,dv=(iL-vOut/load)/C;
         iL=Math.max(0,iL+di*dt);vOut=Math.max(0,vOut+dv*dt);peakIThis=Math.max(peakIThis,iL);
+        if(k===c.detailCycle)waveform.push({tUs:cycleStart+t1,phaseUs:t1,iL,vOut,gate});
         if(iL>=c.tripCurrent&&tripDueAbs===null&&state.state==="RUN"&&!state.fault){tripDueAbs=abs+c.tripLatencyUs;events.push({tUs:abs,type:"TRIP_DETECT",cycle:k});}
         if(iL>=c.tripCurrent&&state.state==="RUN"&&!state.fault)faultEnergy+=iL*iL*dt;
         if(!sampleCaptured&&t1>=sampleAt){
@@ -135,12 +138,13 @@
       lastSample=sample;
       const controlDt=T*1e-6,vErr=consumedCommand-sample.measuredV;
       let outer={integrator:vInt,output:0,unsat:0,saturated:false},inner={integrator:iInt,output:0,unsat:0,saturated:false};
-      if(state.state==="RUN"&&!state.fault){
+      if(state.state==="RUN"&&!state.fault&&c.controlMode!=="manual"){
         outer=piStep(vInt,vErr,c.kpV,c.kiV,controlDt,0,c.currentLimit);vInt=outer.integrator;
         const iRef=outer.output,iErr=(iRef-sample.measuredI)*c.controlSign;
         inner=piStep(iInt,iErr,c.kpI,c.kiI,controlDt,0,c.dutyMax);iInt=inner.integrator;
       }
       let computedDuty=(state.state==="RUN"&&!state.fault)?inner.output:0;
+      if(c.controlMode==='manual'&&state.state==='RUN'&&!state.fault)computedDuty=Math.min(c.manualDuty,c.dutyMax);
       if(c.dutyClamp!==null&&c.dutyClamp!==undefined)computedDuty=Math.min(computedDuty,finite(c.dutyClamp,c.dutyMax));
       const jitter=(random()-.5)*2*c.jitterUs,isrAt=sampleAt+c.adcLatencyUs+c.isrLatencyUs+jitter,doneAt=isrAt+c.computeUs,commitAt=doneAt+c.pwmCommitUs,margin=T-commitAt,writeAbsUs=cycleStart+commitAt,scheduledApplyCycle=Math.floor(writeAbsUs/T)+1,timingMiss=scheduledApplyCycle>k+1;
       events.push({tUs:cycleStart+isrAt,type:"ISR",cycle:k});events.push({tUs:cycleStart+doneAt,type:"CONTROL_DONE",cycle:k});events.push({tUs:writeAbsUs,type:timingMiss?"PWM_COMMIT_MISSED":"PWM_COMMIT",cycle:k,scheduledApplyCycle});
@@ -148,12 +152,12 @@
       pendingDutyWrites.push({sourceCycle:k,writeAbsUs,applyCycle:scheduledApplyCycle,duty:(state.state==="RUN"&&!state.fault)?computedDuty:0});
       const nextWrites=pendingDutyWrites.filter(x=>x.applyCycle<=k+1);
       nextDuty=nextWrites.length?nextWrites.reduce((latest,x)=>x.writeAbsUs>latest.writeAbsUs?x:latest).duty:loadedDuty;
-      const mode=outer.unsat>=c.currentLimit-.0001?"CC":"CV";
+      const mode=c.controlMode==="manual"?"MANUAL":outer.unsat>=c.currentLimit-.0001?"CC":"CV";
       trace.push({k,tUs:cycleStart,vOut,iL,peakIThis,load,producerCommand,consumedCommand,producerSeq,publishedSeq,completeSeq,consumedSeq,state:state.state,mode,computedDuty,appliedDuty,nextDuty,loadedFromCycle,scheduledApplyCycle,pendingDutyCount:pendingDutyWrites.length,sampledV:sample.measuredV,sampledI:sample.measuredI,rawV:sample.rawV,rawI:sample.rawI,samplePhysicalV:sample.physicalV,samplePhysicalI:sample.physicalI,edgeDistanceUs:sample.edgeDistanceUs,timingMarginUs:margin,timingMiss,controlSaturated:inner.saturated,currentRef:outer.output});
     }
     events.sort((a,b)=>a.tUs-b.tUs||String(a.type).localeCompare(String(b.type)));
     const tail=trace.slice(Math.floor(trace.length*.8)),avgV=tail.reduce((s,x)=>s+x.vOut,0)/Math.max(1,tail.length),last=trace[trace.length-1]||{},maxSeqLag=Math.max(...trace.map(x=>Math.max(0,x.publishedSeq-x.consumedSeq)));
-    return{config:c,trace,events,communication:{producerSeq,publishedSeq,completeSeq,consumedSeq,lag:Math.max(0,publishedSeq-consumedSeq),maxLag:maxSeqLag,violations:[...new Set(commViolations)]},state:{state:state.state,precheck:state.precheck,fault:state.fault,violations:[...new Set(state.violations)]},summary:{finalV:last.vOut||0,finalI:last.iL||0,avgV,voltageError:profileAt(c.commandProfile,c.cycles-1,"vref")-avgV,peakV:Math.max(...trace.map(x=>x.vOut)),peakI:Math.max(...trace.map(x=>x.peakIThis)),mode:last.mode||"CV",missedCommits,faultEnergyProxy:faultEnergy,tripSeen:events.some(x=>x.type==="TRIP_ACTUATE"),state:last.state||state.state,publishedSeq,consumedSeq,commandLag:Math.max(0,publishedSeq-consumedSeq),maxCommandLag:maxSeqLag}};
+    return{config:c,trace,events,...(Number.isInteger(c.detailCycle)?{waveform}:{}),communication:{producerSeq,publishedSeq,completeSeq,consumedSeq,lag:Math.max(0,publishedSeq-consumedSeq),maxLag:maxSeqLag,violations:[...new Set(commViolations)]},state:{state:state.state,precheck:state.precheck,fault:state.fault,violations:[...new Set(state.violations)]},summary:{finalV:last.vOut||0,finalI:last.iL||0,avgV,voltageError:profileAt(c.commandProfile,c.cycles-1,"vref")-avgV,peakV:Math.max(...trace.map(x=>x.vOut)),peakI:Math.max(...trace.map(x=>x.peakIThis)),mode:last.mode||"CV",missedCommits,faultEnergyProxy:faultEnergy,tripSeen:events.some(x=>x.type==="TRIP_ACTUATE"),state:last.state||state.state,publishedSeq,consumedSeq,commandLag:Math.max(0,publishedSeq-consumedSeq),maxCommandLag:maxSeqLag}};
   }
   function timingWindow(input){const c=defaults(input),T=c.controlPeriodUs,soc=T*c.samplePct/100,ready=soc+c.adcLatencyUs,isr=ready+c.isrLatencyUs,done=isr+c.computeUs,commit=done+c.pwmCommitUs,margin=T-commit;return{period:T,soc,ready,isr,done,commit,margin,closed:margin>0};}
   function simulateConverter(input){const x=Object.assign({},input||{});if(x.dtUs!==undefined&&x.controlPeriodUs===undefined)x.controlPeriodUs=x.dtUs;if(x.steps!==undefined&&x.cycles===undefined)x.cycles=x.steps;return simulateSystem(x);}
@@ -178,6 +182,6 @@
     truncation:{line:"uint16_t gain = 3/5;",effect:"integer truncation collapses the scale to zero, so feedback becomes physically wrong",measurement:"inspect runtime gain and compare scaled value with the DMM",preset:"truncation"}
   };
   function codeTrace(bug){const key=bug in CODE_BUGS?bug:"unit",meta=CODE_BUGS[key],config=defaults({cycles:650,seed:31,commandProfile:[{cycle:0,vref:24},{cycle:120,vref:48}],loadProfile:[{cycle:0,ohm:12}],codeBug:key});const system=simulateSystem(config);return{bug:key,...meta,system,measurement:measureSystem(system,key==="stale"?"seq":key==="shadow"?"timing":key==="unit"||key==="truncation"?"scaled":"duty")};}
-  const api={version:"3.1.0",defaults,simulateSystem,simulateConverter,timingWindow,dmaScenario,runStateMachine,multiFault,measureSystem,diagnosticScore,codeTrace,CODE_BUGS,FAULT_PRESETS};
+  const api={version:"3.2.0",defaults,simulateSystem,simulateConverter,timingWindow,dmaScenario,runStateMachine,multiFault,measureSystem,diagnosticScore,codeTrace,CODE_BUGS,FAULT_PRESETS};
   root.CircuitEngineeringSandboxCore=api;if(typeof module!=="undefined"&&module.exports)module.exports=api;
 })(typeof globalThis!=="undefined"?globalThis:this);

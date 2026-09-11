@@ -1,4 +1,4 @@
-(function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;root.CircuitWorkspace=api;})(globalThis,function(){
+(function(root,factory){const api=factory(root);if(typeof module==='object'&&module.exports)module.exports=api;root.CircuitWorkspace=api;})(globalThis,function(root){
  'use strict';
  const ids=['duty','inductor','load','probe','timing','error','adjust','overshoot'];
  const titles=['開久一點，輸出會怎樣？','關掉開關，電流就停了嗎？','用電變少，哪裡不同？','數字變小，就是電流變小嗎？','算完，就立刻生效嗎？','離目標還差多少？','怎麼讓它自己靠近目標？','為什麼調太多，反而來回晃？'];
@@ -30,5 +30,10 @@
  }
  function bucket(id){return ids.indexOf(id)<5?'beginnerLessons':'bridgeLessons';}
  function history(rows,entry){return [...(Array.isArray(rows)?rows:[]),JSON.parse(JSON.stringify(entry))].slice(-20);}
- return {ids,titles,abilities,resources,defaults,plan,changed,apply,transfer,locate,bucket,history};
+ function experimentLessons(){return (root.CircuitEngineeringCurriculum||(typeof require==='function'?require('./engineering-curriculum.js'):null)).workbenchLessons;}
+ const experimentDefaults={vin:48,cycles:1600,controlPeriodUs:10,plantDtUs:.25,inductanceUh:500,capacitanceUf:220,commandProfile:[{cycle:0,vref:24}],loadProfile:[{cycle:0,ohm:12}],controlMode:'manual',manualDuty:.25,kpV:.2,kiV:40,kpI:.05,kiI:100,sensorGain:1,computeUs:1.7,tripCurrent:18,detailCycle:1500};
+ function experimentPlan(id){const lessons=experimentLessons(),index=lessons.findIndex(l=>l.id===id);if(index<0)throw Error('未知連續實驗');let before=JSON.parse(JSON.stringify(experimentDefaults));for(let i=0;i<index;i++)before={...before,...lessons[i].prepare,...lessons[i].change};const prepared={...before,...lessons[index].prepare};return {before,prepared,after:{...prepared,...lessons[index].change}};}
+ function experimentRun(config){const registry=root.CircuitModelRegistry||(typeof require==='function'?require('./model-registry.js'):null);return registry.run('generic-power-causal-kernel',config);}
+ function experimentTransfer(plan){return {before:{...plan.prepared,vin:36},after:{...plan.after,vin:36}};}
+ return {experimentLessons,experimentPlan,experimentRun,experimentTransfer,ids,titles,abilities,resources,defaults,plan,changed,apply,transfer,locate,bucket,history};
 });

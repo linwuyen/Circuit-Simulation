@@ -193,15 +193,15 @@
       boundary:'與平均閉環、切換暫態與 C2000 HIL 是不同模型，不自動交換狀態。'
     },
     {
-      id:'generic-power-causal-kernel',moduleId:'power-capstone',version:'3.1.0',title:'Module 15 連續因果電源核心',
+      id:'generic-power-causal-kernel',moduleId:'power-capstone',version:'3.2.0',title:'Module 15 連續因果電源核心',
       type:'Teaching surrogate',executable:true,owner:'assets/engineering-sandbox-core.js',
       calculate:input=>delegate('CircuitEngineeringSandboxCore','../engineering-sandbox-core.js','simulateSystem',input),
-      inputs:{vin:'V',inductanceUh:'µH',capacitanceUf:'µF',controlPeriodUs:'µs',cycles:'count',sensorGain:'ratio',samplePct:'percent',computeUs:'µs'},
-      outputs:{trace:'V/A/duty per cycle',events:'typed µs timeline',summary:'physical/command/fault metrics'},
+      inputs:{vin:'V',inductanceUh:'µH',capacitanceUf:'µF',controlPeriodUs:'µs',cycles:'count',controlMode:'manual / feedback',manualDuty:'ratio',detailCycle:'optional cycle index',sensorGain:'ratio',samplePct:'percent',computeUs:'µs'},
+      outputs:{waveform:'optional within-cycle A/V/gate samples',trace:'V/A/duty per cycle',events:'typed µs timeline',summary:'physical/command/fault metrics'},
       assumptions:['Generic cascaded voltage/current PI','Finite-step switched L/C plant','Deterministic ADC/noise and fault teaching'],
       invalidWhen:['要求真板寄生、熱或絕對保護延遲驗證','超出 owner 的數值假設','把 generic state policy 當成 F2838x 權限實作'],
       references:['L di/dt = switch voltage − Vout − iL DCR','C dV/dt = iL − Vout/R','取樣、計算與 PWM 更新分離'],
-      testIds:['engineering-sandbox.test.mjs','training-experiments.test.mjs'],
+      testIds:['engineering-sandbox.test.mjs','training-experiments.test.mjs','continuous-kernel.test.mjs','continuous-course.test.mjs'],
       inputContractOwner:'assets/engineering-sandbox-core.js::defaults',contractStatus:'PARTIAL',
       boundary:'教學與故障診斷用；輸入尚無全域可用範圍證明，不是 target controller 或 board evidence。'
     }

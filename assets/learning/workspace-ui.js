@@ -1,5 +1,7 @@
 (()=>{
  'use strict';
+ if(!location.hash||location.hash.startsWith('#experiment')){CircuitWorkspace.mountExperiment();return;}
+
  const E=CircuitEvidence,P=CircuitPlainCourse,W=CircuitWorkspace,U=CircuitUnifiedLearning,B=CircuitTrainingExperiments,$=id=>document.getElementById(id);
  U.registerModules(CircuitLearningMap);
  CircuitWorkbenchContext.mount(document.getElementById("workbench-context-slot"),new URL(".",location.href));
@@ -131,6 +133,6 @@
  const recommendation=U.next(initial,CircuitCoreFlowV1.snapshot()),recommended=W.locate(recommendation.id.replace(/^(basic|bridge)-/,''));
  function renderRecommendation(){const recommendation=U.next(E.load(),CircuitCoreFlowV1.snapshot()),recommended=W.locate(recommendation.id.replace(/^(basic|bridge)-/,''));$('resume-task').hidden=!!recommended;if(!recommended){const b=$('resume-task');b.hidden=false;b.textContent=['formal','quiz'].includes(recommendation.id)?'接續到期複習':'繼續原本的進階任務';b.dataset.route=recommendation.remediation?U.remediationRoute(recommendation.id,recommendation.remediation):U.route(recommendation.id);b.onclick=()=>{if(recommendation.remediation)U.beginReturn(recommendation.id,recommendation.remediation);reference(b.dataset.route,U.task(recommendation.id).title);};}}
  renderRecommendation();window.addEventListener("storage",()=>{renderProgress();renderRecommendation();});
- window.addEventListener('hashchange',()=>select(W.locate(location.hash)||'duty',true));
+ window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#experiment'))location.reload();else select(W.locate(location.hash)||'duty',true);});
  select(W.locate(location.hash)||W.locate(workspace.currentLesson)||recommended||'duty');
 })();
