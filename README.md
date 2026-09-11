@@ -10,6 +10,8 @@
 
 接著可[沿用條件比較降壓與升壓](index.html#topology)：從手動實驗取回元件與輸入，並排計算既有 CCM 模型，保留預測、觀察、原因與返回降壓的判斷。完整拓樸教材可明確套用同一份設定；固定練習不授予正式測驗成績。範圍與回退方式見[跨電路整合](docs/topology-workbench.md)。
 
+完成降壓／升壓後，可接著[練習四種電路](17_power_topology_control/index.html#guided-applications)：PFC 電壓起伏、隔離電源換流能量、LLC 工作位置、逆變器共振。練習直接操作原工具，保存前後條件、模型對照與首次判斷；完整範圍見[應用整合](docs/topology-applications.md)。
+
 教學設計、進度相容方式與真人試用方法見[一步一步學](docs/plain-guided-learning.md)。
 
 ## Power Firmware Core Path

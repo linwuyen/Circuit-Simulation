@@ -17,3 +17,24 @@ Each application explicitly prepares its own conditions. AC input, isolation, re
 Check model identities and scaling with independent analytical invariants, native controls matching recorded snapshots, prediction/operation/reason gates, wrong-first retention, reload/backup compatibility, and desktop/mobile rendering. Run existing Node/browser/firmware CI with Stage 0–12 evidence. Revert guided UI/routing before removing its registry adapters. Old concept records and formal verification remain untouched.
 
 Guided comparisons are not unseen assessment, learner-effectiveness data, bidirectional power flow, or board evidence. Those remain explicit gaps.
+
+
+## Implemented contracts
+
+- `CircuitEngineeringCurriculum.applicationLessons` owns four scenarios, explicit native-control preparations, a one-control change, display metrics, questions and boundaries.
+- `CircuitWorkspace.applicationPlan/applicationRun/applicationProof` prepares controls, converts SI units and delegates calculation; it does not contain new plant equations. The registry now covers all seven existing quantitative surfaces. LLC normalized gain remains a steady-state gain API, not a phase response; inverter response requires an explicit LC/LCL mode.
+- `topology-application-ui.js` is a renderer over the original Module 17 controls/plots. Preparation checks the entire range/step set before changing any control. Manual changes are detected; operation requires the stated baseline. Both native values and model snapshots are retained.
+- Evidence V5 child `benchmark.learningWorkspace.topologyApplications` has version 1, rows, currentLesson and derived completion. Rows preserve protocol `topology-application-v1`, first prediction/observation/reason, before/after parameters/results, controls, model version and operation time. Fixed-concept history and formal assessments are separate. Backup merge fills a missing child without replacing an existing one.
+- Mere page viewing creates no new record. Reload shows stored comparisons with an explicit distinction from current native controls. A native-section return button restores the selected lesson. UnifiedLearning routes unfinished applications after due reviews and respects explicit advanced tracks.
+
+## Verification map
+
+| Concern | Tests |
+| --- | --- |
+| One parameter, PFC inverse capacitance scaling, PSFB squared-current energy, LLC frequency scaling, LCL resonance scaling | topology-applications.test.mjs |
+| Seven registry contracts, separate FHA/current/grid-filter semantics | topology-applications.test.mjs |
+| Backup preservation, formal separation and resume priorities | topology-applications.test.mjs |
+| All four native operations, snapshots, wrong-first retention, reload and malformed records | topology-applications.spec.js |
+| Native graph return, mobile fit and sticky-header clearance | topology-applications.spec.js |
+
+These are four bounded guided comparisons, not complete topology design courses. Remaining coverage includes independent unseen assessments for these tasks, broader operating regions, bidirectional power flow, target-specific/real-board closure, and actual learner trials.
