@@ -7,7 +7,9 @@ test('resume integrates beginner progress and advanced selection without grantin
  await page.locator('#learning-track').selectOption('core');await expect(page.locator('[data-learning-hub] [data-unified-resume]')).toHaveAttribute('href',/layer=physics/);
  expect(await page.evaluate(()=>CircuitCoreFlowV1.progress().done)).toBe(0);
  await page.locator('#learning-track').selectOption('specialize');await expect(page.locator('[data-learning-hub] [data-unified-resume]')).toHaveAttribute('href',/17_power_topology_control/);
- expect(await page.locator('[data-learning-hub] .learning-stage').count()).toBe(8);
+ expect(await page.locator('#earlier-learning-records .learning-stage').count()).toBe(7);
+ expect(await page.locator('[data-learning-hub] > .learning-stage').count()).toBe(1);
+ expect(await page.locator('#workspace-learning-records .learning-stage').count()).toBe(4);
 });
 test('shared case settings survive navigation and only apply to the compatible sandbox model',async({page})=>{
  await page.goto('/learning-case.html');await expect(page.locator('#learning-navigation')).toBeVisible();
