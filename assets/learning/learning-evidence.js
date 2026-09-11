@@ -474,8 +474,10 @@
       if (key === "learningWorkspace" && incoming?.version === 1) {
         const current = state.benchmark.learningWorkspace;
         if (!current) state.benchmark.learningWorkspace = clone(incoming);
-        else if (!current.experiment && incoming.experiment?.version === 1) current.experiment = clone(incoming.experiment);
-        else if (!current.experiment && !current.history?.length && !current.freeModel) state.benchmark.learningWorkspace = clone(incoming);
+        else {
+          for(const child of ['experiment','topologyTransfer','topologyConcepts']) if(!current[child]&&incoming[child]?.version===1) current[child]=clone(incoming[child]);
+          if(!current.experiment&&!current.topologyTransfer&&!current.topologyConcepts&&!current.history?.length&&!current.freeModel) state.benchmark.learningWorkspace=clone(incoming);
+        }
       } else if (key === "unifiedLearning" && incoming?.version === 1) {
         const current = state.benchmark.unifiedLearning;
         if (!current) state.benchmark.unifiedLearning = clone(incoming);

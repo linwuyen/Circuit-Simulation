@@ -42,7 +42,7 @@ test('P5 topology transfer surface renders five live constraints and unseen chec
   expect(after).not.toBe(before);
 
   await page.locator('[data-p5-case]').first().locator('[data-p5-answer]').first().click();
-  await expect(page.locator('#p5ChallengeScore')).toContainText('first attempts');
+  await expect(page.locator('#p5ChallengeScore')).toContainText('首次符合模型');
 });
 
 test('P5 transfer atlas remains within viewport on desktop and mobile', async ({ page }) => {

@@ -9,6 +9,7 @@
     if(!root.CircuitCurriculum)await script('assets/learning/curriculum.js',base);
     if(root.CircuitCurriculum.modules.length<19)for(const file of ['opamp-module.js','power-firmware-modules.js','control-transforms-module.js','power-topology-control-module.js','control-unification-module.js'])await script('assets/learning/'+file,base);
     for(const[global,file]of [['CircuitSchema','curriculum-schema-v3.js'],['CircuitModels','engineering-models.js'],['CircuitModelRegistry','model-registry.js'],['CircuitEngineeringCurriculum','engineering-curriculum.js'],['CircuitEngineeringContext','engineering-context.js']])if(!root[global])await script('assets/learning/'+file,base);
+    if(root.CircuitModelRegistry.loadTopologyContracts)await root.CircuitModelRegistry.loadTopologyContracts(base);
     return {curriculum:root.CircuitSchema.normalizeCurriculum(root.CircuitCurriculum),registry:root.CircuitModelRegistry,facts:root.CircuitEngineeringCurriculum,map:root.CircuitLearningMap,unified:root.CircuitUnifiedLearning,flow:root.CircuitCoreFlowV1};
   }
   function mount(parent,base){

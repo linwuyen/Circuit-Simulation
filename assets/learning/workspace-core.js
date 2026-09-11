@@ -35,5 +35,20 @@
  function experimentPlan(id){const lessons=experimentLessons(),index=lessons.findIndex(l=>l.id===id);if(index<0)throw Error('未知連續實驗');let before=JSON.parse(JSON.stringify(experimentDefaults));for(let i=0;i<index;i++)before={...before,...lessons[i].prepare,...lessons[i].change};const prepared={...before,...lessons[index].prepare};return {before,prepared,after:{...prepared,...lessons[index].change}};}
  function experimentRun(config){const registry=root.CircuitModelRegistry||(typeof require==='function'?require('./model-registry.js'):null);return registry.run('generic-power-causal-kernel',config);}
  function experimentTransfer(plan){return {before:{...plan.prepared,vin:36},after:{...plan.after,vin:36}};}
- return {experimentLessons,experimentPlan,experimentRun,experimentTransfer,ids,titles,abilities,resources,defaults,plan,changed,apply,transfer,locate,bucket,history};
+ function topologyParams(raw){
+  const ranges={vin:[5,100],duty:[.05,.8],inductanceH:[20e-6,.01],capacitanceF:[1e-6,.01],loadOhm:[.5,1000],esrOhm:[0,0],switchingHz:[1000,1000000]},p={};
+  for(const[k,[lo,hi]]of Object.entries(ranges)){const v=raw?.[k];if(typeof v!=='number'||!Number.isFinite(v)||v<lo||v>hi)throw Error('比較條件無效：'+k);p[k]=v;}return p;
+ }
+ function topologyPlan(e={}){
+  const rows=e.benchmark?.learningWorkspace?.experiment?.history||[];
+  const source=[...rows].reverse().find(h=>h?.config?.controlMode==='manual'&&h.config.sensorGain===1);
+  const c=source?.config||experimentPlan('energy').after;
+  return {params:topologyParams({vin:c.vin,duty:c.manualDuty,inductanceH:c.inductanceUh*1e-6,capacitanceF:c.capacitanceUf*1e-6,loadOhm:c.loadProfile[0].ohm,esrOhm:0,switchingHz:1e6/c.controlPeriodUs}),source:source?'上次手動實驗的條件':'開關比例實驗的指定條件'};
+ }
+ function topologyCompare(raw){const params=topologyParams(raw),changed={...params,duty:Math.round((params.duty+.1)*1e12)/1e12},r=root.CircuitModelRegistry||(typeof require==='function'?require('./model-registry.js'):null);
+  const pair=id=>({before:r.operatingPoint(id,params),after:r.operatingPoint(id,changed)}),buck=pair('buck-ccm-control-output-esr'),boost=pair('boost-ccm-control-output');
+  return {params,changed,buck,boost,valid:[buck.before,buck.after,boost.before,boost.after].every(x=>x.ccmValid===true)};
+ }
+ function topologyProof(r){return r?.version===1&&r.protocol==='topology-workbench-v1'&&!!r.rows?.prediction?.first&&r.operated===true&&['observation','reason','return'].every(k=>r.rows?.[k]?.passed===true);}
+ return {topologyParams,topologyPlan,topologyCompare,topologyProof,experimentLessons,experimentPlan,experimentRun,experimentTransfer,ids,titles,abilities,resources,defaults,plan,changed,apply,transfer,locate,bucket,history};
 });

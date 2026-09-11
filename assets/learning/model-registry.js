@@ -213,6 +213,22 @@
     return owner[method](input || {});
   }
 
+  // Read existing quantitative contracts; do not restate their equations or boundaries.
+  const topologyMethods={'buck-ccm-control-output-esr':['buckCCM','buckControlToOutputAt'],'boost-ccm-control-output':['boostCCM','boostControlToOutputAt']};
+  function topologyOwner(){const owner=root.CircuitTopologyTransferV1||(nodeRequire?nodeRequire('./topology-transfer-v1.js'):null);if(!owner)throw Error('Topology owner must load first');return owner;}
+  function installTopologyContracts(payload){
+    for(const v of payload.visuals||[]){const methods=topologyMethods[v.modelId];if(!methods||get(v.modelId))continue;
+      cards.push({id:v.modelId,moduleId:'power-topology-control',version:payload.version,title:v.topology+' '+v.input+' → '+v.output,type:v.fidelity,executable:true,
+        owner:'assets/learning/topology-transfer-v1.js',contractOwner:'assets/learning/model-contracts-v1.json#'+v.id,
+        inputs:{vin:'V',duty:'ratio',inductanceH:'H',capacitanceF:'F',loadOhm:'Ω',esrOhm:'Ω (Buck only)',switchingHz:'Hz (CCM check)',frequencyHz:'Hz'},outputs:{magnitude:v.units,magnitudeDb:'dB',phaseDeg:'degree'},
+        assumptions:v.assumptions,invalidWhen:[v.knownBoundary],references:v.provenance,validRegion:v.validRegion,equation:v.equation,testIds:['topology-transfer.test.mjs','topology-workspace.test.mjs'],
+        calculate:p=>topologyOwner()[methods[1]](p,p.frequencyHz)});
+    }return cards.filter(c=>topologyMethods[c.id]);
+  }
+  async function loadTopologyContracts(base){if(nodeRequire)return installTopologyContracts(nodeRequire('./model-contracts-v1.json'));const response=await fetch(new URL('assets/learning/model-contracts-v1.json',base));if(!response.ok)throw Error('模型契約載入失敗');return installTopologyContracts(await response.json());}
+  function operatingPoint(id,params){if(!get(id)||!topologyMethods[id])throw Error('Unknown working-point model: '+id);return topologyOwner()[topologyMethods[id][0]](params);}
+  if(nodeRequire)installTopologyContracts(nodeRequire('./model-contracts-v1.json'));
+
   function describe(id) {
     const card=get(id);if(!card)return null;
     const {calculate,...metadata}=card;
@@ -248,5 +264,5 @@
     return errors;
   }
 
-  return { cards, forModule, get, run, describe, validate };
+  return { cards, forModule, get, run, describe, validate, loadTopologyContracts, operatingPoint };
 });

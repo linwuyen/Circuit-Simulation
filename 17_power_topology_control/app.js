@@ -12,7 +12,7 @@
   function chartFrame(c,title){
     const w=c.canvas.width,h=c.canvas.height;c.clearRect(0,0,w,h);c.fillStyle="#07101d";c.fillRect(0,0,w,h);c.fillStyle="#9fb1c5";c.font="12px system-ui";c.fillText(title,58,16);
   }
-  function line(c,pts,mapper,stroke){c.strokeStyle=stroke;c.lineWidth=2;c.beginPath();let started=false;pts.forEach((p,i)=>{if(!Number.isFinite(p)) return;const [x,y]=mapper(p,i);if(!started){c.moveTo(x,y);started=true}else c.lineTo(x,y)});if(started)c.stroke();}
+  function line(c,pts,mapper,stroke){c.strokeStyle=stroke;c.lineWidth=2;c.beginPath();let started=false;pts.forEach((p,i)=>{const [x,y]=mapper(p,i);if(!Number.isFinite(x)||!Number.isFinite(y)){started=false;return;}if(!started){c.moveTo(x,y);started=true}else c.lineTo(x,y)});if(started)c.stroke();}
   function bode(id,title,minF,maxF,responseAt,units){
     const c=ctx(id),w=c.canvas.width,h=c.canvas.height,left=62,right=18,top=24,mid=h/2,bottom=32;
     chartFrame(c,title);
@@ -31,13 +31,13 @@
     c.fillStyle="#9fb1c5";c.font="11px system-ui";c.fillText(`${magHi.toFixed(0)} dB`,4,top+4);c.fillText(`${magLo.toFixed(0)} dB`,4,mid-16);c.fillText(`${phaseHi.toFixed(0)}°`,8,mid+18);c.fillText(`${phaseLo.toFixed(0)}°`,8,h-bottom);c.fillText(hz(minF),left,h-8);const maxLabel=hz(maxF);c.fillText(maxLabel,w-right-c.measureText(maxLabel).width,h-8);c.fillText(units,w-right-c.measureText(units).width,16);
   }
   function buck(){
-    const vin=n("vinBuck"),D=n("dutyBuck")/100,L=n("lBuck")*1e-6,C=n("cBuck")*1e-6,R=n("rBuck"),esr=n("esrBuck")*1e-3,fs=n("fsBuck")*1e3,vout=vin*D;
-    const ripple=(vin-vout)*D/(L*fs),f0=1/(2*Math.PI*Math.sqrt(L*C)),fesr=1/(2*Math.PI*esr*C);
+    const p={vin:n("vinBuck"),duty:n("dutyBuck")/100,inductanceH:n("lBuck")*1e-6,capacitanceF:n("cBuck")*1e-6,loadOhm:n("rBuck"),esrOhm:n("esrBuck")*1e-3,switchingHz:n("fsBuck")*1e3},m=T.buckCCM(p);
+    const {vin,duty:D,inductanceH:L,capacitanceF:C,loadOhm:R,esrOhm:esr,switchingHz:fs}=p;
+    const {vout,ripple,resonanceHz:f0,esrZeroHz:fesr}=m;
     out("vinBuckOut",vin.toFixed(0)+" V");out("dutyBuckOut",(D*100).toFixed(0)+" %");out("lBuckOut",(L*1e6).toFixed(0)+" µH");out("cBuckOut",(C*1e6).toFixed(0)+" µF");out("rBuckOut",R.toFixed(1)+" Ω");out("esrBuckOut",(esr*1e3).toFixed(0)+" mΩ");out("fsBuckOut",(fs/1e3).toFixed(0)+" kHz");
     out("buckVout",vout.toFixed(2)+" V");out("buckRipple",ripple.toFixed(2)+" A");out("buckF0",hz(f0));out("buckFesr",hz(fesr));
-    const ratio=ripple/Math.max(vout/R,1e-9);$("buckExplain").textContent=`LC resonance 約 ${hz(f0)}，ESR zero 約 ${hz(fesr)}。平均輸出電流約 ${(vout/R).toFixed(2)} A，電感 ripple 約 ${(ratio*100).toFixed(1)}%。這張圖沿用含 ESR zero 的 averaged Buck model；數位 delay 需另外疊加。`;
-    const response=f=>{const w=2*Math.PI*f,nr=vin,ni=vin*w*esr*C,dr=1-w*w*L*C*(1+esr/R),di=w*(L/R+esr*C),den=dr*dr+di*di,re=(nr*dr+ni*di)/den,im=(ni*dr-nr*di)/den,mag=Math.hypot(re,im);return {magnitudeDb:20*Math.log10(mag),phaseDeg:Math.atan2(im,re)*180/Math.PI};};
-    bode("buckBode","Buck averaged CCM plant",1,Math.min(50000,.45*fs),response,"V/duty");
+    const ratio=ripple/Math.max(m.averageCurrentA,1e-9);$("buckExplain").textContent=`LC resonance 約 ${hz(f0)}，ESR zero 約 ${hz(fesr)}。平均輸出電流約 ${m.averageCurrentA.toFixed(2)} A，電感 ripple 約 ${(ratio*100).toFixed(1)}%。這張圖沿用含 ESR zero 的 averaged Buck model；數位 delay 需另外疊加。`;
+    bode("buckBode","Buck averaged CCM plant",1,Math.min(50000,.45*fs),f=>T.buckControlToOutputAt(p,f),"V/duty");
   }
   function boost(){
     const p={vin:n("vinBoost"),duty:n("dutyBoost")/100,inductanceH:n("lBoost")*1e-6,capacitanceF:n("cBoost")*1e-6,loadOhm:n("rBoost")};const m=T.boostCCM(p);

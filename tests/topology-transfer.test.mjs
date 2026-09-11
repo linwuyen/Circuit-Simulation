@@ -9,6 +9,55 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const Transfer = require(path.join(root, "assets", "learning", "topology-transfer-v1.js"));
 const close = (a,b,tol=1e-9) => assert.ok(Math.abs(a-b) <= tol*Math.max(1,Math.abs(a),Math.abs(b)), `${a} != ${b}`);
 
+const buckPoint={vin:48,duty:.5,inductanceH:200e-6,capacitanceF:220e-6,loadOhm:6,esrOhm:.04,switchingHz:100000};
+
+test("Buck extraction preserves the Module 17 operating point and physical scaling", () => {
+  const a=Transfer.buckCCM(buckPoint);
+  close(a.vout,24);close(a.ripple,.6);close(a.averageCurrentA,4);close(a.valleyCurrentA,3.7);
+  close(a.resonanceHz,1/(2*Math.PI*Math.sqrt(200e-6*220e-6)));
+  close(a.esrZeroHz,1/(2*Math.PI*.04*220e-6));
+  assert.equal(a.ccmValid,true);assert.equal(Object.isFrozen(a),true);
+  const largerL=Transfer.buckCCM({...buckPoint,inductanceH:800e-6});
+  close(largerL.ripple,a.ripple/4);close(largerL.resonanceHz,a.resonanceHz/2);
+  const faster=Transfer.buckCCM({...buckPoint,switchingHz:200000});
+  close(faster.ripple,a.ripple/2);close(faster.resonanceHz,a.resonanceHz);
+  const largerC=Transfer.buckCCM({...buckPoint,capacitanceF:880e-6});
+  close(largerC.resonanceHz,a.resonanceHz/2);close(largerC.esrZeroHz,a.esrZeroHz/4);
+});
+
+test("Buck ESR-free limit retains its DC gain, resonance phase and no finite ESR zero", () => {
+  const p={...buckPoint,esrOhm:0},op=Transfer.buckCCM(p);
+  assert.equal(op.esrZeroHz,Infinity);
+  const dc=Transfer.buckControlToOutputAt(p,.00001);
+  close(dc.magnitude,48,1e-9);assert.ok(dc.phaseDeg<0);
+  const resonance=Transfer.buckControlToOutputAt(p,op.resonanceHz);
+  close(resonance.real,0);close(resonance.imag,-48*6/(2*Math.PI*op.resonanceHz*200e-6));
+  close(resonance.phaseDeg,-90);assert.equal(resonance.units,"V/duty");
+  const high=Transfer.buckControlToOutputAt(p,op.resonanceHz*100);
+  assert.ok(high.phaseDeg<-170&&high.phaseDeg>-180);
+});
+
+test("Buck delegation keeps frozen pre-extraction magnitude and atan2 phase across the displayed band", () => {
+  // Independent frozen results from the previous inline Module 17 expression.
+  const fixtures=[
+    {f:1,db:33.62483964484894,phase:-.01200002617216498},
+    {f:1000,db:35.64101921085949,phase:-157.36055858966589},
+    {f:10000,db:-10.021825510698065,phase:-150.18855979400678},
+    {f:45000,db:-28.787432898497173,phase:-111.70269720066118}
+  ];
+  for(const fixture of fixtures){const r=Transfer.buckControlToOutputAt(buckPoint,fixture.f);close(r.magnitudeDb,fixture.db,1e-12);close(r.phaseDeg,fixture.phase,1e-12);}
+});
+
+test("Buck declares the CCM boundary without silently substituting a DCM solution", () => {
+  const p={...buckPoint,esrOhm:0,loadOhm:80},boundary=Transfer.buckCCM(p);
+  close(boundary.valleyCurrentA,0);assert.equal(boundary.ccmValid,false);
+  const light=Transfer.buckCCM({...p,loadOhm:160});
+  assert.ok(light.valleyCurrentA<0);assert.equal(light.ccmValid,false);close(light.vout,24);
+  assert.equal(Transfer.buckControlToOutputAt({...p,loadOhm:160},1000).ccmValid,false);
+  for(const patch of [{vin:0},{duty:-.1},{duty:1.1},{inductanceH:0},{capacitanceF:-1},{loadOhm:Infinity},{esrOhm:-.01},{esrOhm:NaN},{switchingHz:0}])assert.throws(()=>Transfer.buckCCM({...buckPoint,...patch}),RangeError);
+  for(const f of [0,-1,Infinity,NaN])assert.throws(()=>Transfer.buckControlToOutputAt(buckPoint,f),RangeError);
+});
+
 test("Boost CCM equation-grade model preserves DC gain, LC pole and moving RHP zero", () => {
   const p={ vin:48, duty:0.4, inductanceH:300e-6, capacitanceF:220e-6, loadOhm:48 };
   const a=Transfer.boostCCM(p);
@@ -105,7 +154,7 @@ test("undamped LCL Bode phase stays continuous as -90 to -270 rather than wrappi
   assert.ok(above.phaseDeg < below.phaseDeg);
 });
 
-test("P5 unseen challenge set covers every transfer topology", () => {
+test("P5 fixed concept set covers every transfer topology", () => {
   const cases=Transfer.challengeSet(42);
   assert.deepEqual(cases.map(item=>item.topology),["boost","pfc","psfb","llc","inverter"]);
   assert.equal(new Set(cases.map(item=>item.id)).size,5);
