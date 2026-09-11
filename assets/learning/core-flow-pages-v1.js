@@ -97,9 +97,15 @@
     const main = root?.querySelector("main");
     const list = main?.querySelector(".quiz-list");
     if (!main || !list) return;
+    if (new URLSearchParams(location.search).get('module') === 'power-topology-control') {
+      const adaptive=main.querySelector(':scope > #adaptiveV8');
+      wrapNodes(main, [main.querySelector(':scope > #powerFirmwarePath'),adaptive,adaptive?.nextElementSibling,main.querySelector(':scope > .v8-validity-summary')].filter(Boolean), '完整路徑、其他學習建議與驗證資訊', 'core-quiz-path');
+      const hero=main.querySelector('.hero');
+      if(hero){hero.querySelector('.eyebrow').textContent='操作之後，自己判斷';hero.querySelector('h1').textContent='四種電路，換條件再試';hero.querySelector('.lead').textContent='每次專心回答一題。答錯會保留首次紀錄，接著換一組條件再確認。';}
+    }
     const cards = [...list.querySelectorAll(":scope > .quiz-card")];
     if (!cards.length) return;
-    const cardKey = card => card.querySelector("[data-family]")?.dataset.family || card.querySelector("[data-question]")?.dataset.question || card.dataset.currentQuestion || "";
+    const cardKey = card => card.dataset.familyId || card.querySelector("[data-family]")?.dataset.family || card.querySelector("[data-question]")?.dataset.question || card.dataset.currentQuestion || "";
     const matched = cards.findIndex(card => cardKey(card) === view.cardKey);
     let index = matched >= 0 ? matched : Math.max(0, Math.min(cards.length - 1, view.index || 0));
     let pager = main.querySelector(".core-quiz-pager");

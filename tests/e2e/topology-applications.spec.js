@@ -9,7 +9,7 @@ test('all four applications operate the original controls and preserve separate 
   await answer(page,'lower');await answer(page,'reason');await expect(page.locator('#application-next')).toBeVisible();if(id!=='inverter')await page.locator('#application-next').click();
  }
  await expect(page.locator('#application-progress')).toContainText('4 / 4');await page.reload();await expect(page.locator('#application-progress')).toContainText('4 / 4');
- expect(await page.evaluate(()=>CircuitEvidence.load().benchmark.outcomeV1)).toBeUndefined();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
+ expect(await page.evaluate(()=>CircuitEvidence.load().benchmark.outcomeV1)).toBeUndefined();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);await page.locator('#application-next').click();await expect(page).toHaveURL(/quiz.html\?module=power-topology-control/);await expect(page.locator('[data-current-question]')).toHaveCount(4);
 });
 test('first wrong answers survive refresh; native edits require an explicit setup before operation',async({page})=>{
  await expect(page.locator('#application-submit')).toBeDisabled();await page.locator('#application-prepare').click();await answer(page,'higher');await page.locator('#pfcC').fill('1500');await expect(page.locator('#application-run')).toBeDisabled();await expect(page.locator('#application-live-state')).toContainText('其他設定');
