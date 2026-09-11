@@ -26,7 +26,7 @@ test('guided completion requires operation and all proof gates, and does not gra
  const r={version:1,protocol:'topology-workbench-v1',rows:{prediction:{first:{correct:false}},observation:{passed:true},reason:{passed:true},return:{passed:true}}};
  assert.equal(W.topologyProof(r),false);r.operated=true;assert.equal(W.topologyProof(r),true);
  const e={benchmark:{learningWorkspace:{topologyTransfer:{...r,completed:true},experiment:{version:1,completed:true}}}};
- assert.equal(U.next(e).id,'core-physics');assert.equal(e.benchmark.outcomeV1,undefined);
+ assert.equal(U.next(e).id,'applications');e.benchmark.learningWorkspace.topologyApplications={version:1,completed:true};assert.equal(U.next(e).id,'core-physics');assert.equal(e.benchmark.outcomeV1,undefined);
  e.benchmark.outcomeV1={sessions:{post:{completedAt:'2026-01-01'}},retention:{r1:{dueAt:'2026-01-02'}}};assert.equal(U.next(e).id,'formal');
 });
 test('backup adds missing topology records without replacing local first attempts or experiment',()=>{

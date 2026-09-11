@@ -11,6 +11,7 @@
     if(!path||!facts||!registry||!unified||!flow)return {known:false,status:'UNKNOWN',models:[],competencies:[],topics:[],reason:'缺少可驗證的頁面或 canonical owner'};
     const home=['index.html','learn.html'].includes(path),shared=path==='learning-case.html';
     const entry=map.find(m=>path.startsWith(m.href.split('/')[0]+'/'));
+    const applications=entry?.number===17&&input.hash==='#guided-applications';
     const module=entry&&curriculum?.modules.find(m=>Number(m.number)===entry.number);
     const matches=module?[...module.lessons,...module.labs,...module.faults].filter(item=>cleanPath(item.href)===path):[];
     const explicit=[...new Set(matches.map(i=>i.modelId).filter(Boolean))];
@@ -31,13 +32,14 @@
     if(home&&['#error','#adjust','#overshoot'].includes(input.hash))task='bridge-'+input.hash.slice(1);
     if(continuous)task='experiment';
     if(topology)task='topology';
+    if(applications)task='applications';
     const known=!!(home||shared||entry);
     return {known,status:known?'MODEL_ONLY':'UNKNOWN',path,moduleNumber:number,title:home?(topology?'降壓／升壓同條件比較':continuous?'連續電路實驗':'入門工作台'):shared?'同一案例的模型鏡頭':entry?.title||'尚未登錄的頁面',
       task:unified.validTask(task)?task:null,topics,models,mapping:precise?'PAGE_MODEL':models.length?'MODULE_SCOPE':'UNMAPPED',
       competencies:[...new Set(matches.map(i=>i.competency).filter(Boolean))],
       prerequisites:module?.prerequisites||[],items:matches.map(i=>({id:i.id,title:i.title||i.symptom,competency:i.competency})),
-      evidenceOwner:(continuous||topology)?'Evidence V5 / PlainCourse 教學練習（不授予正式能力成績）':entry?.number===19?'CoreFlow / outcome-session / physical-board-closure / board-evidence':'Evidence V5 / learning-assessment / lab-verification-contracts',
-      boundary:topology?'沿用元件條件，比較既有 CCM 解析工作點；不帶入切換暫態、控制器或故障狀態。固定教學練習不授予正式能力或真板認證。':continuous?'全部連續實驗使用同一切換電路核心；每次從相同零能量起點重跑，保留條件與紀錄。這是教學模型，沒有真板或正式測驗認證。':home?'前五課是固定比例穩態電路；後三課為獨立修正示意，不是同一個閉環。':shared?'共用工作點，時間與頻率鏡頭的假設不同；不可把結果混成同一模型。':entry?.number===19?'教學、SIL、HIL、target image 與真板證據分層判定。此面板不讀取或授予 BOARD_PASS。':'這裡列出模型來源與範圍；精確數值及驗證仍由原頁面與 model owner 負責。',
+      evidenceOwner:applications?'Evidence V5 / CircuitWorkspace 教學練習（不授予正式能力成績）':(continuous||topology)?'Evidence V5 / PlainCourse 教學練習（不授予正式能力成績）':entry?.number===19?'CoreFlow / outcome-session / physical-board-closure / board-evidence':'Evidence V5 / learning-assessment / lab-verification-contracts',
+      boundary:applications?'四種電路各自明確準備條件，只改一個參數，使用原工具和模型對照。固定教學紀錄不授予正式能力或真板認證。':topology?'沿用元件條件，比較既有 CCM 解析工作點；不帶入切換暫態、控制器或故障狀態。固定教學練習不授予正式能力或真板認證。':continuous?'全部連續實驗使用同一切換電路核心；每次從相同零能量起點重跑，保留條件與紀錄。這是教學模型，沒有真板或正式測驗認證。':home?'前五課是固定比例穩態電路；後三課為獨立修正示意，不是同一個閉環。':shared?'共用工作點，時間與頻率鏡頭的假設不同；不可把結果混成同一模型。':entry?.number===19?'教學、SIL、HIL、target image 與真板證據分層判定。此面板不讀取或授予 BOARD_PASS。':'這裡列出模型來源與範圍；精確數值及驗證仍由原頁面與 model owner 負責。',
       faults:Object.keys(facts.faultTaxonomy)};
   }
   function graph(curriculum,facts){

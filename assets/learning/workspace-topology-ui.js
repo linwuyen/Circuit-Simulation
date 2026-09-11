@@ -36,7 +36,7 @@
   function render(){
    const current=stage();document.body.dataset.workspaceStage=String(shown);$('ws-steps').replaceChildren();$('ws-question').replaceChildren();$('ws-feedback').textContent='';
    steps.forEach((s,i)=>{const b=el('button',`${i+1}. ${s.label}`,$('ws-steps'));b.disabled=i>current;b.setAttribute('aria-current',shown===i?'step':'false');b.onclick=()=>{shown=i;render();};});
-   $('ws-result').hidden=current!==4;$('ws-ability').textContent='已練習：共用元件條件，比較輸出，再辨認升壓特有的限制。';$('ws-transition').textContent='回到原有工程主線，以獨立驗證檢查理解；這份教學紀錄不授予正式能力成績。';$('ws-next').textContent='接到工程主線的獨立驗證';
+   $('ws-result').hidden=current!==4;$('ws-ability').textContent='已練習：共用元件條件，比較輸出，再辨認升壓特有的限制。';$('ws-transition').textContent='接著用相同的比較方法，操作其他電路的原有工具；每一種先明確設定自己的條件，教學紀錄不授予正式能力成績。';$('ws-next').textContent='用同樣的方法，練習其他電路';
    $('workspace-progress').textContent=W.topologyProof(session)?'降壓／升壓比較：已練習':'降壓／升壓比較：'+steps[Math.min(current,3)].label;
    draw();if(shown===4)return;
    const s=steps[shown],r=session.rows[s.id]||{};el('h2',s.title,$('ws-question'));el('p',s.note,$('ws-question'));
@@ -59,7 +59,7 @@
   run.onclick=()=>{session.operated=true;save();render();};
   $('workspace-route').replaceChildren();for(const[href,label]of [['#experiment','回到連續電路實驗'],['#topology','降壓／升壓比較']]){const a=el('a',label,el('li',undefined,$('workspace-route')));a.href=href;}
   $('deeper').textContent='用這份條件，打開完整電路工具';$('deeper').onclick=()=>location.assign('17_power_topology_control/index.html#workspace-transfer');
-  $('ws-next').onclick=()=>{if(W.topologyProof(session))location.assign(U.route('core-physics'));};
+  $('ws-next').onclick=()=>{if(W.topologyProof(session))location.assign(U.route('applications'));};
   $('show-progress').onclick=()=>{$('workspace-progress-panel').hidden=false;$('progress-summary').textContent=W.topologyProof(session)?'比較練習完成；正式成績由原驗證系統判定。':'比較練習尚未完成。';$('progress-abilities').replaceChildren();if(session)for(const s of steps){const r=session.rows[s.id];el('li',s.label+'：'+(r?.first?(r.first.correct?'首次符合模型':'首次需修正'):'尚未作答'),$('progress-abilities'));}};
   $('close-progress').onclick=()=>$('workspace-progress-panel').hidden=true;
   $('workspace-backup').onclick=()=>{const url=URL.createObjectURL(new Blob([E.exportBackup()],{type:'application/json'})),a=el('a');a.href=url;a.download='circuit-learning-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};

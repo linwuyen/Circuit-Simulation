@@ -69,5 +69,31 @@
     {id:'reason',label:'說明原因',title:'為什麼升壓不能只照搬降壓的調法？',note:'升壓電路先在電感存能，開關關閉時才送往輸出。提高開啟比例，也縮短了當輪送出的時間；這會限制回授反應。',choices:[['path','能量送出的路徑不同，穩定輸出和動態反應要分開看'],['labels','只是名稱不同，任何調整值都可以直接照搬']],answer:'path'},
     {id:'return',label:'返回降壓',title:'回到降壓電路，哪些判斷可以帶回去？',note:'現在要回去改善原本的 Buck 控制。哪些需要重新確認，哪些不能照抄？',choices:[['recheck','重新檢查量測、更新時間與保護；不要套用 Boost 特有的 RHP 零點'],['copy','直接把 Boost 的動態限制數字當成 Buck 的控制頻寬']],answer:'recheck'}
   ];
-  return {topologySteps,workbenchLessons,views,taxonomy,moduleTopics,faultTaxonomy,diagnosticChain,viewTopics};
+  const applicationLessons=[
+    {id:'pfc',label:'交流整流（PFC）',title:'電容加大，電壓的起伏會怎樣？',modelId:'boost-pfc-bus-energy-outer',section:'pfc',
+     baseline:{pfcVrms:230,pfcPower:2000,pfcBus:400,pfcC:500,pfcHz:60,pfcL:500},change:{pfcC:1000},
+     inputs:{pfcVrms:['vrms',1],pfcPower:['powerW',1],pfcBus:['vbus',1],pfcC:['busCapF',1e-6],pfcHz:['lineHz',1],pfcL:['inductanceH',1e-6]},
+     setup:'這次使用交流 230 V、2000 W、直流端 400 V、60 Hz，電感 500 µH。這是 PFC 的指定條件，不承接 Buck 的儲能狀態。',action:'把直流端電容從 500 改為 1000 µF',
+     question:'其他條件相同，電壓起伏的幅度會？',answer:'lower',metrics:[['busRippleVpk','電壓起伏幅度','V'],['outerPoleHz','慢速反應的轉折頻率','Hz'],['doubleLineHz','供電帶來的起伏頻率','Hz']],
+     reason:'電容較大，同樣的能量起伏造成較小的電壓變動；起伏頻率仍由交流供電決定。',wrong:'電容加大，會把交流供電頻率也減半。',boundary:'這是平均能量模型；供電帶來的 120 Hz 起伏不是控制模型的極點，也不代表已算出輸入電流失真。'},
+    {id:'psfb',label:'隔離電源（PSFB）',title:'電流變小，開關還能輕鬆切換嗎？',modelId:'psfb-ideal-output',section:'psfb',
+     baseline:{psfbVin:400,psfbPhase:90,psfbN:.08,psfbLlk:8,psfbI:10,psfbCoss:1,psfbLo:100,psfbCo:480,psfbR:4},change:{psfbI:2},
+     inputs:{psfbVin:['vin',1],psfbPhase:['phaseDeg',1],psfbN:['turnsRatio',1],psfbLlk:['leakageH',1e-6],psfbI:['primaryCurrentA',1],psfbCoss:['commutationCapF',1e-9],psfbLo:['outputInductanceH',1e-6],psfbCo:['outputCapacitanceF',1e-6],psfbR:['loadOhm',1]},
+     setup:'使用 400 V、90 度相移、0.08 匝數比、8 µH 漏感與 1 nF 換流電容。這次獨立改變主側電流，估算換流能量，不把它假裝成完整的負載暫態。',action:'把主側電流從 10 改為 2 A',
+     question:'可用能量相對於切換所需能量的比例會？',answer:'lower',metrics:[['zvsEnergyMargin','可用／所需換流能量','倍'],['idealSecondaryV','理想輸出映射','V']],
+     reason:'電流變小，漏感儲存的能量減少；理想輸出公式看起來正常，也不能證明開關已達到低損耗切換。',wrong:'只要理想輸出電壓不變，實際開關就一定能零電壓切換。',boundary:'換流能量比只是估算，不能當成真板 ZVS（零電壓切換）證據。輸出映射也未包含換流造成的有效占空比損失。'},
+    {id:'llc',label:'諧振電源（LLC）',title:'換個開關速度，輸出比例還一樣嗎？',modelId:'llc-normalized-fha',section:'llc',
+     baseline:{llcLr:20,llcCr:100,llcLm:120,llcQ:.5,llcFs:120},change:{llcFs:180},
+     inputs:{llcLr:['resonantInductanceH',1e-6],llcCr:['resonantCapF',1e-9],llcLm:['magnetizingInductanceH',1e-6],llcQ:['q',1],llcFs:['switchingHz',1e3]},
+     setup:'使用 20 µH 諧振電感、100 nF 電容、120 µH 激磁電感，負載參數 Q=0.5。這組條件從共振點稍高的位置開始。',action:'把開關頻率從 120 改為 180 kHz',
+     question:'在這組指定條件下，穩定輸出比例會？',answer:'lower',metrics:[['gain','正規化穩定增益','倍'],['normalizedFrequency','開關／共振頻率','倍']],
+     reason:'儲能元件對頻率的反應不同；工作位置換了，就要重新確認輸出比例，不能把一個位置的模型套到全部範圍。',wrong:'開關速度加快，任何 LLC 工作條件的輸出都一定變大。',boundary:'FHA 是穩態近似。這條增益曲線不能當成啟動波形、控制迴路相位或真實開關損耗。'},
+    {id:'inverter',label:'逆變器',title:'濾波電容加大，容易共振的位置會移到哪？',modelId:'inverter-filter-plant',section:'inverter',
+     baseline:{invMode:'lcl',invVdc:400,invM:.8,invL1:2,invC:10,invL2:1,invR:20},change:{invC:20},
+     inputs:{invMode:['mode',1],invVdc:['dcBusV',1],invM:['modulationIndex',1],invL1:['l1H',1e-3],invC:['capF',1e-6],invL2:['l2H',1e-3],invR:['loadOhm',1]},
+     setup:'這次選併網 LCL：兩個電感為 2 mH 與 1 mH，直流端 400 V、調變比例 0.8。這是理想電網與無阻尼濾波器的比較。',action:'把濾波電容從 10 改為 20 µF',
+     question:'濾波器的共振頻率會？',answer:'lower',metrics:[['resonanceHz','共振頻率','Hz'],['fundamentalVrms','理想橋臂基波','Vrms']],
+     reason:'儲能元件的組合變了，共振位置也會改變；在加快控制之前，必須重新檢查阻尼與電網條件。',wrong:'只要增加電容，所有共振就會消失，也不再需要阻尼。',boundary:'此模型沒有真實阻尼與電網阻抗。共振點的理想奇異值不是實際可達到的電壓或電流。'}
+  ];
+  return {applicationLessons,topologySteps,workbenchLessons,views,taxonomy,moduleTopics,faultTaxonomy,diagnosticChain,viewTopics};
 });

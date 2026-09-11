@@ -214,7 +214,7 @@
   }
 
   // Read existing quantitative contracts; do not restate their equations or boundaries.
-  const topologyMethods={'buck-ccm-control-output-esr':['buckCCM','buckControlToOutputAt'],'boost-ccm-control-output':['boostCCM','boostControlToOutputAt']};
+  const topologyMethods={'buck-ccm-control-output-esr':['buckCCM','buckControlToOutputAt'],'boost-ccm-control-output':['boostCCM','boostControlToOutputAt'],'boost-pfc-current-inner':['pfcBoost','pfcCurrentPlantAt'],'boost-pfc-bus-energy-outer':['pfcBoost','pfcVoltagePlantAt'],'psfb-ideal-output':['psfb','psfbControlToOutputAt'],'llc-normalized-fha':['llc','llcFhaGain'],'inverter-filter-plant':['inverter','inverterLcVoltageAt']};
   function topologyOwner(){const owner=root.CircuitTopologyTransferV1||(nodeRequire?nodeRequire('./topology-transfer-v1.js'):null);if(!owner)throw Error('Topology owner must load first');return owner;}
   function installTopologyContracts(payload){
     for(const v of payload.visuals||[]){const methods=topologyMethods[v.modelId];if(!methods||get(v.modelId))continue;
@@ -222,7 +222,22 @@
         owner:'assets/learning/topology-transfer-v1.js',contractOwner:'assets/learning/model-contracts-v1.json#'+v.id,
         inputs:{vin:'V',duty:'ratio',inductanceH:'H',capacitanceF:'F',loadOhm:'Ω',esrOhm:'Ω (Buck only)',switchingHz:'Hz (CCM check)',frequencyHz:'Hz'},outputs:{magnitude:v.units,magnitudeDb:'dB',phaseDeg:'degree'},
         assumptions:v.assumptions,invalidWhen:[v.knownBoundary],references:v.provenance,validRegion:v.validRegion,equation:v.equation,testIds:['topology-transfer.test.mjs','topology-workspace.test.mjs'],
-        calculate:p=>topologyOwner()[methods[1]](p,p.frequencyHz)});
+        calculate:p=>{
+          const owner=topologyOwner();
+          if(v.modelId==='llc-normalized-fha')return {gain:owner.llcFhaGain(p.normalizedFrequency,p.ln,p.q),fidelity:v.fidelity};
+          if(v.modelId==='inverter-filter-plant'){if(!['lc','lcl'].includes(p.mode))throw Error('inverter response requires explicit mode');return owner[p.mode==='lcl'?'inverterLclGridCurrentAt':'inverterLcVoltageAt'](p,p.frequencyHz);}
+          return owner[methods[1]](p,p.frequencyHz);
+        }});
+      const card=get(v.modelId);
+      const io={
+        'boost-pfc-current-inner':{vbus:'V',inductanceH:'H',frequencyHz:'Hz'},
+        'boost-pfc-bus-energy-outer':{vrms:'Vrms',powerW:'W',vbus:'V',busCapF:'F',efficiency:'ratio',frequencyHz:'Hz'},
+        'psfb-ideal-output':{vin:'V',turnsRatio:'ratio',outputInductanceH:'H',outputCapacitanceF:'F',loadOhm:'Ω',frequencyHz:'Hz'},
+        'llc-normalized-fha':{normalizedFrequency:'ratio',ln:'ratio',q:'ratio'},
+        'inverter-filter-plant':{mode:'lc / lcl',dcBusV:'V',l1H:'H',l2H:'H',capF:'F',loadOhm:'Ω (LC)',frequencyHz:'Hz'}
+      };
+      if(io[v.modelId])card.inputs=io[v.modelId];
+      if(v.modelId==='llc-normalized-fha')card.outputs={gain:'normalized ratio'};
     }return cards.filter(c=>topologyMethods[c.id]);
   }
   async function loadTopologyContracts(base){if(nodeRequire)return installTopologyContracts(nodeRequire('./model-contracts-v1.json'));const response=await fetch(new URL('assets/learning/model-contracts-v1.json',base));if(!response.ok)throw Error('模型契約載入失敗');return installTopologyContracts(await response.json());}

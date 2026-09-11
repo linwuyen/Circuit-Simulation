@@ -50,5 +50,12 @@
   return {params,changed,buck,boost,valid:[buck.before,buck.after,boost.before,boost.after].every(x=>x.ccmValid===true)};
  }
  function topologyProof(r){return r?.version===1&&r.protocol==='topology-workbench-v1'&&!!r.rows?.prediction?.first&&r.operated===true&&['observation','reason','return'].every(k=>r.rows?.[k]?.passed===true);}
- return {topologyParams,topologyPlan,topologyCompare,topologyProof,experimentLessons,experimentPlan,experimentRun,experimentTransfer,ids,titles,abilities,resources,defaults,plan,changed,apply,transfer,locate,bucket,history};
+ function applicationLessons(){return (root.CircuitEngineeringCurriculum||(typeof require==='function'?require('./engineering-curriculum.js'):null)).applicationLessons;}
+ function applicationPlan(id){const lesson=applicationLessons().find(l=>l.id===id);if(!lesson)throw Error('未知電路練習');return {before:{...lesson.baseline},after:{...lesson.baseline,...lesson.change}};}
+ function applicationRun(id,controls){const l=applicationLessons().find(l=>l.id===id);if(!l)throw Error('未知電路練習');const params={};
+  for(const[k,[name,scale]]of Object.entries(l.inputs)){const value=controls[k];if(typeof l.baseline[k]==='string'){if(value!==l.baseline[k])throw Error('不符指定電路模式');params[name]=value;}else{if(typeof value!=='number'||!Number.isFinite(value)||value<=0)throw Error('電路條件無效：'+k);params[name]=value*scale;}}
+  const registry=root.CircuitModelRegistry||(typeof require==='function'?require('./model-registry.js'):null);return {params,result:registry.operatingPoint(l.modelId,params)};
+ }
+ function applicationProof(row){return row?.protocol==='topology-application-v1'&&!!row.first&&row.operated===true&&row.observationPassed===true&&row.reasonPassed===true;}
+ return {applicationLessons,applicationPlan,applicationRun,applicationProof,topologyParams,topologyPlan,topologyCompare,topologyProof,experimentLessons,experimentPlan,experimentRun,experimentTransfer,ids,titles,abilities,resources,defaults,plan,changed,apply,transfer,locate,bucket,history};
 });

@@ -17,7 +17,7 @@
     {id:'transfer',title:'7. 換一種應用',question:'哪些觀念可以帶走，哪些模型必須重建？',modules:[2,3,10,11,17,19],layers:[],basics:[],focus:'電源、馬達、電網與電池各自分流；共用控制語言，不照搬模型與保護規則。'}
   ];
   const categories={physics:'physics',sensing:'unit',timing:'timing',dynamics:'model'};
-  const tasks={topology:{title:'沿用條件，比較降壓與升壓',href:'index.html#topology'},experiment:{title:'連續電路實驗',href:'index.html#experiment'},home:{title:'學習總覽',href:'learn.html'},case:{title:'同一案例實驗',href:'learning-case.html'},sandbox:{title:'進階 Buck 量測',href:'15_power_capstone/lab_sandbox.html#training-workbench'},repair:{title:'盲測維修',href:'15_power_capstone/lab_multifault.html#repair-training'},formal:{title:'正式測驗與間隔複習',href:'19_c2000_buck_firmware_lab/index.html?layer=evidence'},quiz:{title:'既有題庫複習',href:'quiz.html'}};
+  const tasks={applications:{title:'把比較方法帶到四種電路',href:'17_power_topology_control/index.html#guided-applications'},topology:{title:'沿用條件，比較降壓與升壓',href:'index.html#topology'},experiment:{title:'連續電路實驗',href:'index.html#experiment'},home:{title:'學習總覽',href:'learn.html'},case:{title:'同一案例實驗',href:'learning-case.html'},sandbox:{title:'進階 Buck 量測',href:'15_power_capstone/lab_sandbox.html#training-workbench'},repair:{title:'盲測維修',href:'15_power_capstone/lab_multifault.html#repair-training'},formal:{title:'正式測驗與間隔複習',href:'19_c2000_buck_firmware_lab/index.html?layer=evidence'},quiz:{title:'既有題庫複習',href:'quiz.html'}};
   basics.forEach(([id,title])=>tasks['basic-'+id]={title,href:'index.html#'+id});
   ['error','adjust','overshoot'].forEach((id,i)=>tasks['bridge-'+id]={title:['離目標還差多少','讓輸出自己靠近目標','理解調過頭'][i],href:'index.html#'+id});
   const clone=x=>JSON.parse(JSON.stringify(x));
@@ -38,10 +38,13 @@
       if(!hand.passedAt)return {id:hand.id,remediation:hand.category,reason:'先完成從原任務開啟的短實驗與新條件題。'};
       return {id:hand.id,reason:'補強新條件題已通過，回到原任務完成原題驗證。'};
     }
+    const applications=e.benchmark?.learningWorkspace?.topologyApplications;
+    if(applications?.version===1&&!applications.completed&&u.track!=='core'&&u.track!=='specialize')return{id:'applications',reason:'接續原工具中的電路比較、觀察與原因判斷。'};
     const experiment=e.benchmark?.learningWorkspace?.experiment;
     if(experiment?.version===1&&!experiment.completed&&u.track!=='core'&&u.track!=='specialize')return {id:'experiment',reason:'接續同一台電路的連續實驗；原有課程成績保留。'};
     const topology=e.benchmark?.learningWorkspace?.topologyTransfer;
     if((experiment?.completed||topology)&&u.track!=='core'&&u.track!=='specialize'&&topology?.completed!==true)return{id:'topology',reason:'沿用手動條件，辨認降壓與升壓能共用的觀念和不同限制。'};
+    if(topology?.completed===true&&!applications?.completed&&u.track!=='core'&&u.track!=='specialize')return{id:'applications',reason:'把同一種比較方法帶到 PFC、隔離電源、LLC 與逆變器。'};
     const begun=Object.keys(flow.predictions||{}).length>0||Object.keys(flow.completed||{}).length>0;
     if(!experiment?.completed&&(u.track==='beginner'||(!begun&&u.track!=='core'&&u.track!=='specialize'))){
       const missing=basics.find(([id])=>!basicDone(rows[id]));if(missing)return{id:'basic-'+missing[0],reason:'接續尚未完成的入門練習；已完成的課不重做。'};
