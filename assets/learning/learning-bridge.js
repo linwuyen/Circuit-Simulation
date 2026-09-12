@@ -71,7 +71,7 @@
         link(section,'開啟：'+group.title,U.route(group.id));
         const detail=make('details',null,section);make('summary','查看每一步、首次判斷與複習時間',detail);
         const list=make('ul',null,detail);list.className='learning-record-list';
-        for(const row of group.rows){const li=make('li',null,list);li.dataset.recordId=row.id;make('strong',row.title,li);make('p',row.status+' · '+row.first,li);if(row.dueAt)make('small','下一次複習：'+new Date(row.dueAt).toLocaleString(),li);}
+        for(const row of group.rows){const li=make('li',null,list);li.dataset.recordId=row.id;make('strong',row.title,li);link(li,'開啟這一步',U.recordRoute(group.id,row.id));make('p',row.status+' · '+row.first,li);if(row.dueAt)make('small','下一次複習：'+new Date(row.dueAt).toLocaleString(),li);}
       }
       const previous=make('details',null,hub);previous.id='earlier-learning-records';make('summary','工程主線、舊版八課與專題工具',previous);
       make('p','舊版課程保留原有紀錄；不會把新實驗紀錄當成舊題答案，也不要求你為了補齊顯示而重做。',previous);
