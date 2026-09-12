@@ -65,6 +65,14 @@
   function write(patch){const E=root.CircuitEvidence;if(!E)throw new Error('學習儲存尚未載入');const state=E.load();state.benchmark.unifiedLearning={...read(),...clone(patch),version:1};E.save(state);root.dispatchEvent?.(new Event('learning:unified-change'));return read();}
   function beginReturn(id,category){if(!validTask(id)||categories[id.replace('core-','')]!==category)throw new Error('未知補強來源');return write({returnTask:{id,category,startedAt:Date.now(),passedAt:null}});}
   function finishReturn(category,session){const r=read().returnTask;if(!r||r.category!==category||!session?.miniCompleted||!session.transferPassed||!session.first||!Number.isFinite(session.at)||session.at<r.startedAt)return false;write({returnTask:{...r,passedAt:Date.now()}});return true;}
+  function recordRoute(group,item){
+    const C=root.CircuitEngineeringCurriculum||(typeof require==='function'?require('./engineering-curriculum.js'):null);
+    const Q=root.CircuitQuizBank||(typeof require==='function'?require('./quiz-bank.js'):null);
+    if(group==='experiment'&&C?.workbenchLessons.some(l=>l.id===item))return 'index.html#experiment-'+encodeURIComponent(item);
+    if(group==='applications'&&C?.applicationLessons.some(l=>l.id===item))return '17_power_topology_control/index.html?lesson='+encodeURIComponent(item)+'#guided-applications';
+    if(group==='topology-assessment'&&Q?.questions.some(q=>q.id===item&&q.moduleId==='power-topology-control'))return 'quiz.html?module=power-topology-control&family='+encodeURIComponent(item);
+    return validTask(group)?route(group):route('home');
+  }
   function route(id,origin){const href=task(id).href;if(!validTask(origin))return href;const [p,h]=href.split('#');return p+(p.includes('?')?'&':'?')+'learnFrom='+encodeURIComponent(origin)+(h?'#'+h:'');}
   function remediationRoute(id,category){if(categories[id.replace('core-','')]!==category)throw new Error('Unknown remediation mapping');return '15_power_capstone/lab_sandbox.html?remediation='+category+'&learnFrom='+id+'#training-remediation';}
 
@@ -77,5 +85,5 @@
     return {version:1,family:'buck-steady-v1',model,source:validTask(raw.source)?raw.source:'case',savedAt:typeof raw.savedAt==='string'?raw.savedAt:null};
   }
   function saveScenario(model,source){const scenario=validateScenario({version:1,family:'buck-steady-v1',model,source,savedAt:new Date().toISOString()});write({scenarios:{...read().scenarios,'buck-steady-v1':scenario}});return scenario;}
-  return {basics,get layers(){return coreLayers();},stages,tasks,categories,registerModules,validTask,task,basicDone,dueReview,next,ability,read,write,beginReturn,finishReturn,route,remediationRoute,validateScenario,saveScenario};
+  return {recordRoute,basics,get layers(){return coreLayers();},stages,tasks,categories,registerModules,validTask,task,basicDone,dueReview,next,ability,read,write,beginReturn,finishReturn,route,remediationRoute,validateScenario,saveScenario};
 });

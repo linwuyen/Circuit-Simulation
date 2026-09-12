@@ -11,7 +11,7 @@
   const content=el('div',undefined,panel),status=el('p',undefined,panel);status.id='application-status';status.setAttribute('role','status');
   const back=el('a','返回降壓／升壓比較',panel);back.href='../index.html#topology';
   const lessons=W.applicationLessons();let session,id,record,plan,shown=0,applying=false;
-  function save(){if(location.hash!=='#guided-applications'){history.replaceState(null,'','#guided-applications');dispatchEvent(new HashChangeEvent('hashchange'));}session.completed=lessons.every(l=>W.applicationProof(session.rows[l.id]));session.currentLesson=id;const s=E.load();s.benchmark.learningWorkspace||={version:1};s.benchmark.learningWorkspace.topologyApplications=session;E.save(s);}
+  function save(){const changed=location.hash!=='#guided-applications',target=new URL(location.href);target.searchParams.set('lesson',id);target.hash='guided-applications';history.replaceState(null,'',target.href);if(changed)dispatchEvent(new HashChangeEvent('hashchange'));session.completed=lessons.every(l=>W.applicationProof(session.rows[l.id]));session.currentLesson=id;const s=E.load();s.benchmark.learningWorkspace||={version:1};s.benchmark.learningWorkspace.topologyApplications=session;E.save(s);}
   function stage(){return W.applicationProof(record)?3:!record.first?0:!record.operated||!record.observationPassed?1:2;}
   function value(id){const n=$(id);return n.tagName==='SELECT'?n.value:Number(n.value);}
   function matches(values){return Object.entries(values).every(([id,v])=>typeof v==='number'?Math.abs(value(id)-v)<1e-8:value(id)===v);}
@@ -60,7 +60,8 @@
    session=stored||{version:1,rows:{}};
    for(const lesson of lessons){const r=session.rows[lesson.id];if(r?.operated&&lesson.metrics.some(([key])=>!Number.isFinite(r.before?.result?.[key])||!Number.isFinite(r.after?.result?.[key])))throw Error('已有模型對照不完整，保留資料並停止寫入。');}
    for(const lesson of lessons){const b=el('button','返回這個電路的引導練習');b.className='application-return';b.onclick=()=>{choose(lesson.id,true);panel.scrollIntoView({block:'start'});};$(lesson.section).prepend(b);}
-   choose(lessons.some(l=>l.id===session.currentLesson)?session.currentLesson:lessons[0].id);
+   const requested=new URLSearchParams(location.search).get('lesson');
+   choose(lessons.some(l=>l.id===requested)?requested:lessons.some(l=>l.id===session.currentLesson)?session.currentLesson:lessons[0].id);
    for(const key of new Set(lessons.flatMap(l=>Object.keys(l.baseline))))$(key).addEventListener('input',()=>{if(!applying&&Object.hasOwn(plan.before,key))render();});
    if(location.hash==='#guided-applications')panel.scrollIntoView({block:'start'});
   }catch(e){status.textContent=e.message;}
