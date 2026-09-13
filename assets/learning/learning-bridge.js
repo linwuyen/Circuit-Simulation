@@ -11,12 +11,11 @@
     if(!globalThis.CircuitLearningMap)await load('assets/learning/learning-map.js');
     if(!globalThis.CircuitLearningGlossary)await load('assets/learning/learning-glossary.js');
     if(!globalThis.CircuitWorkbenchContext)await load('assets/learning/workbench-context.js');
-    if(document.querySelector('[data-learning-hub]')){
+    // A workspace may arrive later through another tab's storage event.
       if(!globalThis.CircuitEngineeringCurriculum)await load('assets/learning/engineering-curriculum.js');
       if(!globalThis.CircuitPlainCourse)await load('assets/learning/plain-course-core.js');
-      if(!globalThis.CircuitQuizBank)await load('assets/learning/quiz-bank.js');
+      if(document.querySelector('[data-learning-hub]')&&!globalThis.CircuitQuizBank)await load('assets/learning/quiz-bank.js');
       if(!globalThis.CircuitWorkspace)await load('assets/learning/workspace-core.js');
-    }
     const U=CircuitUnifiedLearning,E=CircuitEvidence,F=CircuitCoreFlowV1;
     U.registerModules(CircuitLearningMap);
     const url=(href)=>new URL(href,base).href;

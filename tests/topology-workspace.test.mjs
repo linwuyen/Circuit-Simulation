@@ -25,8 +25,8 @@ test('CCM comparison fails outside conduction assumptions; malformed data cannot
 test('guided completion requires operation and all proof gates, and does not grant formal grades',()=>{
  const r={version:1,protocol:'topology-workbench-v1',rows:{prediction:{first:{correct:false}},observation:{passed:true},reason:{passed:true},return:{passed:true}}};
  assert.equal(W.topologyProof(r),false);r.operated=true;assert.equal(W.topologyProof(r),true);
- const e={benchmark:{learningWorkspace:{topologyTransfer:{...r,completed:true},experiment:{version:1,completed:true}}}};
- assert.equal(U.next(e).id,'applications');e.benchmark.learningWorkspace.topologyApplications={version:1,completed:true};assert.equal(U.next(e).id,'core-physics');assert.equal(e.benchmark.outcomeV1,undefined);
+ const e={benchmark:{learningWorkspace:{topologyTransfer:{...r,completed:true},experiment:{version:1,completed:true,rows:Object.fromEntries(W.experimentLessons().map(l=>[l.id,{first:{correct:false},proof:{observation:true,reason:true},transferPassed:true}]))}}}};
+ assert.equal(U.next(e).id,'applications');e.benchmark.learningWorkspace.topologyApplications={version:1,completed:true,rows:Object.fromEntries(W.applicationLessons().map(l=>[l.id,{protocol:'topology-application-v1',first:{correct:false},operated:true,observationPassed:true,reasonPassed:true}]))};assert.equal(U.next(e).id,'core-physics');assert.equal(e.benchmark.outcomeV1,undefined);
  e.benchmark.outcomeV1={sessions:{post:{completedAt:'2026-01-01'}},retention:{r1:{dueAt:'2026-01-02'}}};assert.equal(U.next(e).id,'formal');
 });
 test('backup adds missing topology records without replacing local first attempts or experiment',()=>{
