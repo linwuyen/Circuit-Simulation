@@ -10,8 +10,17 @@
   const progress=el('p',undefined,panel);progress.id='application-progress';
   const content=el('div',undefined,panel),status=el('p',undefined,panel);status.id='application-status';status.setAttribute('role','status');
   const back=el('a','返回降壓／升壓比較',panel);back.href='../index.html#topology';
-  const lessons=W.applicationLessons();let session,id,record,plan,shown=0,applying=false;
-  function save(){const changed=location.hash!=='#guided-applications',target=new URL(location.href);target.searchParams.set('lesson',id);target.hash='guided-applications';history.replaceState(null,'',target.href);if(changed)dispatchEvent(new HashChangeEvent('hashchange'));session.completed=lessons.every(l=>W.applicationProof(session.rows[l.id]));session.currentLesson=id;const s=E.load();s.benchmark.learningWorkspace||={version:1};s.benchmark.learningWorkspace.topologyApplications=session;E.save(s);}
+  const lessons=W.applicationLessons();let session,id,record,plan,shown=0,applying=false,blocked=false;
+  function protectRecord(){
+   const stored=E.load().benchmark.learningWorkspace?.topologyApplications;
+   if(!blocked&&(!stored||stored.version===1))return false;
+   blocked=true;nav.hidden=true;content.hidden=true;progress.hidden=true;
+   document.querySelectorAll('.application-return').forEach(button=>button.disabled=true);
+   status.setAttribute('data-record-protection','');status.textContent='這份電路練習紀錄的版本目前無法讀取。練習已暫停，原有紀錄保留；下方原電路工具仍可操作。';
+   el('a',' 查看學習紀錄與下載備份',status).href='../map.html';return true;
+  }
+  window.addEventListener('storage',protectRecord);
+  function save(){if(protectRecord())return false;const changed=location.hash!=='#guided-applications',target=new URL(location.href);target.searchParams.set('lesson',id);target.hash='guided-applications';history.replaceState(null,'',target.href);if(changed)dispatchEvent(new HashChangeEvent('hashchange'));session.completed=lessons.every(l=>W.applicationProof(session.rows[l.id]));session.currentLesson=id;const s=E.load();s.benchmark.learningWorkspace||={version:1};s.benchmark.learningWorkspace.topologyApplications=session;E.save(s);return true;}
   function stage(){return W.applicationProof(record)?3:!record.first?0:!record.operated||!record.observationPassed?1:2;}
   function value(id){const n=$(id);return n.tagName==='SELECT'?n.value:Number(n.value);}
   function matches(values){return Object.entries(values).every(([id,v])=>typeof v==='number'?Math.abs(value(id)-v)<1e-8:value(id)===v);}
@@ -20,8 +29,9 @@
    applying=true;try{for(const[id,v]of Object.entries(values))$(id).value=String(v);for(const id of Object.keys(values))$(id).dispatchEvent(new Event('input',{bubbles:true}));}finally{applying=false;}
    if(!matches(values))throw Error('原工具實際條件與要求不符，未記錄操作結果。');
   }
-  function choose(next,persist=false){id=next;plan=W.applicationPlan(id);record=session.rows[id]||{};shown=stage();if(persist)save();render();}
+  function choose(next,persist=false){id=next;plan=W.applicationPlan(id);record=session.rows[id]||{};shown=stage();if(persist)if(!save())return;render();}
   function render(){
+   if(blocked)return;
    const l=lessons.find(l=>l.id===id),current=stage();content.replaceChildren();status.textContent='';nav.replaceChildren();
    for(const lesson of lessons)$(lesson.section).toggleAttribute('data-active-application',lesson.id===id);
    for(const lesson of lessons){const b=el('button',lesson.label+(W.applicationProof(session.rows[lesson.id])?' ✓':''),nav);b.type='button';b.setAttribute('aria-current',id===lesson.id?'step':'false');b.onclick=()=>choose(lesson.id,true);}
@@ -29,14 +39,14 @@
    el('h3',l.title,content);el('p',l.setup,content);
    const steps=el('nav',undefined,content);steps.className='application-steps';steps.setAttribute('aria-label','目前練習步驟');for(const[name,i]of [['先猜',0],['操作／觀察',1],['說明原因',2]]){const b=el('button',`${i+1}. ${name}`,steps);b.disabled=i>current;b.setAttribute('aria-current',shown===i?'step':'false');b.onclick=()=>{shown=i;render();};}
    const controls=el('div',undefined,content);controls.className='application-actions';
-   const prepare=el('button','明確套用這次的起始條件',controls);prepare.id='application-prepare';prepare.onclick=()=>{try{apply(plan.before);record.prepared=true;session.rows[id]=record;save();render();status.textContent='原工具已套用起始條件。';}catch(e){status.textContent=e.message;}};
+   const prepare=el('button','明確套用這次的起始條件',controls);prepare.id='application-prepare';prepare.onclick=()=>{try{apply(plan.before);record.prepared=true;session.rows[id]=record;if(!save())return;render();status.textContent='原工具已套用起始條件。';}catch(e){status.textContent=e.message;}};
    const view=el('button','查看原電路與圖形',controls);view.onclick=()=>$(l.section).scrollIntoView({block:'start',behavior:'auto'});
    const live=el('p',matches(plan.after)?'原工具目前顯示改動後條件。':matches(plan.before)?'原工具目前顯示起始條件。':'原工具目前是其他設定；下方已存紀錄不代表眼前工具狀態。',content);live.id='application-live-state';
    if(record.operated){
     const table=el('table',undefined,content);table.id='application-comparison';el('caption','這次已保存的模型對照',table);const head=el('tr',undefined,el('thead',undefined,table));['觀察項目','改動前','改動後'].forEach(t=>el('th',t,head));const body=el('tbody',undefined,table);
     for(const[key,label,unit]of l.metrics){const row=el('tr',undefined,body);el('th',label,row);for(const sample of [record.before,record.after])el('td',Number(sample.result[key]).toFixed(3)+' '+unit,row);}
    }
-   if(shown===1){const run=el('button',l.action,content);run.id='application-run';run.className='application-primary';run.disabled=!record.first||!matches(plan.before);run.onclick=()=>{try{if(!matches(plan.before))throw Error('條件已變動，請先重新套用起始條件。');const before=W.applicationRun(id,plan.before);apply(plan.after);const after=W.applicationRun(id,plan.after);Object.assign(record,{protocol:'topology-application-v1',operated:true,before,after,controls:{before:plan.before,after:plan.after},model:{id:l.modelId,version:R.describe(l.modelId).version},operatedAt:new Date().toISOString()});session.rows[id]=record;save();render();}catch(e){status.textContent=e.message;}};}
+   if(shown===1){const run=el('button',l.action,content);run.id='application-run';run.className='application-primary';run.disabled=!record.first||!matches(plan.before);run.onclick=()=>{try{if(!matches(plan.before))throw Error('條件已變動，請先重新套用起始條件。');const before=W.applicationRun(id,plan.before);apply(plan.after);const after=W.applicationRun(id,plan.after);Object.assign(record,{protocol:'topology-application-v1',operated:true,before,after,controls:{before:plan.before,after:plan.after},model:{id:l.modelId,version:R.describe(l.modelId).version},operatedAt:new Date().toISOString()});session.rows[id]=record;if(!save())return;render();}catch(e){status.textContent=e.message;}};}
    if(shown<3){
     el('h3',shown===2?'哪個原因能解釋這次結果？':l.question,content);
     const field=el('fieldset',undefined,content);el('legend','你的判斷',field);
@@ -46,7 +56,7 @@
     const submit=el('button',shown===0?'記下預測':'檢查判斷',content);submit.id='application-submit';submit.className='application-primary';submit.disabled=field.disabled;
     const key=shown===0?'first':shown===1?'observationFirst':'reasonFirst';
     if(record[key])el('p','首次判斷已保留：'+(choices.find(c=>c[0]===record[key].answer)?.[1]||record[key].answer)+(record[key].correct?'（符合模型）':'（可繼續修正）'),content);
-    submit.onclick=()=>{const answer=field.querySelector('input:checked')?.value;if(!answer){status.textContent='請先選擇判斷。';return;}const correct=answer===(shown===2?'reason':l.answer);record.protocol='topology-application-v1';record[key]||={answer,correct,at:new Date().toISOString()};if(shown===1&&correct)record.observationPassed=true;if(shown===2&&correct)record.reasonPassed=true;session.rows[id]=record;save();if(shown!==0&&!correct){status.textContent='對照數字和適用範圍再想一次，首次判斷會保留。';return;}shown=stage();render();};
+    submit.onclick=()=>{const answer=field.querySelector('input:checked')?.value;if(!answer){status.textContent='請先選擇判斷。';return;}const correct=answer===(shown===2?'reason':l.answer);record.protocol='topology-application-v1';record[key]||={answer,correct,at:new Date().toISOString()};if(shown===1&&correct)record.observationPassed=true;if(shown===2&&correct)record.reasonPassed=true;session.rows[id]=record;if(!save())return;if(shown!==0&&!correct){status.textContent='對照數字和適用範圍再想一次，首次判斷會保留。';return;}shown=stage();render();};
    }else{
     el('p','已完成這組條件的預測、操作、觀察與原因練習。',content);
     const next=el('button',lessons.findIndex(l=>l.id===id)<3?'用同樣的方法，進入下一種電路':'換一組條件，確認學會了',content);next.id='application-next';next.className='application-primary';next.onclick=()=>{const index=lessons.findIndex(l=>l.id===id);if(index<3)choose(lessons[index+1].id,true);else location.assign(new URL(CircuitUnifiedLearning.route('topology-assessment'),new URL('../',location.href)));};
@@ -55,7 +65,7 @@
    if(record.operated)el('p','操作時間：'+record.operatedAt,detail);
   }
   try{
-   await R.loadTopologyContracts(new URL('../',location.href));const stored=E.load().benchmark.learningWorkspace?.topologyApplications;
+   await R.loadTopologyContracts(new URL('../',location.href));if(protectRecord())return;const stored=E.load().benchmark.learningWorkspace?.topologyApplications;
    if(stored&&(stored.version!==1||!stored.rows||typeof stored.rows!=='object'||Array.isArray(stored.rows)))throw Error('已有紀錄格式不符，保留資料並停止寫入。');
    session=stored||{version:1,rows:{}};
    for(const lesson of lessons){const r=session.rows[lesson.id];if(r?.operated&&lesson.metrics.some(([key])=>!Number.isFinite(r.before?.result?.[key])||!Number.isFinite(r.after?.result?.[key])))throw Error('已有模型對照不完整，保留資料並停止寫入。');}
