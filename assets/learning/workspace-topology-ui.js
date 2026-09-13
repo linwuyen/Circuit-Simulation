@@ -17,9 +17,18 @@
   const run=el('button','把開關比例加上 10 個百分點，計算比較',$('surface-help'));run.id='topology-run';run.className='primary';
   const contracts=el('details',undefined,$('surface-help'));el('summary','模型來源與適用範圍',contracts);
   const steps=CircuitEngineeringCurriculum.topologySteps;
-  let session,comparison,shown=0;
+  let session,comparison,shown=0,blocked=false;
+  function protectRecord(){
+   const stored=E.load().benchmark.learningWorkspace?.topologyTransfer;
+   if(!blocked&&(!stored||stored.version===1))return false;
+   blocked=true;run.hidden=true;$('ws-steps').hidden=true;$('ws-result').hidden=true;
+   const notice=$('ws-question');notice.replaceChildren();notice.setAttribute('data-record-protection','');notice.setAttribute('role','status');
+   el('p','這份比較紀錄的版本目前無法讀取。練習已暫停，原有紀錄保留；請先下載備份。',notice);
+   el('a','查看學習紀錄與下載備份',notice).href='map.html';$('ws-save').textContent='未覆蓋已有紀錄。';return true;
+  }
+  window.addEventListener('storage',protectRecord);
   const stage=()=>W.topologyProof(session)?4:!session.rows.prediction?.first?0:!session.operated||!session.rows.observation?.passed?1:!session.rows.reason?.passed?2:3;
-  function save(){session.models=['buck-ccm-control-output-esr','boost-ccm-control-output'].map(id=>({id,version:CircuitModelRegistry.describe(id).version}));session.completed=W.topologyProof(session);const s=E.load();s.benchmark.learningWorkspace||={version:1};s.benchmark.learningWorkspace.topologyTransfer=session;E.save(s);$('ws-save').textContent=E.storageStatus().saved?'比較條件與首次判斷已保存在這個瀏覽器。':'目前只能暫存，離開前請下載學習備份。';}
+  function save(){if(protectRecord())return false;session.models=['buck-ccm-control-output-esr','boost-ccm-control-output'].map(id=>({id,version:CircuitModelRegistry.describe(id).version}));session.completed=W.topologyProof(session);const s=E.load();s.benchmark.learningWorkspace||={version:1};s.benchmark.learningWorkspace.topologyTransfer=session;E.save(s);$('ws-save').textContent=E.storageStatus().saved?'比較條件與首次判斷已保存在這個瀏覽器。':'目前只能暫存，離開前請下載學習備份。';return true;}
   function draw(){
    const reveal=session.operated,fmt=n=>n.toFixed(2),p=session.params;
    conditions.textContent=`輸入 ${p.vin} V · 電感 ${(p.inductanceH*1e6).toFixed(0)} µH · 電容 ${(p.capacitanceF*1e6).toFixed(0)} µF · 負載 ${p.loadOhm} Ω · 開關 ${(p.switchingHz/1000).toFixed(0)} kHz · 忽略損耗`;
@@ -34,6 +43,7 @@
    run.hidden=shown!==1;run.disabled=!session.rows.prediction?.first;run.textContent=session.operated?'用相同條件再算一次':'把開關比例加上 10 個百分點，計算比較';
   }
   function render(){
+   if(blocked)return;
    const current=stage();document.body.dataset.workspaceStage=String(shown);$('ws-steps').replaceChildren();$('ws-question').replaceChildren();$('ws-feedback').textContent='';
    steps.forEach((s,i)=>{const b=el('button',`${i+1}. ${s.label}`,$('ws-steps'));b.disabled=i>current;b.setAttribute('aria-current',shown===i?'step':'false');b.onclick=()=>{shown=i;render();};});
    $('ws-result').hidden=current!==4;$('ws-ability').textContent='已練習：共用元件條件，比較輸出，再辨認升壓特有的限制。';$('ws-transition').textContent='接著用相同的比較方法，操作其他電路的原有工具；每一種先明確設定自己的條件，教學紀錄不授予正式能力成績。';$('ws-next').textContent='用同樣的方法，練習其他電路';
@@ -44,19 +54,21 @@
    field.disabled=(shown===0&&!!r.first)||(shown===1&&!session.operated);
    const submit=el('button',shown===0?'記下預測':'檢查判斷',$('ws-question'));submit.id='topology-submit';submit.className='primary';submit.disabled=field.disabled;
    if(r.first)el('p','首次判斷：'+(s.choices.find(c=>c[0]===r.first.answer)?.[1]||r.first.answer)+(r.first.correct?'（符合模型）':'（已保留，可繼續修正）'),$('ws-question'));
-   submit.onclick=()=>{const answer=field.querySelector('input:checked')?.value;if(!answer){$('ws-feedback').textContent='請先選擇判斷。';return;}const correct=P.correct(s.answer,answer);session.rows[s.id]||={};const row=session.rows[s.id];row.first||={answer,correct,at:new Date().toISOString()};if(correct)row.passed=true;save();if(shown!==0&&!correct){$('ws-feedback').textContent='回看比較結果：輸出變化和控制速度限制是兩件事。首次判斷已保留，請再試一次。';return;}shown=stage();render();};
+   submit.onclick=()=>{const answer=field.querySelector('input:checked')?.value;if(!answer){$('ws-feedback').textContent='請先選擇判斷。';return;}const correct=P.correct(s.answer,answer);session.rows[s.id]||={};const row=session.rows[s.id];row.first||={answer,correct,at:new Date().toISOString()};if(correct)row.passed=true;if(!save())return;if(shown!==0&&!correct){$('ws-feedback').textContent='回看比較結果：輸出變化和控制速度限制是兩件事。首次判斷已保留，請再試一次。';return;}shown=stage();render();};
   }
   try{
    await CircuitModelRegistry.loadTopologyContracts(new URL('.',location.href));
+   if(!protectRecord()){
    const stored=E.load().benchmark.learningWorkspace?.topologyTransfer;
    if(stored){if(stored.version!==1||stored.protocol!=='topology-workbench-v1'||!stored.rows||typeof stored.rows!=='object'||Array.isArray(stored.rows))throw Error('已存比較紀錄格式不符，請先匯出備份。');session=stored;}
    else{const plan=W.topologyPlan(E.load());session={version:1,protocol:'topology-workbench-v1',params:plan.params,source:plan.source,rows:{},operated:false};}
    comparison=W.topologyCompare(session.params);if(!comparison.valid)throw Error('這組條件有電感電流降到零，超出目前比較模型的範圍。請返回手動實驗確認條件。');
    for(const id of ['buck-ccm-control-output-esr','boost-ccm-control-output']){const c=CircuitModelRegistry.describe(id);el('p',`${c.title} · ${c.id} · ${c.type}`,contracts);el('p',c.validRegion+'；'+c.invalidWhen.join('；'),contracts);const a=el('a','檢視原始模型契約',contracts);a.href='assets/learning/model-contracts-v1.json';}
    $('workbench-context-slot').hidden=false;CircuitWorkbenchContext.mount($('workbench-context-slot'),new URL('.',location.href));
-   shown=stage();save();render();
+   shown=stage();if(save())render();
+   }
   }catch(error){$('ws-question').textContent=error.message;run.hidden=true;$('ws-save').textContent='未覆蓋已有紀錄。';const a=el('a','返回手動電路實驗',$('ws-question'));a.href='#experiment-energy';}
-  run.onclick=()=>{session.operated=true;save();render();};
+  run.onclick=()=>{session.operated=true;if(!save())return;render();};
   $('workspace-route').replaceChildren();for(const[href,label]of [['#experiment','回到連續電路實驗'],['#topology','降壓／升壓比較']]){const a=el('a',label,el('li',undefined,$('workspace-route')));a.href=href;}
   $('deeper').textContent='用這份條件，打開完整電路工具';$('deeper').onclick=()=>location.assign('17_power_topology_control/index.html#workspace-transfer');
   $('ws-next').onclick=()=>{if(W.topologyProof(session))location.assign(U.route('applications'));};
