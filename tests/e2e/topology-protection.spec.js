@@ -18,5 +18,10 @@ for(const item of cases){
   await page.reload();await expect(page.locator('[data-record-protection]')).toBeVisible();
   await expect(page.locator('[data-record-protection] a')).toHaveAttribute('href',/map.html$/);
   expect(await page.evaluate(key=>CircuitEvidence.load().benchmark.learningWorkspace[key],item.key)).toEqual(future);
+  if(item.key==='topologyTransfer'){
+   await page.locator('#show-progress').click();await expect(page.locator('#workspace-progress-panel')).toBeVisible();
+   await page.locator('.route summary').click();await page.locator('#workspace-route a[href="#experiment"]').click();await expect(page.locator('#workspace-submit')).toBeVisible();
+   expect(await page.evaluate(key=>CircuitEvidence.load().benchmark.learningWorkspace[key],item.key)).toEqual(future);
+  }
  });
 }

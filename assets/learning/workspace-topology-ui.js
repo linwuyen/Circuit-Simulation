@@ -58,14 +58,15 @@
   }
   try{
    await CircuitModelRegistry.loadTopologyContracts(new URL('.',location.href));
-   if(protectRecord())return;
+   if(!protectRecord()){
    const stored=E.load().benchmark.learningWorkspace?.topologyTransfer;
    if(stored){if(stored.version!==1||stored.protocol!=='topology-workbench-v1'||!stored.rows||typeof stored.rows!=='object'||Array.isArray(stored.rows))throw Error('已存比較紀錄格式不符，請先匯出備份。');session=stored;}
    else{const plan=W.topologyPlan(E.load());session={version:1,protocol:'topology-workbench-v1',params:plan.params,source:plan.source,rows:{},operated:false};}
    comparison=W.topologyCompare(session.params);if(!comparison.valid)throw Error('這組條件有電感電流降到零，超出目前比較模型的範圍。請返回手動實驗確認條件。');
    for(const id of ['buck-ccm-control-output-esr','boost-ccm-control-output']){const c=CircuitModelRegistry.describe(id);el('p',`${c.title} · ${c.id} · ${c.type}`,contracts);el('p',c.validRegion+'；'+c.invalidWhen.join('；'),contracts);const a=el('a','檢視原始模型契約',contracts);a.href='assets/learning/model-contracts-v1.json';}
    $('workbench-context-slot').hidden=false;CircuitWorkbenchContext.mount($('workbench-context-slot'),new URL('.',location.href));
-   shown=stage();if(!save())return;render();
+   shown=stage();if(save())render();
+   }
   }catch(error){$('ws-question').textContent=error.message;run.hidden=true;$('ws-save').textContent='未覆蓋已有紀錄。';const a=el('a','返回手動電路實驗',$('ws-question'));a.href='#experiment-energy';}
   run.onclick=()=>{session.operated=true;if(!save())return;render();};
   $('workspace-route').replaceChildren();for(const[href,label]of [['#experiment','回到連續電路實驗'],['#topology','降壓／升壓比較']]){const a=el('a',label,el('li',undefined,$('workspace-route')));a.href=href;}
