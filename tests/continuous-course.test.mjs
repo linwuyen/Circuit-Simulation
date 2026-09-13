@@ -9,7 +9,7 @@ test('the existing navigator resumes experiments then advances without promoting
  const state={benchmark:{learningWorkspace:{experiment:{version:1,completed:false}}}};
  assert.equal(U.next(state,{}).id,'experiment');
  state.benchmark.unifiedLearning={track:'core'};assert.equal(U.next(state,{}).id,'core-physics');
- delete state.benchmark.unifiedLearning;state.benchmark.learningWorkspace.experiment.completed=true;
+ delete state.benchmark.unifiedLearning;state.benchmark.learningWorkspace.experiment.completed=true;state.benchmark.learningWorkspace.experiment.rows=Object.fromEntries(W.experimentLessons().map(l=>[l.id,{first:{correct:false},proof:{observation:true,reason:true},transferPassed:true}]));
  assert.equal(U.next(state,{}).id,'topology');assert.equal(state.benchmark.beginnerLessons,undefined);
 });
 function verify(id,b,a){
