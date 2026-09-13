@@ -6,6 +6,22 @@
  W.mountExperiment=()=>{
   const $=id=>document.getElementById(id),lessons=W.experimentLessons();
   const el=(tag,text,parent)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(parent)parent.append(n);return n;};
+  function protectRecord(){
+   const stored=E.load().benchmark.learningWorkspace?.experiment;
+   if(!stored||stored.version===1)return false;
+   if(!$('experiment-record-protection')){
+    const main=document.querySelector('main');main.hidden=true;
+    document.querySelectorAll('button').forEach(button=>button.disabled=true);
+    const notice=el('section');notice.id='experiment-record-protection';notice.className='context-note';notice.setAttribute('role','status');
+    el('h1','先保留你的學習紀錄',notice);
+    el('p','這份練習紀錄使用目前頁面無法讀取的版本。練習已暫停，原有紀錄沒有被覆蓋。請先到學習紀錄頁下載備份。',notice);
+    const link=el('a','查看學習紀錄與下載備份',notice);link.href='map.html';
+    main.before(notice);
+   }
+   return true;
+  }
+  if(protectRecord())return;
+  window.addEventListener('storage',protectRecord);
   const initial=E.load().benchmark.learningWorkspace?.experiment;
   let session=initial?.version===1?initial:{version:1,rows:{},history:[]},id,record,plan,before,after,prepared,shown;
   if(!session.rows||typeof session.rows!=='object'||Array.isArray(session.rows))session.rows={};
@@ -23,9 +39,10 @@
   const proven=key=>P.proven(session.rows[key]);
   const currentIndex=()=>lessons.findIndex(l=>l.id===id);
   function save(){
+   if(protectRecord())return false;
    session.rows[id]=record;session.currentLesson=id;session.completed=lessons.every(l=>proven(l.id));
    const state=E.load();state.benchmark.learningWorkspace={...(state.benchmark.learningWorkspace||{version:1,history:[]}),experiment:session};E.save(state);
-   $('ws-save').textContent=E.storageStatus().saved?'電路條件、首次判斷與試驗紀錄已儲存。':'目前只能暫存，請下載學習備份。';progress();recommendation();
+   $('ws-save').textContent=E.storageStatus().saved?'電路條件、首次判斷與試驗紀錄已儲存。':'目前只能暫存，請下載學習備份。';progress();recommendation();return true;
   }
   function retain(kind,result){session.history=[...session.history,{at:new Date().toISOString(),lesson:id,kind,modelId:'generic-power-causal-kernel',modelVersion:CircuitEngineeringSandboxCore.version,config:result.config,summary:result.summary}].slice(-32);}
   function choose(key){
@@ -41,7 +58,7 @@
    $('scope-note').textContent='這是現有 generic-power-causal-kernel 的切換電路、量測、控制、更新時序與保護結果。模型目前未涵蓋完整元件損耗、熱、硬體校準；教學練習不代表正式能力認證或真板通過。';
    $('context-words').textContent='讀值＝控制器看見的量測數字；目標減讀值＝誤差；開關比例＝每輪允許送電的時間；累積修正＝把過去未消除的差距逐步加入調整。';
    session.currentConfig=record.operated?plan.after:prepared?plan.prepared:plan.before;
-   save();render();
+   if(!save())return;render();
   }
   const fmt=n=>Number(n).toFixed(2);
   function plot(result,previous,view){
@@ -104,12 +121,12 @@
     if(shown===0){if(record.first)return;record.first=attempt;}
     else if(shown===1||shown===2){if(shown===1&&!record.operated)return;const key=shown===1?'observation':'reason';record[key+'First']||=attempt;record.proof||={};if(correct)record.proof[key]=true;}
     else{record.transferFirst||=attempt;if(correct){record.transferPassed=true;const t=W.experimentTransfer(plan);retain('新條件驗證（不覆蓋主電路）',W.experimentRun(t.after));}}
-    save();if(shown!==0&&!correct){$('ws-feedback').textContent='這個判斷還不能解釋結果。請回看曲線或事件，首次作答仍會保留。';return;}
+    if(!save())return;if(shown!==0&&!correct){$('ws-feedback').textContent='這個判斷還不能解釋結果。請回看曲線或事件，首次作答仍會保留。';return;}
     shown=P.stage(record);render();$('ws-question h2')?.focus();
    };
   }
-  run.onclick=()=>{after=W.experimentRun(plan.after);record.operated=true;record.config=plan.after;session.currentConfig=plan.after;retain(lesson().action,after);save();render();};
-  $('apply-setup').onclick=()=>{retain('修正比較條件前',before);prepared=true;record.prepared=true;before=W.experimentRun(plan.prepared);session.currentConfig=plan.prepared;retain('修正比較條件後',before);$('setup-panel').hidden=true;save();render();};
+  run.onclick=()=>{after=W.experimentRun(plan.after);record.operated=true;record.config=plan.after;session.currentConfig=plan.after;retain(lesson().action,after);if(!save())return;render();};
+  $('apply-setup').onclick=()=>{retain('修正比較條件前',before);prepared=true;record.prepared=true;before=W.experimentRun(plan.prepared);session.currentConfig=plan.prepared;retain('修正比較條件後',before);$('setup-panel').hidden=true;if(!save())return;render();};
   function progress(){
    const count=lessons.filter(l=>proven(l.id)).length;$('workspace-progress').textContent=`連續電路實驗 ${count} / 8 · 電路、讀值與控制使用同一核心`;
    $('workspace-route').replaceChildren();lessons.forEach((l,i)=>{const li=el('li',undefined,$('workspace-route')),b=el('button',`${i+1}. ${proven(l.id)?'已練習：':''}${l.title}`,li);b.disabled=lessons.slice(0,i).some(x=>!proven(x.id));b.setAttribute('aria-current',l.id===id?'step':'false');b.onclick=()=>{location.hash='experiment-'+l.id;document.querySelector('.route').open=false;};});
