@@ -429,6 +429,18 @@
     return [...map.values()].sort((x, y) => Date.parse(x.at || x.committedAt || 0) - Date.parse(y.at || y.committedAt || 0));
   }
 
+  // The experiment adapter saves this empty shell on first viewing. It is not
+  // a local attempt and must not prevent a learner from restoring real work.
+  function untouchedExperiment(record) {
+    const fields = ['version', 'rows', 'history', 'currentLesson', 'currentConfig', 'completed'];
+    return Boolean(record && record.version === 1 && record.completed === false &&
+      typeof record.currentLesson === 'string' && record.currentConfig && typeof record.currentConfig === 'object' && !Array.isArray(record.currentConfig) &&
+      Object.keys(record).every(key => fields.includes(key)) &&
+      Array.isArray(record.history) && record.history.length === 0 &&
+      record.rows && typeof record.rows === 'object' && !Array.isArray(record.rows) &&
+      Object.values(record.rows).every(row => row && typeof row === 'object' && !Array.isArray(row) && Object.keys(row).length === 0));
+  }
+
   function merge(payload) {
     if (!payload || payload.schema !== SCHEMA) throw new Error("不支援的學習狀態格式");
     for (const [name, raw] of Object.entries(payload.auxiliary || {})) {
@@ -475,7 +487,7 @@
         const current = state.benchmark.learningWorkspace;
         if (!current) state.benchmark.learningWorkspace = clone(incoming);
         else {
-          for(const child of ['experiment','topologyTransfer','topologyConcepts','topologyApplications']) if(!current[child]&&incoming[child]?.version===1) current[child]=clone(incoming[child]);
+          for(const child of ['experiment','topologyTransfer','topologyConcepts','topologyApplications']) if((!current[child]||(child==='experiment'&&untouchedExperiment(current[child])))&&incoming[child]?.version===1) current[child]=clone(incoming[child]);
           if(!current.experiment&&!current.topologyTransfer&&!current.topologyConcepts&&!current.topologyApplications&&!current.history?.length&&!current.freeModel) state.benchmark.learningWorkspace=clone(incoming);
         }
       } else if (key === "unifiedLearning" && incoming?.version === 1) {
