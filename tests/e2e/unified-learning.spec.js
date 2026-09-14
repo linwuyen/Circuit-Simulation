@@ -8,7 +8,8 @@ test('resume integrates beginner progress and advanced selection without grantin
  expect(await page.evaluate(()=>CircuitCoreFlowV1.progress().done)).toBe(0);
  await page.locator('#learning-track').selectOption('specialize');await expect(page.locator('[data-learning-hub] [data-unified-resume]')).toHaveAttribute('href',/17_power_topology_control/);
  expect(await page.locator('#earlier-learning-records .learning-stage').count()).toBe(7);
- expect(await page.locator('[data-learning-hub] > .learning-stage').count()).toBe(1);
+ expect(await page.locator('[data-learning-hub] > .learning-stage:not(#learning-backup)').count()).toBe(1);
+ await expect(page.locator('[data-learning-hub] > #learning-backup')).toHaveCount(1);
  expect(await page.locator('#workspace-learning-records .learning-stage').count()).toBe(4);
 });
 test('shared case settings survive navigation and only apply to the compatible sandbox model',async({page})=>{

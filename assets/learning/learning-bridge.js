@@ -33,7 +33,40 @@
     const make=(tag,text,parent)=>{const n=document.createElement(tag);if(text)n.textContent=text;parent?.append(n);return n;};
     function link(parent,text,href){const a=make('a',text,parent);a.href=url(href);return a;}
     function nextLink(parent){const n=U.next(E.load(),F.snapshot()),href=n.remediation?U.remediationRoute(n.id,n.remediation):U.route(n.id);const a=link(parent,'繼續學習：'+U.task(n.id).title,href);a.dataset.unifiedResume='';if(n.remediation)a.addEventListener('click',()=>U.beginReturn(n.id,n.remediation));return n;}
-    let rendering=false;
+    let rendering=false,backupFeedback='';
+    function renderBackup(hub){
+      const section=make('section',null,hub);section.id='learning-backup';section.className='learning-stage';
+      make('h2','把學習紀錄帶走，或接回來',section);
+      make('p','備份包含練習、作答與工程主線進度。合併會保留本機已有的練習與首次作答，補入尚未存在的紀錄，不會用外來成績取代本機成績。',section);
+      const download=make('button','下載全部學習進度備份',section);download.type='button';download.onclick=()=>{const u=URL.createObjectURL(new Blob([E.exportBackup()],{type:'application/json'})),a=make('a');a.href=u;a.download='circuit-learning-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);};
+      const label=make('label','選擇學習備份檔案 ',make('p',null,section)),input=make('input',null,label);input.id='learning-backup-file';input.type='file';input.accept='.json,application/json';
+      const preview=make('div',null,section);preview.id='learning-backup-preview';preview.hidden=true;
+      const confirm=make('button','合併備份，保留本機首次作答',section);confirm.id='learning-backup-confirm';confirm.type='button';confirm.hidden=true;
+      const cancel=make('button','取消，不變更紀錄',section);cancel.id='learning-backup-cancel';cancel.type='button';cancel.hidden=true;
+      const status=make('p',backupFeedback||'選檔只會預覽，確認合併後才會寫入。',section);status.id='learning-backup-status';status.setAttribute('role','status');
+      let pending=null,selection=0;
+      const clear=()=>{pending=null;preview.replaceChildren();preview.hidden=true;confirm.hidden=true;cancel.hidden=true;};
+      cancel.onclick=()=>{selection++;clear();input.value='';status.textContent='已取消，原有紀錄沒有變更。';};
+      input.onchange=async()=>{
+        const current=++selection,file=input.files[0];clear();if(!file)return;
+        status.textContent='正在讀取備份，尚未寫入紀錄。';
+        try{
+          const payload=JSON.parse(await file.text());if(current!==selection||!input.isConnected)return;
+          if(!payload||payload.schema!==E.SCHEMA||payload.version!==E.VERSION)throw Error('請選擇本站下載的完整學習備份（第 5 版）。');
+          const groups=CircuitWorkspace.learningRecords(payload);
+          make('h3','備份裡的紀錄（尚未合併）',preview);
+          for(const group of groups)make('p',`${group.title}：${group.completed} / ${group.total}`,preview);
+          make('p',payload.auxiliary?.coreFlow?'包含工程主線進度；由原主線系統檢查與還原。':'這份備份未附工程主線進度。',preview);
+          pending=payload;preview.hidden=false;confirm.hidden=false;cancel.hidden=false;status.textContent='請確認內容；已有紀錄依原合併規則保留，摘要不代表合併後的成績。';
+        }catch(error){if(current!==selection||!input.isConnected)return;clear();status.textContent='無法讀取這份備份：'+error.message+' 原有紀錄沒有變更。';}
+      };
+      confirm.onclick=()=>{
+        if(!pending)return;
+        try{const restored=E.merge(pending);backupFeedback=(E.storageStatus().saved?'已合併備份，地圖與下一步已更新。':'已合併到暫存，但尚未寫入瀏覽器；請先下載備份。')+(restored.benchmark.outcomeImportPreservedLocal?' 本機正式測驗與既有封存紀錄均保留。':'');pending=null;render();}
+        catch(error){status.textContent='無法合併這份備份：'+error.message;}
+      };
+      make('p',E.storageStatus().saved?'進度儲存在這個瀏覽器。':'目前無法寫入瀏覽器，離開前請下載備份。',section);
+    }
     function render(){
       if(rendering)return;rendering=true;
       try{
@@ -56,7 +89,7 @@
     function renderHub(n){
       const hub=document.querySelector('[data-learning-hub]');hub.replaceChildren();
       make('h1','沿著同一條路學習',hub);make('p','先接續目前任務；只有需要時才打開專題。能力紀錄共用，入門練習、主線完成與正式測驗分開呈現。',hub);
-      const resume=make('section',null,hub);resume.className='learning-next';make('h2','你現在的下一步',resume);nextLink(resume);make('p',n.reason,resume);
+      const resume=make('section',null,hub);resume.className='learning-next';make('h2','你現在的下一步',resume);nextLink(resume);make('p',n.reason,resume);link(resume,'備份與接回學習紀錄','map.html#learning-backup');
       const label=make('label','學習起點 ',resume),select=make('select',null,label);select.id='learning-track';
       for(const[v,t]of [['auto','依已有進度接續'],['beginner','從入門補齊'],['core','直接進八層主線'],['specialize','挑選進階應用']]){const option=make('option',t,select);option.value=v;}
       select.value=U.read().track||'auto';select.addEventListener('change',()=>U.write({track:select.value}));
@@ -91,8 +124,7 @@
       const histories=Object.values(e.questions||{}).map(answer=>CircuitAssessment.metrics(answer));
       make('p',`既有題庫：${histories.filter(x=>x.transfer).length} 個題族已通過新題；${histories.filter(x=>x.retained).length} 個題族有間隔取回紀錄；${histories.filter(x=>x.due).length} 個題族待複習。此統計沿用原題庫判準。`,formal);
       link(formal,'回到既有題庫',U.route('quiz'));
-      const b=make('button','下載全部學習進度備份',formal);b.type='button';b.addEventListener('click',()=>{const u=URL.createObjectURL(new Blob([E.exportBackup()],{type:'application/json'})),a=make('a');a.href=u;a.download='circuit-learning-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);});link(formal,'還原備份','15_power_capstone/lab_sandbox.html#training-pilot');
-      make('p',E.storageStatus().saved?'進度儲存在這個瀏覽器。':'目前無法寫入瀏覽器，離開前請下載備份。',formal);
+      renderBackup(hub);
     }
     const requested=params.get('remediation');
     if(U.validTask(origin)&&U.categories[origin.replace('core-','')]===requested){const old=U.read().returnTask;if(!old||old.id!==origin||old.category!==requested)U.beginReturn(origin,requested);}
