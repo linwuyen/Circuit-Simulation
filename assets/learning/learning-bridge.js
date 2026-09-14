@@ -62,7 +62,7 @@
       };
       confirm.onclick=()=>{
         if(!pending)return;
-        try{const restored=E.merge(pending);backupFeedback=(E.storageStatus().saved?'已合併備份，地圖與下一步已更新。':'已合併到暫存，但尚未寫入瀏覽器；請先下載備份。')+(restored.benchmark.outcomeImportPreservedLocal?' 本機正式測驗保留，外來測驗另存於備份封存紀錄。':'');pending=null;render();}
+        try{const restored=E.merge(pending);backupFeedback=(E.storageStatus().saved?'已合併備份，地圖與下一步已更新。':'已合併到暫存，但尚未寫入瀏覽器；請先下載備份。')+(restored.benchmark.outcomeImportPreservedLocal?' 本機正式測驗與既有封存紀錄均保留。':'');pending=null;render();}
         catch(error){status.textContent='無法合併這份備份：'+error.message;}
       };
       make('p',E.storageStatus().saved?'進度儲存在這個瀏覽器。':'目前無法寫入瀏覽器，離開前請下載備份。',section);
@@ -89,13 +89,12 @@
     function renderHub(n){
       const hub=document.querySelector('[data-learning-hub]');hub.replaceChildren();
       make('h1','沿著同一條路學習',hub);make('p','先接續目前任務；只有需要時才打開專題。能力紀錄共用，入門練習、主線完成與正式測驗分開呈現。',hub);
-      const resume=make('section',null,hub);resume.className='learning-next';make('h2','你現在的下一步',resume);nextLink(resume);make('p',n.reason,resume);
+      const resume=make('section',null,hub);resume.className='learning-next';make('h2','你現在的下一步',resume);nextLink(resume);make('p',n.reason,resume);link(resume,'備份與接回學習紀錄','map.html#learning-backup');
       const label=make('label','學習起點 ',resume),select=make('select',null,label);select.id='learning-track';
       for(const[v,t]of [['auto','依已有進度接續'],['beginner','從入門補齊'],['core','直接進八層主線'],['specialize','挑選進階應用']]){const option=make('option',t,select);option.value=v;}
       select.value=U.read().track||'auto';select.addEventListener('change',()=>U.write({track:select.value}));
       const ticket=U.read().returnTask;if(ticket){const cancel=make('button','結束這次補強往返',resume);cancel.type='button';cancel.addEventListener('click',()=>U.write({returnTask:null}));}
       const e=E.load(),flow=F.snapshot();
-      renderBackup(hub);
       const records=make('section',null,hub);records.id='workspace-learning-records';
       make('h2','從操作到自己判斷',records);make('p','這裡直接讀取原本紀錄。練習完成、新條件通過與間隔複習各有自己的判準，不加成一個總分。',records);
       for(const group of CircuitWorkspace.learningRecords(e)){
@@ -125,6 +124,7 @@
       const histories=Object.values(e.questions||{}).map(answer=>CircuitAssessment.metrics(answer));
       make('p',`既有題庫：${histories.filter(x=>x.transfer).length} 個題族已通過新題；${histories.filter(x=>x.retained).length} 個題族有間隔取回紀錄；${histories.filter(x=>x.due).length} 個題族待複習。此統計沿用原題庫判準。`,formal);
       link(formal,'回到既有題庫',U.route('quiz'));
+      renderBackup(hub);
     }
     const requested=params.get('remediation');
     if(U.validTask(origin)&&U.categories[origin.replace('core-','')]===requested){const old=U.read().returnTask;if(!old||old.id!==origin||old.category!==requested)U.beginReturn(origin,requested);}
