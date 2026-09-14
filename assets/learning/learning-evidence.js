@@ -429,16 +429,24 @@
     return [...map.values()].sort((x, y) => Date.parse(x.at || x.committedAt || 0) - Date.parse(y.at || y.committedAt || 0));
   }
 
-  // The experiment adapter saves this empty shell on first viewing. It is not
-  // a local attempt and must not prevent a learner from restoring real work.
-  function untouchedExperiment(record) {
-    const fields = ['version', 'rows', 'history', 'currentLesson', 'currentConfig', 'completed'];
-    return Boolean(record && record.version === 1 && record.completed === false &&
-      typeof record.currentLesson === 'string' && record.currentConfig && typeof record.currentConfig === 'object' && !Array.isArray(record.currentConfig) &&
-      Object.keys(record).every(key => fields.includes(key)) &&
-      Array.isArray(record.history) && record.history.length === 0 &&
-      record.rows && typeof record.rows === 'object' && !Array.isArray(record.rows) &&
-      Object.values(record.rows).every(row => row && typeof row === 'object' && !Array.isArray(row) && Object.keys(row).length === 0));
+  // Viewing/selecting a practice can save an empty shell. Only recognized
+  // initialization shapes may yield to a backup; actual work stays local.
+  function untouchedPractice(record, child) {
+    const object = value => value && typeof value === 'object' && !Array.isArray(value);
+    if (!record || record.version !== 1 || record.completed !== false || !object(record.rows) ||
+      !Object.values(record.rows).every(row => object(row) && Object.keys(row).length === 0)) return false;
+    let fields = ['version', 'rows', 'completed'];
+    if (child === 'experiment') {
+      if (typeof record.currentLesson !== 'string' || !object(record.currentConfig) || !Array.isArray(record.history) || record.history.length) return false;
+      fields.push('history', 'currentLesson', 'currentConfig');
+    } else if (child === 'topologyTransfer') {
+      if (record.protocol !== 'topology-workbench-v1' || record.operated !== false || !object(record.params) || typeof record.source !== 'string' || !Array.isArray(record.models)) return false;
+      fields.push('protocol', 'operated', 'params', 'source', 'models');
+    } else if (child === 'topologyApplications') {
+      if (typeof record.currentLesson !== 'string') return false;
+      fields.push('currentLesson');
+    } else return false;
+    return Object.keys(record).every(key => fields.includes(key));
   }
 
   function merge(payload) {
@@ -487,7 +495,7 @@
         const current = state.benchmark.learningWorkspace;
         if (!current) state.benchmark.learningWorkspace = clone(incoming);
         else {
-          for(const child of ['experiment','topologyTransfer','topologyConcepts','topologyApplications']) if((!current[child]||(child==='experiment'&&untouchedExperiment(current[child])))&&incoming[child]?.version===1) current[child]=clone(incoming[child]);
+          for(const child of ['experiment','topologyTransfer','topologyConcepts','topologyApplications']) if((!current[child]||untouchedPractice(current[child],child))&&incoming[child]?.version===1) current[child]=clone(incoming[child]);
           if(!current.experiment&&!current.topologyTransfer&&!current.topologyConcepts&&!current.topologyApplications&&!current.history?.length&&!current.freeModel) state.benchmark.learningWorkspace=clone(incoming);
         }
       } else if (key === "unifiedLearning" && incoming?.version === 1) {
