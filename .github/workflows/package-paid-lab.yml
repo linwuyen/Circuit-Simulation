@@ -22,7 +22,8 @@ jobs:
           OUT="dist/C2000_Digital_Buck_Firmware_Lab_Source_v0.1"
           mkdir -p "$OUT"
           cp PAID_START_HERE.md "$OUT/"
-          cp paid-entry.html "$OUT/"
+          cp paid-entry.html "$OUT/paid-entry.html"
+          cp paid-entry.html "$OUT/index.html"
           cp package.json package-lock.json playwright.config.js "$OUT/"
           cp -R assets "$OUT/"
           cp -R 15_power_capstone "$OUT/"
@@ -36,7 +37,59 @@ jobs:
           cp docs/learning-outcome-protocol.md "$OUT/docs/"
           cp -R tools/board "$OUT/tools/"
           cp -R tools/learning "$OUT/tools/"
+          cp -R tools/ci "$OUT/tools/"
+          cp -R tools/flash "$OUT/tools/"
           find "$OUT" -type f | sort > "$OUT/FILE-MANIFEST.txt"
+
+      - name: Verify paid bundle reference closure
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from html.parser import HTMLParser
+          from urllib.parse import urlsplit, unquote
+
+          root = Path("dist/C2000_Digital_Buck_Firmware_Lab_Source_v0.1").resolve()
+
+          class Parser(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.refs = []
+
+              def handle_starttag(self, tag, attrs):
+                  values = dict(attrs)
+                  for name in ("href", "src"):
+                      if name in values:
+                          self.refs.append(values[name])
+
+          broken = []
+          for page in root.rglob("*.html"):
+              parser = Parser()
+              parser.feed(page.read_text(encoding="utf-8"))
+              for ref in parser.refs:
+                  if not ref or ref.startswith(("#", "http://", "https://", "mailto:", "javascript:", "data:")):
+                      continue
+                  path = urlsplit(ref).path
+                  if not path:
+                      continue
+                  target = (page.parent / unquote(path)).resolve()
+                  try:
+                      target.relative_to(root)
+                  except ValueError:
+                      broken.append((page.relative_to(root), ref, "outside bundle"))
+                      continue
+                  if not target.exists():
+                      broken.append((page.relative_to(root), ref, target.relative_to(root)))
+
+          if broken:
+              for item in broken:
+                  print("BROKEN", *item)
+              raise SystemExit(f"{len(broken)} broken local references")
+          print("paid bundle reference closure PASS")
+          PY
+
+      - name: Archive paid source bundle
+        run: |
+          set -euo pipefail
           (cd dist && zip -qr C2000_Digital_Buck_Firmware_Lab_Source_v0.1.zip C2000_Digital_Buck_Firmware_Lab_Source_v0.1)
           sha256sum dist/C2000_Digital_Buck_Firmware_Lab_Source_v0.1.zip
 
