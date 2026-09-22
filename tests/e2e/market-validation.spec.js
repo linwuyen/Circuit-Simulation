@@ -22,8 +22,8 @@ test.describe("digital buck market-validation page", () => {
     }
   });
 
-  test("mobile layout keeps the primary actions visible", async ({ page, isMobile }) => {
-    test.skip(!isMobile, "mobile project only");
+  test("mobile layout keeps the primary actions visible", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "mobile", "mobile project only");
     await page.goto("/digital-buck-lab.html");
 
     await expect(page.locator("[data-buy]").first()).toBeVisible();
