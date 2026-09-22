@@ -6,8 +6,9 @@
   const analyticsEndpoint = typeof config.analyticsEndpoint === "string" ? config.analyticsEndpoint.trim() : "";
 
   function isHttpUrl(value) {
+    if (typeof value !== "string" || !value.trim()) return false;
     try {
-      const url = new URL(value, window.location.href);
+      const url = new URL(value.trim());
       return url.protocol === "https:" || url.protocol === "http:";
     } catch (_) {
       return false;
@@ -15,7 +16,7 @@
   }
 
   function appendCampaignParams(value) {
-    const target = new URL(value, window.location.href);
+    const target = new URL(value.trim());
     const source = new URLSearchParams(window.location.search);
     ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"].forEach((key) => {
       const current = source.get(key);
