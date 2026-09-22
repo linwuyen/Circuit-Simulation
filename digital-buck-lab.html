@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="C2000 Digital Buck Firmware Lab：把 Power Physics、ADC/PWM timing、ISR、PI、Protection 與 Debug 串成一條可執行的數位電源工程路徑。">
+  <title>C2000 Digital Buck Firmware Lab · Early Access</title>
+  <link rel="stylesheet" href="assets/market-validation.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell">
+      <a class="brand" href="index.html">Power Firmware Lab</a>
+      <nav class="nav" aria-label="商品頁導覽">
+        <a href="#problem">你會解決什麼</a>
+        <a href="#inside">內容</a>
+        <a href="#offer">Early Access</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="shell hero-grid">
+        <div>
+          <p class="eyebrow">C2000 Digital Power · Early Access</p>
+          <h1>會 C，卻還是把 ADC、PWM、ISR、PI 串不起來？</h1>
+          <p class="lead">用一台 Buck，把 switching physics → sensing → sample timing → control ISR → PWM shadow load → hardware protection → debug evidence 串成同一個工程 mental model。</p>
+          <div class="actions">
+            <a class="button primary" data-buy data-placement="hero" href="#offer">取得 Early Access</a>
+            <a class="button" data-track="free_demo_click" href="19_c2000_buck_firmware_lab/index.html">先玩免費 C2000 Buck Demo</a>
+          </div>
+          <p class="hero-note">適合：已經會 C / MCU 基礎，但 Digital Power 還停在「看得懂範例、自己串不起來」的人。</p>
+        </div>
+
+        <aside class="price-card" id="offer" aria-label="Early Access 商品資訊">
+          <p class="eyebrow">EARLY ACCESS</p>
+          <strong>C2000 Digital Buck Firmware Lab</strong>
+          <span class="price" data-product-price>NT$690</span>
+          <p>第一版只解一件事：讓你把 closed-loop digital power 的資料流、時序、保護與 debug 串起來。</p>
+          <ul>
+            <li>Guided Buck lab path</li>
+            <li>ADC / PWM / ISR timing exercises</li>
+            <li>PI loop + shadow-load reasoning</li>
+            <li>Protection / authority fault scenarios</li>
+            <li>Debug evidence checklist</li>
+          </ul>
+          <a class="button primary" data-buy data-placement="price-card" href="#offer">Early Access · <span data-product-price>NT$690</span></a>
+          <p class="status" data-checkout-status tabindex="-1" hidden></p>
+          <p class="hero-note">不含硬體板、TI 授權軟體或任何公司 proprietary IP。付款功能未接妥前不會收款。</p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="block" id="problem">
+      <div class="shell">
+        <p class="eyebrow">THE PROBLEM</p>
+        <h2>缺的通常不是資料，而是整條因果鏈。</h2>
+        <p class="section-lead">TI 文件、example code、YouTube、AI 都能告訴你某個 peripheral 怎麼用；真正困難的是：輸出不對時，你知不知道是哪一層 contract 壞掉，以及下一個最高資訊量的量測是什麼。</p>
+        <div class="grid-3">
+          <article class="card"><h3>看得懂 PWM</h3><p>但不知道 SOC、ADC EOC、ISR、shadow write 與 active commit 在時間上怎麼排。</p></article>
+          <article class="card"><h3>會寫 PI</h3><p>但不知道 sensor scaling、delay、saturation、plant dynamics 如何一起決定真實 loop 行為。</p></article>
+          <article class="card"><h3>會 Debug</h3><p>但遇到 power stage + firmware + protection 交界時，很容易直接改 code，而不是先找 evidence。</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="shell">
+        <p class="eyebrow">ONE BUCK · ONE CAUSAL PATH</p>
+        <h2>不是背八章，而是把同一台 converter 一路追到底。</h2>
+        <div class="pipeline" aria-label="Digital Buck 學習路徑">
+          <span>Power<br>Physics</span>
+          <span>Sensing<br>& ADC</span>
+          <span>PWM<br>Trigger</span>
+          <span>ISR / CLA<br>Timing</span>
+          <span>PI / C(z)<br>Command</span>
+          <span>Shadow Load<br>Actuation</span>
+          <span>Protection<br>& Evidence</span>
+        </div>
+        <p class="truth">目標不是「看完課程」，而是看到未知症狀時能先預測、再量測、提出可反證的原因，最後才改 code。</p>
+      </div>
+    </section>
+
+    <section class="block" id="inside">
+      <div class="shell">
+        <p class="eyebrow">FREE VS PAID</p>
+        <h2>免費內容負責讓你試；付費包必須提供額外的練習密度與交付結構。</h2>
+        <div class="free-vs-paid">
+          <table>
+            <thead><tr><th>內容</th><th>免費 GitHub Demo</th><th>Early Access Pack</th></tr></thead>
+            <tbody>
+              <tr><td>Power Physics / 基本 Buck 互動</td><td>有</td><td>有</td></tr>
+              <tr><td>C2000 八層路徑預覽</td><td>有</td><td>有</td></tr>
+              <tr><td>循序 guided exercises</td><td>部分</td><td>完整練習包</td></tr>
+              <tr><td>故障情境與 diagnosis 任務</td><td>示範</td><td>付費 scenario pack</td></tr>
+              <tr><td>工程 evidence / debug checklist</td><td>公開概念</td><td>可直接執行的 workbook</td></tr>
+              <tr><td>版本更新</td><td>公開 repo 更新</td><td>Early Access pack 更新</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="hero-note">正式啟用付款前，付費 pack 必須先準備完成並上傳到付款平台；公開 repo 不會被假裝成付費內容。</p>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="shell">
+        <p class="eyebrow">WHO IT IS FOR</p>
+        <h2>最適合已經跨過「C 語言入門」的人。</h2>
+        <div class="grid-2">
+          <article class="card"><h3>適合</h3><ul><li>Embedded engineer 想進 Digital Power</li><li>Analog power engineer 想理解 firmware/control timing</li><li>研究生正在做 C2000 / converter control</li><li>新進 Power Firmware engineer 想補完整 mental model</li></ul></article>
+          <article class="card"><h3>不適合</h3><ul><li>完全沒寫過 C / MCU</li><li>只想找現成 production code 複製</li><li>期待課程替代 datasheet / TRM / 真實硬體驗證</li><li>需要特定公司產品的 proprietary implementation</li></ul></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="block faq">
+      <div class="shell">
+        <p class="eyebrow">FAQ</p>
+        <h2>先把邊界講清楚。</h2>
+        <details><summary>這是一般電路模擬器嗎？</summary><p>不是。模擬只是其中一層；核心是把 physics、signal、control、time、authority 與 evidence 串成 firmware engineering workflow。</p></details>
+        <details><summary>買了就代表能做量產電源嗎？</summary><p>不代表。這是訓練與實驗產品，不會把課程完成度包裝成真實產品 qualification、BOARD_PASS 或 production certification。</p></details>
+        <details><summary>一定需要真實 C2000 板子嗎？</summary><p>前段的 reasoning / simulation / timing training 不需要；涉及真實 flash、probe、fault latency 與 board evidence 時仍需要實際 hardware。</p></details>
+        <details><summary>為什麼現在付款鈕可能不能按？</summary><p>市場驗證頁可以先合併，但 checkout 只有在付費 pack 與 Lemon Squeezy 交付都準備完成後才會啟用。這是刻意的 fail-closed 設計。</p></details>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="shell price-card">
+        <p class="eyebrow">FIRST MARKET TEST</p>
+        <h2>Early Access · <span data-product-price>NT$690</span></h2>
+        <p class="section-lead">這不是永久定價。第一輪只驗證一件事：符合 persona 的陌生工程師，是否願意為這個 learning transformation 真正付款。</p>
+        <div class="actions">
+          <a class="button primary" data-buy data-placement="bottom" href="#offer">取得 Early Access</a>
+          <a class="button" data-track="bottom_demo_click" href="19_c2000_buck_firmware_lab/index.html">先試免費 Demo</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell">Circuit Simulation Learning Pack · Public teaching content remains public. Paid delivery must add clearly separated value and must not contain proprietary material.</div>
+  </footer>
+
+  <script src="assets/product-config.js"></script>
+  <script src="assets/market-validation.js"></script>
+</body>
+</html>
