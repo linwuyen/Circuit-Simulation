@@ -1,0 +1,49 @@
+name: Package paid Digital Buck source
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build paid source bundle
+        run: |
+          set -euo pipefail
+          OUT="dist/C2000_Digital_Buck_Firmware_Lab_Source_v0.1"
+          mkdir -p "$OUT"
+          cp PAID_START_HERE.md "$OUT/"
+          cp paid-entry.html "$OUT/"
+          cp package.json package-lock.json playwright.config.js "$OUT/"
+          cp -R assets "$OUT/"
+          cp -R 15_power_capstone "$OUT/"
+          cp -R 16_control_transforms "$OUT/"
+          cp -R 17_power_topology_control "$OUT/"
+          cp -R 18_control_unification "$OUT/"
+          cp -R 19_c2000_buck_firmware_lab "$OUT/"
+          mkdir -p "$OUT/docs" "$OUT/tools"
+          cp docs/power-firmware-path.md "$OUT/docs/"
+          cp docs/training-lab.md "$OUT/docs/"
+          cp docs/learning-outcome-protocol.md "$OUT/docs/"
+          cp -R tools/board "$OUT/tools/"
+          cp -R tools/learning "$OUT/tools/"
+          find "$OUT" -type f | sort > "$OUT/FILE-MANIFEST.txt"
+          (cd dist && zip -qr C2000_Digital_Buck_Firmware_Lab_Source_v0.1.zip C2000_Digital_Buck_Firmware_Lab_Source_v0.1)
+          sha256sum dist/C2000_Digital_Buck_Firmware_Lab_Source_v0.1.zip
+
+      - name: Upload paid source artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: c2000-digital-buck-paid-source-v0.1
+          path: dist/C2000_Digital_Buck_Firmware_Lab_Source_v0.1.zip
+          if-no-files-found: error
+          retention-days: 7
