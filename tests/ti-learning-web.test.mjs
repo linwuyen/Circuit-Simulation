@@ -200,3 +200,17 @@ test("TI Trip Zone concept mounts PWM authority workbench after prediction",asyn
   assert.match(wb,/MEASURE_REQUIRED/);
   assert.match(wb,/Physical PWM/);
 });
+
+
+test("TI transfer concepts mount the five-topology constraint atlas after prediction",async()=>{
+  const [html,ui,wb]=await Promise.all([
+    readFile(new URL("../learn.html",import.meta.url),"utf8"),
+    readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8"),
+    readFile(new URL("../assets/learning/ti-topology-workbench.js",import.meta.url),"utf8")
+  ]);
+  assert.match(html,/ti-topology-workbench-core\.js/);
+  assert.match(html,/ti-topology-workbench\.js/);
+  assert.match(ui,/CircuitTITopologyWorkbench/);
+  assert.match(ui,/ti-topology-constraint-atlas-v1/);
+  for(const name of ["BOOST","PFC","PSFB","LLC","INVERTER"])assert.match(wb,new RegExp(name));
+});
