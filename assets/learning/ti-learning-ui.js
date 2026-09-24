@@ -151,6 +151,12 @@
       entry?.after(debug);
     }
     debug.onclick=()=>renderDiagnosticLab();
+    let evidence=$("open-ti-evidence");
+    if(!evidence){
+      evidence=document.createElement("button");evidence.id="open-ti-evidence";evidence.type="button";evidence.textContent="TI Evidence";
+      debug.after(evidence);
+    }
+    evidence.onclick=()=>renderEvidenceLadder();
   }
   function renderProgress(){
     const p=$("workspace-progress");if(!p)return;
@@ -721,6 +727,40 @@
       if(Math.min(step,3)===i)b.setAttribute("aria-current","step");
       nav.append(b);
     });
+  }
+  function renderEvidenceLadder(){
+    stopAnimation();
+    document.body.dataset.tiConceptMode="generic";
+    selectedConceptId="__evidence__";
+    route();
+    $("setup-panel").hidden=true;$("free-controls").hidden=true;$("concept-note").hidden=true;$("transfer-preview").hidden=true;$("workbench-context-slot").hidden=true;
+    const circuitStage=$("ti-circuit-stage");if(circuitStage)circuitStage.hidden=true;
+    $("lesson-control").hidden=true;
+    const toolbar=$("ti-sim-toolbar");if(toolbar)toolbar.hidden=true;
+    $("ws-plot").hidden=true;$("ws-plot").replaceChildren();$("ws-comparison").textContent="";
+    $("surface-help").hidden=true;$("surface-help").replaceChildren();
+    const host=ensureSpecializedHost();host.hidden=false;host.replaceChildren();
+    $("surface-title").textContent="Engineering Truth Ladder";
+    $("ws-count").textContent="Evidence · fail-closed";
+    $("ws-title").textContent="Model PASS 不等於 Board PASS";
+    $("ws-intro").textContent="Web model → Host SIL → HIL → target build → physical board closure + measured control validation.";
+    $("ws-save").textContent="Evidence imports are inspected locally. This view does not manufacture or upload hardware evidence.";
+    const nav=$("ws-steps");nav.replaceChildren();
+    ["Model","SIL","HIL","Target","Board"].forEach((label,i)=>{const b=document.createElement("button");b.type="button";b.disabled=true;b.textContent=(i+1)+". "+label;nav.append(b);});
+    $("ws-question").replaceChildren();
+    const h=document.createElement("h2");h.textContent="Truth contract";
+    const p=document.createElement("p");p.textContent="Lower-layer PASS can only unlock the next verification step. P4-A BOARD_PASS and P4-B CONTROL_VALIDATION_PASS remain authoritative and independent.";
+    $("ws-question").append(h,p);$("ws-feedback").textContent="";$("ws-result").hidden=true;$("explore").hidden=true;$("back-to-lesson").hidden=true;$("ws-hint").hidden=true;$("ws-explanation").hidden=true;
+    const ladder=root.CircuitTIEvidenceLadder;
+    if(!ladder){host.textContent="Evidence ladder dependency missing.";return;}
+    ladder.mount({
+      host,
+      onSnapshot:snapshot=>E.recordMachine("ti:evidence-ladder","ti-engineering-truth-ladder-v1",snapshot,{
+        passed:false,
+        model:{id:"ti-engineering-truth-ladder-v1",version:"1",boundary:"Evidence inspection only; P4-A/P4-B validators remain authoritative and no missing hardware evidence is synthesized."}
+      })
+    }).catch(error=>{$("ws-feedback").textContent=error.message;});
+    $("workspace-progress").textContent="Evidence ladder · lower-layer PASS never upgrades physical truth";
   }
   function renderDiagnosticLab(){
     stopAnimation();
