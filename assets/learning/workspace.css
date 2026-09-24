@@ -357,3 +357,29 @@ body[data-ti-control] .ti-control-modebar span{margin-left:auto;font:600 .68rem 
 body[data-ti-control] #ws-plot{height:min(38vh,340px);min-height:280px}
 @media(max-width:1100px){body[data-ti-control] .workspace-grid{grid-template-columns:1fr}body[data-ti-control] .coach{width:auto;position:static;order:1}body[data-ti-control] .surface{order:2}}
 @media(max-width:760px){body[data-ti-control] .ti-control-controls{grid-template-columns:1fr}}
+
+/* Epic #85 — C2000 timing workbench */
+body[data-ti-c2000-timing] main{max-width:min(1700px,97vw)}
+body[data-ti-c2000-timing] .route{display:none}
+body[data-ti-c2000-timing] .workspace-grid{grid-template-columns:minmax(760px,1fr) 380px;gap:10px}
+body[data-ti-c2000-timing] .surface{padding:.8rem}
+body[data-ti-c2000-timing] .coach{width:380px;position:sticky;top:10px;padding:.8rem}
+body[data-ti-c2000-timing] #circuit,body[data-ti-c2000-timing] #circuit-state{display:none}
+body[data-ti-c2000-timing] .ti-timing-controls{display:grid;grid-template-columns:repeat(3,minmax(190px,1fr));gap:.35rem;margin:.4rem 0}
+body[data-ti-c2000-timing] .ti-timing-controls label{display:grid;grid-template-columns:70px 1fr 72px;gap:.35rem;align-items:center;padding:.3rem .4rem;border:1px solid #d4e1e7;border-radius:.4rem;background:#f8fbfc;font-size:.68rem}
+body[data-ti-c2000-timing] .ti-timing-controls input{min-height:26px}
+body[data-ti-c2000-timing] .ti-timing-controls output{text-align:right;font:600 .64rem ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-c2000-timing] .ti-timing-modebar{display:flex;gap:.35rem;align-items:center;margin:.4rem 0}
+body[data-ti-c2000-timing] .ti-timing-modebar button{min-height:34px;padding:.25rem .55rem;font-size:.7rem}
+body[data-ti-c2000-timing] .ti-timing-modebar button[aria-current="page"]{background:#126654;color:#fff;border-color:#126654}
+body[data-ti-c2000-timing] .ti-timing-status{margin-left:auto;font:700 .7rem ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-c2000-timing] #ws-plot{height:min(40vh,360px);min-height:300px}
+body[data-ti-c2000-timing] #ws-plot .ti-zero-line{stroke:#58788a;stroke-dasharray:4 4}
+body[data-ti-c2000-timing] #ws-plot .ti-deadline-line{stroke:#f0c967;stroke-width:2;stroke-dasharray:4 4}
+body[data-ti-c2000-timing] #ws-plot .ti-event{fill:#63dfbc}
+body[data-ti-c2000-timing] #ws-plot .ti-event-write{fill:#6bb6ff}
+body[data-ti-c2000-timing] #ws-plot .ti-event-active{fill:#f0c967}
+body[data-ti-c2000-timing] #ws-plot .ti-event-label{fill:#d4e5ef;font-size:13px}
+body[data-ti-c2000-timing] #ws-plot .ti-event-time{fill:#9fb8c6;font:11px ui-monospace,SFMono-Regular,Consolas,monospace}
+@media(max-width:1100px){body[data-ti-c2000-timing] .workspace-grid{grid-template-columns:1fr}body[data-ti-c2000-timing] .coach{width:auto;position:static;order:1}body[data-ti-c2000-timing] .surface{order:2}}
+@media(max-width:760px){body[data-ti-c2000-timing] .ti-timing-controls{grid-template-columns:1fr}}
