@@ -352,3 +352,26 @@ body[data-ti-concept-labs] #ws-question>p{font-size:.8rem}
 @media(max-width:700px){
   body[data-ti-concept-labs] .ti-concept-board{grid-template-columns:1fr}
 }
+
+
+/* Epic #67: digital control + Bode/SFRA */
+body[data-ti-control] .route{display:none}
+body[data-ti-control] main{max-width:min(1700px,98vw);padding:.7rem}
+body[data-ti-control] .workspace-grid{grid-template-columns:minmax(760px,1fr) 380px;gap:10px}
+body[data-ti-control] .surface,body[data-ti-control] .coach{padding:.8rem;border-radius:.7rem}
+body[data-ti-control] .coach{width:380px;position:sticky;top:.6rem}
+body[data-ti-control] #circuit,body[data-ti-control] #circuit-state{display:none}
+body[data-ti-control] #ws-plot{height:min(46vh,430px);min-height:300px;background:#071a2a}
+body[data-ti-control] #ws-plot .ti-control-mag{fill:none;stroke:#63dfbc;stroke-width:3}
+body[data-ti-control] #ws-plot .ti-control-phase{fill:none;stroke:#6bb6ff;stroke-width:3}
+body[data-ti-control] #ws-plot .ti-control-model{fill:none;stroke:#8da1b1;stroke-width:3;stroke-dasharray:7 5}
+body[data-ti-control] #ws-plot .ti-control-measured{fill:none;stroke:#f0c967;stroke-width:3}
+body[data-ti-control] #ws-plot .ti-control-marker{stroke:#ff7e79;stroke-width:2;stroke-dasharray:5 4}
+body[data-ti-control] #ws-plot .ti-control-event{stroke:#6bb6ff;stroke-width:1.5;stroke-dasharray:3 4}
+body[data-ti-control] #ws-plot .ti-control-time-axis{stroke:#c0d4df;stroke-width:2}
+body[data-ti-control] .ti-control-param{display:grid;grid-template-columns:110px 1fr 64px;gap:.5rem;align-items:center;margin:.45rem 0}
+body[data-ti-control] .ti-control-param span{font-size:.76rem}
+body[data-ti-control] .ti-control-param output{font:600 .72rem ui-monospace,SFMono-Regular,Consolas,monospace;text-align:right}
+body[data-ti-control] .ti-control-status{display:grid;grid-template-columns:1fr 1fr;gap:.3rem;margin:.7rem 0;padding:.55rem;background:#edf5f8;border-radius:.45rem;font-size:.72rem}
+body[data-ti-control] .ti-control-status strong{grid-column:1/-1}
+@media(max-width:1150px){body[data-ti-control] .workspace-grid{grid-template-columns:1fr}body[data-ti-control] .coach{width:auto;position:static;order:1}body[data-ti-control] .surface{order:2}}
