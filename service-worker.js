@@ -45,7 +45,7 @@ self.addEventListener("fetch",event=>{
       const cached=await caches.match(request);
       if(cached)return cached;
       if(request.mode==="navigate"){
-        return caches.match(absolute("./learn.html"))||caches.match(absolute("./index.html"));
+        return (await caches.match(absolute("./learn.html"))) || (await caches.match(absolute("./index.html")));
       }
       throw new Error("offline cache miss");
     })
