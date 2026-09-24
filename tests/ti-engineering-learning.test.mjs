@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { validateManifest } from "../tools/learning/ti-docs.mjs";
+import { sourceUrls, validateManifest } from "../tools/learning/ti-docs.mjs";
 import { applyGrade, buildPlan, renderSession, validateLearningModel } from "../tools/learning/engineering-learning.mjs";
 
 const manifest = JSON.parse(await readFile(new URL("../learning/ti/manifest.json", import.meta.url), "utf8"));
@@ -45,4 +45,11 @@ test("session hides answers and names authoritative source documents", () => {
   assert.match(text, /Ask one item at a time/);
   assert.match(text, /SLVA057/);
   assert.doesNotMatch(text, /Answer:/);
+});
+
+
+test("legacy PSDS documents have resilient official TI fallbacks", () => {
+  const byId = new Map(manifest.documents.map(doc => [doc.id, doc]));
+  assert.ok(sourceUrls(byId.get("SLUP173")).length >= 2);
+  assert.ok(sourceUrls(byId.get("SLUP263")).length >= 3);
 });
