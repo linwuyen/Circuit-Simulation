@@ -378,3 +378,44 @@ test('Trip Zone hardware veto overrides software PWM grant and requires qualifie
   await expect(page.locator('[data-authority-metric="veto"]')).toContainText('CLEAR');
   await expect(page.locator('[data-authority-metric="physical"]')).toContainText('0%');
 });
+
+
+test('topology atlas preserves topology-specific constraints instead of reusing Buck assumptions', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await openFresh(page);
+
+  await page.locator('input[name="ti-predict"][value="time-first"]').check();
+  await page.getByRole('button', { name: 'Lock prediction' }).click();
+  await page.locator('#ws-control').fill('50');
+  await page.getByRole('button', { name: 'Run first cycle' }).click();
+  await page.locator('input[name="ti-observe"][value="net-rise"]').check();
+  await page.getByRole('button', { name: 'Check observation' }).click();
+  await page.locator('input[name="ti-reason"][value="volt-second"]').check();
+  await page.getByRole('button', { name: 'Complete loop' }).click();
+  await page.reload();
+
+  await expect(page.locator('.ti-topology-lock')).toContainText('LOCKED');
+  await page.locator('#ti-generic-answer').fill('Boost duty increase can lower the RHP zero, so bandwidth cannot be transferred directly from Buck.');
+  await page.getByRole('button', { name: 'Commit answer → reveal source' }).click();
+  await expect(page.locator('.ti-topology-workbench')).toBeVisible();
+  await expect(page.locator('[data-topology-constraint]')).toContainText('RHP_ZERO');
+
+  const before=await page.locator('[data-topology-metric="RHP zero"] strong').textContent();
+  await page.locator('[data-topology-control="duty"]').fill('0.70');
+  const after=await page.locator('[data-topology-metric="RHP zero"] strong').textContent();
+  expect(parseFloat(after)).toBeLessThan(parseFloat(before));
+
+  await page.locator('[data-topology="pfc"]').click();
+  await expect(page.locator('[data-topology-constraint]')).toContainText('DOUBLE_LINE_RIPPLE');
+  await expect(page.locator('[data-topology-metric="2ω ripple"] strong')).toContainText('100');
+
+  await page.locator('[data-topology="psfb"]').click();
+  await page.locator('[data-topology-control="primaryCurrentA"]').fill('2');
+  await expect(page.locator('[data-topology-status]')).toContainText('ZVS_MARGIN_LOST');
+
+  await page.locator('[data-topology="llc"]').click();
+  await expect(page.locator('[data-topology-constraint]')).toContainText('OPERATING_POINT_GAIN');
+
+  await page.locator('[data-topology="inverter"]').click();
+  await expect(page.locator('[data-topology-constraint]')).toContainText('LCL_RESONANCE');
+});
