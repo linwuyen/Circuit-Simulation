@@ -34,9 +34,9 @@ async function main() {
   const model = validateLearningModel(manifest, cards);
 
   const download = await downloadDocuments(manifest, pdfDir, { concurrency: 3 });
-  if (download.failed) {
-    throw new Error(`TI download incomplete: ${download.passed}/${download.requested} passed`);
-  }
+  const failedDocuments = download.results
+    .filter(item => item.status === "FAIL")
+    .map(item => ({ id: item.id, error: item.error, sourceFailures: item.sourceFailures ?? [] }));
 
   const state = await loadState(stateFile);
   const date = new Date().toISOString().slice(0, 10);
@@ -56,6 +56,7 @@ async function main() {
       requested: download.requested,
       passed: download.passed,
       failed: download.failed,
+      failedDocuments,
       report: path.relative(root, path.join(pdfDir, "download-report.json"))
     },
     learningModel: model,
@@ -77,6 +78,9 @@ async function main() {
     `- HEAD: ${gitHead ?? "unknown"}`,
     `- Node: ${process.version}`,
     `- TI PDFs: ${download.passed}/${download.requested} PASS`,
+    ...(failedDocuments.length
+      ? [`- Failed documents: ${failedDocuments.map(item => item.id).join(", ")}`]
+      : []),
     `- Concept Cards: ${model.conceptCount}`,
     `- Session: ${path.relative(root, sessionFile)}`,
     `- Download report: ${path.relative(root, path.join(pdfDir, "download-report.json"))}`,
@@ -88,6 +92,10 @@ async function main() {
 
   console.log(JSON.stringify(report, null, 2));
   console.log("\n" + evidence);
+
+  if (download.failed) {
+    throw new Error(`TI download incomplete: ${download.passed}/${download.requested} passed; failed: ${failedDocuments.map(item => item.id).join(", ")}`);
+  }
 }
 
 main().catch(error => {
