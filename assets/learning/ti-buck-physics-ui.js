@@ -36,7 +36,7 @@
     document.body.dataset.tiPhysics="true";
     const h=document.querySelector(".workspace-header strong");if(h)h.textContent="TI Buck Physics Workbench";
     const p=$("workspace-progress");if(p)p.textContent="Steady state · CCM/BCM/DCM · switched startup transient";
-    const toolbar=document.querySelector(".workspace-header .toolbar"),ti=$("open-ti-learning");
+    const toolbar=document.querySelector(".workspace-header .toolbar"),ti=$("open-ti-learning");\n    if(toolbar&&!$("open-ti-concepts")){const concepts=document.createElement("button");concepts.id="open-ti-concepts";concepts.type="button";concepts.textContent="TI Concepts";concepts.onclick=()=>{location.hash="ti-concepts";location.reload();};toolbar.prepend(concepts);}
     if(ti){ti.textContent="Learning Loop";ti.onclick=()=>{location.hash="ti-learning";location.reload();};}
     if(toolbar&&!$("open-buck-physics")){
       const b=document.createElement("button");b.id="open-buck-physics";b.type="button";b.textContent="Buck Physics";b.disabled=true;toolbar.prepend(b);

@@ -303,3 +303,38 @@ body[data-ti-physics] .ti-physics-rule{margin:.45rem 0;padding:.5rem .6rem;backg
 body[data-ti-physics] .ti-physics-rule p{margin:.2rem 0}
 @media(max-width:1100px){body[data-ti-physics] .workspace-grid{grid-template-columns:1fr}body[data-ti-physics] .coach{width:auto;position:static;order:1}body[data-ti-physics] .surface{order:2}}
 @media(max-width:760px){body[data-ti-physics] .ti-physics-controls{grid-template-columns:1fr}}
+
+
+/* Epic #83 — 15 TI concept labs */
+body[data-ti-concepts] main{max-width:min(1740px,97vw)}
+body[data-ti-concepts] .route{display:none}
+body[data-ti-concepts] .workspace-grid{grid-template-columns:minmax(760px,1fr) 380px;gap:10px}
+body[data-ti-concepts] .surface{padding:.8rem}
+body[data-ti-concepts] .coach{width:380px;position:sticky;top:10px;padding:.8rem}
+body[data-ti-concepts][data-ti-concept-catalog="true"] .workspace-grid{grid-template-columns:1fr 330px}
+body[data-ti-concepts] .ti-concept-grid{display:grid;grid-template-columns:repeat(3,minmax(240px,1fr));gap:.6rem;margin:.5rem 0}
+body[data-ti-concepts] .ti-concept-card{display:flex;flex-direction:column;min-height:225px;padding:.75rem;border:1px solid #cbdce5;border-radius:.65rem;background:#f9fbfc}
+body[data-ti-concepts] .ti-concept-card-top{display:flex;justify-content:space-between;color:#5c7685;font:700 .68rem ui-monospace,SFMono-Regular,Consolas,monospace;text-transform:uppercase}
+body[data-ti-concepts] .ti-concept-card h3{margin:.4rem 0 .2rem;font-size:1rem}
+body[data-ti-concepts] .ti-concept-card p{font-size:.76rem;line-height:1.45}
+body[data-ti-concepts] .ti-concept-card button{margin-top:auto;align-self:flex-start;min-height:34px;font-size:.72rem}
+body[data-ti-concepts] .ti-concept-meta{color:#607986}
+body[data-ti-concepts] .ti-concept-inputs{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:.35rem;margin:.45rem 0}
+body[data-ti-concepts] .ti-concept-input{display:grid;grid-template-columns:1fr 100px 45px;align-items:center;gap:.3rem;padding:.3rem .4rem;border:1px solid #d5e1e7;border-radius:.4rem;font-size:.7rem;background:#f8fbfc}
+body[data-ti-concepts] .ti-concept-input input[type="number"]{width:100%;padding:.25rem;font-size:.7rem}
+body[data-ti-concepts] #ws-plot{height:min(34vh,320px);min-height:240px}
+body[data-ti-concepts] .ti-concept-metrics{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:.35rem;margin:.35rem 0}
+body[data-ti-concepts] .ti-concept-metrics div{padding:.35rem .45rem;border:1px solid #d3e1e7;border-radius:.4rem;background:#f7fafb}
+body[data-ti-concepts] .ti-concept-metrics span{display:block;font-size:.62rem;color:#69818d}
+body[data-ti-concepts] .ti-concept-metrics strong{font:700 .76rem ui-monospace,SFMono-Regular,Consolas,monospace;color:#155f55}
+body[data-ti-concepts] .ti-concept-boundary{font-size:.68rem;color:#667e8a}
+body[data-ti-concepts] .ti-concept-sources{display:flex;gap:.4rem;flex-wrap:wrap}
+body[data-ti-concepts] .ti-concept-sources a{font-size:.72rem;padding:.15rem .35rem;border:1px solid #bfd3dd;border-radius:999px}
+body[data-ti-concepts] .ti-concept-prompt{font-weight:600;font-size:.82rem}
+body[data-ti-concepts] .ti-concept-verdict{padding:.45rem .55rem;background:#eef5f8;border-left:3px solid #1683a2;font-size:.74rem}
+body[data-ti-concepts] .ti-response-box{margin:.55rem 0;padding:.5rem;border:1px solid #d1dfe6;border-radius:.5rem}
+body[data-ti-concepts] .ti-response-box p{font-size:.72rem}
+body[data-ti-concepts] .ti-response-box textarea{width:100%;resize:vertical;padding:.4rem;border:1px solid #aabfca;border-radius:.35rem;font:inherit}
+body[data-ti-concepts] .ti-response-box button{min-height:32px;margin-top:.25rem;padding:.2rem .5rem;font-size:.68rem}
+@media(max-width:1100px){body[data-ti-concepts] .workspace-grid{grid-template-columns:1fr}body[data-ti-concepts] .coach{width:auto;position:static;order:1}body[data-ti-concepts] .surface{order:2}body[data-ti-concepts] .ti-concept-grid{grid-template-columns:repeat(2,minmax(230px,1fr))}}
+@media(max-width:760px){body[data-ti-concepts] .ti-concept-grid,body[data-ti-concepts] .ti-concept-inputs{grid-template-columns:1fr}body[data-ti-concepts] .ti-concept-metrics{grid-template-columns:1fr 1fr}}

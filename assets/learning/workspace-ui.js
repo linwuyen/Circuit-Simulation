@@ -2,7 +2,9 @@
  'use strict';
  const tiEntry=document.getElementById('open-ti-learning');
  if(tiEntry)tiEntry.onclick=()=>{location.hash='ti-learning';location.reload();};
- if(location.hash==='#ti-buck-physics'){CircuitTIBuckPhysicsUI.mount();return;}\n if(location.hash==='#ti-learning'){CircuitTILearning.mount();return;}
+ if(location.hash==='#ti-concepts'||location.hash.startsWith('#ti-concept/')){CircuitTIConceptsUI.mount(location.hash);return;}
+ if(location.hash==='#ti-buck-physics'){CircuitTIBuckPhysicsUI.mount();return;}
+ if(location.hash==='#ti-learning'){CircuitTILearning.mount();return;}
  if(location.hash==='#topology'){CircuitWorkspace.mountTopology();return;}
  if(!location.hash||location.hash.startsWith('#experiment')){CircuitWorkspace.mountExperiment();return;}
 
