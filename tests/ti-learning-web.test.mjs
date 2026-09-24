@@ -113,3 +113,28 @@ test("first-cycle lesson preserves CCM boundary before DCM exploration",async()=
   assert.match(ui,/stage===0&&B\.buck\(\{\.\.\.candidate,duty:\.25\}\)\.regime!=="CCM"/);
   assert.match(ui,/完成這次 loop 後/);
 });
+
+
+test("Epic 101 PASS directions are deterministic across L, fsw and load boundary",()=>{
+  const base={vin:48,duty:.25,inductanceUh:100,fswKhz:100,loadOhm:5,capacitanceUf:220,esrOhm:0};
+  const nominal=Models.buck(base);
+  const l2=Models.buck({...base,inductanceUh:200});
+  const f2=Models.buck({...base,fswKhz:200});
+  const light=Models.buck({...base,loadOhm:100});
+  assert.equal(nominal.regime,"CCM");
+  assert.ok(Math.abs(l2.ripple/nominal.ripple-.5)<1e-9);
+  assert.ok(Math.abs(f2.ripple/nominal.ripple-.5)<1e-9);
+  assert.equal(light.regime,"DCM");
+  assert.ok(light.zeroFraction>0);
+});
+
+test("Epic 101 full transient falsifies the frozen-Vout approximation after the first cycle",()=>{
+  const t=Models.buckTransient({
+    before:{vin:48,duty:.25,inductanceUh:100,fswKhz:100,loadOhm:5,capacitanceUf:220,esrOhm:0},
+    after:{vin:48,duty:.5,inductanceUh:100,fswKhz:100,loadOhm:5,capacitanceUf:220,esrOhm:0},
+    cycles:20,stepsPerCycle:128
+  });
+  assert.ok(Math.abs(t.firstCycle.avgVout-t.initialVout)<.1);
+  assert.ok(t.lastCycle.avgVout>t.firstCycle.avgVout+5);
+  assert.notEqual(t.lastCycle.regime,undefined);
+});
