@@ -214,3 +214,19 @@ test("TI transfer concepts mount the five-topology constraint atlas after predic
   assert.match(ui,/ti-topology-constraint-atlas-v1/);
   for(const name of ["BOOST","PFC","PSFB","LLC","INVERTER"])assert.match(wb,new RegExp(name));
 });
+
+
+test("TI Debug Lab embeds existing hidden repair kernel without creating a new learner state",async()=>{
+  const [html,ui,wb]=await Promise.all([
+    readFile(new URL("../learn.html",import.meta.url),"utf8"),
+    readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8"),
+    readFile(new URL("../assets/learning/ti-diagnostic-workbench.js",import.meta.url),"utf8")
+  ]);
+  assert.match(html,/repair-training-core\.js/);
+  assert.match(html,/ti-diagnostic-workbench\.js/);
+  assert.match(ui,/open-ti-debug/);
+  assert.match(ui,/ti-hidden-repair-v1/);
+  assert.match(ui,/PRACTICE_ONLY/);
+  assert.match(wb,/COVERAGE/);
+  assert.match(wb,/measure → diagnose → repair → transfer verify/);
+});
