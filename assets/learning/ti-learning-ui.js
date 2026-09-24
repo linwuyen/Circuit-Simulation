@@ -157,6 +157,12 @@
       debug.after(evidence);
     }
     evidence.onclick=()=>renderEvidenceLadder();
+    let tutor=$("open-ti-tutor");
+    if(!tutor){
+      tutor=document.createElement("button");tutor.id="open-ti-tutor";tutor.type="button";tutor.textContent="AI Tutor";
+      evidence.after(tutor);
+    }
+    tutor.onclick=()=>renderTutorDrawer();
   }
   function renderProgress(){
     const p=$("workspace-progress");if(!p)return;
@@ -727,6 +733,28 @@
       if(Math.min(step,3)===i)b.setAttribute("aria-current","step");
       nav.append(b);
     });
+  }
+  function tutorPacket(){
+    const concept=cardsBundle?.cards?.find(x=>x.id===selectedConceptId);
+    if(!concept)return null;
+    const core=root.CircuitTITutorCore;if(!core)return null;
+    return core.buildPacket({
+      concept,
+      record:conceptRecord(concept.id),
+      state:E.load(),
+      sourceDocs:conceptDocs(concept),
+      uiContext:{selectedComponent,scopePhase:phase}
+    });
+  }
+  function renderTutorDrawer(){
+    let panel=$("ti-tutor-drawer");
+    if(!panel){
+      panel=document.createElement("div");panel.id="ti-tutor-drawer";panel.className="ti-tutor-drawer";
+      document.querySelector(".coach")?.append(panel);
+    }
+    const tutor=root.CircuitTITutor;
+    if(!tutor){panel.hidden=false;panel.textContent="Tutor dependency missing.";return;}
+    tutor.mount({host:panel,getPacket:tutorPacket});
   }
   function renderEvidenceLadder(){
     stopAnimation();
