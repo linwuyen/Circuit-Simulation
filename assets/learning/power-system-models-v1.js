@@ -59,6 +59,10 @@
     let y = initialVout;
     let integrator = p.duty;
     let duty = p.duty;
+    const dutyMin = Number(state.limits?.dutyMin ?? 0.02);
+    const dutyMax = Number(state.limits?.dutyMax ?? 0.90);
+    const antiWindup = c.antiWindup !== false;
+    let saturatedSamples = 0;
     const phys = [], meas = [], refs = [], duties = [];
     for (let k = 0; k < steps; k += 1) {
       const currentRef = k < stepIndex ? initialVout : c.vref;
@@ -66,8 +70,10 @@
       const eNorm = (currentRef - measured) / p.vin;
       const nextI = integrator + c.ki * eNorm * ts;
       const raw = c.kp * eNorm + nextI;
-      const cmd = clamp(raw, 0.02, 0.90);
-      if ((raw >= 0.02 && raw <= 0.90) || (raw > 0.90 && eNorm < 0) || (raw < 0.02 && eNorm > 0)) integrator = nextI;
+      const cmd = clamp(raw, dutyMin, dutyMax);
+      const saturated = raw < dutyMin || raw > dutyMax;
+      if (saturated) saturatedSamples += 1;
+      if (!antiWindup || !saturated || (raw > dutyMax && eNorm < 0) || (raw < dutyMin && eNorm > 0)) integrator = nextI;
       queue.push(cmd);
       duty = queue.shift();
       y += ts / tau * (p.vin * duty - y);
@@ -79,7 +85,11 @@
     const finalMeasured = measureVout(finalPhysical, state.sensing).firmwareVout;
     const maxAfter = Math.max.apply(null, phys.slice(Math.floor(stepIndex / 12)));
     const overshoot = c.vref > 0 ? Math.max(0, (maxAfter - c.vref) / c.vref * 100) : 0;
-    return { phys, meas, refs, duties, finalPhysical, finalMeasured, finalDuty: duties[duties.length - 1], overshoot, initialVout, delayCycles };
+    return {
+      phys, meas, refs, duties, finalPhysical, finalMeasured,
+      finalDuty: duties[duties.length - 1], overshoot, initialVout, delayCycles,
+      saturatedSamples, antiWindup, dutyMin, dutyMax, finalIntegrator: integrator
+    };
   }
 
   function linePath(values, width, height, minY, maxY) {
