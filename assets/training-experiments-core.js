@@ -40,8 +40,8 @@
       : phase < D + discharge ? minI + ripple * (1 - (phase - D) / discharge) : minI;
     const n = 512, T = 1 / f;
     const rows = Array.from({ length: n + 1 }, (_, i) => {
-      const phase = i / n, iL = current(phase);
-      const state = phase <= D ? "ON" : phase < D + discharge && iL > 0 ? "OFF" : "ZERO";
+      const phase = i / n, statePhase = phase >= 1 ? 0 : phase, iL = current(phase);
+      const state = statePhase <= D ? "ON" : statePhase < D + discharge && iL > 0 ? "OFF" : "ZERO";
       const vL = state === "ON" ? c.vin - vout : state === "OFF" ? -vout : 0;
       return {
         tUs: phase * T * 1e6, phase, state, vL, iL,
