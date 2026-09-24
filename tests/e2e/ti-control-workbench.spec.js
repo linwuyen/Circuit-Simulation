@@ -14,7 +14,7 @@ test('control workbench reacts to Kp Ki Ts and delay with visible evidence',asyn
   const baseline=await page.locator('#ws-current').textContent();
   expect(Number.parseFloat(baseline)).toBeGreaterThan(45);
 
-  const delay=page.locator('.ti-control-param').filter({hasText:'extra delay'}).locator('input');
+  const delay=page.locator('[data-control-key="delayUs"] input');
   await delay.fill('100');
   await delay.dispatchEvent('change');
   const after=Number.parseFloat(await page.locator('#ws-current').textContent());
@@ -26,7 +26,7 @@ test('control workbench reacts to Kp Ki Ts and delay with visible evidence',asyn
   await page.getByRole('button',{name:'Model ↔ SFRA'}).click();
   await expect(page.locator('#ws-plot')).toContainText('UNVERIFIED_IMPORT');
 
-  const sfraDelay=page.locator('.ti-control-param').filter({hasText:'SFRA extra delay'}).locator('input');
+  const sfraDelay=page.locator('[data-control-key="sfraDelay"] input');
   await sfraDelay.fill('50');
   await sfraDelay.dispatchEvent('change');
   await expect(page.locator('#ws-plot')).toContainText('RMS phase error');
