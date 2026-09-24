@@ -426,3 +426,25 @@ body[data-ti-learning] .ti-topology-lock{padding:1rem;border:1px dashed #8ea9b8;
   body[data-ti-learning] .ti-topology-controls,body[data-ti-learning] .ti-topology-metrics{grid-template-columns:1fr}
   body[data-ti-learning] .ti-topology-constraint{grid-template-columns:1fr}
 }
+
+
+/* TI hidden-system diagnostic practice */
+body[data-ti-learning] .ti-diagnostic-workbench{display:grid;gap:.55rem;padding:.65rem;border:1px solid #b8ccd7;border-radius:.6rem;background:#f7fafc}
+body[data-ti-learning] .ti-diagnostic-head{display:flex;justify-content:space-between;gap:.5rem;align-items:center}
+body[data-ti-learning] .ti-diagnostic-head span{font:700 .66rem ui-monospace,SFMono-Regular,Consolas,monospace;color:#496879}
+body[data-ti-learning] .ti-diagnostic-seed{display:flex;align-items:center;gap:.35rem}
+body[data-ti-learning] .ti-diagnostic-seed input{width:100px;padding:.3rem}
+body[data-ti-learning] .ti-diagnostic-seed button{min-height:32px;padding:.2rem .5rem;font-size:.68rem}
+body[data-ti-learning] .ti-diagnostic-symptom{margin:0!important;padding:.45rem .55rem;background:#102438;color:#e2eef4;border-radius:.4rem;font-size:.74rem!important}
+body[data-ti-learning] .ti-diagnostic-measurements,body[data-ti-learning] .ti-diagnostic-diagnosis,body[data-ti-learning] .ti-diagnostic-repair{display:grid;gap:.35rem;padding:.5rem;border:1px solid #d3e0e6;border-radius:.45rem;background:white}
+body[data-ti-learning] .ti-diagnostic-measurements>div,body[data-ti-learning] .ti-diagnostic-repair>div{display:flex;gap:.3rem;flex-wrap:wrap}
+body[data-ti-learning] .ti-diagnostic-measurements button,body[data-ti-learning] .ti-diagnostic-repair button,body[data-ti-learning] .ti-diagnostic-diagnosis button{min-height:32px;padding:.2rem .45rem;font-size:.66rem}
+body[data-ti-learning] .ti-diagnostic-log{margin:.1rem 0;padding-left:1.3rem;font-size:.66rem}
+body[data-ti-learning] .ti-diagnostic-guesses,body[data-ti-learning] .ti-diagnostic-evidence{display:flex;gap:.3rem;flex-wrap:wrap}
+body[data-ti-learning] .ti-diagnostic-guesses label,body[data-ti-learning] .ti-diagnostic-evidence label{padding:.2rem .35rem;border:1px solid #cbdce4;border-radius:.35rem;font-size:.66rem}
+body[data-ti-learning] .ti-diagnostic-verdict{padding:.4rem .5rem;background:#eaf3f7;border-left:3px solid #1683a2;font-size:.7rem}
+body[data-ti-learning] .ti-diagnostic-verdict[data-status="pass"]{background:#e8f7f0;border-left-color:#218065}
+body[data-ti-learning] .ti-diagnostic-verdict[data-status="fail"],body[data-ti-learning] .ti-diagnostic-verdict[data-status="error"]{background:#fff0ef;border-left-color:#b9473e}
+body[data-ti-learning] .ti-diagnostic-coverage table{width:100%;border-collapse:collapse;font-size:.65rem}
+body[data-ti-learning] .ti-diagnostic-coverage td{padding:.2rem .3rem;border-bottom:1px solid #d7e3e9}
+body[data-ti-learning] .ti-diagnostic-boundary{margin:0!important;font-size:.62rem!important;color:#627985}
