@@ -95,3 +95,29 @@ test("TI scope interaction maps waveform traces back to circuit components and s
   assert.match(css,/ti-component-hit\.is-preview/);
   assert.match(css,/touch-action:none/);
 });
+
+
+test("complete Buck physics exposes regime, capacitor current, energy and expected parameter directions",()=>{
+  const base={vin:48,duty:.25,inductanceUh:100,fswKhz:100,loadOhm:5,capacitanceUf:220,esrOhm:0};
+  const p=Core.buildBuckPhysics(Models.buck,base);
+  assert.equal(p.regime,"CCM");
+  assert.equal(p.vout,12);
+  assert.ok(p.on.vL>0);
+  assert.ok(p.off.vL<0);
+  assert.ok(p.on.slopeAUs>0);
+  assert.ok(p.off.slopeAUs<0);
+  assert.ok(p.energy.peakJ>p.energy.minJ);
+  assert.equal(p.capCurrentRows.length,p.rows.length);
+  assert.ok(Math.abs(p.capCurrentRows.reduce((s,r)=>s+r.iC,0)/p.capCurrentRows.length)<1e-2);
+
+  const l2=Core.compareBuckParameter(Models.buck,base,"inductanceUh",200);
+  assert.ok(Math.abs(l2.ratios.ripple-.5)<1e-9);
+
+  const f2=Core.compareBuckParameter(Models.buck,base,"fswKhz",200);
+  assert.ok(Math.abs(f2.ratios.ripple-.5)<1e-9);
+
+  const light=Core.compareBuckParameter(Models.buck,base,"loadOhm",100);
+  assert.equal(light.before.regime,"CCM");
+  assert.equal(light.after.regime,"DCM");
+  assert.equal(light.changedRegime,true);
+});
