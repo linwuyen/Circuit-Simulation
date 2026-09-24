@@ -1,0 +1,52 @@
+name: TI engineering learning
+
+on:
+  pull_request:
+    paths:
+      - "learning/ti/**"
+      - "tools/learning/ti-docs.mjs"
+      - "tools/learning/engineering-learning.mjs"
+      - "tests/ti-engineering-learning.test.mjs"
+      - ".github/workflows/ti-learning.yml"
+      - "package.json"
+      - ".gitignore"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-learning-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Validate TI source manifest
+        run: node tools/learning/ti-docs.mjs validate
+      - name: Validate concept graph and scheduler
+        run: node tools/learning/engineering-learning.mjs validate
+      - name: Run focused learning workflow tests
+        run: node --test tests/ti-engineering-learning.test.mjs
+
+  fetch-ti-library:
+    needs: validate-learning-model
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Download all recommended TI documents
+        run: node tools/learning/ti-docs.mjs download --out .learning-cache/ti --concurrency 3
+      - name: Upload verified TI document bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ti-classics-${{ github.run_id }}
+          path: .learning-cache/ti/
+          if-no-files-found: error
+          retention-days: 14
