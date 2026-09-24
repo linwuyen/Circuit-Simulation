@@ -650,27 +650,30 @@
   function renderSpecializedConcept(concept,revealed){
     const host=ensureSpecializedHost();
     host.hidden=true;host.replaceChildren();
-    const workbenches=[root.CircuitTIControlWorkbench,root.CircuitTITimingWorkbench,root.CircuitTIProtectionWorkbench].filter(Boolean);
+    const workbenches=[
+      root.CircuitTIControlWorkbench,
+      root.CircuitTITimingWorkbench,
+      root.CircuitTIProtectionWorkbench,
+      root.CircuitTITopologyWorkbench
+    ].filter(Boolean);
     const workbench=workbenches.find(item=>item.supports(concept.id));
     if(!workbench)return;
+    const meta=workbench===root.CircuitTITimingWorkbench
+      ?{id:"ti-c2000-timing-workbench-v1",boundary:"Deterministic C2000 timing teaching model only. Exact target timing requires TRM plus GPIO/scope evidence."}
+      :workbench===root.CircuitTIProtectionWorkbench
+        ?{id:"ti-pwm-authority-workbench-v1",boundary:"Deterministic PWM authority model only. Hardware trip latency requires target configuration and scope evidence."}
+        :workbench===root.CircuitTITopologyWorkbench
+          ?{id:"ti-topology-constraint-atlas-v1",boundary:"Deterministic topology-transfer model evidence only. Each topology keeps its own declared validity boundary."}
+          :{id:"ti-control-workbench-v1",boundary:"Deterministic teaching/model evidence only. Imported SFRA without provenance is not independent measured evidence."};
     host.hidden=false;
     workbench.mount({
       host,
       conceptId:concept.id,
       revealed,
       onSnapshot:snapshot=>{
-        E.recordMachine("ti:"+concept.id,"ti-control-workbench",snapshot,{
+        E.recordMachine("ti:"+concept.id,meta.id,snapshot,{
           passed:false,
-          model:{
-            id:workbench===root.CircuitTITimingWorkbench?"ti-c2000-timing-workbench-v1":
-              workbench===root.CircuitTIProtectionWorkbench?"ti-pwm-authority-workbench-v1":"ti-control-workbench-v1",
-            version:"1",
-            boundary:workbench===root.CircuitTITimingWorkbench
-              ?"Deterministic C2000 timing teaching model only. Exact target timing requires TRM plus GPIO/scope evidence."
-              :workbench===root.CircuitTIProtectionWorkbench
-                ?"Deterministic PWM authority model only. Hardware trip latency requires target configuration and scope evidence."
-                :"Deterministic teaching/model evidence only. Imported SFRA without provenance is not independent measured evidence."
-          }
+          model:{id:meta.id,version:"1",boundary:meta.boundary}
         });
       }
     });
