@@ -461,3 +461,25 @@ test('Evidence ladder starts unclaimed and cannot promote template evidence', as
   await expect(page.locator('[data-evidence-stage="model"] strong')).toContainText('BLOCKED');
   await expect(page.locator('.ti-evidence-boundary')).toContainText('cannot manufacture BOARD_PASS');
 });
+
+
+test('AI Tutor preserves prediction lock and reads machine evidence after the learner acts', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await openFresh(page);
+
+  await page.getByRole('button', { name: 'AI Tutor' }).click();
+  await expect(page.locator('[data-tutor-status]')).toContainText('PREDICTION LOCK');
+  await expect(page.getByRole('button', { name: 'Copy AI coach packet' })).toBeDisabled();
+
+  await page.locator('input[name="ti-predict"][value="time-first"]').check();
+  await page.getByRole('button', { name: 'Lock prediction' }).click();
+  await page.getByRole('button', { name: 'AI Tutor' }).click();
+  await expect(page.locator('[data-tutor-status]')).toContainText('PRE-REGISTERED');
+  await expect(page.getByRole('button', { name: 'Copy AI coach packet' })).toBeEnabled();
+
+  await page.locator('#ws-control').fill('50');
+  await page.getByRole('button', { name: 'Run first cycle' }).click();
+  await page.getByRole('button', { name: 'AI Tutor' }).click();
+  await expect(page.locator('.ti-tutor-context')).toContainText('available');
+  await expect(page.locator('.ti-tutor-sources')).toContainText('SLVA057');
+});
