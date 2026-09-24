@@ -96,3 +96,33 @@ test('TI Buck workbench keeps circuit scope and tutor in first 1080p viewport an
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
   expect(overflow).toBe(false);
 });
+
+
+test('scope scrubbing drives circuit ON/OFF state and waveform hover maps back to components', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await openFresh(page);
+
+  await page.locator('input[name="ti-predict"][value="time-first"]').check();
+  await page.getByRole('button', { name: 'Lock prediction' }).click();
+  await page.locator('#ws-control').fill('50');
+  await page.getByRole('button', { name: 'Run first cycle' }).click();
+  await page.getByRole('button', { name: 'Ⅱ' }).click();
+
+  const scope=page.locator('#ws-plot');
+  const box=await scope.boundingBox();
+  expect(box).not.toBeNull();
+
+  await page.mouse.click(box.x + box.width * 0.25, box.y + box.height * 0.5);
+  await expect(page.locator('#circuit-state')).toContainText('ON');
+
+  await page.mouse.click(box.x + box.width * 0.8, box.y + box.height * 0.5);
+  await expect(page.locator('#circuit-state')).toContainText('OFF');
+
+  const vl=page.locator('#ws-plot [data-trace="vl"]');
+  await vl.hover({ force: true });
+  await expect(page.locator('.ti-component-hit[data-component="inductor"]')).toHaveClass(/is-preview/);
+
+  await vl.click({ force: true });
+  await expect(page.locator('.ti-component-hit[data-component="inductor"]')).toHaveClass(/is-selected/);
+  await expect(page.locator('#ws-plot [data-trace="vl"]')).toHaveClass(/ti-trace-focus/);
+});
