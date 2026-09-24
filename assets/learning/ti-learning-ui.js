@@ -39,7 +39,7 @@
     load:{label:"R",unit:"Ω",key:"loadOhm",min:1,max:100,step:1,box:[570,96,80,115],help:"負載變輕（R 變大）會降低平均電感電流，可能跨過 BCM 進入 DCM。"}
   };
 
-  let card=null,source=null,record=null,scenario=null,stage=0,phase=.1,running=false,raf=0;
+  let card=null,catalog=[],source=null,record=null,scenario=null,stage=0,phase=.1,running=false,raf=0;
   let dutyPct=25,simConfig={...DEFAULT_CONFIG},selectedComponent="inductor",focusTrace=null,viewMode="first";
 
   function svgEl(tag,attrs={},text=""){
@@ -72,18 +72,24 @@
       fetch("learning/ti/concept-cards.json",{cache:"no-store"}).then(r=>{if(!r.ok)throw Error("Concept Cards 載入失敗");return r.json();}),
       fetch("learning/ti/manifest.json",{cache:"no-store"}).then(r=>{if(!r.ok)throw Error("TI manifest 載入失敗");return r.json();})
     ]);
-    card=cards.cards.find(x=>x.id===C.lesson.id);
+    catalog=cards.cards;\n    card=catalog.find(x=>x.id===C.lesson.id);
     source=manifest.documents.find(x=>x.id===C.lesson.sourceId);
     if(!card||!source)throw Error("TI Buck lesson source closure missing");
   }
   function route(){
     const list=$("workspace-route");if(!list)return;
     list.replaceChildren();
-    const li=document.createElement("li"),b=document.createElement("button");
-    b.type="button";b.textContent="1. Buck 能量流與電流斜率";b.setAttribute("aria-current","step");
-    li.append(b);list.append(li);
+    const concepts=E.load().benchmark?.[STORE_KEY]?.concepts||{};
+    catalog.forEach((item,index)=>{
+      const li=document.createElement("li"),b=document.createElement("button");
+      const unmet=(item.prerequisites||[]).filter(id=>!["pass","transfer"].includes(concepts[id]?.lastResult));
+      b.type="button";b.dataset.conceptId=item.id;b.textContent=(index+1)+". "+item.title;
+      if(item.id===C.lesson.id)b.setAttribute("aria-current","step");
+      else{b.disabled=true;b.dataset.prerequisiteState=unmet.length?"locked":"ready";b.title=unmet.length?"Prerequisite: "+unmet.join(", "):"Web flow pending implementation";}
+      li.append(b);list.append(li);
+    });
     const parent=list.closest("details");
-    if(parent){parent.open=false;parent.querySelector("summary").textContent="Learning path · 1 / 15";}
+    if(parent){parent.open=false;parent.querySelector("summary").textContent="Learning path · 1 / "+catalog.length;}
   }
   function setHeader(){
     const header=document.querySelector(".workspace-header strong");
