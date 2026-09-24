@@ -16,7 +16,11 @@ export async function loadManifest(file = defaultManifest) {
 }
 
 export function sourceUrls(doc) {
-  return [doc.url, ...(doc.fallbackUrls ?? [])].filter(Boolean);
+  const urls = [doc.url, ...(doc.fallbackUrls ?? [])].filter(Boolean);
+  if (/^(?:SL|SS|SPR)[A-Z0-9]+$/i.test(doc.id)) {
+    urls.push(`https://www.ti.com/lit/pdf/${doc.id.toLowerCase()}`);
+  }
+  return [...new Set(urls)];
 }
 
 export function validateManifest(manifest) {
