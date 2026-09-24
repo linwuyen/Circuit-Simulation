@@ -55,12 +55,13 @@
     const tau = 1.2e-3;
     const ts = 1 / p.fsw;
     const delayCycles = t.missedLoads;
-    const queue = Array.from({ length: delayCycles + 1 }, () => p.duty);
-    let y = initialVout;
-    let integrator = p.duty;
-    let duty = p.duty;
     const dutyMin = Number(state.limits?.dutyMin ?? 0.02);
     const dutyMax = Number(state.limits?.dutyMax ?? 0.90);
+    const initialDuty = clamp(p.duty, dutyMin, dutyMax);
+    const queue = Array.from({ length: delayCycles + 1 }, () => initialDuty);
+    let y = initialVout;
+    let integrator = initialDuty;
+    let duty = initialDuty;
     const antiWindup = c.antiWindup !== false;
     let saturatedSamples = 0;
     const phys = [], meas = [], refs = [], duties = [];
