@@ -55,3 +55,16 @@ test("full transient uses the existing generic kernel and stays a teaching surro
   assert.ok(t.trace.at(-1).vOut>0);
   assert.match(t.boundary,/not the buck-steady-v1/);
 });
+
+
+test("Buck transfer conditions preserve the intended engineering direction",()=>{
+  for(const s of Physics.scenarios){
+    const r=Physics.transferCompare(Buck.buck,s.id);
+    if(s.expected==="boundary") assert.equal(r.regime.changed,true);
+    else {
+      const m=r.metrics[s.metric];
+      const direction=m.after>m.before?"up":m.after<m.before?"down":"same";
+      assert.equal(direction,s.expected,s.id);
+    }
+  }
+});
