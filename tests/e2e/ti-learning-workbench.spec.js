@@ -419,3 +419,31 @@ test('topology atlas preserves topology-specific constraints instead of reusing 
   await page.locator('[data-topology="inverter"]').click();
   await expect(page.locator('[data-topology-constraint]')).toContainText('LCL_RESONANCE');
 });
+
+
+test('TI Debug Lab preserves immutable first diagnosis and requires changed-condition verification', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await openFresh(page);
+  await page.getByRole('button', { name: 'TI Debug Lab' }).click();
+  await expect(page.locator('.ti-diagnostic-workbench')).toBeVisible();
+
+  await page.locator('[data-measure="dmm"]').click();
+  await page.locator('[data-measure="timing"]').click();
+
+  const answer=await page.evaluate(()=>CircuitRepairTraining.create(23).reveal().answer);
+  for(const id of answer)await page.locator('input[name="ti-diagnostic-guess"][value="'+id+'"]').check();
+  await page.locator('input[name="ti-diagnostic-evidence"][value="dmm"]').check();
+  await page.locator('input[name="ti-diagnostic-evidence"][value="timing"]').check();
+  await page.locator('[data-diagnostic="submit"]').click();
+
+  await expect(page.locator('[data-diagnostic="submit"]')).toBeDisabled();
+  for(const id of answer)await page.locator('[data-repair="'+id+'"]').click();
+  await page.locator('[data-diagnostic="verify"]').click();
+
+  await expect(page.locator('.ti-diagnostic-verdict')).toContainText('PRACTICE PASS');
+  await expect(page.locator('.ti-diagnostic-verdict')).toContainText('physical PASS');
+  await expect(page.locator('.ti-diagnostic-verdict')).toContainText('transfer PASS');
+
+  const evidence=await page.evaluate(()=>CircuitEvidence.load().machine['ti:diagnostic-practice']);
+  expect(evidence).toBeTruthy();
+});
