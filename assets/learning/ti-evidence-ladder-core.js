@@ -5,11 +5,11 @@
 })(typeof globalThis!=="undefined"?globalThis:this,function(root){
   "use strict";
   const SOFTWARE_STAGES=Object.freeze([
-    {id:"model",label:"Web / deterministic model"},
-    {id:"hostSil",label:"Host SIL"},
-    {id:"hil",label:"Deterministic HIL"},
-    {id:"c2000Compile",label:"C2000 compile"},
-    {id:"linkedImage",label:"C2000 link + Flash image"}
+    {id:"model",label:"Web / deterministic model",claim:"MODEL_EVIDENCE"},
+    {id:"hostSil",label:"Host SIL",claim:"HOST_SIL"},
+    {id:"hil",label:"Deterministic HIL",claim:"DETERMINISTIC_HIL"},
+    {id:"c2000Compile",label:"C2000 compile",claim:"C2000_COMPILE"},
+    {id:"linkedImage",label:"C2000 link + Flash image",claim:"TARGET_IMAGE_EVIDENCE"}
   ]);
   const nonEmpty=v=>typeof v==="string"&&v.trim().length>0;
   const iso=v=>nonEmpty(v)&&Number.isFinite(Date.parse(v));
@@ -29,8 +29,9 @@
       prior=row.pass;
       return row;
     });
-    const highest=[...rows].reverse().find(row=>row.pass)?.id||null;
-    return Object.freeze({rows:Object.freeze(rows),allPassed:rows.every(r=>r.pass),highest});
+    const highestRow=[...rows].reverse().find(row=>row.pass)||null;
+    const stage=highestRow?SOFTWARE_STAGES.find(x=>x.id===highestRow.id):null;
+    return Object.freeze({rows:Object.freeze(rows),allPassed:rows.every(r=>r.pass),highest:highestRow?.id||null,claim:stage?.claim||null});
   }
   function evaluate({software={},boardPackage={},controlBundle={}}={},deps={}){
     const Closure=deps.Closure||root.CircuitPhysicalBoardClosureV1;
@@ -44,7 +45,7 @@
     const claimCeiling=boardPass&&controlPass
       ?"BOARD_PASS + CONTROL_VALIDATION_PASS"
       :boardPass?"BOARD_PASS"
-      :softwareResult.highest?softwareResult.highest.toUpperCase()
+      :softwareResult.claim?softwareResult.claim
       :"UNCLAIMED";
     const blockers=[];
     for(const row of softwareResult.rows.filter(r=>!r.pass))blockers.push("software:"+row.id+" — "+row.reason);
