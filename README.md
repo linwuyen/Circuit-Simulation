@@ -230,3 +230,8 @@ npm run learning:ti:session
 ```
 
 PDF 下載到 gitignored `.learning-cache/ti/`；GitHub `TI engineering learning` workflow 會重新抓取並驗證 PDF payload，產生帶 SHA-256 的 artifact。學習 state 也留在 `.learning-cache/`，不把 raw learner answer 當 repo truth。完整流程見 [`learning/ti/README.md`](learning/ti/README.md)。
+
+
+### GitHub Codespaces fallback
+
+當 GitHub-hosted Actions 因 quota / budget / runner policy 無法配置 runner 時，可直接用 GitHub Codespaces 執行 TI learning bootstrap；不需要本機環境。Codespace 建立後會自動下載／驗證 17 份 TI 文件並產生今日 session。詳見 [`docs/ti-learning-codespaces.md`](docs/ti-learning-codespaces.md)。
