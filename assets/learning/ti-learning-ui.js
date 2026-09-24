@@ -145,6 +145,12 @@
     if(header)header.textContent="TI 工程學習・從預測到波形證據";
     const entry=$("open-ti-learning");
     if(entry){entry.textContent="返回主線";entry.onclick=()=>{location.hash="";location.reload();};}
+    let debug=$("open-ti-debug");
+    if(!debug){
+      debug=document.createElement("button");debug.id="open-ti-debug";debug.type="button";debug.textContent="TI Debug Lab";
+      entry?.after(debug);
+    }
+    debug.onclick=()=>renderDiagnosticLab();
   }
   function renderProgress(){
     const p=$("workspace-progress");if(!p)return;
@@ -715,6 +721,41 @@
       if(Math.min(step,3)===i)b.setAttribute("aria-current","step");
       nav.append(b);
     });
+  }
+  function renderDiagnosticLab(){
+    stopAnimation();
+    document.body.dataset.tiConceptMode="generic";
+    selectedConceptId="__diagnostic__";
+    route();
+    $("setup-panel").hidden=true;$("free-controls").hidden=true;$("concept-note").hidden=true;$("transfer-preview").hidden=true;$("workbench-context-slot").hidden=true;
+    const circuitStage=$("ti-circuit-stage");if(circuitStage)circuitStage.hidden=true;
+    $("lesson-control").hidden=true;
+    const toolbar=$("ti-sim-toolbar");if(toolbar)toolbar.hidden=true;
+    $("ws-plot").hidden=true;$("ws-plot").replaceChildren();$("ws-comparison").textContent="";
+    $("surface-help").hidden=true;$("surface-help").replaceChildren();
+    const host=ensureSpecializedHost();host.hidden=false;host.replaceChildren();
+    $("surface-title").textContent="Unknown System Diagnostic Lab";
+    $("ws-count").textContent="Practice · hidden two-fault machine";
+    $("ws-title").textContent="量什麼，才能最快排掉錯的假設？";
+    $("ws-intro").textContent="Measure → immutable first diagnosis → repair → verify nominal + changed condition.";
+    $("ws-save").textContent="Practice evidence uses the existing V5 machine log; it does not grant independent or board evidence.";
+    const nav=$("ws-steps");nav.replaceChildren();
+    ["Measure","Diagnose","Repair","Verify"].forEach((label,i)=>{const b=document.createElement("button");b.type="button";b.disabled=true;b.textContent=(i+1)+". "+label;nav.append(b);});
+    $("ws-question").replaceChildren();
+    const h=document.createElement("h2");h.textContent="Debug contract";
+    const p=document.createElement("p");p.textContent="最多五次量測；首次 root-cause 判斷不可覆寫；修復後必須在原工況與陌生工況都通過。";
+    $("ws-question").append(h,p);$("ws-feedback").textContent="";$("ws-result").hidden=true;$("explore").hidden=true;$("back-to-lesson").hidden=true;$("ws-hint").hidden=true;$("ws-explanation").hidden=true;
+    const debug=root.CircuitTIDiagnosticWorkbench;
+    if(!debug){host.textContent="Diagnostic workbench dependency missing.";return;}
+    debug.mount({
+      host,
+      seed:23,
+      onSnapshot:snapshot=>E.recordMachine("ti:diagnostic-practice","ti-hidden-repair-v1",snapshot,{
+        passed:false,
+        model:{id:"ti-hidden-repair-v1",version:"1",boundary:"Synthetic hidden two-fault system practice; evidence ceiling practice-only; independentOracle=false."}
+      })
+    });
+    $("workspace-progress").textContent="Diagnostic practice · evidence ceiling PRACTICE_ONLY";
   }
   function renderGenericConcept(id){
     stopAnimation();
