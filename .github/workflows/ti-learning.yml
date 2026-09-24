@@ -1,0 +1,57 @@
+name: TI engineering learning
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat-ti-learning-workflow
+    paths:
+      - ".github/workflows/ti-learning.yml"
+      - "learning/ti/**"
+      - "tools/learning/**"
+      - "assets/learning/ti-learning-*.js"
+      - "assets/learning/workspace.css"
+      - "tests/ti-*.test.mjs"
+      - "tests/e2e/ti-learning-workbench.spec.js"
+      - "learn.html"
+      - "package.json"
+      - "package-lock.json"
+
+permissions:
+  contents: read
+
+jobs:
+  closure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Chromium runtime
+        run: npx playwright install --with-deps chromium
+
+      - name: Run exact-head TI closure
+        run: npm run learning:ti:closure
+
+      - name: Upload TI closure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ti-learning-closure-${{ github.run_id }}
+          path: |
+            .learning-cache/ti/
+            .learning-cache/codespace-bootstrap-report.json
+            .learning-cache/codespace-evidence.md
+            .learning-cache/ti-closure-evidence.md
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14

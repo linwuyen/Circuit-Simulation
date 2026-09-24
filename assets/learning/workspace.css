@@ -7,3 +7,259 @@ body[data-continuous-experiment] .experiment-boundary{font-size:.85rem;color:#42
 body[data-continuous-experiment] #ws-plot{background:#f8fbf5}body[data-continuous-experiment] #ws-plot text{fill:#183a30;font-size:20px;text-shadow:none}@media(max-width:760px){body[data-continuous-experiment] #ws-plot text{font-size:26px}}
 
 body[data-topology-workspace] .surface{position:static}body[data-topology-workspace] .coach label{display:flex;gap:10px;padding:12px 0}body[data-topology-workspace] .coach label input{flex:none}#topology-comparison{overflow-x:auto}#topology-comparison table{border-collapse:collapse;width:100%;font-size:.95rem}#topology-comparison caption{text-align:left;font-weight:650;margin:.75rem 0}#topology-comparison th,#topology-comparison td{padding:.65rem .4rem;border-bottom:1px solid #cbdcd8;text-align:left}#topology-comparison th{font-weight:600}#topology-run{width:100%;margin:.75rem 0}body[data-topology-workspace] .route a{display:inline-block;padding:.5rem}
+
+
+/* TI Engineering Learning uses the existing workspace; Terminal remains verification-only. */
+body[data-ti-learning] .workspace-grid{grid-template-columns:minmax(0,1.35fr) minmax(360px,.85fr)}
+body[data-ti-learning] .surface{position:sticky;top:1rem}
+body[data-ti-learning] #ws-plot{background:#102438}
+body[data-ti-learning] .ti-source{display:grid;gap:.35rem;padding:.8rem 1rem;border:1px solid #bfd5df;border-radius:.7rem;background:#edf5f8}
+body[data-ti-learning] .ti-source a{font-weight:650}
+body[data-ti-learning] .ti-source p{margin:0;font-size:.9rem}
+body[data-ti-learning] .ti-grade{border-left:4px solid #238365;padding:1rem;background:#edf8f1;border-radius:.4rem}
+body[data-ti-learning] .ti-grade strong{font-size:1.25rem}
+body[data-ti-learning][data-ti-running="true"] .flow{animation:ti-current-flow .8s linear infinite}
+@keyframes ti-current-flow{to{stroke-dashoffset:-40}}
+@media(max-width:760px){body[data-ti-learning] .workspace-grid{display:flex;flex-direction:column}body[data-ti-learning] .surface{position:static}}
+
+
+/* TI simulator presentation */
+body[data-ti-learning]{background:#eef3f6}
+body[data-ti-learning] main{max-width:1500px}
+body[data-ti-learning] .route{padding:.45rem .8rem;margin-bottom:.65rem;background:transparent;border-style:dashed}
+body[data-ti-learning] .route:not([open]){opacity:.72}
+body[data-ti-learning] .workspace-grid{grid-template-columns:minmax(0,1.55fr) minmax(330px,.7fr);gap:.75rem}
+body[data-ti-learning] .surface{padding:1rem;border-radius:.8rem}
+body[data-ti-learning] .coach{padding:1rem 1.1rem;border-radius:.8rem;position:sticky;top:1rem}
+body[data-ti-learning] .coach h1{font-size:1.55rem}
+body[data-ti-learning] #ws-intro{font-size:.95rem;color:#496879}
+body[data-ti-learning] #ws-steps{margin:.25rem 0 .6rem}
+body[data-ti-learning] .metrics{display:none}
+body[data-ti-learning] #surface-title{margin-bottom:.25rem}
+body[data-ti-learning] .ti-sim-hud{display:flex;gap:.45rem;flex-wrap:wrap;margin:.25rem 0 .7rem}
+body[data-ti-learning] .ti-sim-hud span{padding:.28rem .5rem;border:1px solid #b8cbd6;border-radius:.38rem;background:#f7fafb;font-size:.82rem}
+body[data-ti-learning] .ti-sim-hud strong{color:#0d675c}
+body[data-ti-learning] .ti-sim-hud .ti-mode{background:#dff3e9;color:#135d4e;border-color:#9bc8b7;font-weight:700}
+body[data-ti-learning] #circuit{max-height:330px;margin:.45rem 0 .55rem}
+body[data-ti-learning] #circuit-state{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.86rem;background:#eaf1f5;padding:.45rem .6rem;border-radius:.4rem}
+body[data-ti-learning] #lesson-control{display:grid;grid-template-columns:1fr;gap:.15rem;margin:.55rem 0}
+body[data-ti-learning] .control{background:#f5f8fa;padding:.45rem .65rem;border-radius:.45rem;border:1px solid #d4e1e7}
+body[data-ti-learning] .ti-sim-toolbar{display:flex;align-items:center;gap:.4rem;margin:.65rem 0 .35rem}
+body[data-ti-learning] .ti-sim-toolbar button{min-height:36px;padding:.3rem .65rem;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-learning] #ti-scope-status{margin-left:auto;font-size:.78rem;color:#567182}
+body[data-ti-learning] #ws-plot{margin:.3rem 0;background:#071a2a;border:1px solid #17384e;min-height:260px}
+body[data-ti-learning] .ti-scope-grid path{stroke:#173248;stroke-width:1}
+body[data-ti-learning] .ti-scope-lock{fill:#7fa1b5!important;font-size:24px!important;font-weight:700}
+body[data-ti-learning] .ti-scope-lock-sub{fill:#66869a!important;font-size:15px!important}
+body[data-ti-learning] #ws-comparison{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.82rem;background:#e8f2f7;border-left-color:#167b91}
+body[data-ti-learning] .ti-source{display:flex;align-items:center;gap:.4rem;padding:.45rem .6rem;background:#f7fafb;border-radius:.4rem;font-size:.8rem}
+body[data-ti-learning] .ti-source p{display:none}
+body[data-ti-learning] #context-words{display:none}
+body[data-ti-learning] #scope-note{font-size:.78rem;color:#5d7380}
+body[data-ti-learning] .coach fieldset{margin:.65rem 0}
+body[data-ti-learning] .coach fieldset label{padding:.45rem .1rem}
+body[data-ti-learning] #ws-question>p{margin:.45rem 0 .6rem}
+body[data-ti-learning] #ws-feedback{font-size:.88rem}
+@media(max-width:900px){
+  body[data-ti-learning] .workspace-grid{grid-template-columns:1fr}
+  body[data-ti-learning] .coach{position:static;order:1}
+  body[data-ti-learning] .surface{order:2}
+}
+
+
+/* TI interactive simulator v2 */
+body[data-ti-learning] main{max-width:min(1760px,96vw)}
+body[data-ti-learning] .workspace-grid{grid-template-columns:minmax(720px,1fr) 360px;gap:10px}
+body[data-ti-learning] .surface{position:static}
+body[data-ti-learning] .coach{width:360px;max-width:100%;position:sticky;top:10px}
+body[data-ti-learning] .route{max-width:none}
+body[data-ti-learning] .eyebrow{display:none}
+body[data-ti-learning] .ti-sim-hud{margin:.2rem 0 .45rem}
+body[data-ti-learning] .ti-hud-chip{min-height:30px;padding:.2rem .45rem;border:1px solid #b6cbd6;border-radius:.38rem;background:#f8fbfc;font-size:.78rem;color:#24485c}
+body[data-ti-learning] button.ti-hud-chip:hover{border-color:#29866d;background:#ecf8f3}
+body[data-ti-learning] .ti-mode{min-height:30px;display:inline-flex;align-items:center;padding:.2rem .55rem}
+body[data-ti-learning] #circuit{max-height:300px}
+body[data-ti-learning] #circuit .ti-component-hit{fill:transparent;stroke:transparent;stroke-width:3;cursor:pointer;pointer-events:all}
+body[data-ti-learning] #circuit .ti-component-hit:hover{fill:rgba(99,223,188,.06);stroke:#63dfbc}
+body[data-ti-learning] #circuit .ti-component-hit.is-selected{fill:rgba(240,201,103,.07);stroke:#f0c967}
+body[data-ti-learning] .ti-component-inspector{display:grid;grid-template-columns:minmax(180px,.6fr) minmax(220px,1fr);gap:.4rem .8rem;align-items:center;margin:.25rem 0 .5rem;padding:.5rem .65rem;background:#eaf1f5;border-radius:.45rem;border:1px solid #cfdee5}
+body[data-ti-learning] .ti-inspector-head{display:flex;gap:.5rem;align-items:center}
+body[data-ti-learning] .ti-inspector-head span{font-size:.7rem;text-transform:uppercase;color:#6a7e89}
+body[data-ti-learning] .ti-component-inspector p{grid-column:1/-1;margin:0;font-size:.8rem;color:#476575}
+body[data-ti-learning] .ti-param-row{grid-column:1/-1;display:grid;grid-template-columns:1fr 80px;gap:.6rem;align-items:center}
+body[data-ti-learning] .ti-param-row input{width:100%}
+body[data-ti-learning] .ti-param-row output{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;text-align:right}
+body[data-ti-learning] .ti-inspector-note{font-size:.8rem;color:#567182}
+body[data-ti-learning] .ti-causal-chain{display:flex;align-items:center;gap:.3rem;flex-wrap:wrap;margin:.45rem 0}
+body[data-ti-learning] .ti-causal-chain button{min-height:32px;padding:.22rem .48rem;border-radius:999px;font-size:.76rem;background:#f4f8fa}
+body[data-ti-learning] .ti-causal-chain button:hover{background:#e0f4ec;border-color:#3f9a7f}
+body[data-ti-learning] .ti-causal-arrow{color:#6f8794}
+body[data-ti-learning] .ti-causal-lock{font-size:.76rem;color:#718794;border:1px dashed #b8cad3;padding:.3rem .55rem;border-radius:999px}
+body[data-ti-learning] #ws-plot{min-height:360px}
+body[data-ti-learning] #ws-plot .ti-trace{fill:none;stroke-width:3;transition:opacity .16s,stroke-width .16s}
+body[data-ti-learning] #ws-plot .ti-trace-pwm{stroke:#f0c967}
+body[data-ti-learning] #ws-plot .ti-trace-vl{stroke:#6bb6ff}
+body[data-ti-learning] #ws-plot .ti-trace-il{stroke:#63dfbc}
+body[data-ti-learning] #ws-plot .ti-trace-old{stroke:#8da1b1;stroke-dasharray:6 5;stroke-width:2}
+body[data-ti-learning] #ws-plot .ti-trace-vout{stroke:#d9a6ff}
+body[data-ti-learning] #ws-plot .ti-trace-dim{opacity:.18}
+body[data-ti-learning] #ws-plot .ti-trace-focus{stroke-width:5}
+body[data-ti-learning] #ws-plot .ti-trace-label{fill:#c3d9e7;font:700 15px ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-learning] #ws-plot .ti-value-label{fill:#9eb9c9;font:12px ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-learning] #ws-plot .ti-time-label{fill:#c7d7e1;font:11px ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-learning] #ws-plot .ti-timing{fill:none;stroke-width:1.5;stroke-dasharray:5 4}
+body[data-ti-learning] #ws-plot .ti-timing-old{stroke:#8499a8}
+body[data-ti-learning] #ws-plot .ti-timing-new{stroke:#f0c967}
+body[data-ti-learning] #ws-plot .ti-scope-cursor{stroke:#ff7e79;stroke-width:1.3;opacity:.8}
+body[data-ti-learning] .coach fieldset{border:0;padding:0;margin:.45rem 0}
+body[data-ti-learning] .coach fieldset legend{font-size:.72rem;color:#6b808c;text-transform:uppercase;margin-bottom:.2rem}
+body[data-ti-learning] .coach fieldset label{display:flex;align-items:flex-start;gap:.45rem;margin:.3rem 0;padding:.5rem .55rem;border:1px solid #d0dfe7;border-radius:.45rem;background:#f9fbfc;line-height:1.35}
+body[data-ti-learning] .coach fieldset label:has(input:checked){border-color:#2a8b70;background:#e9f7f1}
+body[data-ti-learning] .coach fieldset input{flex:none;margin-top:.2rem}
+body[data-ti-learning] #ws-question h2{font-size:1rem;margin:.45rem 0 .2rem}
+body[data-ti-learning] #ws-question>p{font-size:.88rem}
+body[data-ti-learning] #ws-steps button{min-height:32px;font-size:.72rem;padding:.25rem .45rem}
+body[data-ti-learning] #deeper{display:none}
+body[data-ti-learning] #ws-save{font-size:.74rem;color:#687e8a}
+@media(max-width:1100px){
+  body[data-ti-learning] main{max-width:100%}
+  body[data-ti-learning] .workspace-grid{grid-template-columns:1fr}
+  body[data-ti-learning] .coach{width:auto;position:static;order:1}
+  body[data-ti-learning] .surface{order:2}
+}
+
+
+/* TI compact one-screen workbench v3 */
+body[data-ti-learning][data-ti-workbench="compact"] header.workspace-header{
+  min-height:56px;padding:.45rem max(1rem,calc((100% - 1500px)/2));
+}
+body[data-ti-learning][data-ti-workbench="compact"] header.workspace-header p{font-size:.72rem}
+body[data-ti-learning][data-ti-workbench="compact"] main{padding:.55rem max(.6rem,2vw);max-width:min(1780px,98vw)}
+body[data-ti-learning][data-ti-workbench="compact"] .route{display:none}
+body[data-ti-learning][data-ti-workbench="compact"] .workspace-grid{
+  grid-template-columns:minmax(760px,1fr) 350px;gap:8px;align-items:start
+}
+body[data-ti-learning][data-ti-workbench="compact"] .surface{
+  padding:.65rem .7rem .55rem;border-radius:.65rem
+}
+body[data-ti-learning][data-ti-workbench="compact"] .coach{
+  width:350px;padding:.7rem .8rem;border-radius:.65rem;top:.55rem
+}
+body[data-ti-learning][data-ti-workbench="compact"] .coach h1{font-size:1.18rem;line-height:1.25;margin:.15rem 0 .25rem}
+body[data-ti-learning][data-ti-workbench="compact"] #ws-intro{font-size:.76rem;margin:.15rem 0 .35rem}
+body[data-ti-learning][data-ti-workbench="compact"] #surface-title{font-size:1rem;margin:.05rem 0}
+body[data-ti-learning][data-ti-workbench="compact"] .ti-sim-hud{gap:.25rem;margin:.15rem 0 .3rem}
+body[data-ti-learning][data-ti-workbench="compact"] .ti-hud-chip,
+body[data-ti-learning][data-ti-workbench="compact"] .ti-mode{
+  min-height:25px;padding:.08rem .32rem;font-size:.68rem;border-radius:.3rem
+}
+
+body[data-ti-learning][data-ti-workbench="compact"] .ti-circuit-stage{
+  position:relative;margin:.2rem 0 .28rem;border-radius:.52rem;overflow:hidden;background:#102438
+}
+body[data-ti-learning][data-ti-workbench="compact"] #circuit{
+  margin:0;max-height:205px;min-height:190px;border-radius:.52rem
+}
+body[data-ti-learning][data-ti-workbench="compact"] #circuit-state{
+  position:absolute;left:8px;bottom:7px;z-index:4;margin:0;padding:.22rem .38rem;
+  border:1px solid rgba(158,179,197,.35);background:rgba(5,22,36,.78);color:#d6e7f1;
+  font-size:.67rem;border-radius:.3rem;backdrop-filter:blur(3px)
+}
+body[data-ti-learning][data-ti-workbench="compact"] .ti-component-inspector{
+  position:absolute;right:8px;top:8px;z-index:5;width:min(270px,36%);
+  display:grid;grid-template-columns:1fr auto;gap:.18rem .4rem;margin:0;padding:.38rem .48rem;
+  background:rgba(239,247,250,.94);box-shadow:0 4px 18px rgba(0,0,0,.16);
+  border-radius:.42rem;border:1px solid #b9d0dc;backdrop-filter:blur(5px)
+}
+body[data-ti-learning][data-ti-workbench="compact"] .ti-inspector-head{grid-column:1/-1;gap:.35rem}
+body[data-ti-learning][data-ti-workbench="compact"] .ti-inspector-head strong{font-size:.78rem}
+body[data-ti-learning][data-ti-workbench="compact"] .ti-inspector-head span{font-size:.58rem}
+body[data-ti-learning][data-ti-workbench="compact"] .ti-component-inspector p{
+  grid-column:1/-1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.66rem
+}
+body[data-ti-learning][data-ti-workbench="compact"] .ti-param-row{
+  grid-column:1/-1;grid-template-columns:1fr 58px;gap:.35rem
+}
+body[data-ti-learning][data-ti-workbench="compact"] .ti-param-row input{min-height:24px}
+body[data-ti-learning][data-ti-workbench="compact"] .ti-param-row output{font-size:.66rem}
+
+body[data-ti-learning][data-ti-workbench="compact"] #lesson-control{margin:.25rem 0 .22rem;gap:0}
+body[data-ti-learning][data-ti-workbench="compact"] #ws-control-label{font-size:.7rem}
+body[data-ti-learning][data-ti-workbench="compact"] .control{padding:.2rem .4rem}
+body[data-ti-learning][data-ti-workbench="compact"] .control input{min-height:28px}
+body[data-ti-learning][data-ti-workbench="compact"] #ws-target{font-size:.67rem;margin:.12rem 0}
+
+body[data-ti-learning][data-ti-workbench="compact"] .ti-sim-toolbar{
+  min-height:34px;margin:.2rem 0 .2rem;padding:.15rem .2rem;gap:.25rem;
+  border-top:1px solid #d3e1e7;border-bottom:1px solid #d3e1e7
+}
+body[data-ti-learning][data-ti-workbench="compact"] .ti-scope-title{
+  font:700 .68rem ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.08em;color:#496879
+}
+body[data-ti-learning][data-ti-workbench="compact"] .ti-sim-toolbar button{
+  min-width:31px;min-height:28px;padding:.05rem .32rem;border-radius:.35rem
+}
+body[data-ti-learning][data-ti-workbench="compact"] .ti-causal-chain{
+  flex:1;margin:0;gap:.18rem;justify-content:center;flex-wrap:nowrap
+}
+body[data-ti-learning][data-ti-workbench="compact"] .ti-causal-chain button{
+  min-height:26px;padding:.08rem .34rem;font-size:.65rem;white-space:nowrap
+}
+body[data-ti-learning][data-ti-workbench="compact"] .ti-causal-lock{
+  font-size:.63rem;padding:.18rem .4rem;white-space:nowrap
+}
+body[data-ti-learning][data-ti-workbench="compact"] #ti-scope-status{font-size:.62rem;white-space:nowrap}
+
+body[data-ti-learning][data-ti-workbench="compact"] #ws-plot{
+  min-height:0;height:min(31vh,300px);margin:.18rem 0 .18rem;border-radius:.5rem
+}
+body[data-ti-learning][data-ti-workbench="compact"] #ws-comparison{
+  margin:.18rem 0;padding:.32rem .45rem;font-size:.68rem;line-height:1.35
+}
+body[data-ti-learning][data-ti-workbench="compact"] #surface-help{
+  display:inline-block;max-width:70%;vertical-align:top
+}
+body[data-ti-learning][data-ti-workbench="compact"] .ti-source{
+  padding:.22rem .35rem;font-size:.65rem;border:0;background:transparent
+}
+body[data-ti-learning][data-ti-workbench="compact"] .surface>details{float:right;margin:.12rem 0;font-size:.65rem}
+body[data-ti-learning][data-ti-workbench="compact"] .surface>details[open]{float:none}
+body[data-ti-learning][data-ti-workbench="compact"] #scope-note{font-size:.65rem}
+
+body[data-ti-learning][data-ti-workbench="compact"] #ws-steps{margin:.18rem 0 .35rem;gap:.2rem}
+body[data-ti-learning][data-ti-workbench="compact"] #ws-steps button{
+  min-height:27px;padding:.12rem .32rem;font-size:.62rem
+}
+body[data-ti-learning][data-ti-workbench="compact"] #ws-question h2{font-size:.86rem;margin:.25rem 0 .1rem}
+body[data-ti-learning][data-ti-workbench="compact"] #ws-question>p{font-size:.73rem;margin:.25rem 0 .35rem}
+body[data-ti-learning][data-ti-workbench="compact"] .coach fieldset{margin:.25rem 0}
+body[data-ti-learning][data-ti-workbench="compact"] .coach fieldset legend{font-size:.62rem}
+body[data-ti-learning][data-ti-workbench="compact"] .coach fieldset label{
+  min-height:34px;margin:.18rem 0;padding:.32rem .38rem;font-size:.72rem
+}
+body[data-ti-learning][data-ti-workbench="compact"] .coach button.primary{min-height:34px;padding:.3rem .55rem;font-size:.74rem}
+body[data-ti-learning][data-ti-workbench="compact"] #ws-feedback{font-size:.7rem;min-height:1rem}
+body[data-ti-learning][data-ti-workbench="compact"] #ws-save{margin:.3rem 0 0;font-size:.62rem}
+body[data-ti-learning][data-ti-workbench="compact"] .toolbar{margin:.3rem 0}
+
+@media(max-width:1150px){
+  body[data-ti-learning][data-ti-workbench="compact"] .workspace-grid{grid-template-columns:1fr}
+  body[data-ti-learning][data-ti-workbench="compact"] .coach{width:auto;position:static;order:1}
+  body[data-ti-learning][data-ti-workbench="compact"] .surface{order:2}
+  body[data-ti-learning][data-ti-workbench="compact"] .ti-component-inspector{width:min(300px,44%)}
+}
+@media(max-width:760px){
+  body[data-ti-learning][data-ti-workbench="compact"] #circuit{min-height:175px}
+  body[data-ti-learning][data-ti-workbench="compact"] .ti-component-inspector{
+    position:static;width:auto;margin:.25rem;background:#eef5f8
+  }
+  body[data-ti-learning][data-ti-workbench="compact"] .ti-causal-chain{overflow-x:auto;justify-content:flex-start}
+  body[data-ti-learning][data-ti-workbench="compact"] #ws-plot{height:300px}
+}
+
+body[data-ti-learning] #circuit .ti-component-hit.is-preview{
+  fill:rgba(99,223,188,.11);stroke:#63dfbc;stroke-width:5
+}
+body[data-ti-learning] #ws-plot [data-trace]{cursor:crosshair;pointer-events:stroke}
+body[data-ti-learning] #ws-plot [data-trace]:focus-visible{outline:none;filter:drop-shadow(0 0 4px currentColor)}
+body[data-ti-learning] #ws-plot{touch-action:none}

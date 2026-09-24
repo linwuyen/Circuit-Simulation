@@ -1,0 +1,536 @@
+{
+  "version": 1,
+  "cards": [
+    {
+      "id": "buck-energy-flow",
+      "title": "Buck energy flow and current slope",
+      "sourceIds": [
+        "SLVA057"
+      ],
+      "prerequisites": [],
+      "problem": "Predict current and capacitor behavior from switch state before using steady-state formulas.",
+      "model": {
+        "physics": "Switch state sets inductor voltage; v=L·di/dt sets current slope; capacitor current is the mismatch between inductor and load current.",
+        "math": [
+          "vL=L·di/dt",
+          "iC=iL-iLoad"
+        ],
+        "implementation": "Sampling only has meaning relative to PWM state and ripple phase.",
+        "evidence": "Scope switch node and inductor current together; verify slope sign and approximate magnitude."
+      },
+      "projectLinks": [
+        "0_buck_converter_",
+        "19_c2000_buck_firmware_lab"
+      ],
+      "questions": [
+        {
+          "mode": "predict",
+          "prompt": "Vin is fixed and duty increases slightly in CCM. Before Vout settles, what changes first in the inductor voltage/current waveform?"
+        },
+        {
+          "mode": "diagnose",
+          "prompt": "Measured ON-time inductor-current slope is half the model prediction. What are the highest-information checks before changing gains?"
+        },
+        {
+          "mode": "transfer",
+          "prompt": "How does the same energy-flow reasoning change for a synchronous buck during dead time?"
+        }
+      ]
+    },
+    {
+      "id": "boost-rhpz",
+      "title": "Boost CCM right-half-plane zero",
+      "sourceIds": [
+        "SLVA061",
+        "SLUP173"
+      ],
+      "prerequisites": [
+        "buck-energy-flow"
+      ],
+      "problem": "Explain why duty can initially move output opposite the eventual steady-state direction.",
+      "model": {
+        "physics": "More ON time stores energy while temporarily reducing diode delivery to the output; the output capacitor may discharge before extra energy arrives.",
+        "math": [
+          "ωRHPZ≈R·(1-D)^2/L"
+        ],
+        "implementation": "Voltage-loop crossover must respect non-minimum-phase behavior.",
+        "evidence": "Look for inverse transient response and confirm with frequency response."
+      },
+      "projectLinks": [
+        "17_power_topology_control"
+      ],
+      "questions": [
+        {
+          "mode": "predict",
+          "prompt": "For a CCM boost, duty steps upward. What can Vout do first, and why?"
+        },
+        {
+          "mode": "diagnose",
+          "prompt": "A boost voltage loop becomes fragile as load changes. How can movement of the RHPZ explain it?"
+        },
+        {
+          "mode": "transfer",
+          "prompt": "Why does the RHPZ constrain a PFC voltage loop differently from its current loop?"
+        }
+      ]
+    },
+    {
+      "id": "current-mode-slope-comp",
+      "title": "Peak current-mode subharmonic and slope compensation",
+      "sourceIds": [
+        "SLUA110",
+        "SLUA101",
+        "SLUA119"
+      ],
+      "prerequisites": [
+        "buck-energy-flow"
+      ],
+      "problem": "Separate cycle-to-cycle current-mode instability from ordinary low-frequency loop instability.",
+      "model": {
+        "physics": "At high duty ratio, peak-current perturbations can grow on alternating cycles; an added ramp changes sampled-data dynamics.",
+        "math": [],
+        "implementation": "Comparator/current-sense ramp and PWM termination form a fast inner mechanism independent of a slow outer-loop tuning story.",
+        "evidence": "Look for alternating-cycle peak current/duty patterns before blaming PI bandwidth."
+      },
+      "projectLinks": [
+        "17_power_topology_control",
+        "19_c2000_buck_firmware_lab"
+      ],
+      "questions": [
+        {
+          "mode": "predict",
+          "prompt": "If duty moves well above 50% in peak current mode, what cycle-to-cycle waveform pattern can appear?"
+        },
+        {
+          "mode": "diagnose",
+          "prompt": "You see alternating high/low peak currents but the low-frequency Bode plot looks acceptable. What mechanism should you inspect first?"
+        },
+        {
+          "mode": "transfer",
+          "prompt": "How would a digital implementation preserve the intent of slope compensation?"
+        }
+      ]
+    },
+    {
+      "id": "average-current-mode",
+      "title": "Average current-mode inner-loop model",
+      "sourceIds": [
+        "SLUA079"
+      ],
+      "prerequisites": [
+        "buck-energy-flow"
+      ],
+      "problem": "Understand why average-current regulation uses a compensated current loop rather than only cycle-by-cycle peak termination.",
+      "model": {
+        "physics": "The sensed current is treated as a controlled dynamic variable across cycles, not merely a protection threshold.",
+        "math": [],
+        "implementation": "Sampling, filtering, compensator bandwidth and PWM update timing jointly define the current-loop plant.",
+        "evidence": "Use current-reference steps and frequency response to verify tracking and margin."
+      },
+      "projectLinks": [
+        "10.acmc-pro_power_simulator",
+        "17_power_topology_control"
+      ],
+      "questions": [
+        {
+          "mode": "predict",
+          "prompt": "If the current reference steps up, which signals should move first before the output-voltage loop reacts?"
+        },
+        {
+          "mode": "diagnose",
+          "prompt": "The current-loop command looks correct but measured line/current shaping lags badly. Which timing and bandwidth checks come before retuning?"
+        },
+        {
+          "mode": "transfer",
+          "prompt": "Map average-current-mode reasoning from a generic converter into a CCM boost PFC."
+        }
+      ]
+    },
+    {
+      "id": "loop-stability",
+      "title": "Loop crossover and stability margin",
+      "sourceIds": [
+        "SLUP173"
+      ],
+      "prerequisites": [
+        "buck-energy-flow"
+      ],
+      "problem": "Choose crossover and compensation from plant dynamics and delay rather than gain trial-and-error.",
+      "model": {
+        "physics": "Poles, zeros and delay shape magnitude and phase; usable bandwidth must stay inside physical and sampled-data limits.",
+        "math": [],
+        "implementation": "ADC, compute, PWM update and filtering contribute delay/phase loss.",
+        "evidence": "SFRA or another frequency-response measurement must agree with the model inside stated uncertainty."
+      },
+      "projectLinks": [
+        "4_PI",
+        "16_control_transforms",
+        "19_c2000_buck_firmware_lab"
+      ],
+      "questions": [
+        {
+          "mode": "predict",
+          "prompt": "If total digital delay increases while controller coefficients stay fixed, what happens to phase margin near crossover?"
+        },
+        {
+          "mode": "diagnose",
+          "prompt": "A loop passes steady-state regulation but rings on load steps. What measurements separate low damping from saturation or timing delay?"
+        },
+        {
+          "mode": "transfer",
+          "prompt": "How would crossover limits differ for Buck, Boost CCM and LLC?"
+        }
+      ]
+    },
+    {
+      "id": "pi-zero-placement",
+      "title": "PI zero placement and saturation behavior",
+      "sourceIds": [
+        "SSZTCG3",
+        "SSZTCG4"
+      ],
+      "prerequisites": [
+        "loop-stability"
+      ],
+      "problem": "Reason about Kp, Ki, PI zero and saturation as a dynamic system, not two knobs.",
+      "model": {
+        "physics": "P action reacts immediately; I action accumulates error; their ratio places a zero and saturation can store unwanted integral state.",
+        "math": [],
+        "implementation": "Discrete implementation must define Ts, scaling, limits and anti-windup behavior.",
+        "evidence": "Use reference/load steps plus logged error, controller output and saturation flags."
+      },
+      "projectLinks": [
+        "4_PI",
+        "19_c2000_buck_firmware_lab"
+      ],
+      "questions": [
+        {
+          "mode": "predict",
+          "prompt": "If Ki increases with Kp and Ts fixed, what changes in low-frequency behavior and PI-zero location?"
+        },
+        {
+          "mode": "diagnose",
+          "prompt": "Output recovers slowly after a large saturation event although small-signal tuning is good. What controller-state issue do you inspect?"
+        },
+        {
+          "mode": "transfer",
+          "prompt": "How do you translate the same PI intent when control rate changes by 2×?"
+        }
+      ]
+    },
+    {
+      "id": "psfb-zvs-energy",
+      "title": "PSFB ZVS commutation energy",
+      "sourceIds": [
+        "SLUP414"
+      ],
+      "prerequisites": [
+        "buck-energy-flow"
+      ],
+      "problem": "Predict when phase-shifted full bridge loses ZVS instead of treating phase shift as an ideal duty command.",
+      "model": {
+        "physics": "ZVS requires enough circulating/inductive energy to charge/discharge switch capacitances during commutation.",
+        "math": [],
+        "implementation": "Dead time, phase shift, current direction and load determine whether commanded timing produces the intended transition.",
+        "evidence": "Measure switch-node transition and device voltage/current timing across load."
+      },
+      "projectLinks": [
+        "17_power_topology_control"
+      ],
+      "questions": [
+        {
+          "mode": "predict",
+          "prompt": "As PSFB load becomes very light, what happens to ZVS margin and why?"
+        },
+        {
+          "mode": "diagnose",
+          "prompt": "A PSFB is efficient at full load but hard-switches at light load. Which energy/timing variables do you inspect first?"
+        },
+        {
+          "mode": "transfer",
+          "prompt": "How would this ZVS-energy viewpoint change the firmware limits on phase command?"
+        }
+      ]
+    },
+    {
+      "id": "llc-operating-point",
+      "title": "LLC normalized operating point",
+      "sourceIds": [
+        "SLUP263"
+      ],
+      "prerequisites": [
+        "buck-energy-flow"
+      ],
+      "problem": "Treat LLC control as movement through a resonant gain surface, not as linear duty control.",
+      "model": {
+        "physics": "Tank gain and circulating current depend on normalized frequency, Ln, Q/load and operating region.",
+        "math": [],
+        "implementation": "Frequency command needs safe bounds and awareness that plant dynamics change with operating point.",
+        "evidence": "Validate gain/current/soft-switching over input and load corners."
+      },
+      "projectLinks": [
+        "17_power_topology_control"
+      ],
+      "questions": [
+        {
+          "mode": "predict",
+          "prompt": "If switching frequency moves farther above resonance at the same load, what qualitative change do you expect in gain?"
+        },
+        {
+          "mode": "diagnose",
+          "prompt": "An LLC loop is stable at one load and poor at another. What plant dependency should be suspected before retuning one global PI?"
+        },
+        {
+          "mode": "transfer",
+          "prompt": "How does LLC frequency control differ fundamentally from Buck duty control?"
+        }
+      ]
+    },
+    {
+      "id": "llc-loop-measurement",
+      "title": "LLC feedback-loop measurement",
+      "sourceIds": [
+        "SLUA582A",
+        "SLUP173"
+      ],
+      "prerequisites": [
+        "llc-operating-point",
+        "loop-stability"
+      ],
+      "problem": "Design and verify an LLC loop whose plant changes with operating point.",
+      "model": {
+        "physics": "Frequency-controlled resonant plant dynamics vary with input/load and cannot be represented by one universal static gain.",
+        "math": [],
+        "implementation": "Injection amplitude, operating point and control limits must keep measurement in the intended local regime.",
+        "evidence": "Compare measured Bode response at multiple meaningful corners."
+      },
+      "projectLinks": [
+        "17_power_topology_control"
+      ],
+      "questions": [
+        {
+          "mode": "predict",
+          "prompt": "If load changes significantly, should you expect the same LLC loop-gain curve? Why?"
+        },
+        {
+          "mode": "diagnose",
+          "prompt": "An SFRA result changes drastically when injection level increases. What does that say about linearization or saturation?"
+        },
+        {
+          "mode": "transfer",
+          "prompt": "How would you define a minimum set of LLC operating points for control qualification?"
+        }
+      ]
+    },
+    {
+      "id": "epwm-signal-path",
+      "title": "C2000 ePWM signal path and update timing",
+      "sourceIds": [
+        "SPRAD12A"
+      ],
+      "prerequisites": [
+        "buck-energy-flow"
+      ],
+      "problem": "Know when a software control output actually becomes a pin transition.",
+      "model": {
+        "physics": "Time-base, compare, action qualifier, dead-band, sync, event trigger and shadow load form a deterministic hardware pipeline.",
+        "math": [],
+        "implementation": "Controller writes are not equivalent to immediate pin changes; shadow-load and event-trigger settings define commit time.",
+        "evidence": "Scope SOC/ISR markers and PWM edge to measure sample→compute→commit timing."
+      },
+      "projectLinks": [
+        "11.c2000_dds_dashboard",
+        "19_c2000_buck_firmware_lab"
+      ],
+      "questions": [
+        {
+          "mode": "predict",
+          "prompt": "If CMPA is written just after the configured shadow-load event, when can the new duty become visible?"
+        },
+        {
+          "mode": "diagnose",
+          "prompt": "Calculated duty updates every ISR, but the pin changes one cycle later than expected. Which ePWM stages/configurations do you inspect?"
+        },
+        {
+          "mode": "transfer",
+          "prompt": "Map ePWM update semantics into a PSFB phase-shift command path."
+        }
+      ]
+    },
+    {
+      "id": "trip-zone-authority",
+      "title": "C2000 Trip Zone hardware safety authority",
+      "sourceIds": [
+        "SPRAD12A"
+      ],
+      "prerequisites": [
+        "epwm-signal-path"
+      ],
+      "problem": "Ensure fast faults can force a safe PWM state without waiting for firmware scheduling.",
+      "model": {
+        "physics": "Hardware trip logic can veto PWM independently of CPU execution.",
+        "math": [],
+        "implementation": "Software owns configuration, diagnosis and restart policy; hardware owns the immediate safety action when configured.",
+        "evidence": "Inject a fault and measure fault edge→PWM-safe latency and latched status."
+      },
+      "projectLinks": [
+        "14_power_protection",
+        "19_c2000_buck_firmware_lab"
+      ],
+      "questions": [
+        {
+          "mode": "predict",
+          "prompt": "A comparator fault arrives halfway through a PWM period. How should a hardware trip path differ from an ISR-only shutdown?"
+        },
+        {
+          "mode": "diagnose",
+          "prompt": "Fault status is logged but PWM remains active too long. What ownership/path checks come first?"
+        },
+        {
+          "mode": "transfer",
+          "prompt": "How would you carry this safety-authority pattern into another MCU/peripheral?"
+        }
+      ]
+    },
+    {
+      "id": "dcl-controller-runtime",
+      "title": "C2000 DCL controller runtime",
+      "sourceIds": [
+        "SPRUID3"
+      ],
+      "prerequisites": [
+        "pi-zero-placement"
+      ],
+      "problem": "Use a tested controller implementation without losing execution-rate, limits and numeric meaning.",
+      "model": {
+        "physics": "The mathematical controller only matches reality if sample time, coefficient convention, saturation and numeric precision match assumptions.",
+        "math": [],
+        "implementation": "Choose CPU/CLA implementation and call site based on deterministic control ownership.",
+        "evidence": "Compare known vectors and closed-loop response against an independent model."
+      },
+      "projectLinks": [
+        "4_PI",
+        "19_c2000_buck_firmware_lab"
+      ],
+      "questions": [
+        {
+          "mode": "predict",
+          "prompt": "If the DCL controller is called at half the designed rate without coefficient changes, what behavior becomes inconsistent?"
+        },
+        {
+          "mode": "diagnose",
+          "prompt": "A refactor swaps controller implementation but steady-state looks fine. What dynamic regression evidence do you require?"
+        },
+        {
+          "mode": "transfer",
+          "prompt": "How do you migrate the same control law between CPU and CLA while preserving semantics?"
+        }
+      ]
+    },
+    {
+      "id": "sfra-measurement",
+      "title": "C2000 SFRA measurement discipline",
+      "sourceIds": [
+        "SPRUIK4A",
+        "SLUP173"
+      ],
+      "prerequisites": [
+        "loop-stability"
+      ],
+      "problem": "Measure plant/open-loop response without mistaking a disturbed or saturated operating point for linear small-signal truth.",
+      "model": {
+        "physics": "A small perturbation probes local dynamics; too large changes the operating point, too small loses SNR.",
+        "math": [],
+        "implementation": "Injection location, amplitude, frequency range and run-time integration determine what transfer function is measured.",
+        "evidence": "Cross-check measured magnitude/phase with model and repeatability."
+      },
+      "projectLinks": [
+        "16_control_transforms",
+        "19_c2000_buck_firmware_lab"
+      ],
+      "questions": [
+        {
+          "mode": "predict",
+          "prompt": "What happens to an SFRA result if injection amplitude is large enough to hit duty saturation?"
+        },
+        {
+          "mode": "diagnose",
+          "prompt": "Measured phase is noisy only at high frequency. What timing/SNR/bandwidth checks do you make before trusting the plot?"
+        },
+        {
+          "mode": "transfer",
+          "prompt": "How would you use the same measurement discipline on PFC and LLC?"
+        }
+      ]
+    },
+    {
+      "id": "cla-ownership",
+      "title": "CLA task ownership and deterministic offload",
+      "sourceIds": [
+        "C2000-CLA-GUIDE"
+      ],
+      "prerequisites": [
+        "epwm-signal-path"
+      ],
+      "problem": "Offload control work without creating hidden data races or ambiguous ownership.",
+      "model": {
+        "physics": "Parallel execution helps only when producer/consumer timing and shared-data ownership are explicit.",
+        "math": [],
+        "implementation": "Define task trigger, memory ownership, handoff and fault behavior before moving code to CLA.",
+        "evidence": "Use timing markers, stale-data detection and vector equivalence between CPU and CLA paths."
+      },
+      "projectLinks": [
+        "19_c2000_buck_firmware_lab"
+      ],
+      "questions": [
+        {
+          "mode": "predict",
+          "prompt": "If CPU writes a command while CLA reads the same structure without a handoff contract, what classes of failure are possible?"
+        },
+        {
+          "mode": "diagnose",
+          "prompt": "CLA offload lowers average CPU load but occasional control glitches appear. What ownership/timing evidence do you collect?"
+        },
+        {
+          "mode": "transfer",
+          "prompt": "How would you decide which 100 kHz control work belongs on CLA versus CPU?"
+        }
+      ]
+    },
+    {
+      "id": "c28x-wcet-evidence",
+      "title": "C28x WCET-oriented optimization",
+      "sourceIds": [
+        "C2000-C28X-OPT"
+      ],
+      "prerequisites": [
+        "epwm-signal-path"
+      ],
+      "problem": "Optimize a hard real-time path from measured worst-case timing, not code aesthetics.",
+      "model": {
+        "physics": "Deadline correctness depends on the longest relevant path, memory behavior, compiler output and interrupt interaction.",
+        "math": [],
+        "implementation": "Profile exact build/configuration, inspect generated code when needed, and preserve safety/fault latency.",
+        "evidence": "Measure cycle count/WCET with representative paths and regression bounds."
+      },
+      "projectLinks": [
+        "6.10μs 高頻控制迴路模擬器",
+        "19_c2000_buck_firmware_lab"
+      ],
+      "questions": [
+        {
+          "mode": "predict",
+          "prompt": "Average ISR time drops after an optimization, but the maximum is unchanged. Has deterministic margin improved?"
+        },
+        {
+          "mode": "diagnose",
+          "prompt": "A compiler change makes a 100 kHz ISR intermittently miss timing. What evidence do you gather before source-level rewrites?"
+        },
+        {
+          "mode": "transfer",
+          "prompt": "How do you turn an optimization-guide idea into a reversible ASR5K timing experiment?"
+        }
+      ]
+    }
+  ]
+}

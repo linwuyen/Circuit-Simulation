@@ -3,7 +3,13 @@
   "private": true,
   "scripts": {
     "test": "node tools/run-tests.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "learning:ti:validate": "node tools/learning/ti-docs.mjs validate && node tools/learning/engineering-learning.mjs validate && node --test tests/ti-engineering-learning.test.mjs tests/ti-learning-web.test.mjs",
+    "learning:ti:download": "node tools/learning/ti-docs.mjs download",
+    "learning:ti:plan": "node tools/learning/engineering-learning.mjs plan",
+    "learning:ti:session": "node tools/learning/engineering-learning.mjs session",
+    "learning:ti:bootstrap": "node tools/learning/codespace-bootstrap.mjs",
+    "learning:ti:closure": "node tools/learning/verify-ti-closure.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.54.2"

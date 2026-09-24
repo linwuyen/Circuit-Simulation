@@ -217,3 +217,21 @@ CI 額外執行 Host SIL、TI target compile、Flash link、HEX generation。Req
 ### 整合學習入口
 
 [能力總覽與繼續學習](map.html)整合入門、八層主線、補強往返、既有題庫與正式間隔複習。[同一案例實驗](learning-case.html)可在電路、量測、時序與控制視圖間切換，並與相容的進階 Buck 模型共用設定。詳見[整合與模型界線](docs/integrated-learning.md)。
+
+## TI primary-source engineering learning
+
+`learning/ti/` 把 TI 經典 power/C2000 文件接進既有 learning evidence 架構，而不是新增一套平行教材。它固定官方來源 manifest、Concept Cards、prediction/diagnosis/transfer 題型與 1/3/7/30 天 retrieval scheduler。
+
+```bash
+npm run learning:ti:validate
+npm run learning:ti:download
+npm run learning:ti:plan
+npm run learning:ti:session
+```
+
+PDF 下載到 gitignored `.learning-cache/ti/`；GitHub `TI engineering learning` workflow 會重新抓取並驗證 PDF payload，產生帶 SHA-256 的 artifact。學習 state 也留在 `.learning-cache/`，不把 raw learner answer 當 repo truth。完整流程見 [`learning/ti/README.md`](learning/ti/README.md)。
+
+
+### GitHub Codespaces fallback
+
+當 GitHub-hosted Actions 因 quota / budget / runner policy 無法配置 runner 時，可直接用 GitHub Codespaces 執行 TI learning bootstrap；不需要本機環境。Codespace 建立後會自動下載／驗證 17 份 TI 文件並產生今日 session。詳見 [`docs/ti-learning-codespaces.md`](docs/ti-learning-codespaces.md)。
