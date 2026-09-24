@@ -375,3 +375,43 @@ body[data-ti-control] .ti-control-param output{font:600 .72rem ui-monospace,SFMo
 body[data-ti-control] .ti-control-status{display:grid;grid-template-columns:1fr 1fr;gap:.3rem;margin:.7rem 0;padding:.55rem;background:#edf5f8;border-radius:.45rem;font-size:.72rem}
 body[data-ti-control] .ti-control-status strong{grid-column:1/-1}
 @media(max-width:1150px){body[data-ti-control] .workspace-grid{grid-template-columns:1fr}body[data-ti-control] .coach{width:auto;position:static;order:1}body[data-ti-control] .surface{order:2}}
+
+
+/* Epic #68: C2000 sample-compute-actuate timing */
+body[data-ti-timing] .route{display:none}
+body[data-ti-timing] main{max-width:min(1760px,98vw);padding:.7rem}
+body[data-ti-timing] .workspace-grid{grid-template-columns:minmax(800px,1fr) 380px;gap:10px}
+body[data-ti-timing] .surface,body[data-ti-timing] .coach{padding:.8rem;border-radius:.7rem}
+body[data-ti-timing] .coach{width:380px;position:sticky;top:.6rem}
+body[data-ti-timing] #circuit,body[data-ti-timing] #circuit-state{display:none}
+body[data-ti-timing] #ws-plot{height:min(38vh,360px);min-height:300px;background:#071a2a}
+body[data-ti-timing] .ti-timing-param{display:grid;grid-template-columns:95px 1fr 60px;gap:.45rem;align-items:center;margin:.4rem 0}
+body[data-ti-timing] .ti-timing-param span,body[data-ti-timing] .ti-timing-param output{font-size:.72rem}
+body[data-ti-timing] .ti-timing-presets{display:flex;gap:.35rem;flex-wrap:wrap;margin:.6rem 0}
+body[data-ti-timing] .ti-timing-presets button{min-height:32px;padding:.25rem .45rem;font-size:.7rem}
+body[data-ti-timing] .ti-timing-verdict{display:grid;grid-template-columns:1fr 1fr;gap:.3rem;padding:.55rem;background:#edf5f8;border-radius:.45rem;font-size:.72rem}
+body[data-ti-timing] .ti-timing-verdict strong{grid-column:1/-1}
+body[data-ti-timing] #ws-plot .ti-timing-cycle{stroke:#29465a;stroke-width:1}
+body[data-ti-timing] #ws-plot .ti-timing-dot{stroke:#071a2a;stroke-width:2}
+body[data-ti-timing] #ws-plot .ti-timing-dot.zero{fill:#9eb3c5}
+body[data-ti-timing] #ws-plot .ti-timing-dot.sample{fill:#6bb6ff}
+body[data-ti-timing] #ws-plot .ti-timing-dot.compute{fill:#f0c967}
+body[data-ti-timing] #ws-plot .ti-timing-dot.load{fill:#63dfbc}
+body[data-ti-timing] #ws-plot .ti-timing-dot.miss{fill:#ff7e79}
+body[data-ti-timing] #ws-plot .ti-timing-stem{stroke-width:1.5}
+body[data-ti-timing] #ws-plot .ti-timing-stem.zero{stroke:#9eb3c5}
+body[data-ti-timing] #ws-plot .ti-timing-stem.sample{stroke:#6bb6ff}
+body[data-ti-timing] #ws-plot .ti-timing-stem.compute{stroke:#f0c967}
+body[data-ti-timing] #ws-plot .ti-timing-stem.load{stroke:#63dfbc}
+body[data-ti-timing] #ws-plot .ti-timing-stem.miss{stroke:#ff7e79}
+body[data-ti-timing] #ws-plot .ti-timing-event-label{fill:#d8e7ef;font:700 11px ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-timing] #ws-plot .ti-timing-latency{stroke:#ff7e79;stroke-width:3}
+body[data-ti-timing] #ws-plot .ti-timing-latency-label{fill:#ffb4b0;font:700 12px system-ui}
+body[data-ti-timing] .ti-timing-api{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.3rem;margin:.45rem 0}
+body[data-ti-timing] .ti-timing-api div{display:grid;padding:.4rem;border:1px solid #d0dfe7;border-radius:.4rem;background:#f8fbfc;font-size:.68rem}
+body[data-ti-timing] .ti-timing-api code{white-space:normal;color:#086690}
+body[data-ti-timing] .ti-timing-sweep{display:flex;gap:.25rem;flex-wrap:wrap;margin:.35rem 0}
+body[data-ti-timing] .ti-timing-sweep span{padding:.18rem .35rem;border-radius:.35rem;font:600 .65rem ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-timing] .ti-timing-sweep .pass{background:#e1f4eb;color:#17634f}
+body[data-ti-timing] .ti-timing-sweep .fail{background:#fde9e7;color:#8d302a}
+@media(max-width:1150px){body[data-ti-timing] .workspace-grid{grid-template-columns:1fr}body[data-ti-timing] .coach{width:auto;position:static;order:1}body[data-ti-timing] .surface{order:2}}
