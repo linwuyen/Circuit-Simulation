@@ -338,3 +338,22 @@ body[data-ti-concepts] .ti-response-box textarea{width:100%;resize:vertical;padd
 body[data-ti-concepts] .ti-response-box button{min-height:32px;margin-top:.25rem;padding:.2rem .5rem;font-size:.68rem}
 @media(max-width:1100px){body[data-ti-concepts] .workspace-grid{grid-template-columns:1fr}body[data-ti-concepts] .coach{width:auto;position:static;order:1}body[data-ti-concepts] .surface{order:2}body[data-ti-concepts] .ti-concept-grid{grid-template-columns:repeat(2,minmax(230px,1fr))}}
 @media(max-width:760px){body[data-ti-concepts] .ti-concept-grid,body[data-ti-concepts] .ti-concept-inputs{grid-template-columns:1fr}body[data-ti-concepts] .ti-concept-metrics{grid-template-columns:1fr 1fr}}
+
+/* Epic #84 — Digital control + SFRA workbench */
+body[data-ti-control] main{max-width:min(1720px,97vw)}
+body[data-ti-control] .route{display:none}
+body[data-ti-control] .workspace-grid{grid-template-columns:minmax(760px,1fr) 380px;gap:10px}
+body[data-ti-control] .surface{padding:.8rem}
+body[data-ti-control] .coach{width:380px;position:sticky;top:10px;padding:.8rem}
+body[data-ti-control] #circuit,body[data-ti-control] #circuit-state{display:none}
+body[data-ti-control] .ti-control-controls{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:.35rem;margin:.4rem 0}
+body[data-ti-control] .ti-control-controls label{display:grid;grid-template-columns:55px 1fr 85px;gap:.35rem;align-items:center;padding:.3rem .4rem;border:1px solid #d4e1e7;border-radius:.4rem;background:#f8fbfc;font-size:.7rem}
+body[data-ti-control] .ti-control-controls input{min-height:26px}
+body[data-ti-control] .ti-control-controls output{text-align:right;font:600 .65rem ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-control] .ti-control-modebar{display:flex;gap:.35rem;align-items:center;margin:.4rem 0}
+body[data-ti-control] .ti-control-modebar button{min-height:34px;padding:.25rem .55rem;font-size:.7rem}
+body[data-ti-control] .ti-control-modebar button[aria-current="page"]{background:#126654;color:#fff;border-color:#126654}
+body[data-ti-control] .ti-control-modebar span{margin-left:auto;font:600 .68rem ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-control] #ws-plot{height:min(38vh,340px);min-height:280px}
+@media(max-width:1100px){body[data-ti-control] .workspace-grid{grid-template-columns:1fr}body[data-ti-control] .coach{width:auto;position:static;order:1}body[data-ti-control] .surface{order:2}}
+@media(max-width:760px){body[data-ti-control] .ti-control-controls{grid-template-columns:1fr}}
