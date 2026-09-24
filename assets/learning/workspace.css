@@ -399,3 +399,30 @@ body[data-ti-learning] .ti-protection-lock{padding:1rem;border:1px dashed #8ea9b
   body[data-ti-learning] .ti-protection-paths{grid-template-columns:1fr}
   body[data-ti-learning] .ti-protection-controls{grid-template-columns:1fr}
 }
+
+
+/* TI topology constraint atlas */
+body[data-ti-learning] .ti-topology-workbench{display:grid;gap:.5rem;padding:.6rem;border:1px solid #b8ccd7;border-radius:.6rem;background:#f7fafc}
+body[data-ti-learning] .ti-topology-head{display:flex;justify-content:space-between;gap:.5rem;align-items:center}
+body[data-ti-learning] .ti-topology-head span{font:700 .66rem ui-monospace,SFMono-Regular,Consolas,monospace;color:#496879}
+body[data-ti-learning] .ti-topology-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:.25rem}
+body[data-ti-learning] .ti-topology-tabs button{min-height:30px;padding:.2rem;font-size:.66rem}
+body[data-ti-learning] .ti-topology-tabs button[aria-current="true"]{background:#173f52;color:white;border-color:#173f52}
+body[data-ti-learning] .ti-topology-controls{display:grid;grid-template-columns:1fr 1fr;gap:.35rem}
+body[data-ti-learning] .ti-topology-input{display:grid;gap:.1rem;padding:.3rem;border:1px solid #d2e0e6;border-radius:.4rem;background:white}
+body[data-ti-learning] .ti-topology-input span{display:flex;justify-content:space-between;font-size:.7rem}
+body[data-ti-learning] .ti-topology-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:.3rem}
+body[data-ti-learning] .ti-topology-metrics div{padding:.4rem;background:#102438;color:#dcebf3;border-radius:.35rem}
+body[data-ti-learning] .ti-topology-metrics span{display:block;font-size:.56rem;color:#91adbd}
+body[data-ti-learning] .ti-topology-metrics strong{display:block;font:700 .74rem ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-learning] .ti-topology-constraint{display:grid;grid-template-columns:auto auto 1fr;gap:.5rem;align-items:center;padding:.45rem .55rem;background:#eaf3f7;border-left:3px solid #1683a2}
+body[data-ti-learning] .ti-topology-constraint span{font-size:.6rem;font-weight:800}
+body[data-ti-learning] .ti-topology-constraint strong{font:800 .7rem ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-learning] .ti-topology-constraint p{margin:0!important;font-size:.68rem!important}
+body[data-ti-learning] .ti-topology-boundary{margin:0!important;font-size:.62rem!important;color:#627985}
+body[data-ti-learning] .ti-topology-lock{padding:1rem;border:1px dashed #8ea9b8;border-radius:.5rem;background:#f4f8fa;font:700 .72rem ui-monospace,SFMono-Regular,Consolas,monospace}
+@media(max-width:760px){
+  body[data-ti-learning] .ti-topology-tabs{grid-template-columns:1fr 1fr}
+  body[data-ti-learning] .ti-topology-controls,body[data-ti-learning] .ti-topology-metrics{grid-template-columns:1fr}
+  body[data-ti-learning] .ti-topology-constraint{grid-template-columns:1fr}
+}
