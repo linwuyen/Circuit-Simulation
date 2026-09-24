@@ -6,8 +6,17 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const defaultManifest = path.join(root, "learning/ti/manifest.json");
 
+function isOfficialTiHost(hostname) {
+  const host = String(hostname || "").toLowerCase();
+  return host === "ti.com" || host.endsWith(".ti.com");
+}
+
 export async function loadManifest(file = defaultManifest) {
   return JSON.parse(await readFile(file, "utf8"));
+}
+
+export function sourceUrls(doc) {
+  return [doc.url, ...(doc.fallbackUrls ?? [])].filter(Boolean);
 }
 
 export function validateManifest(manifest) {
@@ -19,15 +28,17 @@ export function validateManifest(manifest) {
     if (ids.has(doc.id)) throw new Error(`duplicate document id: ${doc.id}`);
     if (files.has(doc.file)) throw new Error(`duplicate document file: ${doc.file}`);
     ids.add(doc.id); files.add(doc.file);
-    const url = new URL(doc.url);
-    if (url.protocol !== "https:") throw new Error(`non-HTTPS source: ${doc.id}`);
-    if (!["www.ti.com", "software-dl.ti.com"].includes(url.hostname)) throw new Error(`non-official TI host: ${doc.id}`);
+    for (const value of sourceUrls(doc)) {
+      const url = new URL(value);
+      if (url.protocol !== "https:") throw new Error(`non-HTTPS source: ${doc.id}`);
+      if (!isOfficialTiHost(url.hostname)) throw new Error(`non-official TI host: ${doc.id}: ${url.hostname}`);
+    }
     if (!doc.file.toLowerCase().endsWith(".pdf")) throw new Error(`non-PDF filename: ${doc.id}`);
   }
   return { documentCount: manifest.documents.length, ids: [...ids] };
 }
 
-async function fetchPdf(url, { timeoutMs = 45000, retries = 2 } = {}) {
+async function fetchOnePdf(url, { timeoutMs = 45000, retries = 2 } = {}) {
   let lastError;
   for (let attempt = 0; attempt <= retries; attempt++) {
     const controller = new AbortController();
@@ -39,10 +50,18 @@ async function fetchPdf(url, { timeoutMs = 45000, retries = 2 } = {}) {
         headers: { "user-agent": "Circuit-Simulation engineering-learning/1.0" }
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const final = new URL(response.url);
+      if (!isOfficialTiHost(final.hostname)) throw new Error(`redirected off TI domain: ${final.hostname}`);
       const bytes = Buffer.from(await response.arrayBuffer());
       if (bytes.length < 10000) throw new Error(`unexpectedly small file (${bytes.length} bytes)`);
       if (bytes.subarray(0, 5).toString("ascii") !== "%PDF-") throw new Error("payload is not a PDF");
-      return { bytes, finalUrl: response.url, contentType: response.headers.get("content-type") };
+      return {
+        bytes,
+        requestedUrl: url,
+        finalUrl: response.url,
+        contentType: response.headers.get("content-type"),
+        attempts: attempt + 1
+      };
     } catch (error) {
       lastError = error;
       if (attempt < retries) await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
@@ -51,6 +70,21 @@ async function fetchPdf(url, { timeoutMs = 45000, retries = 2 } = {}) {
     }
   }
   throw lastError;
+}
+
+async function fetchPdf(doc, options) {
+  const failures = [];
+  for (const url of sourceUrls(doc)) {
+    try {
+      const result = await fetchOnePdf(url, options);
+      return { ...result, sourceFailures: failures };
+    } catch (error) {
+      failures.push({ url, error: String(error?.message ?? error) });
+    }
+  }
+  const error = new Error(`all TI sources failed for ${doc.id}`);
+  error.sourceFailures = failures;
+  throw error;
 }
 
 export async function downloadDocuments(manifest, outDir, { concurrency = 3 } = {}) {
@@ -65,13 +99,32 @@ export async function downloadDocuments(manifest, outDir, { concurrency = 3 } = 
       const temp = destination + ".tmp";
       const started = Date.now();
       try {
-        const { bytes, finalUrl, contentType } = await fetchPdf(doc.url);
+        const { bytes, requestedUrl, finalUrl, contentType, attempts, sourceFailures } = await fetchPdf(doc);
         await writeFile(temp, bytes);
         await rename(temp, destination);
-        results.push({ id: doc.id, file: doc.file, status: "PASS", bytes: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex"), finalUrl, contentType, elapsedMs: Date.now() - started });
+        results.push({
+          id: doc.id,
+          file: doc.file,
+          status: "PASS",
+          bytes: bytes.length,
+          sha256: createHash("sha256").update(bytes).digest("hex"),
+          requestedUrl,
+          finalUrl,
+          contentType,
+          attempts,
+          sourceFailures,
+          elapsedMs: Date.now() - started
+        });
       } catch (error) {
         await rm(temp, { force: true });
-        results.push({ id: doc.id, file: doc.file, status: "FAIL", error: String(error?.message ?? error), elapsedMs: Date.now() - started });
+        results.push({
+          id: doc.id,
+          file: doc.file,
+          status: "FAIL",
+          error: String(error?.message ?? error),
+          sourceFailures: error?.sourceFailures ?? [],
+          elapsedMs: Date.now() - started
+        });
       }
     }
   }
@@ -102,7 +155,7 @@ async function main() {
   }
   if (command === "list") {
     validateManifest(manifest);
-    for (const doc of manifest.documents) console.log(`${doc.id}\t${doc.track}\t${doc.title}\t${doc.url}`);
+    for (const doc of manifest.documents) console.log(`${doc.id}\t${doc.track}\t${doc.title}\t${sourceUrls(doc).join(" | ")}`);
     return;
   }
   if (command === "download") {
