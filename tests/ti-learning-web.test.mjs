@@ -95,3 +95,20 @@ test("TI scope interaction maps waveform traces back to circuit components and s
   assert.match(css,/ti-component-hit\.is-preview/);
   assert.match(css,/touch-action:none/);
 });
+
+
+test("TI physics workbench exposes first steady and transient views with fsw and DCM exploration",async()=>{
+  const [ui,css]=await Promise.all([
+    readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8"),
+    readFile(new URL("../assets/learning/workspace.css",import.meta.url),"utf8")
+  ]);
+  assert.match(ui,/\["first","FIRST"\]/);
+  assert.match(ui,/\["steady","STEADY"\]/);
+  assert.match(ui,/\["transient","TRANSIENT"\]/);
+  assert.match(ui,/function drawSteadyPlot\(\)/);
+  assert.match(ui,/function drawTransientPlot\(\)/);
+  assert.match(ui,/buckTransient/);
+  assert.match(ui,/fsw:\{label:"fsw"/);
+  assert.match(ui,/load:\{label:"R",unit:"Ω",key:"loadOhm",min:1,max:100/);
+  assert.match(css,/ti-trace-ic/);
+});
