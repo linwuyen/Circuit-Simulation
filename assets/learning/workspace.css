@@ -7,3 +7,17 @@ body[data-continuous-experiment] .experiment-boundary{font-size:.85rem;color:#42
 body[data-continuous-experiment] #ws-plot{background:#f8fbf5}body[data-continuous-experiment] #ws-plot text{fill:#183a30;font-size:20px;text-shadow:none}@media(max-width:760px){body[data-continuous-experiment] #ws-plot text{font-size:26px}}
 
 body[data-topology-workspace] .surface{position:static}body[data-topology-workspace] .coach label{display:flex;gap:10px;padding:12px 0}body[data-topology-workspace] .coach label input{flex:none}#topology-comparison{overflow-x:auto}#topology-comparison table{border-collapse:collapse;width:100%;font-size:.95rem}#topology-comparison caption{text-align:left;font-weight:650;margin:.75rem 0}#topology-comparison th,#topology-comparison td{padding:.65rem .4rem;border-bottom:1px solid #cbdcd8;text-align:left}#topology-comparison th{font-weight:600}#topology-run{width:100%;margin:.75rem 0}body[data-topology-workspace] .route a{display:inline-block;padding:.5rem}
+
+
+/* TI Engineering Learning uses the existing workspace; Terminal remains verification-only. */
+body[data-ti-learning] .workspace-grid{grid-template-columns:minmax(0,1.35fr) minmax(360px,.85fr)}
+body[data-ti-learning] .surface{position:sticky;top:1rem}
+body[data-ti-learning] #ws-plot{background:#102438}
+body[data-ti-learning] .ti-source{display:grid;gap:.35rem;padding:.8rem 1rem;border:1px solid #bfd5df;border-radius:.7rem;background:#edf5f8}
+body[data-ti-learning] .ti-source a{font-weight:650}
+body[data-ti-learning] .ti-source p{margin:0;font-size:.9rem}
+body[data-ti-learning] .ti-grade{border-left:4px solid #238365;padding:1rem;background:#edf8f1;border-radius:.4rem}
+body[data-ti-learning] .ti-grade strong{font-size:1.25rem}
+body[data-ti-learning][data-ti-running="true"] .flow{animation:ti-current-flow .8s linear infinite}
+@keyframes ti-current-flow{to{stroke-dashoffset:-40}}
+@media(max-width:760px){body[data-ti-learning] .workspace-grid{display:flex;flex-direction:column}body[data-ti-learning] .surface{position:static}}
