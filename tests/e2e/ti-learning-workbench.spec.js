@@ -260,3 +260,45 @@ test('generic TI concept uses V5 scheduling without learner CLI', async ({ page 
   const restored=await page.evaluate(()=>CircuitEvidence.load().benchmark.tiEngineeringLearning.concepts['boost-rhpz']);
   expect(restored.lastResult).toBe('pass');
 });
+
+
+test('control concept unlocks transient Bode and SFRA evidence only after committed reasoning', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await openFresh(page);
+
+  await page.locator('input[name="ti-predict"][value="time-first"]').check();
+  await page.getByRole('button', { name: 'Lock prediction' }).click();
+  await page.locator('#ws-control').fill('50');
+  await page.getByRole('button', { name: 'Run first cycle' }).click();
+  await page.locator('input[name="ti-observe"][value="net-rise"]').check();
+  await page.getByRole('button', { name: 'Check observation' }).click();
+  await page.locator('input[name="ti-reason"][value="volt-second"]').check();
+  await page.getByRole('button', { name: 'Complete loop' }).click();
+  await page.reload();
+
+  await page.getByRole('button', { name: /Loop crossover and stability margin/ }).click();
+  await expect(page.locator('.ti-control-lock')).toContainText('LOCKED');
+  await page.locator('#ti-generic-answer').fill('More digital delay adds phase lag near crossover, so phase margin falls if the controller is unchanged.');
+  await page.getByRole('button', { name: 'Commit answer → reveal source' }).click();
+
+  await expect(page.locator('.ti-control-workbench')).toBeVisible();
+  await expect(page.locator('[data-metric="sfra"]')).toContainText('MODEL_ONLY');
+  const delayBefore=await page.locator('[data-metric="delay"]').textContent();
+  await page.locator('[data-control="computeUs"]').fill('8.8');
+  await expect(page.locator('[data-metric="delay"]')).toContainText('17.5');
+  expect(await page.locator('[data-metric="delay"]').textContent()).not.toBe(delayBefore);
+
+  const csv=await page.evaluate(()=>{
+    const State=CircuitPowerSystemStateV1.initial;
+    const state=JSON.parse(JSON.stringify(State));
+    state.timing.computeUs=8.8;
+    const timing=CircuitPowerModelsV1.timingState(state);
+    return [100,1000,10000].map(f=>{
+      const p=CircuitPowerModelsV1.buckLoopPoint(f,timing.actuation,state);
+      return [f,p.magDb,p.phase].join(',');
+    }).join('\n');
+  });
+  await page.locator('.ti-control-sfra textarea').fill('Frequency (Hz),Magnitude (dB),Phase (deg)\n'+csv);
+  await page.getByRole('button', { name: 'Compare imported CSV' }).click();
+  await expect(page.locator('[data-metric="sfra"]')).toContainText('UNVERIFIED_IMPORT');
+});
