@@ -39,6 +39,7 @@
 
   let card=null,source=null,record=null,scenario=null,stage=0,phase=.1,running=false,raf=0;
   let dutyPct=25,simConfig={...DEFAULT_CONFIG},selectedComponent="inductor",focusTrace=null;
+  let scopeCursors={aUs:null,bUs:null,next:"A"};
 
   function svgEl(tag,attrs={},text=""){
     const n=document.createElementNS("http://www.w3.org/2000/svg",tag);
@@ -217,6 +218,60 @@
       n.classList.toggle("ti-trace-focus",!!trace&&n.dataset.trace===trace);
     });
   }
+  function scopeTimeFromEvent(event){
+    const svg=$("ws-plot"),rect=svg.getBoundingClientRect();
+    if(!rect.width)return 0;
+    const svgX=(event.clientX-rect.left)/rect.width*720;
+    return Math.max(0,Math.min(scenario.periodUs,(svgX-95)/555*scenario.periodUs));
+  }
+  function clearScopeCursors(){
+    scopeCursors={aUs:null,bUs:null,next:"A"};
+    if(stage>=2){drawPlot();setCircuitPhase(phase);}
+    renderCursorReadout();
+  }
+  function setScopeCursor(tUs){
+    const t=Math.max(0,Math.min(scenario.periodUs,Number(tUs)));
+    stopAnimation();
+    if(scopeCursors.next==="A"){
+      scopeCursors={...scopeCursors,aUs:t,next:"B"};
+    }else{
+      scopeCursors={...scopeCursors,bUs:t,next:"A"};
+    }
+    drawPlot();
+    setCircuitPhase(t/scenario.periodUs);
+    renderCursorReadout();
+  }
+  function renderCursorReadout(){
+    const out=$("ti-cursor-readout");if(!out)return;
+    if(stage<2){out.textContent="A/B cursor locked";return;}
+    const a=scopeCursors.aUs,b=scopeCursors.bUs;
+    if(a==null&&b==null){out.textContent="click trace for A/B";return;}
+    if(a!=null&&b==null){const s=C.sampleFirstCycle(scenario,a);out.textContent=`A ${a.toFixed(2)}µs · iL ${s.iL.toFixed(3)}A`;return;}
+    if(a==null&&b!=null){const s=C.sampleFirstCycle(scenario,b);out.textContent=`B ${b.toFixed(2)}µs · iL ${s.iL.toFixed(3)}A`;return;}
+    const d=C.cursorDelta(scenario,a,b);
+    out.textContent=`A ${a.toFixed(2)}µs · B ${b.toFixed(2)}µs · Δt ${d.dtUs.toFixed(2)}µs · Δi ${d.diA>=0?"+":""}${d.diA.toFixed(3)}A`;
+  }
+  function attachTraceInteraction(node,trace,component){
+    node.classList.add("ti-trace-clickable");
+    node.addEventListener("click",event=>{
+      event.stopPropagation();
+      const t=scopeTimeFromEvent(event);
+      setScopeCursor(t);
+      selectComponent(component);
+      highlightTrace(trace);
+    });
+    node.addEventListener("pointerenter",()=>highlightTrace(trace));
+    return node;
+  }
+  function drawMeasurementCursors(svg,x){
+    [["A",scopeCursors.aUs,"ti-measure-a"],["B",scopeCursors.bUs,"ti-measure-b"]].forEach(([label,t,klass])=>{
+      if(t==null)return;
+      const px=x(t);
+      svg.append(svgEl("path",{d:`M${px} 20V312`,class:`ti-measure-cursor ${klass}`}));
+      svg.append(svgEl("text",{x:px+4,y:34,class:`ti-measure-label ${klass}`},label));
+    });
+    renderCursorReadout();
+  }
   function setupSurface(){
     $("setup-panel").hidden=true;$("free-controls").hidden=true;$("concept-note").hidden=true;$("transfer-preview").hidden=true;$("workbench-context-slot").hidden=true;
     $("surface-title").textContent="Buck First-Cycle Lab";
@@ -238,14 +293,16 @@
     let bar=$("ti-sim-toolbar");
     if(!bar){
       bar=document.createElement("div");bar.id="ti-sim-toolbar";bar.className="ti-sim-toolbar";
-      bar.innerHTML='<strong class="ti-scope-title">SCOPE</strong><button id="ti-run" type="button">▶</button><button id="ti-pause" type="button">Ⅱ</button><button id="ti-reset" type="button">↺</button><span id="ti-scope-status"></span>';
+      bar.innerHTML='<strong class="ti-scope-title">SCOPE</strong><button id="ti-run" type="button" title="Run">▶</button><button id="ti-pause" type="button" title="Pause">Ⅱ</button><button id="ti-reset" type="button" title="Reset animation">↺</button><button id="ti-cursor-clear" type="button" title="Clear A/B cursors">A/B×</button><span id="ti-scope-status"></span><span id="ti-cursor-readout"></span>';
       $("ws-plot").before(bar);
       $("ti-run").onclick=()=>{if(stage>=2)startAnimation();};
       $("ti-pause").onclick=()=>stopAnimation();
       $("ti-reset").onclick=()=>{stopAnimation();setCircuitPhase(.1);};
+      $("ti-cursor-clear").onclick=()=>clearScopeCursors();
     }
-    $("ti-run").disabled=stage<2;$("ti-pause").disabled=stage<2;$("ti-reset").disabled=stage<2;
+    $("ti-run").disabled=stage<2;$("ti-pause").disabled=stage<2;$("ti-reset").disabled=stage<2;$("ti-cursor-clear").disabled=stage<2;
     $("ti-scope-status").textContent=stage<2?"locked":"first cycle";
+    renderCursorReadout();
     renderCausalChain();
     renderSource();
   }
@@ -270,7 +327,7 @@
     const label=(name,y)=>svg.append(svgEl("text",{x:18,y,class:"ti-trace-label"},name));
     label("PWM",70);label("vL",140);label("iL",222);label("Vout",307);
 
-    const pwm=svgEl("path",{d:`M95 ${lanes.pwm[1]}V${lanes.pwm[0]}H${x(onUs)}V${lanes.pwm[1]}H650`,class:"ti-trace ti-trace-pwm","data-trace":"pwm"});
+    const pwm=attachTraceInteraction(svgEl("path",{d:`M95 ${lanes.pwm[1]}V${lanes.pwm[0]}H${x(onUs)}V${lanes.pwm[1]}H650`,class:"ti-trace ti-trace-pwm","data-trace":"pwm"}),"pwm","switch");
     svg.append(pwm);
 
     const posV=scenario.config.vin-scenario.vout0,negV=-scenario.vout0;
@@ -279,7 +336,7 @@
       const mid=(lanes.vl[0]+lanes.vl[1])/2;
       return mid-v/max*18;
     };
-    const vl=svgEl("path",{d:`M95 ${vlScale(posV)}H${x(onUs)}V${vlScale(negV)}H650`,class:"ti-trace ti-trace-vl","data-trace":"vl"});
+    const vl=attachTraceInteraction(svgEl("path",{d:`M95 ${vlScale(posV)}H${x(onUs)}V${vlScale(negV)}H650`,class:"ti-trace ti-trace-vl","data-trace":"vl"}),"vl","inductor");
     svg.append(vl);
     svg.append(svgEl("text",{x:102,y:vlScale(posV)-6,class:"ti-value-label"},`+${posV.toFixed(1)}V`));
     svg.append(svgEl("text",{x:x(onUs)+8,y:vlScale(negV)+14,class:"ti-value-label"},`${negV.toFixed(1)}V`));
@@ -288,11 +345,11 @@
     const all=[...rows,...old],lo=Math.min(...all.map(r=>r.iL))-.08,hi=Math.max(...all.map(r=>r.iL))+.08;
     const yi=i=>lanes.il[1]-(i-lo)/(hi-lo)*(lanes.il[1]-lanes.il[0]);
     const points=r=>r.map(v=>`${x(v.tUs)},${yi(v.iL)}`).join(" ");
-    svg.append(svgEl("polyline",{points:points(old),class:"ti-trace ti-trace-old","data-trace":"il"}));
-    svg.append(svgEl("polyline",{points:points(rows),class:"ti-trace ti-trace-il","data-trace":"il"}));
+    svg.append(attachTraceInteraction(svgEl("polyline",{points:points(old),class:"ti-trace ti-trace-old","data-trace":"il"}),"il","inductor"));
+    svg.append(attachTraceInteraction(svgEl("polyline",{points:points(rows),class:"ti-trace ti-trace-il","data-trace":"il"}),"il","inductor"));
 
     const yv=(lanes.vout[0]+lanes.vout[1])/2;
-    svg.append(svgEl("path",{d:`M95 ${yv}H650`,class:"ti-trace ti-trace-vout","data-trace":"vout"}));
+    svg.append(attachTraceInteraction(svgEl("path",{d:`M95 ${yv}H650`,class:"ti-trace ti-trace-vout","data-trace":"vout"}),"vout","capacitor"));
     svg.append(svgEl("text",{x:560,y:yv-7,class:"ti-value-label"},`${scenario.vout0.toFixed(1)} V frozen`));
 
     svg.append(svgEl("path",{d:`M${x(oldOn)} 20V312`,class:"ti-timing ti-timing-old"}));
@@ -300,8 +357,10 @@
     svg.append(svgEl("text",{x:x(oldOn)-16,y:324,class:"ti-time-label"},"25%"));
     svg.append(svgEl("text",{x:x(onUs)-16,y:324,class:"ti-time-label"},"50%"));
     svg.append(svgEl("path",{id:"ti-scope-cursor",d:"M95 20V312",class:"ti-scope-cursor"}));
+    drawMeasurementCursors(svg,x);
+    svg.onclick=event=>setScopeCursor(scopeTimeFromEvent(event));
 
-    svg.setAttribute("aria-label","Four-trace scope showing PWM, inductor voltage, inductor current and frozen output voltage for the first PWM cycle.");
+    svg.setAttribute("aria-label","Four-trace scope showing PWM, inductor voltage, inductor current and frozen output voltage for the first PWM cycle. Click a trace or scope position to place A/B cursors.");
     $("ws-comparison").textContent=`ON ${scenario.after.onUs.toFixed(2)} µs · vL(on) +${posV.toFixed(1)} V · di/dt(on) +${scenario.after.onSlopeAUs.toFixed(3)} A/µs · first-cycle ΔiL +${scenario.after.deltaI.toFixed(3)} A`;
     highlightTrace(focusTrace);
   }
@@ -430,7 +489,7 @@
     dutyPct=stage<=1?25:50;
     scenario=C.buildFirstCycle(B.buck,{...simConfig,duty:.25},dutyPct/100);
     setupSurface();route();renderProgress();drawPlot();renderQuestion();
-    if(stage>=2){setCircuitPhase(.1);renderCausalChain();}else{$("on-path").style.display="none";$("off-path").style.display="none";$("circuit-state").textContent="Prediction lock active.";}
+    if(stage>=2){setCircuitPhase(.1);renderCausalChain();renderCursorReadout();}else{scopeCursors={aUs:null,bUs:null,next:"A"};$("on-path").style.display="none";$("off-path").style.display="none";$("circuit-state").textContent="Prediction lock active.";}
     if(stage!==1)$("ws-control").oninput=null;
   }
   async function mount(){
