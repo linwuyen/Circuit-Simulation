@@ -47,7 +47,7 @@
       ["extra delay (µs)","delayUs",0,100,1]
     ];
     defs.forEach(([label,key,min,max,step])=>{
-      const l=document.createElement("label");l.className="ti-control-param";
+      const l=document.createElement("label");l.className="ti-control-param";l.dataset.controlKey=key;
       const span=document.createElement("span"),out=document.createElement("output"),input=document.createElement("input");
       span.textContent=label;out.textContent=Number(config[key]).toPrecision(4);input.type="range";input.min=min;input.max=max;input.step=step;input.value=config[key];
       input.oninput=()=>{out.textContent=Number(input.value).toPrecision(4);};
@@ -56,7 +56,7 @@
     });
 
     const sep=document.createElement("hr");q.append(sep);
-    const mismatch=document.createElement("label");mismatch.className="ti-control-param";
+    const mismatch=document.createElement("label");mismatch.className="ti-control-param";mismatch.dataset.controlKey="sfraDelay";
     const span=document.createElement("span");span.textContent="SFRA extra delay (µs)";
     const input=document.createElement("input");input.type="range";input.min=0;input.max=100;input.step=5;input.value=mismatchDelayUs;
     const out=document.createElement("output");out.textContent=mismatchDelayUs;
