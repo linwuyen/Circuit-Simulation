@@ -329,3 +329,40 @@ body[data-ti-learning] .ti-control-lock{padding:1rem;border:1px dashed #8ea9b8;b
   body[data-ti-learning] .ti-control-controls{grid-template-columns:1fr 1fr}
   body[data-ti-learning] .ti-control-metrics{grid-template-columns:1fr 1fr}
 }
+
+
+/* TI C2000 timing workbench */
+body[data-ti-learning] .ti-timing-workbench{display:grid;gap:.5rem;padding:.6rem;border:1px solid #b8ccd7;border-radius:.6rem;background:#f7fafc}
+body[data-ti-learning] .ti-timing-head{display:flex;justify-content:space-between;gap:.5rem;align-items:center}
+body[data-ti-learning] .ti-timing-head span{font:700 .66rem ui-monospace,SFMono-Regular,Consolas,monospace;color:#496879}
+body[data-ti-learning] .ti-timing-controls{display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem}
+body[data-ti-learning] .ti-timing-input{display:grid;gap:.1rem;padding:.3rem;border:1px solid #d2e0e6;border-radius:.4rem;background:white}
+body[data-ti-learning] .ti-timing-input span{display:flex;justify-content:space-between;font-size:.7rem}
+body[data-ti-learning] .ti-timing-input input{min-height:26px}
+body[data-ti-learning] .ti-timing-metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:.3rem}
+body[data-ti-learning] .ti-timing-metrics div{padding:.35rem;background:#102438;color:#dcebf3;border-radius:.35rem}
+body[data-ti-learning] .ti-timing-metrics span{display:block;font-size:.56rem;color:#91adbd}
+body[data-ti-learning] .ti-timing-metrics strong{display:block;font:700 .7rem ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-learning] .ti-timing-metrics strong.is-fault{color:#ff9b91}
+body[data-ti-learning] .ti-timing-timeline{padding:.45rem;background:#071a2a;border-radius:.45rem;color:#dcebf3}
+body[data-ti-learning] .ti-timing-timeline-head{display:flex;justify-content:space-between;font-size:.66rem;margin-bottom:.35rem}
+body[data-ti-learning] .ti-timing-track{position:relative;height:96px;margin:.2rem 1.2rem;border-top:1px solid #38556a;border-bottom:1px solid #38556a}
+body[data-ti-learning] .ti-timing-load{position:absolute;top:0;bottom:0;border-left:1px dashed #6e8798}
+body[data-ti-learning] .ti-timing-event{position:absolute;transform:translateX(-50%);min-height:28px;padding:.15rem .28rem;font-size:.58rem;top:18px;white-space:nowrap;background:#12374b;color:#dcebf3;border-color:#52758a}
+body[data-ti-learning] .ti-timing-event small{display:block;font-size:.52rem;color:#8fb0c2}
+body[data-ti-learning] .ti-timing-event[data-event="write"]{top:51px;border-color:#f0c967}
+body[data-ti-learning] .ti-timing-event[data-event="load"],body[data-ti-learning] .ti-timing-event[data-event="active"]{top:51px;background:#174c40;border-color:#63dfbc}
+body[data-ti-learning] .ti-timing-scale{position:relative;height:16px;margin:0 1.2rem}
+body[data-ti-learning] .ti-timing-scale span{position:absolute;transform:translateX(-50%);font-size:.55rem;color:#7795a7}
+body[data-ti-learning] .ti-timing-chain{display:flex;align-items:center;justify-content:center;gap:.25rem;flex-wrap:wrap;font-size:.62rem}
+body[data-ti-learning] .ti-timing-chain b{padding:.18rem .28rem;background:white;border:1px solid #c8d9e1;border-radius:.3rem}
+body[data-ti-learning] .ti-timing-table{width:100%;border-collapse:collapse;font-size:.66rem}
+body[data-ti-learning] .ti-timing-table th,body[data-ti-learning] .ti-timing-table td{padding:.2rem .3rem;border-bottom:1px solid #d6e2e8;text-align:left}
+body[data-ti-learning] .ti-timing-statement{margin:0!important;padding:.4rem .5rem;background:#eaf3f7;border-left:3px solid #1683a2;font-size:.7rem!important}
+body[data-ti-learning] .ti-timing-boundary{margin:0!important;font-size:.62rem!important;color:#627985}
+body[data-ti-learning] .ti-timing-lock{padding:1rem;border:1px dashed #8ea9b8;border-radius:.5rem;background:#f4f8fa;font:700 .72rem ui-monospace,SFMono-Regular,Consolas,monospace}
+@media(max-width:760px){
+  body[data-ti-learning] .ti-timing-controls{grid-template-columns:1fr}
+  body[data-ti-learning] .ti-timing-metrics{grid-template-columns:1fr 1fr}
+  body[data-ti-learning] .ti-timing-track{overflow:visible}
+}
