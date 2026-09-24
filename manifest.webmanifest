@@ -1,0 +1,15 @@
+{
+  "name": "Circuit Simulation Learning Pack",
+  "short_name": "Circuit Lab",
+  "description": "Interactive power-electronics and C2000 engineering learning workbench.",
+  "start_url": "./learn.html#ti-learning",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef3f6",
+  "theme_color": "#173f52",
+  "lang": "zh-Hant",
+  "categories": [
+    "education",
+    "productivity"
+  ]
+}
