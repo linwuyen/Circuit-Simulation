@@ -33,3 +33,20 @@ npm run learning:ti:bootstrap
 ## Boundary
 
 The downloaded PDFs and learner state stay inside gitignored `.learning-cache/`. They are not committed to the repository. GitHub Actions remains the preferred CI evidence path after hosted-runner access is restored.
+
+
+## Final closure command
+
+For PR closure, use the single deterministic command:
+
+```bash
+npm run learning:ti:closure
+```
+
+It reruns the TI bootstrap, focused Node validation, and the desktop Playwright learner loop. If the Chromium runtime is missing, the closure verifier installs it once and retries the browser gate. The result is written to:
+
+```text
+.learning-cache/ti-closure-evidence.md
+```
+
+A closeable repo-side result ends with `TI_CLOSURE_PASS`. GitHub-hosted Actions runner allocation and the manual artifact workflow remain independent infrastructure gates.
