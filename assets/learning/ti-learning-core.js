@@ -91,6 +91,55 @@
       boundary:"第一個 PWM 週期近似：Vin 固定、Vout 尚未改變、理想 CCM Buck；用於觀察 duty 改變後最先發生的因果，不代表新穩態。"
     };
   }
+  function buildBuckPhysics(buck,input={}){
+    if(typeof buck!=="function") throw new Error("buck model function required");
+    const config={
+      vin:48,duty:.25,inductanceUh:100,fswKhz:100,loadOhm:5,capacitanceUf:220,esrOhm:0,
+      ...input
+    };
+    const m=buck(config);
+    const L=config.inductanceUh*1e-6, f=config.fswKhz*1000, T=1/f;
+    const onV=config.vin-m.vout, offV=-m.vout;
+    const onSlopeAUs=onV/L/1e6, offSlopeAUs=offV/L/1e6;
+    const energyMin=.5*L*m.minI*m.minI, energyPeak=.5*L*m.peakI*m.peakI;
+    const capCurrentRows=m.rows.map(r=>({tUs:r.tUs,iC:r.iL-m.avgI,vout:r.vout}));
+    return {
+      config:m.config,
+      regime:m.regime,
+      vout:m.vout,
+      avgI:m.avgI,
+      minI:m.minI,
+      peakI:m.peakI,
+      ripple:m.ripple,
+      vRipple:m.vRipple,
+      periodUs:m.periodUs,
+      boundaryOhm:m.boundaryOhm,
+      zeroFraction:m.zeroFraction,
+      validSmallRipple:m.validSmallRipple,
+      on:{vL:onV,slopeAUs:onSlopeAUs,durationUs:T*config.duty*1e6},
+      off:{vL:offV,slopeAUs:offSlopeAUs,durationUs:T*(1-config.duty)*1e6},
+      energy:{minJ:energyMin,peakJ:energyPeak,deltaJ:energyPeak-energyMin},
+      rows:m.rows,
+      capCurrentRows,
+      boundary:m.boundary
+    };
+  }
+  function compareBuckParameter(buck,baseInput,key,nextValue){
+    const before=buildBuckPhysics(buck,baseInput);
+    const after=buildBuckPhysics(buck,{...baseInput,[key]:nextValue});
+    const ratio=(a,b)=>Math.abs(b)<1e-15?null:a/b;
+    return {
+      key,
+      before,
+      after,
+      ratios:{
+        ripple:ratio(after.ripple,before.ripple),
+        vRipple:ratio(after.vRipple,before.vRipple),
+        avgI:ratio(after.avgI,before.avgI)
+      },
+      changedRegime:before.regime!==after.regime
+    };
+  }
   function gradeResult({predictionCorrect=false,observationFirstCorrect=false,reasonFirstCorrect=false,reasonPassed=false,transferPassed=false}={}){
     if(transferPassed) return "transfer";
     if(!reasonPassed) return "fail";
@@ -117,5 +166,5 @@
       progress:4
     };
   }
-  return {lesson,policy,isoDayLocal,addDays,buildFirstCycle,gradeResult,nextReview,applyResult};
+  return {lesson,policy,isoDayLocal,addDays,buildFirstCycle,buildBuckPhysics,compareBuckParameter,gradeResult,nextReview,applyResult};
 });
