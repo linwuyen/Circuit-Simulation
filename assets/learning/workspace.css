@@ -478,3 +478,24 @@ body[data-ti-learning] .ti-evidence-boundary{margin:0!important;font-size:.62rem
   body[data-ti-learning] .ti-evidence-stages{grid-template-columns:1fr}
   body[data-ti-learning] .ti-evidence-physical,body[data-ti-learning] .ti-evidence-imports{grid-template-columns:1fr}
 }
+
+
+/* TI evidence-aware tutor */
+body[data-ti-learning] .ti-tutor-drawer{margin-top:.55rem}
+body[data-ti-learning] .ti-tutor-panel{display:grid;gap:.45rem;padding:.55rem;border:1px solid #a9c2ce;border-radius:.55rem;background:#f5f9fb}
+body[data-ti-learning] .ti-tutor-head{display:flex;align-items:center;gap:.4rem}
+body[data-ti-learning] .ti-tutor-head strong{font-size:.74rem}
+body[data-ti-learning] .ti-tutor-head span{margin-left:auto;font:700 .56rem ui-monospace,SFMono-Regular,Consolas,monospace;color:#5c7888}
+body[data-ti-learning] .ti-tutor-head button{min-width:28px;min-height:28px;padding:0}
+body[data-ti-learning] .ti-tutor-status{margin:0!important;font-size:.65rem!important;color:#496879}
+body[data-ti-learning] .ti-tutor-status[data-tutor-status="locked"]{color:#9a5d28}
+body[data-ti-learning] .ti-tutor-question,body[data-ti-learning] .ti-tutor-evidence{display:grid;gap:.15rem;padding:.45rem;background:white;border:1px solid #cfdee5;border-radius:.4rem}
+body[data-ti-learning] .ti-tutor-question span,body[data-ti-learning] .ti-tutor-evidence span{font-size:.56rem;text-transform:uppercase;color:#6c8491}
+body[data-ti-learning] .ti-tutor-question strong{font-size:.72rem;line-height:1.45}
+body[data-ti-learning] .ti-tutor-evidence p{margin:0!important;font-size:.67rem!important}
+body[data-ti-learning] .ti-tutor-context{display:grid;grid-template-columns:1fr 1fr;gap:.25rem}
+body[data-ti-learning] .ti-tutor-context div{display:flex;justify-content:space-between;gap:.3rem;padding:.25rem .35rem;background:#eaf2f6;border-radius:.3rem;font-size:.6rem}
+body[data-ti-learning] .ti-tutor-sources{display:grid;gap:.18rem;font-size:.6rem}
+body[data-ti-learning] .ti-tutor-actions{display:flex;gap:.3rem}
+body[data-ti-learning] .ti-tutor-actions button{min-height:30px;padding:.2rem .4rem;font-size:.62rem}
+body[data-ti-learning] .ti-tutor-note{margin:0!important;font-size:.58rem!important;color:#687e8a}
