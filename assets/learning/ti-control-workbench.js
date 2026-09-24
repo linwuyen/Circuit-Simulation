@@ -69,12 +69,12 @@
       const row=el("label","ti-control-input"),top=el("span");
       const name=el("b",null,label);
       const out=el("output",null,id==="dutyMax"?fmt(value,0)+"%":fmt(value,id==="ki"?0:1)+(unit?" "+unit:""));
-      const input=el("input");input.type="range";input.min=min;input.max=max;input.step=step;input.value=value;
+      const input=el("input");input.type="range";input.min=min;input.max=max;input.step=step;input.value=value;input.dataset.control=id;
       top.append(name,out);row.append(top,input);controls.append(row);inputs[id]={input,out,unit};
     }
 
     const aw=el("label","ti-control-toggle"),awInput=el("input");
-    awInput.type="checkbox";awInput.checked=true;
+    awInput.type="checkbox";awInput.checked=true;awInput.dataset.control="antiWindup";
     aw.append(awInput,document.createTextNode(" anti-windup"));controls.append(aw);
 
     const blocks=el("div","ti-control-blocks");
@@ -85,7 +85,7 @@
 
     const metrics=el("div","ti-control-metrics"),metric={};
     for(const[id,label]of [["zero","PI zero"],["delay","sample→actuate"],["cross","crossover"],["pm","phase margin"],["sat","saturation"],["sfra","SFRA claim"]]){
-      const box=el("div");box.append(el("span",null,label));metric[id]=el("strong",null,"—");box.append(metric[id]);metrics.append(box);
+      const box=el("div");box.append(el("span",null,label));metric[id]=el("strong",null,"—");metric[id].dataset.metric=id;box.append(metric[id]);metrics.append(box);
     }
 
     const plots=el("div","ti-control-plots");
