@@ -67,3 +67,17 @@ test("TI UI id helper never receives CSS hash selectors",async()=>{
   const ui=await readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8");
   assert.doesNotMatch(ui,/\$\("#/);
 });
+
+
+test("TI compact workbench keeps circuit inspector overlay and causal controls in scope toolbar",async()=>{
+  const [ui,css]=await Promise.all([
+    readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8"),
+    readFile(new URL("../assets/learning/workspace.css",import.meta.url),"utf8")
+  ]);
+  assert.match(ui,/ti-circuit-stage/);
+  assert.match(ui,/toolbar\.insertBefore\(chain,status\)/);
+  assert.match(ui,/data\.tiWorkbench="compact"/);
+  assert.match(css,/\.ti-component-inspector\{[\s\S]*position:absolute/);
+  assert.match(css,/\.route\{display:none\}/);
+  assert.match(css,/#ws-plot\{[\s\S]*height:min\(31vh,300px\)/);
+});
