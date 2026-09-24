@@ -2,6 +2,7 @@
  'use strict';
  const tiEntry=document.getElementById('open-ti-learning');
  if(tiEntry)tiEntry.onclick=()=>{location.hash='ti-learning';location.reload();};
+ if(location.hash==='#ti-topology-transfer'){CircuitTITopologyUI.mount();return;}
  if(location.hash==='#ti-protection'){CircuitTIProtectionUI.mount();return;}
  if(location.hash==='#ti-c2000-timing'){CircuitTIC2000TimingUI.mount();return;}
  if(location.hash==='#ti-control'){CircuitTIControlUI.mount();return;}
