@@ -126,3 +126,46 @@ test('scope scrubbing drives circuit ON/OFF state and waveform hover maps back t
   await expect(page.locator('.ti-component-hit[data-component="inductor"]')).toHaveClass(/is-selected/);
   await expect(page.locator('#ws-plot [data-trace="vl"]')).toHaveClass(/ti-trace-focus/);
 });
+
+
+test('TI Buck workbench stays usable on 375px mobile without horizontal overflow', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await openFresh(page);
+
+  await page.locator('.ti-component-hit[data-component="inductor"]').click();
+  const inspector=page.locator('#ti-component-inspector');
+  await expect(inspector).toBeVisible();
+
+  const layout=await page.evaluate(() => {
+    const inspector=document.getElementById('ti-component-inspector');
+    const coach=document.querySelector('.coach');
+    const surface=document.getElementById('workspace-surface');
+    return {
+      overflow: document.documentElement.scrollWidth > innerWidth,
+      inspectorPosition: getComputedStyle(inspector).position,
+      inspectorWidth: inspector.getBoundingClientRect().width,
+      coachWidth: coach.getBoundingClientRect().width,
+      surfaceWidth: surface.getBoundingClientRect().width,
+      viewport: innerWidth
+    };
+  });
+
+  expect(layout.overflow).toBe(false);
+  expect(layout.inspectorPosition).toBe('static');
+  expect(layout.inspectorWidth).toBeLessThanOrEqual(layout.viewport);
+  expect(layout.coachWidth).toBeLessThanOrEqual(layout.viewport);
+  expect(layout.surfaceWidth).toBeLessThanOrEqual(layout.viewport);
+
+  await page.locator('input[name="ti-predict"][value="time-first"]').check();
+  await page.getByRole('button', { name: 'Lock prediction' }).click();
+  await page.locator('#ws-control').fill('50');
+  await page.getByRole('button', { name: 'Run first cycle' }).click();
+
+  await expect(page.locator('#ws-plot [data-trace="pwm"]')).toBeVisible();
+  await expect(page.locator('#ws-plot [data-trace="vl"]')).toBeVisible();
+  await expect(page.locator('#ws-plot [data-trace="il"]').first()).toBeVisible();
+  await expect(page.locator('#ws-plot [data-trace="vout"]')).toBeVisible();
+
+  const finalOverflow=await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
+  expect(finalOverflow).toBe(false);
+});
