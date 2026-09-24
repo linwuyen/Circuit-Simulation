@@ -91,6 +91,28 @@
       boundary:"第一個 PWM 週期近似：Vin 固定、Vout 尚未改變、理想 CCM Buck；用於觀察 duty 改變後最先發生的因果，不代表新穩態。"
     };
   }
+  function conceptAccess(card,concepts={}){
+    const prerequisites=Array.isArray(card?.prerequisites)?card.prerequisites:[];
+    const unmet=prerequisites.filter(id=>!["pass","transfer"].includes(concepts[id]?.lastResult));
+    return {locked:unmet.length>0,unmet};
+  }
+  function conceptDue(card,concepts={},day=isoDayLocal()){
+    const access=conceptAccess(card,concepts);
+    const state=concepts[card.id]||{};
+    if(access.locked)return false;
+    return !state.nextReview||state.nextReview<=day;
+  }
+  function buildConceptQueue(cards,concepts={},day=isoDayLocal()){
+    if(!Array.isArray(cards))throw new Error("concept cards required");
+    return cards.map((card,index)=>{
+      const access=conceptAccess(card,concepts),state=concepts[card.id]||{};
+      return {id:card.id,index,title:card.title,sourceIds:[...(card.sourceIds||[])],locked:access.locked,unmet:access.unmet,due:conceptDue(card,concepts,day),lastResult:state.lastResult||null,nextReview:state.nextReview||null};
+    });
+  }
+  function conceptQuestions(card){
+    const byMode=Object.fromEntries((Array.isArray(card?.questions)?card.questions:[]).map(q=>[q.mode,q]));
+    return {predict:byMode.predict||null,diagnose:byMode.diagnose||null,transfer:byMode.transfer||null};
+  }
   function gradeResult({predictionCorrect=false,observationFirstCorrect=false,reasonFirstCorrect=false,reasonPassed=false,transferPassed=false}={}){
     if(transferPassed) return "transfer";
     if(!reasonPassed) return "fail";
@@ -117,5 +139,5 @@
       progress:4
     };
   }
-  return {lesson,policy,isoDayLocal,addDays,buildFirstCycle,gradeResult,nextReview,applyResult};
+  return {lesson,policy,isoDayLocal,addDays,buildFirstCycle,conceptAccess,conceptDue,buildConceptQueue,conceptQuestions,gradeResult,nextReview,applyResult};
 });

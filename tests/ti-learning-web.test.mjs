@@ -153,3 +153,22 @@ test("Epic 102 renders all 15 concept cards with prerequisite state in existing 
   assert.match(ui,/benchmark\?\.\[STORE_KEY\]\?\.concepts/);
   assert.doesNotMatch(ui,/localStorage\.setItem/);
 });
+
+
+test("Epic 102 canonical queue enforces prerequisites and due dates without parallel state",async()=>{
+  const cards=JSON.parse(await readFile(new URL("../learning/ti/concept-cards.json",import.meta.url),"utf8")).cards;
+  const empty=Core.buildConceptQueue(cards,{},"2026-09-25");
+  assert.equal(empty.length,15);
+  assert.equal(empty.find(x=>x.id==="buck-energy-flow").locked,false);
+  assert.equal(empty.find(x=>x.id==="boost-rhpz").locked,true);
+  assert.equal(empty.find(x=>x.id==="boost-rhpz").due,false);
+  const concepts={"buck-energy-flow":{lastResult:"pass",nextReview:"2026-10-01"}};
+  const unlocked=Core.buildConceptQueue(cards,concepts,"2026-09-25");
+  assert.equal(unlocked.find(x=>x.id==="boost-rhpz").locked,false);
+  assert.equal(unlocked.find(x=>x.id==="boost-rhpz").due,true);
+  assert.equal(unlocked.find(x=>x.id==="buck-energy-flow").due,false);
+  const q=Core.conceptQuestions(cards.find(x=>x.id==="boost-rhpz"));
+  assert.match(q.predict.prompt,/CCM boost/);
+  assert.match(q.diagnose.prompt,/RHPZ/);
+  assert.match(q.transfer.prompt,/PFC/);
+});
