@@ -61,3 +61,20 @@ npm run learning:ti:bootstrap
 That command downloads and validates all TI PDFs, writes SHA-256 provenance, and generates `.learning-cache/today-session.md`. See [`docs/ti-learning-codespaces.md`](../../docs/ti-learning-codespaces.md).
 
 The Actions workflow is intentionally manual while the account-level runner block is unresolved, avoiding repeated failed private-repo runner attempts.
+
+
+## Web learning workspace
+
+The learner-facing TI flow is part of the existing `circuit-learning-state-v5` workspace, not a second terminal product.
+
+Open:
+
+```text
+learn.html#ti-learning
+```
+
+Current web MVP closes one real concept loop for `buck-energy-flow`:
+
+`predict → change Duty → simulate first PWM cycle → observe waveform → explain causality → grade → next review date`.
+
+The first-cycle view intentionally holds the old Vout during the first PWM period so the learner can see the immediate causal effect of duty: state voltages/slopes are initially unchanged, while dwell time changes and produces temporary volt-second imbalance. The CLI/Codespace workflow remains verification and source-ingestion tooling only.
