@@ -336,3 +336,45 @@ test('C2000 timing concept separates command ready from PWM active and exposes m
   await expect(page.locator('[data-timing-metric="deadline"]')).toContainText('MISS');
   await expect(page.locator('.ti-timing-statement')).toContainText('PWM stays old');
 });
+
+
+test('Trip Zone hardware veto overrides software PWM grant and requires qualified clear', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await openFresh(page);
+
+  await page.locator('input[name="ti-predict"][value="time-first"]').check();
+  await page.getByRole('button', { name: 'Lock prediction' }).click();
+  await page.locator('#ws-control').fill('50');
+  await page.getByRole('button', { name: 'Run first cycle' }).click();
+  await page.locator('input[name="ti-observe"][value="net-rise"]').check();
+  await page.getByRole('button', { name: 'Check observation' }).click();
+  await page.locator('input[name="ti-reason"][value="volt-second"]').check();
+  await page.getByRole('button', { name: 'Complete loop' }).click();
+  await page.reload();
+
+  await page.getByRole('button', { name: /Trip Zone as hardware safety authority/ }).click();
+  await expect(page.locator('.ti-protection-lock')).toContainText('LOCKED');
+  await page.locator('#ti-generic-answer').fill('CMPSS and Trip Zone must veto PWM independently of the CPU control grant; software can remain RUN while the pin is forced safe.');
+  await page.getByRole('button', { name: 'Commit answer → reveal source' }).click();
+
+  await expect(page.locator('[data-authority-metric="software"]')).toContainText('ALLOW');
+  await expect(page.locator('[data-authority-metric="veto"]')).toContainText('CLEAR');
+  await expect(page.locator('[data-authority-metric="physical"]')).toContainText('50%');
+  await expect(page.locator('[data-authority-metric="hwlat"]')).toContainText('MEASURE_REQUIRED');
+
+  await page.getByRole('button', { name: 'Inject OCP' }).click();
+  await expect(page.locator('[data-authority-metric="software"]')).toContainText('ALLOW');
+  await expect(page.locator('[data-authority-metric="veto"]')).toContainText('TRIP_LATCHED');
+  await expect(page.locator('[data-authority-metric="physical"]')).toContainText('0%');
+
+  await page.getByRole('button', { name: 'Drop current below threshold' }).click();
+  await expect(page.locator('[data-authority-metric="veto"]')).toContainText('TRIP_LATCHED');
+  await page.getByRole('button', { name: 'Qualified clear' }).click();
+  await expect(page.locator('[data-authority-metric="veto"]')).toContainText('CLEAR');
+  await expect(page.locator('[data-authority-metric="physical"]')).toContainText('50%');
+
+  await page.locator('[data-authority="commandFresh"]').uncheck();
+  await expect(page.locator('[data-authority-metric="software"]')).toContainText('BLOCK');
+  await expect(page.locator('[data-authority-metric="veto"]')).toContainText('CLEAR');
+  await expect(page.locator('[data-authority-metric="physical"]')).toContainText('0%');
+});
