@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "enforcement": "DESCRIPTIVE_ONLY",
+  "note": "Tier metadata describes packaging. No client-side entitlement/security claim is made.",
+  "tiers": [
+    {
+      "id": "free",
+      "label": "Free",
+      "includes": [
+        "Buck interactive simulator",
+        "TI primary-source concept path",
+        "V5 local progress/backup",
+        "basic diagnostic practice"
+      ]
+    },
+    {
+      "id": "pro",
+      "label": "Pro",
+      "includes": [
+        "Digital control/Bode/SFRA workbench",
+        "C2000 timing workbench",
+        "PWM authority/protection",
+        "five-topology constraint atlas",
+        "evidence-aware Tutor adapter"
+      ]
+    },
+    {
+      "id": "engineering-pack",
+      "label": "Engineering Pack",
+      "includes": [
+        "C2000 Digital Buck firmware lab source",
+        "SIL/HIL tooling",
+        "target compile/link/Flash workflow",
+        "P4-A/P4-B board evidence tooling"
+      ],
+      "artifact": "C2000_Digital_Buck_Firmware_Lab_Source_v0.1"
+    }
+  ]
+}
