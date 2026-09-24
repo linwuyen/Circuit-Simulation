@@ -39,10 +39,18 @@ async function main(){
   const steps=[];
   steps.push(run("bootstrap","npm",["run","learning:ti:bootstrap"]));
   steps.push(run("focused-node","npm",["run","learning:ti:validate"]));
-  steps.push(run("playwright-ti-loop","npx",["playwright","test","tests/e2e/ti-learning-workbench.spec.js","--project=desktop"]));
+
+  const playwrightArgs=["playwright","test","tests/e2e/ti-learning-workbench.spec.js","--project=desktop"];
+  let browserStep=run("playwright-ti-loop","npx",playwrightArgs);
+  const browserMissing=browserStep.stderr.includes("Executable doesn't exist")||browserStep.stderr.includes("browserType.launch");
+  if(browserMissing){
+    const install=run("install-playwright-chromium","npx",["playwright","install","chromium"]);
+    steps.push(install);
+    if(install.passed) browserStep=run("playwright-ti-loop","npx",playwrightArgs);
+  }
+  steps.push(browserStep);
 
   const bootstrapEvidence=await safeRead(path.join(cacheDir,"codespace-evidence.md"));
-  const browserMissing=steps[2].stderr.includes("Executable doesn't exist")||steps[2].stderr.includes("browserType.launch");
   const allPassed=steps.every(s=>s.passed);
 
   const lines=[
@@ -62,7 +70,7 @@ async function main(){
     "## Commands",
     ...steps.map(s=>`- ${s.command}`),
     "",
-    browserMissing?"Browser runtime missing. Install once with: npx playwright install chromium":"",
+    browserMissing&&steps.some(s=>s.name==="install-playwright-chromium"&&!s.passed)?"Browser runtime install failed; see install-playwright-chromium stderr below.":"",
     "",
     allPassed?"TI_CLOSURE_PASS":"TI_CLOSURE_FAIL",
     ""
