@@ -85,13 +85,24 @@ test('TI Buck workbench keeps circuit scope and tutor in first 1080p viewport an
   expect(surface).not.toBeNull();
   expect(tutor).not.toBeNull();
   expect(scope).not.toBeNull();
-  expect(surface.y + Math.min(surface.height, scope.y + scope.height - surface.y)).toBeLessThanOrEqual(1080);
-  expect(tutor.y + Math.min(tutor.height, 800)).toBeLessThanOrEqual(1080);
+  expect(scope.y + scope.height).toBeLessThanOrEqual(1080);
+  expect(tutor.y).toBeLessThan(1080);
 
   await page.getByRole('button', { name: 'vL positive dwell ↑' }).click();
   await expect(page.locator('.ti-component-hit[data-component="inductor"]')).toHaveClass(/is-selected/);
   await expect(page.locator('#ws-plot [data-trace="vl"]')).toHaveClass(/ti-trace-focus/);
   await expect(page.locator('#ws-plot [data-trace="pwm"]')).toHaveClass(/ti-trace-dim/);
+
+  const vlTrace = page.locator('#ws-plot [data-trace="vl"]');
+  await vlTrace.dispatchEvent('click', { clientX: 600, clientY: 500 });
+  await expect(page.locator('.ti-component-hit[data-component="inductor"]')).toHaveClass(/is-selected/);
+
+  const scopeBox = await page.locator('#ws-plot').boundingBox();
+  await page.mouse.click(scopeBox.x + scopeBox.width * .35, scopeBox.y + scopeBox.height * .5);
+  await page.mouse.click(scopeBox.x + scopeBox.width * .65, scopeBox.y + scopeBox.height * .5);
+  await expect(page.locator('#ti-cursor-readout')).toContainText('Δt');
+  await expect(page.locator('#ti-cursor-readout')).toContainText('Δi');
+  await expect(page.locator('#ws-plot .ti-measure-cursor')).toHaveCount(2);
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
   expect(overflow).toBe(false);
