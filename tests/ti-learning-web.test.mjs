@@ -41,7 +41,6 @@ test("existing workspace exposes TI learning as a web route",async()=>{
   assert.match(ui,/CircuitTILearning\.mount/);
 });
 
-
 test("TI simulator v2 keeps parameterized first-cycle physics inside CCM",()=>{
   const s=Core.buildFirstCycle(Models.buck,{vin:60,duty:.25,inductanceUh:200,fswKhz:100,loadOhm:5,capacitanceUf:470},.5);
   assert.equal(s.vout0,15);
@@ -51,7 +50,7 @@ test("TI simulator v2 keeps parameterized first-cycle physics inside CCM",()=>{
   assert.ok(Math.abs(s.after.deltaI-.75)<1e-9);
 });
 
-test("TI learner UI exposes component interaction, four-trace scope and causal chain",async()=>{
+test("TI learner UI exposes component interaction, scope and causal chain",async()=>{
   const ui=await readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8");
   assert.match(ui,/ti-component-hit-layer/);
   assert.match(ui,/ti-component-inspector/);
@@ -62,12 +61,10 @@ test("TI learner UI exposes component interaction, four-trace scope and causal c
   assert.match(ui,/ti-causal-chain/);
 });
 
-
 test("TI UI id helper never receives CSS hash selectors",async()=>{
   const ui=await readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8");
   assert.doesNotMatch(ui,/\$\("#/);
 });
-
 
 test("TI compact workbench keeps circuit inspector overlay and causal controls in scope toolbar",async()=>{
   const [ui,css]=await Promise.all([
@@ -82,20 +79,18 @@ test("TI compact workbench keeps circuit inspector overlay and causal controls i
   assert.match(css,/#ws-plot\{[\s\S]*height:min\(31vh,300px\)/);
 });
 
-
 test("TI scope interaction maps waveform traces back to circuit components and scrubs circuit phase",async()=>{
   const ui=await readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8");
   const css=await readFile(new URL("../assets/learning/workspace.css",import.meta.url),"utf8");
-  assert.match(ui,/TRACE_COMPONENT=\{pwm:"switch",vl:"inductor",il:"inductor",vout:"capacitor"\}/);
-  assert.match(ui,/function bindScopeInteraction\(svg\)/);
+  assert.match(ui,/TRACE_COMPONENT=\{pwm:"switch",vl:"inductor",il:"inductor",ic:"capacitor",vout:"capacitor"\}/);
+  assert.match(ui,/function bindScopeInteraction\(svg,phaseHandler=setCircuitPhase\)/);
   assert.match(ui,/setPointerCapture/);
-  assert.match(ui,/setCircuitPhase\(next\)/);
+  assert.match(ui,/phaseHandler\(next\)/);
   assert.match(ui,/mouseenter/);
   assert.match(ui,/selectComponent\(component\)/);
   assert.match(css,/ti-component-hit\.is-preview/);
   assert.match(css,/touch-action:none/);
 });
-
 
 test("TI physics workbench exposes first steady and transient views with fsw and DCM exploration",async()=>{
   const [ui,css]=await Promise.all([
@@ -112,7 +107,6 @@ test("TI physics workbench exposes first steady and transient views with fsw and
   assert.match(ui,/load:\{label:"R",unit:"Ω",key:"loadOhm",min:1,max:100/);
   assert.match(css,/ti-trace-ic/);
 });
-
 
 test("first-cycle lesson preserves CCM boundary before DCM exploration",async()=>{
   const ui=await readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8");
