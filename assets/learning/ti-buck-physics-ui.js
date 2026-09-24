@@ -90,7 +90,7 @@
       if(!answer){$("ws-feedback").textContent="先選一個方向。";return;}
       lastPrediction=answer;revealed=true;
       try{E.commitPrediction(itemId(),{prediction:answer,parameters:`${s.key}: ${s.before}→${s.after}`,confidence:70});}catch(_){}
-      saveRow({prediction:answer,revealed:true});
+      saveRow({prediction:answer,predictionCorrect:answer===s.expected,revealed:true});
       E.recordEvidence(itemId(),2,"ti-buck-physics",{scenario:scenarioId,view:"steady",regime:result.regime},{stage:"practiced",strength:"B"});
       render();
     };q.append(commit);
@@ -100,8 +100,30 @@
       const truth=s.metric==="regime"
         ? `${result.regime.before} → ${result.regime.after}`
         : `${s.metric}: ${Number(delta.before).toPrecision(4)} → ${Number(delta.after).toPrecision(4)}`;
-      evidence.innerHTML=`<strong>Model evidence</strong><p>${truth}</p><p>${result.boundary}</p>`;
+      evidence.innerHTML=`<strong>Model evidence · ${row?.predictionCorrect===false?"prediction needs correction":"prediction checked"}</strong><p>${truth}</p><p><code>${s.equation}</code></p><p>${result.boundary}</p>`;
       q.append(evidence);
+
+      const transfer=document.createElement("div");transfer.className="ti-physics-transfer";
+      const tp=document.createElement("p");tp.textContent="Transfer: "+s.transfer;transfer.append(tp);
+      const tfs=document.createElement("fieldset"),tlegend=document.createElement("legend");tlegend.textContent="新條件下的主要方向";tfs.append(tlegend);
+      [["up","↑"],["down","↓"],["same","≈"],["boundary","跨 regime"]].forEach(([v,label])=>{
+        const l=document.createElement("label"),i=document.createElement("input");i.type="radio";i.name="ti-physics-transfer";i.value=v;i.checked=row?.transferAnswer===v;
+        l.append(i,document.createTextNode(" "+label));tfs.append(l);
+      });transfer.append(tfs);
+      const check=document.createElement("button");check.type="button";check.textContent="Check transfer";
+      check.onclick=()=>{
+        const answer=document.querySelector('input[name="ti-physics-transfer"]:checked')?.value;
+        if(!answer){$("ws-feedback").textContent="先做 transfer 判斷。";return;}
+        const correct=answer===s.expected;
+        const current=stateRow()||{};
+        saveRow({transferFirst:current.transferFirst??answer,transferAnswer:answer,transferPassed:correct});
+        E.recordOpenResponse(itemId()+":transfer",{answer,correct,firstAttempt:current.transferFirst==null});
+        if(correct)E.recordEvidence(itemId(),2,"ti-buck-physics-transfer",{scenario:scenarioId,transfer:true},{stage:"practiced",strength:"B"});
+        $("ws-feedback").textContent=correct?"TRANSFER PASS":"方向不一致；回到 equation 與 waveform 再判斷。";
+        renderQuestion();
+      };transfer.append(check);
+      if(row?.transferAnswer){const status=document.createElement("strong");status.textContent=row.transferPassed?"TRANSFER PASS":"TRANSFER RETRY";transfer.append(status);}
+      q.append(transfer);
     }
   }
   function axes(svg,title){
@@ -111,41 +133,50 @@
     for(let i=0;i<=10;i++)g.append(svgEl("path",{d:`M${70+i*61} 35V275`}));
     svg.append(g);
   }
-  function linePoints(rows,xKey,yKey,x0=70,x1=680,y0=260,y1=55){
+  function plotBounds(groups,xKey,yKey){
+    const rows=groups.flat();
     const xs=rows.map(r=>r[xKey]),ys=rows.map(r=>r[yKey]);
-    const xmin=Math.min(...xs),xmax=Math.max(...xs),ymin=Math.min(...ys),ymax=Math.max(...ys),yr=Math.max(1e-9,ymax-ymin);
+    return {
+      xmin:Math.min(...xs),xmax:Math.max(...xs),
+      ymin:Math.min(...ys),ymax:Math.max(...ys)
+    };
+  }
+  function linePoints(rows,xKey,yKey,bounds,x0=70,x1=680,y0=260,y1=55){
+    const b=bounds||plotBounds([rows],xKey,yKey);
+    const xr=Math.max(1e-9,b.xmax-b.xmin),yr=Math.max(1e-9,b.ymax-b.ymin);
     return rows.map(r=>{
-      const x=x0+(r[xKey]-xmin)/Math.max(1e-9,xmax-xmin)*(x1-x0);
-      const y=y0-(r[yKey]-ymin)/yr*(y0-y1);
+      const x=x0+(r[xKey]-b.xmin)/xr*(x1-x0);
+      const y=y0-(r[yKey]-b.ymin)/yr*(y0-y1);
       return `${x},${y}`;
     }).join(" ");
   }
   function drawSteady(svg,result){
     axes(svg,"Steady iL · before / after");
     const before=result.before.model.rows,after=result.after.model.rows;
-    svg.append(svgEl("polyline",{points:linePoints(before,"tUs","iL"),class:"ti-physics-before"}));
-    if(revealed)svg.append(svgEl("polyline",{points:linePoints(after,"tUs","iL"),class:"ti-physics-after"}));
+    const bounds=plotBounds(revealed?[before,after]:[before],"tUs","iL");
+    svg.append(svgEl("polyline",{points:linePoints(before,"tUs","iL",bounds),class:"ti-physics-before"}));
+    if(revealed)svg.append(svgEl("polyline",{points:linePoints(after,"tUs","iL",bounds),class:"ti-physics-after"}));
   }
   function drawFirst(svg){
     axes(svg,"First-cycle iL · old Vout frozen");
     const beforeConfig=P.configFor("duty","before"),after=P.configFor("duty","after");
     const scenario=First.buildFirstCycle(Buck.buck,beforeConfig,afterConfig.duty);
-    svg.append(svgEl("polyline",{points:linePoints(scenario.before.rows,"tUs","iL"),class:"ti-physics-before"}));
-    if(revealed)svg.append(svgEl("polyline",{points:linePoints(scenario.after.rows,"tUs","iL"),class:"ti-physics-after"}));
+    const bounds=plotBounds(revealed?[scenario.before.rows,scenario.after.rows]:[scenario.before.rows],"tUs","iL");
+    svg.append(svgEl("polyline",{points:linePoints(scenario.before.rows,"tUs","iL",bounds),class:"ti-physics-before"}));
+    if(revealed)svg.append(svgEl("polyline",{points:linePoints(scenario.after.rows,"tUs","iL",bounds),class:"ti-physics-after"}));
   }
   function drawTransient(svg,result){
     axes(svg,"Startup transient Vout · generic teaching kernel");
     const before=P.runTransient(Sandbox.simulateSystem,result.before.model.config,260);
-    svg.append(svgEl("polyline",{points:linePoints(before.trace,"k","vOut"),class:"ti-physics-before"}));
-    if(revealed){
-      const after=P.runTransient(Sandbox.simulateSystem,result.after.model.config,260);
-      svg.append(svgEl("polyline",{points:linePoints(after.trace,"k","vOut"),class:"ti-physics-after"}));
-    }
+    const after=revealed?P.runTransient(Sandbox.simulateSystem,result.after.model.config,260):null;
+    const bounds=plotBounds(after?[before.trace,after.trace]:[before.trace],"k","vOut");
+    svg.append(svgEl("polyline",{points:linePoints(before.trace,"k","vOut",bounds),class:"ti-physics-before"}));
+    if(after)svg.append(svgEl("polyline",{points:linePoints(after.trace,"k","vOut",bounds),class:"ti-physics-after"}));
   }
   function drawRegime(svg){
     axes(svg,"Load sweep · iL(min)");
     const rows=P.regimeSweep(Buck.buck,{},[2,5,10,20,30,40,50,75,100]);
-    const points=linePoints(rows,"loadOhm","minI");
+    const points=linePoints(rows,"loadOhm","minI",plotBounds([rows],"loadOhm","minI"));
     svg.append(svgEl("polyline",{points,class:"ti-physics-after"}));
     rows.forEach(r=>{
       const label=document.createElementNS("http://www.w3.org/2000/svg","text");
