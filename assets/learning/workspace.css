@@ -448,3 +448,33 @@ body[data-ti-learning] .ti-diagnostic-verdict[data-status="fail"],body[data-ti-l
 body[data-ti-learning] .ti-diagnostic-coverage table{width:100%;border-collapse:collapse;font-size:.65rem}
 body[data-ti-learning] .ti-diagnostic-coverage td{padding:.2rem .3rem;border-bottom:1px solid #d7e3e9}
 body[data-ti-learning] .ti-diagnostic-boundary{margin:0!important;font-size:.62rem!important;color:#627985}
+
+
+/* TI engineering truth ladder */
+body[data-ti-learning] .ti-evidence-ladder{display:grid;gap:.55rem;padding:.65rem;border:1px solid #b8ccd7;border-radius:.6rem;background:#f7fafc}
+body[data-ti-learning] .ti-evidence-head{display:flex;justify-content:space-between;gap:.5rem;align-items:center}
+body[data-ti-learning] .ti-evidence-head span{font:700 .66rem ui-monospace,SFMono-Regular,Consolas,monospace;color:#496879}
+body[data-ti-learning] .ti-evidence-claim{display:flex;justify-content:space-between;align-items:center;padding:.45rem .55rem;background:#102438;color:#dcebf3;border-radius:.4rem}
+body[data-ti-learning] .ti-evidence-claim span{font-size:.65rem;color:#91adbd}
+body[data-ti-learning] .ti-evidence-claim strong{font:800 .82rem ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-learning] .ti-evidence-stages{display:grid;grid-template-columns:repeat(5,1fr);gap:.3rem}
+body[data-ti-learning] .ti-evidence-stage{display:grid;gap:.12rem;padding:.4rem;border-radius:.4rem;border:1px solid #d0dee5;background:white}
+body[data-ti-learning] .ti-evidence-stage span{font-size:.62rem}
+body[data-ti-learning] .ti-evidence-stage strong{font:800 .7rem ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-learning] .ti-evidence-stage small{font-size:.55rem;color:#667d8a}
+body[data-ti-learning] .ti-evidence-stage.is-pass{background:#e8f7f0;border-color:#98c9b5}
+body[data-ti-learning] .ti-evidence-stage.is-blocked{background:#fff7f0;border-color:#ddc8b7}
+body[data-ti-learning] .ti-evidence-physical{display:grid;grid-template-columns:1fr 1fr;gap:.35rem}
+body[data-ti-learning] .ti-evidence-physical section{display:grid;gap:.2rem;padding:.5rem;border:1px solid #cbdce4;border-radius:.4rem;background:white}
+body[data-ti-learning] .ti-evidence-physical b{font:800 .72rem ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-learning] .ti-evidence-physical p{margin:0!important;font-size:.66rem!important}
+body[data-ti-learning] .ti-evidence-imports{display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem}
+body[data-ti-learning] .ti-evidence-imports label{display:grid;gap:.2rem;padding:.4rem;border:1px dashed #aac0cc;border-radius:.4rem;font-size:.64rem}
+body[data-ti-learning] .ti-evidence-imports input{font-size:.6rem}
+body[data-ti-learning] .ti-evidence-blockers{font-size:.66rem}
+body[data-ti-learning] .ti-evidence-blockers ol{max-height:180px;overflow:auto;margin:.3rem 0}
+body[data-ti-learning] .ti-evidence-boundary{margin:0!important;font-size:.62rem!important;color:#627985}
+@media(max-width:760px){
+  body[data-ti-learning] .ti-evidence-stages{grid-template-columns:1fr}
+  body[data-ti-learning] .ti-evidence-physical,body[data-ti-learning] .ti-evidence-imports{grid-template-columns:1fr}
+}
