@@ -167,3 +167,20 @@ test("TI generic control concepts mount the deterministic control workbench afte
   assert.match(wb,/MODEL_ONLY/);
   assert.match(wb,/UNVERIFIED_IMPORT/);
 });
+
+
+test("TI timing concepts mount the C2000 timing workbench after prediction",async()=>{
+  const [html,ui,wb]=await Promise.all([
+    readFile(new URL("../learn.html",import.meta.url),"utf8"),
+    readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8"),
+    readFile(new URL("../assets/learning/ti-timing-workbench.js",import.meta.url),"utf8")
+  ]);
+  assert.match(html,/ti-timing-workbench-core\.js/);
+  assert.match(html,/ti-timing-workbench\.js/);
+  assert.match(ui,/CircuitTITimingWorkbench/);
+  assert.match(ui,/ti-c2000-timing-workbench-v1/);
+  assert.match(wb,/epwm-signal-path/);
+  assert.match(wb,/CMPA write \/ command ready/);
+  assert.match(wb,/shadow LOAD/);
+  assert.match(wb,/PWM active/);
+});
