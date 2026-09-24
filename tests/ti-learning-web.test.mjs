@@ -61,3 +61,9 @@ test("TI learner UI exposes component interaction, four-trace scope and causal c
   assert.match(ui,/Vout/);
   assert.match(ui,/ti-causal-chain/);
 });
+
+
+test("TI UI id helper never receives CSS hash selectors",async()=>{
+  const ui=await readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8");
+  assert.doesNotMatch(ui,/\$\("#/);
+});
