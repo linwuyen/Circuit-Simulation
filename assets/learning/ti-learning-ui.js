@@ -182,7 +182,14 @@
       input.oninput=()=>{value.textContent=input.value+" "+c.unit;};
       input.onchange=()=>{
         if(!editable)return;
-        simConfig={...simConfig,[c.key]:Number(input.value)};
+        const candidate={...simConfig,[c.key]:Number(input.value)};
+        if(stage===0&&B.buck({...candidate,duty:.25}).regime!=="CCM"){
+          input.value=simConfig[c.key];
+          value.textContent=simConfig[c.key]+" "+c.unit;
+          feedback("第一個 PWM 週期教材先固定在 CCM；完成這次 loop 後，STEADY view 才解鎖 BCM/DCM 探索。");
+          return;
+        }
+        simConfig=candidate;
         saveRecord({simConfig:{...simConfig}});
         render();
       };
