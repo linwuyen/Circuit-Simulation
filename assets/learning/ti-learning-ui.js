@@ -28,6 +28,7 @@
       ["controller-jump","PWM command 直接讓 iL 跳變"]
     ]
   };
+  const TRACE_COMPONENT={pwm:"switch",vl:"inductor",il:"inductor",vout:"capacitor"};
   const COMPONENTS={
     vin:{label:"Vin",unit:"V",key:"vin",min:24,max:72,step:6,box:[24,92,76,142],help:"輸入電壓。改 Vin 會改 ON 狀態的 vL 與 di/dt。"},
     switch:{label:"Switch / PWM",box:[118,20,105,88],help:"開關由 Duty command 控制；這一課真正直接改變的是 ON/OFF 的作用時間。"},
@@ -210,12 +211,62 @@
       const b=document.createElement("button");b.type="button";b.textContent=label;b.onclick=()=>{selectComponent(component);highlightTrace(trace);};chain.append(b);
     });
   }
+  function previewComponent(id,active=true){
+    document.querySelectorAll(".ti-component-hit").forEach(n=>{
+      n.classList.toggle("is-preview",!!active&&n.dataset.component===id);
+    });
+  }
   function highlightTrace(trace){
     focusTrace=trace;
     document.querySelectorAll("#ws-plot [data-trace]").forEach(n=>{
       n.classList.toggle("ti-trace-dim",!!trace&&n.dataset.trace!==trace);
       n.classList.toggle("ti-trace-focus",!!trace&&n.dataset.trace===trace);
     });
+  }
+  function bindScopeInteraction(svg){
+    svg.querySelectorAll("[data-trace]").forEach(n=>{
+      const trace=n.dataset.trace,component=TRACE_COMPONENT[trace];
+      n.setAttribute("tabindex","0");
+      n.setAttribute("role","button");
+      n.setAttribute("aria-label",trace+" trace");
+      n.addEventListener("mouseenter",()=>previewComponent(component,true));
+      n.addEventListener("mouseleave",()=>previewComponent(component,false));
+      n.addEventListener("focus",()=>previewComponent(component,true));
+      n.addEventListener("blur",()=>previewComponent(component,false));
+      n.addEventListener("click",event=>{
+        event.stopPropagation();
+        if(component)selectComponent(component);
+      });
+      n.addEventListener("keydown",event=>{
+        if((event.key==="Enter"||event.key===" ")&&component){
+          event.preventDefault();selectComponent(component);
+        }
+      });
+    });
+    let scrubbing=false;
+    const scrub=event=>{
+      const rect=svg.getBoundingClientRect();
+      if(!rect.width)return;
+      const viewX=(event.clientX-rect.left)/rect.width*720;
+      const next=(viewX-95)/555;
+      if(next<0||next>1)return;
+      stopAnimation();
+      setCircuitPhase(next);
+    };
+    svg.addEventListener("pointerdown",event=>{
+      if(stage<2)return;
+      scrubbing=true;
+      svg.setPointerCapture?.(event.pointerId);
+      scrub(event);
+    });
+    svg.addEventListener("pointermove",event=>{if(scrubbing)scrub(event);});
+    svg.addEventListener("pointerup",event=>{
+      if(!scrubbing)return;
+      scrubbing=false;
+      svg.releasePointerCapture?.(event.pointerId);
+      scrub(event);
+    });
+    svg.addEventListener("pointercancel",()=>{scrubbing=false;});
   }
   function setupSurface(){
     $("setup-panel").hidden=true;$("free-controls").hidden=true;$("concept-note").hidden=true;$("transfer-preview").hidden=true;$("workbench-context-slot").hidden=true;
@@ -304,6 +355,7 @@
     svg.setAttribute("aria-label","Four-trace scope showing PWM, inductor voltage, inductor current and frozen output voltage for the first PWM cycle.");
     $("ws-comparison").textContent=`ON ${scenario.after.onUs.toFixed(2)} µs · vL(on) +${posV.toFixed(1)} V · di/dt(on) +${scenario.after.onSlopeAUs.toFixed(3)} A/µs · first-cycle ΔiL +${scenario.after.deltaI.toFixed(3)} A`;
     highlightTrace(focusTrace);
+    bindScopeInteraction(svg);
   }
   function setCircuitPhase(p){
     phase=Math.max(0,Math.min(.999,p));
