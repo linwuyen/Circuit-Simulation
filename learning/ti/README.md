@@ -47,3 +47,17 @@ New concepts start with prediction. Reviews move toward diagnosis and then trans
 ## Ownership
 
 AI owns source organization, question selection, scheduling and causal-gap review. The learner owns prediction, explanation, waveform/timing reasoning, engineering judgement and physical evidence.
+
+
+## GitHub cloud fallback: Codespaces
+
+If GitHub-hosted Actions cannot allocate a runner, use GitHub Codespaces instead of a local PC. Creating the repository Codespace automatically runs:
+
+```bash
+npm ci --no-audit --no-fund
+npm run learning:ti:bootstrap
+```
+
+That command downloads and validates all TI PDFs, writes SHA-256 provenance, and generates `.learning-cache/today-session.md`. See [`docs/ti-learning-codespaces.md`](../../docs/ti-learning-codespaces.md).
+
+The Actions workflow is intentionally manual while the account-level runner block is unresolved, avoiding repeated failed private-repo runner attempts.
