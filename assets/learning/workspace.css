@@ -256,3 +256,20 @@ body[data-ti-learning][data-ti-workbench="compact"] .toolbar{margin:.3rem 0}
   body[data-ti-learning][data-ti-workbench="compact"] .ti-causal-chain{overflow-x:auto;justify-content:flex-start}
   body[data-ti-learning][data-ti-workbench="compact"] #ws-plot{height:300px}
 }
+
+
+/* Epic #81: scope measurement + reverse binding */
+body[data-ti-learning] #ti-cursor-readout{
+  font:600 .63rem ui-monospace,SFMono-Regular,Consolas,monospace;color:#294e61;white-space:nowrap
+}
+body[data-ti-learning] #ti-cursor-a-btn,
+body[data-ti-learning] #ti-cursor-b-btn{
+  min-width:28px;font-weight:700
+}
+body[data-ti-learning] #ti-cursor-a-btn.is-active{border-color:#f0c967;background:#fff8df}
+body[data-ti-learning] #ti-cursor-b-btn.is-active{border-color:#ff7e79;background:#fff0ef}
+body[data-ti-learning] #ws-plot [data-component]{cursor:pointer}
+body[data-ti-learning] #ws-plot .ti-measure-cursor{fill:none;stroke-width:1.6;stroke-dasharray:3 3;pointer-events:none}
+body[data-ti-learning] #ws-plot .ti-measure-cursor-a{stroke:#f0c967}
+body[data-ti-learning] #ws-plot .ti-measure-cursor-b{stroke:#ff7e79}
+body[data-ti-learning] #ws-plot .ti-cursor-label{font:700 11px ui-monospace,SFMono-Regular,Consolas,monospace}
