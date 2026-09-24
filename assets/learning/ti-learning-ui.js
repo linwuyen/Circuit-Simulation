@@ -28,18 +28,19 @@
       ["controller-jump","PWM command 直接讓 iL 跳變"]
     ]
   };
-  const TRACE_COMPONENT={pwm:"switch",vl:"inductor",il:"inductor",vout:"capacitor"};
+  const TRACE_COMPONENT={pwm:"switch",vl:"inductor",il:"inductor",ic:"capacitor",vout:"capacitor"};
   const COMPONENTS={
     vin:{label:"Vin",unit:"V",key:"vin",min:24,max:72,step:6,box:[24,92,76,142],help:"輸入電壓。改 Vin 會改 ON 狀態的 vL 與 di/dt。"},
     switch:{label:"Switch / PWM",box:[118,20,105,88],help:"開關由 Duty command 控制；這一課真正直接改變的是 ON/OFF 的作用時間。"},
     diode:{label:"Freewheel diode",box:[226,112,70,84],help:"OFF 時提供續流路徑，讓電感電流不會因開關關閉而瞬間消失。"},
     inductor:{label:"L",unit:"µH",key:"inductanceUh",min:50,max:300,step:50,box:[270,18,145,105],help:"vL=L·di/dt。L 越大，同樣 vL 下電流斜率越小。"},
     capacitor:{label:"C",unit:"µF",key:"capacitanceUf",min:47,max:1000,step:47,box:[470,100,85,105],help:"C 主要影響輸出電壓的短期保持與漣波；本題第一週期近似把舊 Vout 凍結。"},
-    load:{label:"R",unit:"Ω",key:"loadOhm",min:1,max:10,step:1,box:[570,96,80,115],help:"負載決定原工作點電流。這裡限制在 CCM 範圍內，避免換掉題目的物理模型。"}
+    fsw:{label:"fsw",unit:"kHz",key:"fswKhz",min:20,max:500,step:20,help:"開關頻率改變每拍作用時間；固定電壓與 L 時，fsw 越高，單拍 ΔiL 越小。"},
+    load:{label:"R",unit:"Ω",key:"loadOhm",min:1,max:100,step:1,box:[570,96,80,115],help:"負載變輕（R 變大）會降低平均電感電流，可能跨過 BCM 進入 DCM。"}
   };
 
   let card=null,source=null,record=null,scenario=null,stage=0,phase=.1,running=false,raf=0;
-  let dutyPct=25,simConfig={...DEFAULT_CONFIG},selectedComponent="inductor",focusTrace=null;
+  let dutyPct=25,simConfig={...DEFAULT_CONFIG},selectedComponent="inductor",focusTrace=null,viewMode="first";
 
   function svgEl(tag,attrs={},text=""){
     const n=document.createElementNS("http://www.w3.org/2000/svg",tag);
@@ -105,7 +106,7 @@
     hud.replaceChildren();
     const items=[
       ["Vin",simConfig.vin+" V","vin"],
-      ["fsw",simConfig.fswKhz+" kHz",null],
+      ["fsw",simConfig.fswKhz+" kHz","fsw"],
       ["L",simConfig.inductanceUh+" µH","inductor"],
       ["C",simConfig.capacitanceUf+" µF","capacitor"],
       ["R",simConfig.loadOhm+" Ω","load"]
@@ -116,7 +117,7 @@
       if(component){b.type="button";b.onclick=()=>selectComponent(component);}
       hud.append(b);
     });
-    const mode=document.createElement("span");mode.className="ti-mode";mode.textContent=scenario?.config?"CCM":"—";hud.append(mode);
+    const mode=document.createElement("span");mode.className="ti-mode";mode.textContent=B.buck({...simConfig,duty:dutyPct/100}).regime;hud.append(mode);
   }
   function renderSource(){
     const box=$("surface-help");box.replaceChildren();
@@ -144,6 +145,7 @@
     if(!layer){layer=svgEl("g",{id:"ti-component-hit-layer"});svg.append(layer);}
     layer.replaceChildren();
     Object.entries(COMPONENTS).forEach(([id,c])=>{
+      if(!c.box)return;
       const [x,y,w,h]=c.box;
       const hit=svgEl("rect",{x,y,width:w,height:h,rx:12,class:"ti-component-hit"+(id===selectedComponent?" is-selected":""),tabindex:"0",role:"button","data-component":id,"aria-label":"選擇 "+c.label});
       hit.addEventListener("click",()=>selectComponent(id));
@@ -169,17 +171,25 @@
     const c=COMPONENTS[selectedComponent];panel.replaceChildren();
     const head=document.createElement("div");head.className="ti-inspector-head";
     const title=document.createElement("strong");title.textContent=c.label;
-    const state=document.createElement("span");state.textContent=stage===0?"editable":"locked after prediction";
+    const editable=stage===0||stage===4;
+    const state=document.createElement("span");state.textContent=editable?"editable":"locked during learner loop";
     head.append(title,state);panel.append(head);
     const help=document.createElement("p");help.textContent=c.help;help.title=c.help;panel.append(help);
     if(c.key){
       const row=document.createElement("label");row.className="ti-param-row";
       const value=document.createElement("output");value.textContent=simConfig[c.key]+" "+c.unit;
-      const input=document.createElement("input");input.type="range";input.min=c.min;input.max=c.max;input.step=c.step;input.value=simConfig[c.key];input.disabled=stage!==0;
+      const input=document.createElement("input");input.type="range";input.min=c.min;input.max=c.max;input.step=c.step;input.value=simConfig[c.key];input.disabled=!editable;
       input.oninput=()=>{value.textContent=input.value+" "+c.unit;};
       input.onchange=()=>{
-        if(stage!==0)return;
-        simConfig={...simConfig,[c.key]:Number(input.value)};
+        if(!editable)return;
+        const candidate={...simConfig,[c.key]:Number(input.value)};
+        if(stage===0&&B.buck({...candidate,duty:.25}).regime!=="CCM"){
+          input.value=simConfig[c.key];
+          value.textContent=simConfig[c.key]+" "+c.unit;
+          feedback("第一個 PWM 週期教材先固定在 CCM；完成這次 loop 後，STEADY view 才解鎖 BCM/DCM 探索。");
+          return;
+        }
+        simConfig=candidate;
         saveRecord({simConfig:{...simConfig}});
         render();
       };
@@ -223,7 +233,7 @@
       n.classList.toggle("ti-trace-focus",!!trace&&n.dataset.trace===trace);
     });
   }
-  function bindScopeInteraction(svg){
+  function bindScopeInteraction(svg,phaseHandler=setCircuitPhase){
     svg.querySelectorAll("[data-trace]").forEach(n=>{
       const trace=n.dataset.trace,component=TRACE_COMPONENT[trace];
       n.setAttribute("tabindex","0");
@@ -251,7 +261,7 @@
       const next=(viewX-95)/555;
       if(next<0||next>1)return;
       stopAnimation();
-      setCircuitPhase(next);
+      phaseHandler(next);
     };
     svg.addEventListener("pointerdown",event=>{
       if(stage<2)return;
@@ -268,9 +278,26 @@
     });
     svg.addEventListener("pointercancel",()=>{scrubbing=false;});
   }
+  function renderViewTabs(){
+    let tabs=$("ti-view-tabs");
+    const toolbar=$("ti-sim-toolbar");
+    const status=$("ti-scope-status");
+    if(!toolbar||!status)return;
+    if(!tabs){
+      tabs=document.createElement("div");tabs.id="ti-view-tabs";tabs.className="ti-view-tabs";
+      toolbar.insertBefore(tabs,status);
+    }
+    tabs.replaceChildren();
+    [["first","FIRST"],["steady","STEADY"],["transient","TRANSIENT"]].forEach(([id,label])=>{
+      const b=document.createElement("button");b.type="button";b.textContent=label;b.disabled=stage<2;
+      if(viewMode===id)b.setAttribute("aria-current","true");
+      b.onclick=()=>{viewMode=id;stopAnimation();drawPlot();renderHud();};
+      tabs.append(b);
+    });
+  }
   function setupSurface(){
     $("setup-panel").hidden=true;$("free-controls").hidden=true;$("concept-note").hidden=true;$("transfer-preview").hidden=true;$("workbench-context-slot").hidden=true;
-    $("surface-title").textContent="Buck First-Cycle Lab";
+    $("surface-title").textContent="Buck Physics Workbench";
     $("ws-count").textContent="TI Concept 1 / 15 · SLVA057";
     $("ws-title").textContent="Duty 變大，最先發生什麼？";
     $("ws-intro").textContent="Predict first. Then inspect PWM → vL → iL.";
@@ -296,7 +323,8 @@
       $("ti-reset").onclick=()=>{stopAnimation();setCircuitPhase(.1);};
     }
     $("ti-run").disabled=stage<2;$("ti-pause").disabled=stage<2;$("ti-reset").disabled=stage<2;
-    $("ti-scope-status").textContent=stage<2?"locked":"first cycle";
+    $("ti-scope-status").textContent=stage<2?"locked":viewMode;
+    renderViewTabs();
     renderCausalChain();
     renderSource();
   }
@@ -306,7 +334,7 @@
     for(let i=0;i<=7;i++)g.append(svgEl("path",{d:`M95 ${20+i*40}H650`}));
     svg.append(g);
   }
-  function drawPlot(){
+  function drawFirstPlot(){
     const svg=$("ws-plot");svg.replaceChildren();svg.hidden=false;svg.setAttribute("viewBox","0 0 720 330");scopeGrid(svg);
     if(stage<2){
       svg.append(svgEl("text",{x:250,y:155,class:"ti-scope-lock"},"WAVEFORM LOCKED"));
@@ -356,6 +384,84 @@
     $("ws-comparison").textContent=`ON ${scenario.after.onUs.toFixed(2)} µs · vL(on) +${posV.toFixed(1)} V · di/dt(on) +${scenario.after.onSlopeAUs.toFixed(3)} A/µs · first-cycle ΔiL +${scenario.after.deltaI.toFixed(3)} A`;
     highlightTrace(focusTrace);
     bindScopeInteraction(svg);
+  }
+
+  function tracePolyline(svg,rows,key,x,y,className,trace){
+    svg.append(svgEl("polyline",{
+      points:rows.map(r=>`${x(r)},${y(r[key])}`).join(" "),
+      class:className,
+      "data-trace":trace
+    }));
+  }
+  function laneScale(values,top,bottom){
+    const lo=Math.min(...values),hi=Math.max(...values),span=Math.max(hi-lo,1e-9);
+    return value=>bottom-(value-lo)/span*(bottom-top);
+  }
+  function drawSteadyPlot(){
+    const svg=$("ws-plot");svg.replaceChildren();svg.hidden=false;svg.setAttribute("viewBox","0 0 720 330");scopeGrid(svg);
+    const m=B.buck({...simConfig,duty:dutyPct/100}),rows=m.rows;
+    const x=r=>95+r.phase*555;
+    const label=(name,y)=>svg.append(svgEl("text",{x:18,y,class:"ti-trace-label"},name));
+    label("PWM",42);label("vL",96);label("iL",156);label("iC",216);label("Vout",282);
+    const pwmY=rows.map(r=>r.state==="ON"?31:52);
+    svg.append(svgEl("polyline",{points:rows.map((r,i)=>`${x(r)},${pwmY[i]}`).join(" "),class:"ti-trace ti-trace-pwm","data-trace":"pwm"}));
+    const yVL=laneScale(rows.map(r=>r.vL),75,108),yIL=laneScale(rows.map(r=>r.iL),133,172);
+    const yIC=laneScale(rows.map(r=>r.iC),193,232),yVO=laneScale(rows.map(r=>r.vout),258,296);
+    tracePolyline(svg,rows,"vL",x,yVL,"ti-trace ti-trace-vl","vl");
+    tracePolyline(svg,rows,"iL",x,yIL,"ti-trace ti-trace-il","il");
+    tracePolyline(svg,rows,"iC",x,yIC,"ti-trace ti-trace-ic","ic");
+    tracePolyline(svg,rows,"vout",x,yVO,"ti-trace ti-trace-vout","vout");
+    svg.append(svgEl("path",{id:"ti-scope-cursor",d:"M95 20V312",class:"ti-scope-cursor"}));
+    svg.setAttribute("aria-label","Steady-state Buck scope showing PWM, vL, iL, capacitor current and Vout ripple.");
+    $("ws-comparison").textContent=`${m.regime} · ΔiL ${m.ripple.toFixed(3)} A · Vout ripple ${m.vRipple.toFixed(4)} V · Rcrit ${m.boundaryOhm.toFixed(2)} Ω`;
+    highlightTrace(focusTrace);
+    bindScopeInteraction(svg,p=>setCircuitPhaseSteady(p,m));
+  }
+  function drawTransientPlot(){
+    const svg=$("ws-plot");svg.replaceChildren();svg.hidden=false;svg.setAttribute("viewBox","0 0 720 330");scopeGrid(svg);
+    const t=B.buckTransient({
+      before:{...simConfig,duty:.25},
+      after:{...simConfig,duty:dutyPct/100},
+      cycles:30,stepsPerCycle:128
+    });
+    const rows=t.rows,summ=t.cycleSummaries;
+    const xCycle=c=>95+c/(t.cycles-1)*555;
+    const yV=laneScale(summ.map(r=>r.avgVout),70,165);
+    const allI=summ.flatMap(r=>[r.minI,r.maxI]),yI=laneScale(allI,205,295);
+    svg.append(svgEl("text",{x:18,y:115,class:"ti-trace-label"},"Vout"));
+    svg.append(svgEl("text",{x:18,y:252,class:"ti-trace-label"},"iL env"));
+    svg.append(svgEl("polyline",{points:summ.map(r=>`${xCycle(r.cycle)},${yV(r.avgVout)}`).join(" "),class:"ti-trace ti-trace-vout","data-trace":"vout"}));
+    svg.append(svgEl("polyline",{points:summ.map(r=>`${xCycle(r.cycle)},${yI(r.maxI)}`).join(" "),class:"ti-trace ti-trace-il","data-trace":"il"}));
+    svg.append(svgEl("polyline",{points:summ.map(r=>`${xCycle(r.cycle)},${yI(r.minI)}`).join(" "),class:"ti-trace ti-trace-old","data-trace":"il"}));
+    svg.append(svgEl("path",{id:"ti-scope-cursor",d:"M95 20V312",class:"ti-scope-cursor"}));
+    svg.setAttribute("aria-label","Multi-cycle Buck transient showing Vout and inductor-current envelope after the duty change.");
+    $("ws-comparison").textContent=`Full transient · Vout ${t.initialVout.toFixed(2)} V → cycle1 ${t.firstCycle.avgVout.toFixed(2)} V → cycle30 ${t.lastCycle.avgVout.toFixed(2)} V. FIRST view intentionally freezes old Vout; this view does not.`;
+    highlightTrace(focusTrace);
+    bindScopeInteraction(svg,p=>setCircuitPhaseTransient(p,t));
+  }
+  function drawPlot(){
+    if(stage<2||viewMode==="first")return drawFirstPlot();
+    if(viewMode==="steady")return drawSteadyPlot();
+    return drawTransientPlot();
+  }
+  function applyCircuitRow(row){
+    const on=row.state==="ON",off=row.state==="OFF";
+    $("switch").setAttribute("d",on?"M140 70H200":"M140 70L200 45");
+    $("on-path").style.display=on?"":"none";
+    $("off-path").style.display=off?"":"none";
+    $("circuit-state").textContent=`${row.state}  vL ${row.vL>=0?"+":""}${row.vL.toFixed(1)}V  iL ${row.iL.toFixed(3)}A`;
+  }
+  function setCircuitPhaseSteady(p,m){
+    phase=Math.max(0,Math.min(.999,p));
+    const index=Math.min(m.rows.length-1,Math.round(phase*(m.rows.length-1)));
+    applyCircuitRow(m.rows[index]);
+    const cursor=$("ti-scope-cursor");if(cursor){const x=95+phase*555;cursor.setAttribute("d",`M${x} 20V312`);}
+  }
+  function setCircuitPhaseTransient(p,t){
+    phase=Math.max(0,Math.min(.999,p));
+    const index=Math.min(t.rows.length-1,Math.round(phase*(t.rows.length-1)));
+    applyCircuitRow(t.rows[index]);
+    const cursor=$("ti-scope-cursor");if(cursor){const x=95+phase*555;cursor.setAttribute("d",`M${x} 20V312`);}
   }
   function setCircuitPhase(p){
     phase=Math.max(0,Math.min(.999,p));
@@ -482,7 +588,7 @@
     dutyPct=stage<=1?25:50;
     scenario=C.buildFirstCycle(B.buck,{...simConfig,duty:.25},dutyPct/100);
     setupSurface();route();renderProgress();drawPlot();renderQuestion();
-    if(stage>=2){setCircuitPhase(.1);renderCausalChain();}else{$("on-path").style.display="none";$("off-path").style.display="none";$("circuit-state").textContent="Prediction lock active.";}
+    if(stage>=2){if(viewMode==="steady")setCircuitPhaseSteady(.1,B.buck({...simConfig,duty:dutyPct/100}));else if(viewMode==="transient")setCircuitPhaseTransient(.1,B.buckTransient({before:{...simConfig,duty:.25},after:{...simConfig,duty:dutyPct/100},cycles:30,stepsPerCycle:128}));else setCircuitPhase(.1);renderCausalChain();}else{$("on-path").style.display="none";$("off-path").style.display="none";$("circuit-state").textContent="Prediction lock active.";}
     if(stage!==1)$("ws-control").oninput=null;
   }
   async function mount(){

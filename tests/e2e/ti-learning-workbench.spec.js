@@ -169,3 +169,53 @@ test('TI Buck workbench stays usable on 375px mobile without horizontal overflow
   const finalOverflow=await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
   expect(finalOverflow).toBe(false);
 });
+
+
+test('physics views expose steady conduction region and full transient without replacing first-cycle evidence', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await openFresh(page);
+  await page.locator('input[name="ti-predict"][value="time-first"]').check();
+  await page.getByRole('button', { name: 'Lock prediction' }).click();
+  await page.locator('#ws-control').fill('50');
+  await page.getByRole('button', { name: 'Run first cycle' }).click();
+
+  await page.getByRole('button', { name: 'STEADY' }).click();
+  await expect(page.locator('#ws-plot [data-trace="ic"]')).toBeVisible();
+  await expect(page.locator('#ws-comparison')).toContainText('Rcrit');
+
+  await page.getByRole('button', { name: 'TRANSIENT' }).click();
+  await expect(page.locator('#ws-comparison')).toContainText('Full transient');
+  await expect(page.locator('#ws-comparison')).toContainText('FIRST view intentionally freezes old Vout');
+
+  await page.getByRole('button', { name: 'FIRST' }).click();
+  await expect(page.locator('#ws-comparison')).toContainText('first-cycle');
+});
+
+
+test('completed loop unlocks DCM exploration while prediction stage stays in CCM', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await openFresh(page);
+
+  await page.getByRole('button', { name: /R 5 Ω/ }).click();
+  const preRange=page.locator('#ti-component-inspector input[type="range"]');
+  await preRange.fill('100');
+  await expect(page.locator('#ws-feedback')).toContainText('先固定在 CCM');
+
+  await page.locator('input[name="ti-predict"][value="time-first"]').check();
+  await page.getByRole('button', { name: 'Lock prediction' }).click();
+  await page.locator('#ws-control').fill('50');
+  await page.getByRole('button', { name: 'Run first cycle' }).click();
+  await page.locator('input[name="ti-observe"][value="net-rise"]').check();
+  await page.getByRole('button', { name: 'Check observation' }).click();
+  await page.locator('input[name="ti-reason"][value="volt-second"]').check();
+  await page.getByRole('button', { name: 'Complete loop' }).click();
+
+  await page.getByRole('button', { name: /R 5 Ω/ }).click();
+  const postRange=page.locator('#ti-component-inspector input[type="range"]');
+  await expect(postRange).toBeEnabled();
+  await postRange.fill('100');
+
+  await page.getByRole('button', { name: 'STEADY' }).click();
+  await expect(page.locator('.ti-mode')).toContainText('DCM');
+  await expect(page.locator('#ws-comparison')).toContainText('DCM');
+});

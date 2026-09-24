@@ -263,3 +263,8 @@ body[data-ti-learning] #circuit .ti-component-hit.is-preview{
 body[data-ti-learning] #ws-plot [data-trace]{cursor:crosshair;pointer-events:stroke}
 body[data-ti-learning] #ws-plot [data-trace]:focus-visible{outline:none;filter:drop-shadow(0 0 4px currentColor)}
 body[data-ti-learning] #ws-plot{touch-action:none}
+
+body[data-ti-learning] .ti-view-tabs{display:flex;gap:.18rem;margin-left:.2rem}
+body[data-ti-learning] .ti-view-tabs button{min-width:auto!important;font-size:.6rem!important;letter-spacing:.04em}
+body[data-ti-learning] .ti-view-tabs button[aria-current="true"]{background:#173f52;color:white;border-color:#173f52}
+body[data-ti-learning] #ws-plot .ti-trace-ic{stroke:#ff9c6e}
