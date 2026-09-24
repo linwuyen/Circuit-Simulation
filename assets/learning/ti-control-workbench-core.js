@@ -88,7 +88,7 @@
       commandProfile:[{cycle:0,vref:c.vin*c.duty*.7},{cycle:300,vref:c.vin*c.duty}],
       loadProfile:[{cycle:0,ohm:c.loadOhm}],
       kpV:c.kp,kiV:c.ki,kpI:.04,kiI:400,currentLimit:20,dutyMax:.92,
-      samplePct:50,computeUs:Math.min(9,Math.max(.2,c.delayUs*.55)),pwmCommitUs:.3,
+      samplePct:20,adcLatencyUs:.5,isrLatencyUs:.3,computeUs:Math.min(9,Math.max(.2,c.delayUs*.4)),pwmCommitUs:.3,
       sensorGain:1,currentSensorGain:1,noisePct:0
     });
     return {
