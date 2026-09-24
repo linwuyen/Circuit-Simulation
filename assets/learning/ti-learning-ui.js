@@ -650,8 +650,9 @@
   function renderSpecializedConcept(concept,revealed){
     const host=ensureSpecializedHost();
     host.hidden=true;host.replaceChildren();
-    const workbench=root.CircuitTIControlWorkbench;
-    if(!workbench||!workbench.supports(concept.id))return;
+    const workbenches=[root.CircuitTIControlWorkbench,root.CircuitTITimingWorkbench].filter(Boolean);
+    const workbench=workbenches.find(item=>item.supports(concept.id));
+    if(!workbench)return;
     host.hidden=false;
     workbench.mount({
       host,
@@ -661,9 +662,11 @@
         E.recordMachine("ti:"+concept.id,"ti-control-workbench",snapshot,{
           passed:false,
           model:{
-            id:"ti-control-workbench-v1",
+            id:workbench===root.CircuitTITimingWorkbench?"ti-c2000-timing-workbench-v1":"ti-control-workbench-v1",
             version:"1",
-            boundary:"Deterministic teaching/model evidence only. Imported SFRA without provenance is not independent measured evidence."
+            boundary:workbench===root.CircuitTITimingWorkbench
+              ?"Deterministic C2000 timing teaching model only. Exact target timing requires TRM plus GPIO/scope evidence."
+              :"Deterministic teaching/model evidence only. Imported SFRA without provenance is not independent measured evidence."
           }
         });
       }
