@@ -9,7 +9,7 @@
     plant:Object.freeze({
       vin:48,duty:.5,inductanceH:500e-6,capacitanceF:220e-6,loadOhm:12,esrOhm:.03,switchingHz:100000
     }),
-    kp:.015,ki:45,sampleUs:10,delayUs:2.5,sensorGain:1,
+    kp:.001,ki:10,sampleUs:10,delayUs:2.5,sensorGain:1,
     minHz:10,maxHz:20000,points:241
   });
 
