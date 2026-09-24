@@ -7,10 +7,10 @@
 
   const DAY=86400000;
   const policy={
-    fail:{mastery:.2,days:1},
-    partial:{mastery:.5,days:3},
-    pass:{mastery:.8,days:7},
-    transfer:{mastery:1,days:30}
+    fail:{mastery:.2,days:1,levelDelta:-1},
+    partial:{mastery:.5,days:3,levelDelta:0},
+    pass:{mastery:.8,days:7,levelDelta:1},
+    transfer:{mastery:1,days:30,levelDelta:2}
   };
   const lesson={
     id:"buck-energy-flow",
@@ -101,12 +101,74 @@
     if(!p) throw new Error("unknown result: "+result);
     return addDays(day,p.days);
   }
+  function normalizeDay(value=isoDayLocal()){
+    const day=String(value);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error("date must be YYYY-MM-DD");
+    return day;
+  }
+  function conceptMap(stateOrConcepts={}){
+    return stateOrConcepts&&stateOrConcepts.concepts&&typeof stateOrConcepts.concepts==="object"
+      ? stateOrConcepts.concepts : stateOrConcepts||{};
+  }
+  function stateFor(stateOrConcepts,id){
+    const concepts=conceptMap(stateOrConcepts);
+    return concepts[id]||{level:0,mastery:0,attempts:0,lastResult:null,lastReviewed:null,nextReview:null,history:[]};
+  }
+  function prereqsReady(card,stateOrConcepts){
+    const concepts=conceptMap(stateOrConcepts);
+    return (card.prerequisites||[]).every(id=>(concepts[id]?.mastery||0)>=.5);
+  }
+  function preferredMode(type,state){
+    if(type==="new") return "predict";
+    if((state.mastery||0)>=.8) return "transfer";
+    if((state.mastery||0)>=.5) return "diagnose";
+    return "predict";
+  }
+  function buildPlan(cards,stateOrConcepts,date=isoDayLocal(),{maxReviews=3,maxNew=1}={}){
+    date=normalizeDay(date);
+    const concepts=conceptMap(stateOrConcepts);
+    const due=(cards||[])
+      .map(card=>({card,s:stateFor(concepts,card.id)}))
+      .filter(x=>x.s.attempts>0&&x.s.nextReview&&x.s.nextReview<=date)
+      .sort((a,b)=>a.s.nextReview.localeCompare(b.s.nextReview)||(a.s.mastery||0)-(b.s.mastery||0)||a.card.id.localeCompare(b.card.id))
+      .slice(0,maxReviews);
+    const unseen=(cards||[])
+      .map(card=>({card,s:stateFor(concepts,card.id)}))
+      .filter(x=>x.s.attempts===0&&prereqsReady(x.card,concepts))
+      .slice(0,maxNew);
+    const chosen=[
+      ...due.map(x=>({type:"review",...x})),
+      ...unseen.map(x=>({type:"new",...x}))
+    ];
+    return {
+      date,
+      dueCount:due.length,
+      newCount:unseen.length,
+      items:chosen.map(({type,card,s})=>{
+        const mode=preferredMode(type,s);
+        const candidates=card.questions.filter(q=>q.mode===mode);
+        const question=candidates[(s.attempts||0)%Math.max(1,candidates.length)]||card.questions[(s.attempts||0)%card.questions.length];
+        return {
+          type,conceptId:card.id,title:card.title,mastery:s.mastery||0,mode:question.mode,
+          question:question.prompt,sourceIds:card.sourceIds,projectLinks:card.projectLinks||[]
+        };
+      })
+    };
+  }
+  function applyConceptResult(stateOrConcepts,conceptId,result,day=isoDayLocal(),details={}){
+    const concepts=conceptMap(stateOrConcepts);
+    const previous=stateFor(concepts,conceptId);
+    return {...concepts,[conceptId]:applyResult(previous,result,day,details)};
+  }
   function applyResult(previous={},result,day=isoDayLocal(),details={}){
     const p=policy[result];
     if(!p) throw new Error("unknown result: "+result);
+    day=normalizeDay(day);
     const history=[...(previous.history||[]),{date:day,result,mastery:p.mastery,...details}].slice(-20);
+    const level=Math.max(0,Math.min(6,Number(previous.level||0)+p.levelDelta));
     return {
       ...previous,
+      level,
       attempts:Number(previous.attempts||0)+1,
       mastery:p.mastery,
       lastResult:result,
@@ -117,5 +179,5 @@
       progress:4
     };
   }
-  return {lesson,policy,isoDayLocal,addDays,buildFirstCycle,gradeResult,nextReview,applyResult};
+  return {lesson,policy,isoDayLocal,addDays,normalizeDay,stateFor,prereqsReady,preferredMode,buildPlan,applyConceptResult,buildFirstCycle,gradeResult,nextReview,applyResult};
 });

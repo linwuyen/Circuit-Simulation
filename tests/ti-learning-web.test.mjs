@@ -119,3 +119,33 @@ test("first-cycle lesson preserves CCM boundary before DCM exploration",async()=
   assert.match(ui,/stage===0&&B\.buck\(\{\.\.\.candidate,duty:\.25\}\)\.regime!=="CCM"/);
   assert.match(ui,/完成這次 loop 後/);
 });
+
+
+test("shared TI planner unlocks prerequisite concepts and preserves mode progression",async()=>{
+  const cards=JSON.parse(await readFile(new URL("../learning/ti/concept-cards.json",import.meta.url),"utf8")).cards;
+  const empty=Core.buildPlan(cards,{}, "2026-09-24");
+  assert.equal(empty.items[0].conceptId,"buck-energy-flow");
+  assert.equal(empty.items[0].mode,"predict");
+
+  const afterBuck=Core.applyConceptResult({},"buck-energy-flow","pass","2026-09-24");
+  const next=Core.buildPlan(cards,afterBuck,"2026-09-24");
+  assert.equal(next.items[0].conceptId,"boost-rhpz");
+  assert.equal(next.items[0].mode,"predict");
+
+  const due=Core.buildPlan(cards,afterBuck,"2026-10-01",{maxReviews:1,maxNew:0});
+  assert.equal(due.items[0].conceptId,"buck-energy-flow");
+  assert.equal(due.items[0].mode,"transfer");
+});
+
+
+test("TI web exposes all concept cards through one V5 planner and self-review flow",async()=>{
+  const ui=await readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8");
+  assert.match(ui,/cardsBundle\.cards\.forEach/);
+  assert.match(ui,/C\.prereqsReady/);
+  assert.match(ui,/todayPlan/);
+  assert.match(ui,/renderGenericConcept/);
+  assert.match(ui,/Commit answer → reveal source/);
+  assert.match(ui,/gradeSource:"self-review"/);
+  assert.match(ui,/strength:"none"/);
+  assert.match(ui,/circuit-learning-state-v5|STORE_KEY/);
+});

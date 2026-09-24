@@ -39,7 +39,7 @@
     load:{label:"R",unit:"Ω",key:"loadOhm",min:1,max:100,step:1,box:[570,96,80,115],help:"負載變輕（R 變大）會降低平均電感電流，可能跨過 BCM 進入 DCM。"}
   };
 
-  let card=null,source=null,record=null,scenario=null,stage=0,phase=.1,running=false,raf=0;
+  let card=null,source=null,cardsBundle=null,manifestBundle=null,record=null,scenario=null,stage=0,phase=.1,running=false,raf=0,selectedConceptId=C.lesson.id;
   let dutyPct=25,simConfig={...DEFAULT_CONFIG},selectedComponent="inductor",focusTrace=null,viewMode="first";
 
   function svgEl(tag,attrs={},text=""){
@@ -72,18 +72,73 @@
       fetch("learning/ti/concept-cards.json",{cache:"no-store"}).then(r=>{if(!r.ok)throw Error("Concept Cards 載入失敗");return r.json();}),
       fetch("learning/ti/manifest.json",{cache:"no-store"}).then(r=>{if(!r.ok)throw Error("TI manifest 載入失敗");return r.json();})
     ]);
+    cardsBundle=cards;manifestBundle=manifest;
     card=cards.cards.find(x=>x.id===C.lesson.id);
     source=manifest.documents.find(x=>x.id===C.lesson.sourceId);
     if(!card||!source)throw Error("TI Buck lesson source closure missing");
   }
+  function conceptRecords(){
+    const state=E.load();
+    return state.benchmark?.[STORE_KEY]?.concepts||{};
+  }
+  function conceptRecord(id){
+    return conceptRecords()[id]||{version:1,level:0,mastery:0,attempts:0,lastResult:null,lastReviewed:null,nextReview:null,history:[]};
+  }
+  function saveConceptRecord(id,value){
+    const state=E.load();
+    state.benchmark[STORE_KEY]||={version:1,concepts:{}};
+    state.benchmark[STORE_KEY].concepts||={};
+    state.benchmark[STORE_KEY].concepts[id]={...value,version:1,updatedAt:new Date().toISOString()};
+    E.save(state);
+    return state.benchmark[STORE_KEY].concepts[id];
+  }
+  function todayPlan(options={}){
+    return C.buildPlan(cardsBundle?.cards||[],conceptRecords(),today(),options);
+  }
+  function conceptDocs(concept){
+    const ids=new Set(concept.sourceIds||[]);
+    return (manifestBundle?.documents||[]).filter(doc=>ids.has(doc.id));
+  }
+  function specializedBuckAvailable(id){
+    const r=conceptRecord(id);
+    return id===C.lesson.id&&Number(r.attempts||0)===0;
+  }
+  function selectConcept(id){
+    const concept=cardsBundle?.cards?.find(x=>x.id===id);
+    if(!concept)return;
+    selectedConceptId=id;
+    if(specializedBuckAvailable(id)){
+      card=concept;
+      source=manifestBundle.documents.find(x=>x.id===C.lesson.sourceId);
+      document.body.dataset.tiConceptMode="buck";
+      render();
+    }else{
+      renderGenericConcept(id);
+    }
+  }
   function route(){
-    const list=$("workspace-route");if(!list)return;
+    const list=$("workspace-route");if(!list||!cardsBundle)return;
     list.replaceChildren();
-    const li=document.createElement("li"),b=document.createElement("button");
-    b.type="button";b.textContent="1. Buck 能量流與電流斜率";b.setAttribute("aria-current","step");
-    li.append(b);list.append(li);
+    const records=conceptRecords(),plan=todayPlan();
+    const planned=new Map(plan.items.map(item=>[item.conceptId,item]));
+    let completed=0;
+    cardsBundle.cards.forEach((concept,index)=>{
+      const r=records[concept.id]||{attempts:0,mastery:0};
+      if((r.attempts||0)>0)completed++;
+      const locked=(r.attempts||0)===0&&!C.prereqsReady(concept,records);
+      const li=document.createElement("li"),b=document.createElement("button");
+      const p=planned.get(concept.id);
+      const status=locked?"LOCKED":p?p.type.toUpperCase():(r.attempts||0)>0?String(r.lastResult||"DONE").toUpperCase():"READY";
+      b.type="button";b.disabled=locked;b.textContent=`${index+1}. ${concept.title} · ${status}`;
+      if(concept.id===selectedConceptId)b.setAttribute("aria-current","step");
+      b.onclick=()=>selectConcept(concept.id);
+      li.append(b);list.append(li);
+    });
     const parent=list.closest("details");
-    if(parent){parent.open=false;parent.querySelector("summary").textContent="Learning path · 1 / 15";}
+    if(parent){
+      parent.open=document.body.dataset.tiConceptMode==="generic";
+      parent.querySelector("summary").textContent=`TI path · ${completed}/${cardsBundle.cards.length} · today ${plan.items.length}`;
+    }
   }
   function setHeader(){
     const header=document.querySelector(".workspace-header strong");
@@ -296,6 +351,7 @@
     });
   }
   function setupSurface(){
+    document.body.dataset.tiConceptMode="buck";
     $("setup-panel").hidden=true;$("free-controls").hidden=true;$("concept-note").hidden=true;$("transfer-preview").hidden=true;$("workbench-context-slot").hidden=true;
     $("surface-title").textContent="Buck Physics Workbench";
     $("ws-count").textContent="TI Concept 1 / 15 · SLVA057";
@@ -310,7 +366,10 @@
     $("ws-control").disabled=stage!==1;
     $("scope-note").textContent=scenario.boundary;
     renderHud();
-    ensureCircuitStage();
+    const circuitStage=ensureCircuitStage();circuitStage.hidden=false;
+    $("lesson-control").hidden=false;
+    $("ws-plot").hidden=false;
+    $("surface-help").hidden=false;
     installCircuitInteractivity();
 
     let bar=$("ti-sim-toolbar");
@@ -322,6 +381,7 @@
       $("ti-pause").onclick=()=>stopAnimation();
       $("ti-reset").onclick=()=>{stopAnimation();setCircuitPhase(.1);};
     }
+    bar.hidden=false;
     $("ti-run").disabled=stage<2;$("ti-pause").disabled=stage<2;$("ti-reset").disabled=stage<2;
     $("ti-scope-status").textContent=stage<2?"locked":viewMode;
     renderViewTabs();
@@ -576,6 +636,126 @@
     $("ws-result").hidden=false;$("ws-ability").textContent="Evidence: PWM + vL + iL + frozen Vout.";$("ws-transition").textContent="Next due review should change the condition instead of repeating the same wording.";
     $("ws-next").textContent="Replay scope";$("ws-next").onclick=()=>{stage=2;render();startAnimation();};
   }
+  function renderGenericEvidence(concept,revealed){
+    const box=$("surface-help");box.hidden=false;box.replaceChildren();
+    const panel=document.createElement("div");panel.className="ti-generic-evidence";
+    if(!revealed){
+      const lock=document.createElement("p");lock.className="ti-generic-lock";
+      lock.textContent="Primary-source model is hidden until you commit your answer.";
+      panel.append(lock);box.append(panel);return;
+    }
+    const sections=[
+      ["Physics",concept.model.physics],
+      ["Math",(concept.model.math||[]).join(" · ")||"No single equation is sufficient for this concept."],
+      ["Implementation",concept.model.implementation],
+      ["Evidence",concept.model.evidence]
+    ];
+    sections.forEach(([title,text])=>{
+      const s=document.createElement("section"),h=document.createElement("strong"),p=document.createElement("p");
+      h.textContent=title;p.textContent=text;s.append(h,p);panel.append(s);
+    });
+    const sources=document.createElement("div");sources.className="ti-generic-sources";
+    const h=document.createElement("strong");h.textContent="TI primary sources";sources.append(h);
+    conceptDocs(concept).forEach(doc=>{
+      const a=document.createElement("a");a.href=doc.url;a.target="_blank";a.rel="noopener";a.textContent=`${doc.id} — ${doc.title}`;sources.append(a);
+    });
+    panel.append(sources);box.append(panel);
+  }
+  function genericQuestion(concept,rec){
+    const type=(rec.attempts||0)>0?"review":"new";
+    const mode=rec.activeMode||C.preferredMode(type,rec);
+    return {type,mode,question:rec.activeQuestion||concept.questions.find(q=>q.mode===mode)?.prompt||concept.questions[0].prompt};
+  }
+  function genericStepNav(step){
+    const nav=$("ws-steps");nav.replaceChildren();
+    ["Answer","Source","Correct","Grade"].forEach((label,i)=>{
+      const b=document.createElement("button");b.type="button";b.disabled=true;b.textContent=`${i+1}. ${label}`;
+      if(Math.min(step,3)===i)b.setAttribute("aria-current","step");
+      nav.append(b);
+    });
+  }
+  function renderGenericConcept(id){
+    stopAnimation();
+    document.body.dataset.tiConceptMode="generic";
+    selectedConceptId=id;
+    const concept=cardsBundle.cards.find(x=>x.id===id);if(!concept)return;
+    const rec=conceptRecord(id),flow=genericQuestion(concept,rec),step=Number(rec.genericStep||0);
+    route();
+    $("setup-panel").hidden=true;$("free-controls").hidden=true;$("concept-note").hidden=true;$("transfer-preview").hidden=true;$("workbench-context-slot").hidden=true;
+    const circuitStage=$("ti-circuit-stage");if(circuitStage)circuitStage.hidden=true;
+    $("lesson-control").hidden=true;
+    const toolbar=$("ti-sim-toolbar");if(toolbar)toolbar.hidden=true;
+    $("ws-plot").hidden=true;$("ws-plot").replaceChildren();$("ws-comparison").textContent="";
+    $("surface-title").textContent=concept.title;
+    $("ws-count").textContent=`TI Concept ${cardsBundle.cards.findIndex(x=>x.id===id)+1} / ${cardsBundle.cards.length} · ${flow.type.toUpperCase()} / ${flow.mode.toUpperCase()}`;
+    $("ws-title").textContent=concept.problem;
+    $("ws-intro").textContent="Commit your reasoning before revealing the TI model and evidence contract.";
+    $("ws-save").textContent=E.storageStatus().saved?"Saved in circuit-learning-state-v5":"Storage unavailable — do not count this attempt as saved.";
+    genericStepNav(step);
+    renderGenericEvidence(concept,step>=1);
+    $("ws-result").hidden=true;$("explore").hidden=true;$("back-to-lesson").hidden=true;$("ws-hint").hidden=true;$("ws-explanation").hidden=true;
+    $("ws-question").replaceChildren();feedback("");
+
+    const q=document.createElement("h2");q.textContent=step===0?flow.mode.toUpperCase():step===1?"Compare with source":step===2?"Grade the reasoning":"Review scheduled";$("ws-question").append(q);
+
+    if(step===0){
+      const p=document.createElement("p");p.textContent=flow.question;
+      const ta=document.createElement("textarea");ta.id="ti-generic-answer";ta.rows=7;ta.placeholder="Write the causal chain, timing assumptions, and what evidence would falsify it.";
+      const b=document.createElement("button");b.type="button";b.className="primary";b.textContent="Commit answer → reveal source";
+      b.onclick=()=>{
+        const answer=ta.value.trim();if(!answer){feedback("先寫下你的判斷。");return;}
+        const taskId=`ti:${id}:${flow.mode}:${(rec.attempts||0)+1}`;
+        try{E.commitPrediction(taskId,{prediction:answer,parameters:`concept=${id}; mode=${flow.mode}`,confidence:70});}
+        catch(error){feedback(error.message);return;}
+        saveConceptRecord(id,{...rec,genericStep:1,activeMode:flow.mode,activeQuestion:flow.question,activeTaskId:taskId,firstAnswer:answer});
+        renderGenericConcept(id);
+      };
+      $("ws-question").append(p,ta,b);
+    }else if(step===1){
+      const p=document.createElement("p");p.textContent="Against the model at left, write the missing/broken causal link or the evidence check you would add.";
+      const ta=document.createElement("textarea");ta.id="ti-generic-correction";ta.rows=6;ta.placeholder="Correction / evidence check";
+      const b=document.createElement("button");b.type="button";b.className="primary";b.textContent="Save correction";
+      b.onclick=()=>{
+        const answer=ta.value.trim();if(!answer){feedback("先寫 correction 或 evidence check。");return;}
+        E.recordOpenResponse((rec.activeTaskId||`ti:${id}`)+":correction",{answer,mode:flow.mode,selfReviewed:true});
+        saveConceptRecord(id,{...rec,genericStep:2,correction:answer});
+        renderGenericConcept(id);
+      };
+      $("ws-question").append(p,ta,b);
+    }else if(step===2){
+      const p=document.createElement("p");
+      p.textContent="This stage is self-review, not independent verification. Grade causal completeness; evidence strength remains NONE.";
+      $("ws-question").append(p);
+      const wrap=document.createElement("div");wrap.className="ti-grade-buttons";
+      const allowed=flow.mode==="transfer"?["fail","partial","pass","transfer"]:["fail","partial","pass"];
+      allowed.forEach(result=>{
+        const b=document.createElement("button");b.type="button";b.textContent=result.toUpperCase();
+        b.onclick=()=>{
+          const concepts=C.applyConceptResult(conceptRecords(),id,result,today(),{mode:flow.mode,gradeSource:"self-review"});
+          const final={...concepts[id],genericStep:3,activeMode:null,activeQuestion:null,activeTaskId:null};
+          saveConceptRecord(id,final);
+          E.recordEvidence(`ti:${id}`,2,"ti-concept-self-review",{result,mode:flow.mode,sourceIds:concept.sourceIds},{strength:"none",stage:"practiced"});
+          renderGenericConcept(id);
+        };
+        wrap.append(b);
+      });
+      $("ws-question").append(wrap);
+    }else{
+      const grade=document.createElement("div");grade.className="ti-grade";
+      const strong=document.createElement("strong");strong.textContent=`Grade: ${String(rec.lastResult||"").toUpperCase()}`;
+      const next=document.createElement("p");next.textContent=`Next review: ${rec.nextReview||"—"} · mastery ${Math.round((rec.mastery||0)*100)}%`;
+      const note=document.createElement("p");note.textContent="This is practiced/self-reviewed evidence, not hardware or independent verification.";
+      grade.append(strong,next,note);$("ws-question").append(grade);
+      const b=document.createElement("button");b.type="button";b.className="primary";b.textContent="Open next planned concept";
+      b.onclick=()=>{
+        const plan=todayPlan({maxReviews:3,maxNew:1});
+        const nextItem=plan.items.find(item=>item.conceptId!==id);
+        if(nextItem)selectConcept(nextItem.conceptId);else feedback("今天沒有其他到期項目。");
+      };
+      $("ws-question").append(b);
+    }
+    $("workspace-progress").textContent=`TI plan · ${todayPlan().dueCount} review due · ${todayPlan().newCount} new · current ${concept.title}`;
+  }
   function renderQuestion(){
     $("ws-question").replaceChildren();feedback("");setSteps();
     $("ws-result").hidden=true;$("explore").hidden=true;$("back-to-lesson").hidden=true;$("ws-hint").hidden=true;$("ws-explanation").hidden=true;
@@ -594,7 +774,14 @@
   async function mount(){
     if(!E||!B||!C)throw Error("TI learning dependencies missing");
     document.body.dataset.tiLearning="true";document.body.dataset.tiWorkbench="compact";setHeader();renderProgress();
-    try{await loadSource();record=loadRecord();render();if(stage>=2)startAnimation();}
+    try{
+      await loadSource();
+      record=loadRecord();
+      const plan=todayPlan();
+      selectedConceptId=plan.items[0]?.conceptId||C.lesson.id;
+      selectConcept(selectedConceptId);
+      if(selectedConceptId===C.lesson.id&&stage>=2)startAnimation();
+    }
     catch(error){$("ws-title").textContent="TI Engineering Learning 載入失敗";$("ws-intro").textContent=error.message;console.error(error);}
   }
   root.addEventListener?.("beforeunload",stopAnimation);

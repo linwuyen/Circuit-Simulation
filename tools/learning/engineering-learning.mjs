@@ -1,23 +1,15 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+const SharedCore = require("../../assets/learning/ti-learning-core.js");
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const manifestPath = path.join(root, "learning/ti/manifest.json");
 const cardsPath = path.join(root, "learning/ti/concept-cards.json");
 
-const DAY = 86400000;
-const resultPolicy = {
-  fail: { score: 0.2, days: 1, levelDelta: -1 },
-  partial: { score: 0.5, days: 3, levelDelta: 0 },
-  pass: { score: 0.8, days: 7, levelDelta: 1 },
-  transfer: { score: 1.0, days: 30, levelDelta: 2 }
-};
-
 async function readJson(file) { return JSON.parse(await readFile(file, "utf8")); }
-function isoDay(value) { return new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10); }
-function addDays(date, days) { return new Date(new Date(`${date}T00:00:00Z`).getTime() + days * DAY).toISOString().slice(0, 10); }
-
 export async function loadLearningModel() {
   return { manifest: await readJson(manifestPath), cards: await readJson(cardsPath) };
 }
@@ -57,57 +49,14 @@ async function writeStateAtomic(file, state) {
   await rename(temp, file);
 }
 
-function stateFor(state, id) {
-  return state.concepts[id] ?? { level: 0, mastery: 0, attempts: 0, lastResult: null, lastReviewed: null, nextReview: null, history: [] };
-}
-
-function prereqsReady(card, state) {
-  return (card.prerequisites ?? []).every(id => (state.concepts[id]?.mastery ?? 0) >= 0.5);
-}
-
-export function buildPlan(cards, state, date, { maxReviews = 3, maxNew = 1 } = {}) {
-  date = isoDay(date);
-  const due = cards
-    .map(card => ({ card, s: stateFor(state, card.id) }))
-    .filter(x => x.s.attempts > 0 && x.s.nextReview && x.s.nextReview <= date)
-    .sort((a, b) => a.s.nextReview.localeCompare(b.s.nextReview) || a.s.mastery - b.s.mastery || a.card.id.localeCompare(b.card.id))
-    .slice(0, maxReviews);
-  const unseen = cards
-    .map(card => ({ card, s: stateFor(state, card.id) }))
-    .filter(x => x.s.attempts === 0 && prereqsReady(x.card, state))
-    .slice(0, maxNew);
-  const chosen = [...due.map(x => ({ type: "review", ...x })), ...unseen.map(x => ({ type: "new", ...x }))];
-  return {
-    date,
-    dueCount: due.length,
-    newCount: unseen.length,
-    items: chosen.map(({ type, card, s }) => {
-      const preferredMode = type === "new" ? "predict" : s.mastery >= 0.8 ? "transfer" : s.mastery >= 0.5 ? "diagnose" : "predict";
-      const candidates = card.questions.filter(q => q.mode === preferredMode);
-      const question = candidates[s.attempts % candidates.length] ?? card.questions[s.attempts % card.questions.length];
-      return { type, conceptId: card.id, title: card.title, mastery: s.mastery, mode: question.mode, question: question.prompt, sourceIds: card.sourceIds, projectLinks: card.projectLinks ?? [] };
-    })
-  };
+export function buildPlan(cards, state, date, options = {}) {
+  return SharedCore.buildPlan(cards, state, date, options);
 }
 
 export function applyGrade(state, conceptId, result, date) {
-  const policy = resultPolicy[result];
-  if (!policy) throw new Error(`unsupported result: ${result}`);
-  date = isoDay(date);
-  const prev = stateFor(state, conceptId);
-  const level = Math.max(0, Math.min(6, prev.level + policy.levelDelta));
-  const next = {
-    ...prev,
-    level,
-    mastery: policy.score,
-    attempts: prev.attempts + 1,
-    lastResult: result,
-    lastReviewed: date,
-    nextReview: addDays(date, policy.days),
-    history: [...(prev.history ?? []), { date, result, mastery: policy.score }].slice(-20)
-  };
-  return { ...state, concepts: { ...state.concepts, [conceptId]: next } };
+  return { ...state, concepts: SharedCore.applyConceptResult(state.concepts, conceptId, result, date) };
 }
+
 
 export function renderSession(plan, manifest) {
   const docs = new Map(manifest.documents.map(d => [d.id, d]));
