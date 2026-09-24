@@ -139,3 +139,17 @@ test("Epic 101 full transient falsifies the frozen-Vout approximation after the 
   assert.ok(t.rows.some(row=>row.state==="ON"));
   assert.ok(t.rows.some(row=>row.state==="OFF"));
 });
+
+
+test("Epic 102 renders all 15 concept cards with prerequisite state in existing V5 ownership",async()=>{
+  const [ui,cardsRaw]=await Promise.all([
+    readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8"),
+    readFile(new URL("../learning/ti/concept-cards.json",import.meta.url),"utf8")
+  ]);
+  const cards=JSON.parse(cardsRaw).cards;
+  assert.equal(cards.length,15);
+  assert.match(ui,/catalog\.forEach\(\(item,index\)=>/);
+  assert.match(ui,/dataset\.prerequisiteState=unmet\.length\?"locked":"ready"/);
+  assert.match(ui,/benchmark\?\.\[STORE_KEY\]\?\.concepts/);
+  assert.doesNotMatch(ui,/localStorage\.setItem/);
+});
