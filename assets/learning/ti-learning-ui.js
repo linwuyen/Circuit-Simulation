@@ -39,6 +39,7 @@
 
   let card=null,source=null,record=null,scenario=null,stage=0,phase=.1,running=false,raf=0;
   let dutyPct=25,simConfig={...DEFAULT_CONFIG},selectedComponent="inductor",focusTrace=null;
+  let cursorA=.25,cursorB=.5,activeCursor="a";
 
   function svgEl(tag,attrs={},text=""){
     const n=document.createElementNS("http://www.w3.org/2000/svg",tag);
@@ -159,6 +160,38 @@
     const trace={switch:"pwm",inductor:"il",vin:"vl",diode:"vl",capacitor:"vout",load:"il"}[id]||null;
     highlightTrace(trace);
   }
+  function refreshScenarioPreview(){
+    scenario=C.buildFirstCycle(B.buck,{...simConfig,duty:.25},Math.max(.251,dutyPct/100));
+    renderHud();
+    if(stage>=2){drawPlot();setCircuitPhase(phase);}
+  }
+  function cursorCurrent(ph){
+    const rows=scenario?.after?.rows||[];
+    if(!rows.length)return 0;
+    const pos=Math.max(0,Math.min(rows.length-1,ph*(rows.length-1)));
+    const i=Math.floor(pos),mix=pos-i;
+    const a=rows[i]?.iL??0,b=rows[Math.min(rows.length-1,i+1)]?.iL??a;
+    return a+(b-a)*mix;
+  }
+  function updateCursorReadout(){
+    const out=$("ti-cursor-readout");if(!out||!scenario)return;
+    const dt=Math.abs(cursorB-cursorA)*scenario.periodUs;
+    const di=cursorCurrent(cursorB)-cursorCurrent(cursorA);
+    out.textContent=`Δt ${dt.toFixed(3)} µs · Δi ${di>=0?"+":""}${di.toFixed(3)} A`;
+    $("ti-cursor-a-btn")?.classList.toggle("is-active",activeCursor==="a");
+    $("ti-cursor-b-btn")?.classList.toggle("is-active",activeCursor==="b");
+  }
+  function setScopeCursorFromEvent(event){
+    if(stage<2||!scenario)return;
+    const svg=$("ws-plot"),rect=svg.getBoundingClientRect();
+    const xPx=event.clientX-rect.left;
+    const phase=Math.max(0,Math.min(1,(xPx/rect.width*720-95)/555));
+    if(activeCursor==="a"){cursorA=phase;activeCursor="b";}else{cursorB=phase;activeCursor="a";}
+    const x=95+phase*555;
+    const id=activeCursor==="b"?"ti-cursor-a":"ti-cursor-b";
+    $(id)?.setAttribute("d",`M${x} 20V312`);
+    updateCursorReadout();
+  }
   function renderInspector(){
     let panel=$("ti-component-inspector");
     if(!panel){
@@ -175,13 +208,14 @@
       const row=document.createElement("label");row.className="ti-param-row";
       const value=document.createElement("output");value.textContent=simConfig[c.key]+" "+c.unit;
       const input=document.createElement("input");input.type="range";input.min=c.min;input.max=c.max;input.step=c.step;input.value=simConfig[c.key];input.disabled=stage!==0;
-      input.oninput=()=>{value.textContent=input.value+" "+c.unit;};
-      input.onchange=()=>{
+      input.oninput=()=>{
+        value.textContent=input.value+" "+c.unit;
         if(stage!==0)return;
         simConfig={...simConfig,[c.key]:Number(input.value)};
         saveRecord({simConfig:{...simConfig}});
-        render();
+        refreshScenarioPreview();
       };
+      input.onchange=()=>{ if(stage===0) render(); };
       row.append(input,value);panel.append(row);
     }else{
       const note=document.createElement("span");note.className="ti-inspector-note";note.textContent=selectedComponent==="switch"?"Use Duty command slider in step 2.":"No adjustable parameter in this lesson.";panel.append(note);
@@ -238,14 +272,19 @@
     let bar=$("ti-sim-toolbar");
     if(!bar){
       bar=document.createElement("div");bar.id="ti-sim-toolbar";bar.className="ti-sim-toolbar";
-      bar.innerHTML='<strong class="ti-scope-title">SCOPE</strong><button id="ti-run" type="button">▶</button><button id="ti-pause" type="button">Ⅱ</button><button id="ti-reset" type="button">↺</button><span id="ti-scope-status"></span>';
+      bar.innerHTML='<strong class="ti-scope-title">SCOPE</strong><button id="ti-run" type="button" title="Run">▶</button><button id="ti-pause" type="button" title="Pause">Ⅱ</button><button id="ti-reset" type="button" title="Reset">↺</button><button id="ti-cursor-a-btn" type="button" title="Set cursor A">A</button><button id="ti-cursor-b-btn" type="button" title="Set cursor B">B</button><span id="ti-cursor-readout"></span><span id="ti-scope-status"></span>';
       $("ws-plot").before(bar);
       $("ti-run").onclick=()=>{if(stage>=2)startAnimation();};
       $("ti-pause").onclick=()=>stopAnimation();
-      $("ti-reset").onclick=()=>{stopAnimation();setCircuitPhase(.1);};
+      $("ti-reset").onclick=()=>{stopAnimation();cursorA=.25;cursorB=.5;activeCursor="a";drawPlot();setCircuitPhase(.1);};
+      $("ti-cursor-a-btn").onclick=()=>{activeCursor="a";updateCursorReadout();};
+      $("ti-cursor-b-btn").onclick=()=>{activeCursor="b";updateCursorReadout();};
+      $("ws-plot").addEventListener("click",setScopeCursorFromEvent);
     }
     $("ti-run").disabled=stage<2;$("ti-pause").disabled=stage<2;$("ti-reset").disabled=stage<2;
+    $("ti-cursor-a-btn").disabled=stage<2;$("ti-cursor-b-btn").disabled=stage<2;
     $("ti-scope-status").textContent=stage<2?"locked":"first cycle";
+    updateCursorReadout();
     renderCausalChain();
     renderSource();
   }
@@ -262,6 +301,7 @@
       svg.append(svgEl("text",{x:218,y:184,class:"ti-scope-lock-sub"},"Commit prediction before revealing evidence"));
       svg.setAttribute("aria-label","Waveforms locked until prediction is committed.");
       $("ws-comparison").textContent="Prediction integrity: no waveform evidence before commitment.";
+      updateCursorReadout();
       return;
     }
     const T=scenario.periodUs,onUs=scenario.after.onUs,oldOn=scenario.before.onUs;
@@ -270,7 +310,7 @@
     const label=(name,y)=>svg.append(svgEl("text",{x:18,y,class:"ti-trace-label"},name));
     label("PWM",70);label("vL",140);label("iL",222);label("Vout",307);
 
-    const pwm=svgEl("path",{d:`M95 ${lanes.pwm[1]}V${lanes.pwm[0]}H${x(onUs)}V${lanes.pwm[1]}H650`,class:"ti-trace ti-trace-pwm","data-trace":"pwm"});
+    const pwm=svgEl("path",{d:`M95 ${lanes.pwm[1]}V${lanes.pwm[0]}H${x(onUs)}V${lanes.pwm[1]}H650`,class:"ti-trace ti-trace-pwm","data-trace":"pwm","data-component":"switch"});
     svg.append(pwm);
 
     const posV=scenario.config.vin-scenario.vout0,negV=-scenario.vout0;
@@ -279,7 +319,7 @@
       const mid=(lanes.vl[0]+lanes.vl[1])/2;
       return mid-v/max*18;
     };
-    const vl=svgEl("path",{d:`M95 ${vlScale(posV)}H${x(onUs)}V${vlScale(negV)}H650`,class:"ti-trace ti-trace-vl","data-trace":"vl"});
+    const vl=svgEl("path",{d:`M95 ${vlScale(posV)}H${x(onUs)}V${vlScale(negV)}H650`,class:"ti-trace ti-trace-vl","data-trace":"vl","data-component":"inductor"});
     svg.append(vl);
     svg.append(svgEl("text",{x:102,y:vlScale(posV)-6,class:"ti-value-label"},`+${posV.toFixed(1)}V`));
     svg.append(svgEl("text",{x:x(onUs)+8,y:vlScale(negV)+14,class:"ti-value-label"},`${negV.toFixed(1)}V`));
@@ -288,11 +328,11 @@
     const all=[...rows,...old],lo=Math.min(...all.map(r=>r.iL))-.08,hi=Math.max(...all.map(r=>r.iL))+.08;
     const yi=i=>lanes.il[1]-(i-lo)/(hi-lo)*(lanes.il[1]-lanes.il[0]);
     const points=r=>r.map(v=>`${x(v.tUs)},${yi(v.iL)}`).join(" ");
-    svg.append(svgEl("polyline",{points:points(old),class:"ti-trace ti-trace-old","data-trace":"il"}));
-    svg.append(svgEl("polyline",{points:points(rows),class:"ti-trace ti-trace-il","data-trace":"il"}));
+    svg.append(svgEl("polyline",{points:points(old),class:"ti-trace ti-trace-old","data-trace":"il","data-component":"inductor"}));
+    svg.append(svgEl("polyline",{points:points(rows),class:"ti-trace ti-trace-il","data-trace":"il","data-component":"inductor"}));
 
     const yv=(lanes.vout[0]+lanes.vout[1])/2;
-    svg.append(svgEl("path",{d:`M95 ${yv}H650`,class:"ti-trace ti-trace-vout","data-trace":"vout"}));
+    svg.append(svgEl("path",{d:`M95 ${yv}H650`,class:"ti-trace ti-trace-vout","data-trace":"vout","data-component":"capacitor"}));
     svg.append(svgEl("text",{x:560,y:yv-7,class:"ti-value-label"},`${scenario.vout0.toFixed(1)} V frozen`));
 
     svg.append(svgEl("path",{d:`M${x(oldOn)} 20V312`,class:"ti-timing ti-timing-old"}));
@@ -300,6 +340,16 @@
     svg.append(svgEl("text",{x:x(oldOn)-16,y:324,class:"ti-time-label"},"25%"));
     svg.append(svgEl("text",{x:x(onUs)-16,y:324,class:"ti-time-label"},"50%"));
     svg.append(svgEl("path",{id:"ti-scope-cursor",d:"M95 20V312",class:"ti-scope-cursor"}));
+    svg.append(svgEl("path",{id:"ti-cursor-a",d:`M${95+cursorA*555} 20V312`,class:"ti-measure-cursor ti-measure-cursor-a"}));
+    svg.append(svgEl("path",{id:"ti-cursor-b",d:`M${95+cursorB*555} 20V312`,class:"ti-measure-cursor ti-measure-cursor-b"}));
+    svg.append(svgEl("text",{x:95+cursorA*555+4,y:32,class:"ti-cursor-label"},"A"));
+    svg.append(svgEl("text",{x:95+cursorB*555+4,y:32,class:"ti-cursor-label"},"B"));
+    svg.querySelectorAll("[data-component]").forEach(node=>node.addEventListener("click",event=>{
+      event.stopPropagation();
+      selectComponent(node.dataset.component);
+      highlightTrace(node.dataset.trace||null);
+    }));
+    updateCursorReadout();
 
     svg.setAttribute("aria-label","Four-trace scope showing PWM, inductor voltage, inductor current and frozen output voltage for the first PWM cycle.");
     $("ws-comparison").textContent=`ON ${scenario.after.onUs.toFixed(2)} µs · vL(on) +${posV.toFixed(1)} V · di/dt(on) +${scenario.after.onSlopeAUs.toFixed(3)} A/µs · first-cycle ΔiL +${scenario.after.deltaI.toFixed(3)} A`;

@@ -17,7 +17,10 @@ test('TI Buck learner loop persists PASS evidence and seven-day review in V5', a
 
   const duty = page.locator('#ws-control');
   await expect(duty).toBeEnabled();
-  await duty.fill('50');
+  await duty.evaluate(el => {
+    el.value = '50';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
   await page.getByRole('button', { name: 'Run first cycle' }).click();
 
   await expect(page.locator('#ws-plot [data-trace="pwm"]')).toBeVisible();
@@ -76,7 +79,10 @@ test('TI Buck workbench keeps circuit scope and tutor in first 1080p viewport an
 
   await page.locator('input[name="ti-predict"][value="time-first"]').check();
   await page.getByRole('button', { name: 'Lock prediction' }).click();
-  await page.locator('#ws-control').fill('50');
+  await page.locator('#ws-control').evaluate(el => {
+    el.value = '50';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
   await page.getByRole('button', { name: 'Run first cycle' }).click();
 
   const surface = await page.locator('#workspace-surface').boundingBox();
@@ -95,4 +101,30 @@ test('TI Buck workbench keeps circuit scope and tutor in first 1080p viewport an
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
   expect(overflow).toBe(false);
+});
+
+
+test('TI scope cursors report delta and waveform click selects the circuit component', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await openFresh(page);
+  await page.locator('input[name="ti-predict"][value="time-first"]').check();
+  await page.getByRole('button', { name: 'Lock prediction' }).click();
+  await page.locator('#ws-control').evaluate(el => {
+    el.value = '50';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.getByRole('button', { name: 'Run first cycle' }).click();
+
+  await expect(page.locator('#ti-cursor-readout')).toContainText('Δt');
+  await expect(page.locator('#ti-cursor-readout')).toContainText('Δi');
+
+  await page.locator('#ws-plot [data-trace="vout"]').click({ force: true });
+  await expect(page.locator('.ti-component-hit[data-component="capacitor"]')).toHaveClass(/is-selected/);
+
+  await page.getByRole('button', { name: 'Set cursor A' }).click();
+  await page.locator('#ws-plot').click({ position: { x: 260, y: 120 } });
+  await page.getByRole('button', { name: 'Set cursor B' }).click();
+  await page.locator('#ws-plot').click({ position: { x: 480, y: 120 } });
+  await expect(page.locator('#ti-cursor-readout')).toContainText('µs');
+  await expect(page.locator('#ti-cursor-readout')).toContainText('A');
 });
