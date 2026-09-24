@@ -112,3 +112,10 @@ test("TI physics workbench exposes first steady and transient views with fsw and
   assert.match(ui,/load:\{label:"R",unit:"Ω",key:"loadOhm",min:1,max:100/);
   assert.match(css,/ti-trace-ic/);
 });
+
+
+test("first-cycle lesson preserves CCM boundary before DCM exploration",async()=>{
+  const ui=await readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8");
+  assert.match(ui,/stage===0&&B\.buck\(\{\.\.\.candidate,duty:\.25\}\)\.regime!=="CCM"/);
+  assert.match(ui,/完成這次 loop 後/);
+});
