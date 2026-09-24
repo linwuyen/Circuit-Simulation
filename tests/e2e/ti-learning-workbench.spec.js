@@ -447,3 +447,17 @@ test('TI Debug Lab preserves immutable first diagnosis and requires changed-cond
   const evidence=await page.evaluate(()=>CircuitEvidence.load().machine['ti:diagnostic-practice']);
   expect(evidence).toBeTruthy();
 });
+
+
+test('Evidence ladder starts unclaimed and cannot promote template evidence', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await openFresh(page);
+  await page.getByRole('button', { name: 'TI Evidence' }).click();
+
+  await expect(page.locator('.ti-evidence-ladder')).toBeVisible();
+  await expect(page.locator('[data-evidence-claim]')).toContainText('UNCLAIMED');
+  await expect(page.locator('[data-evidence-board]')).toContainText('UNCLAIMED');
+  await expect(page.locator('[data-evidence-control]')).toContainText('INCOMPLETE_OR_FAIL');
+  await expect(page.locator('[data-evidence-stage="model"] strong')).toContainText('BLOCKED');
+  await expect(page.locator('.ti-evidence-boundary')).toContainText('cannot manufacture BOARD_PASS');
+});
