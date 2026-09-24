@@ -87,7 +87,7 @@ test("complete software provenance reaches linked-image ceiling without manufact
   const result=Core.evaluate({software:completeSoftware(),boardPackage:boardTemplate,controlBundle:controlTemplate},{Closure,Control});
   assert.equal(result.software.allPassed,true);
   assert.equal(result.software.highest,"linkedImage");
-  assert.equal(result.claimCeiling,"LINKEDIMAGE");
+  assert.equal(result.claimCeiling,"TARGET_IMAGE_EVIDENCE");
   assert.equal(result.boardPass,false);
   assert.equal(result.controlPass,false);
 });
