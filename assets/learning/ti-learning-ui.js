@@ -89,6 +89,12 @@
     if(header)header.textContent="TI 工程學習・從預測到波形證據";
     const entry=$("open-ti-learning");
     if(entry){entry.textContent="返回主線";entry.onclick=()=>{location.hash="";location.reload();};}
+    const toolbar=document.querySelector(".workspace-header .toolbar");
+    if(toolbar&&!document.getElementById("open-ti-buck-physics")){
+      const physics=document.createElement("button");physics.id="open-ti-buck-physics";physics.type="button";physics.textContent="Buck Physics";
+      physics.onclick=()=>{location.hash="ti-buck-physics";location.reload();};
+      toolbar.insertBefore(physics,toolbar.firstChild);
+    }
   }
   function renderProgress(){
     const p=$("workspace-progress");if(!p)return;
