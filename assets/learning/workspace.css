@@ -256,3 +256,10 @@ body[data-ti-learning][data-ti-workbench="compact"] .toolbar{margin:.3rem 0}
   body[data-ti-learning][data-ti-workbench="compact"] .ti-causal-chain{overflow-x:auto;justify-content:flex-start}
   body[data-ti-learning][data-ti-workbench="compact"] #ws-plot{height:300px}
 }
+
+body[data-ti-learning] #circuit .ti-component-hit.is-preview{
+  fill:rgba(99,223,188,.11);stroke:#63dfbc;stroke-width:5
+}
+body[data-ti-learning] #ws-plot [data-trace]{cursor:crosshair;pointer-events:stroke}
+body[data-ti-learning] #ws-plot [data-trace]:focus-visible{outline:none;filter:drop-shadow(0 0 4px currentColor)}
+body[data-ti-learning] #ws-plot{touch-action:none}
