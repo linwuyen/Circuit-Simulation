@@ -87,6 +87,8 @@
   function setHeader(){
     const header=document.querySelector(".workspace-header strong");
     if(header)header.textContent="TI 工程學習・從預測到波形證據";
+    const toolbar=document.querySelector(".workspace-header .toolbar");
+    if(toolbar&&!$("open-ti-concepts")){const concepts=document.createElement("button");concepts.id="open-ti-concepts";concepts.type="button";concepts.textContent="TI Concepts";concepts.onclick=()=>{location.hash="ti-concepts";location.reload();};toolbar.prepend(concepts);}
     const entry=$("open-ti-learning");
     if(entry){entry.textContent="返回主線";entry.onclick=()=>{location.hash="";location.reload();};}
   }
