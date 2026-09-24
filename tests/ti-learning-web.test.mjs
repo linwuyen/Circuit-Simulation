@@ -81,3 +81,17 @@ test("TI compact workbench keeps circuit inspector overlay and causal controls i
   assert.match(css,/\.route\{display:none\}/);
   assert.match(css,/#ws-plot\{[\s\S]*height:min\(31vh,300px\)/);
 });
+
+
+test("TI scope interaction maps waveform traces back to circuit components and scrubs circuit phase",async()=>{
+  const ui=await readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8");
+  const css=await readFile(new URL("../assets/learning/workspace.css",import.meta.url),"utf8");
+  assert.match(ui,/TRACE_COMPONENT=\{pwm:"switch",vl:"inductor",il:"inductor",vout:"capacitor"\}/);
+  assert.match(ui,/function bindScopeInteraction\(svg\)/);
+  assert.match(ui,/setPointerCapture/);
+  assert.match(ui,/setCircuitPhase\(next\)/);
+  assert.match(ui,/mouseenter/);
+  assert.match(ui,/selectComponent\(component\)/);
+  assert.match(css,/ti-component-hit\.is-preview/);
+  assert.match(css,/touch-action:none/);
+});
