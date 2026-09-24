@@ -75,7 +75,7 @@
     const r=normalize(record);
     const archived={...r.session};
     const id=Number(r.session.id||0)+1;
-    return {...r,sessions:[...r.sessions,archived].slice(-12),session:freshSession(id),reviewStartedAt:at,updatedAt:at,completed:false,grade:null};
+    return {...r,sessions:[...r.sessions,archived].slice(-12),session:freshSession(id),reviewStartedAt:at,updatedAt:at,completed:false,grade:null,nextReview:null};
   }
   function prerequisiteStatus(card,state={}){
     const missing=[];
