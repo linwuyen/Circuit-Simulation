@@ -81,3 +81,16 @@ test("TI compact workbench keeps circuit inspector overlay and causal controls i
   assert.match(css,/\.route\{display:none\}/);
   assert.match(css,/#ws-plot\{[\s\S]*height:min\(31vh,300px\)/);
 });
+
+
+test("TI Buck scope cursor delta is deterministic",()=>{
+  const s=Core.buildFirstCycle(Models.buck,{vin:48,duty:.25,inductanceUh:100,fswKhz:100,loadOhm:5},.5);
+  const atOnEnd=Core.cursorDelta(s,0,5);
+  assert.ok(Math.abs(atOnEnd.dtUs-5)<1e-12);
+  assert.ok(Math.abs(atOnEnd.diA-1.8)<1e-9);
+  assert.equal(atOnEnd.a.pwm,1);
+  assert.equal(atOnEnd.b.pwm,1);
+  const full=Core.cursorDelta(s,0,10);
+  assert.ok(Math.abs(full.diA-1.2)<1e-9);
+  assert.equal(full.b.pwm,0);
+});
