@@ -40,3 +40,24 @@ test("existing workspace exposes TI learning as a web route",async()=>{
   assert.match(ui,/#ti-learning/);
   assert.match(ui,/CircuitTILearning\.mount/);
 });
+
+
+test("TI simulator v2 keeps parameterized first-cycle physics inside CCM",()=>{
+  const s=Core.buildFirstCycle(Models.buck,{vin:60,duty:.25,inductanceUh:200,fswKhz:100,loadOhm:5,capacitanceUf:470},.5);
+  assert.equal(s.vout0,15);
+  assert.equal(s.config.loadOhm,5);
+  assert.ok(Math.abs(s.after.onSlopeAUs-.225)<1e-12);
+  assert.ok(Math.abs(s.after.offSlopeAUs+.075)<1e-12);
+  assert.ok(Math.abs(s.after.deltaI-.75)<1e-9);
+});
+
+test("TI learner UI exposes component interaction, four-trace scope and causal chain",async()=>{
+  const ui=await readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8");
+  assert.match(ui,/ti-component-hit-layer/);
+  assert.match(ui,/ti-component-inspector/);
+  assert.match(ui,/data-trace/);
+  assert.match(ui,/PWM/);
+  assert.match(ui,/vL/);
+  assert.match(ui,/Vout/);
+  assert.match(ui,/ti-causal-chain/);
+});
