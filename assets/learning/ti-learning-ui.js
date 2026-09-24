@@ -50,7 +50,7 @@
     const b=document.createElement("button");
     b.type="button";b.textContent="1. Buck 能量流與電流斜率";b.setAttribute("aria-current","step");
     li.append(b);list.append(li);
-    const parent=list.closest("details");if(parent){parent.open=true;parent.querySelector("summary").textContent="TI Engineering Learning · 第一條完整閉環";}
+    const parent=list.closest("details");if(parent){parent.open=false;parent.querySelector("summary").textContent="Learning path · 1 / 15";}
   }
   function setHeader(){
     const header=document.querySelector(".workspace-header strong");
@@ -72,10 +72,16 @@
     $("concept-note").hidden=true;
     $("transfer-preview").hidden=true;
     $("workbench-context-slot").hidden=true;
-    $("surface-title").textContent="Buck 第一個 PWM 週期：Duty 25% → 50%";
+    $("surface-title").textContent="Buck First-Cycle Lab";
+    let hud=document.getElementById("ti-sim-hud");
+    if(!hud){
+      hud=document.createElement("div");hud.id="ti-sim-hud";hud.className="ti-sim-hud";
+      hud.innerHTML='<span>Vin <strong>48 V</strong></span><span>fsw <strong>100 kHz</strong></span><span>L <strong>100 µH</strong></span><span>R <strong>5 Ω</strong></span><span class="ti-mode">CCM</span>';
+      $("surface-title").after(hud);
+    }
     $("ws-count").textContent="TI Concept 1 / 15 · SLVA057";
     $("ws-title").textContent="Buck 能量流：Duty 變大，最先發生什麼？";
-    $("ws-intro").textContent="這一課不比較兩個穩態。先鎖住舊 Vout，只看 duty command 改變後的第一個 PWM 週期，追 switch state → vL → di/dt → iL。";
+    $("ws-intro").textContent="先預測，再動 Duty。觀察 switch state → vL → di/dt → iL。";
     $("ws-save").textContent=E.storageStatus().saved?"作答與複習日期會寫進既有 circuit-learning-state-v5。":"目前瀏覽器儲存不可用，請先不要把這次作答當成已保存。";
     textNodeLabel($("ws-voltage"),"初始 Vout");
     textNodeLabel($("ws-current"),"初始平均 iL");
@@ -87,13 +93,26 @@
     $("ws-control-label").textContent="Duty command（%）";
     Object.assign($("ws-control"),{min:25,max:50,step:5,value:dutyPct});
     $("ws-value").textContent=dutyPct+"%";
-    $("ws-target").textContent=stage===0?"先提交預測，再允許操作。":"把 Duty 拉到 50%，再開始模擬第一個週期。";
+    $("ws-target").textContent=stage===0?"Prediction lock：先做判斷，波形才解鎖。":"把 Duty 拉到 50%，再執行第一個 PWM 週期。";
     $("ws-control").disabled=stage!==1;
     $("scope-note").textContent=scenario.boundary;
     const words=$("context-words");words.replaceChildren();
     const d=document.createElement("details"),s=document.createElement("summary"),p=document.createElement("p");
     s.textContent="這一課在看什麼？";p.textContent="不是比較兩個穩態，而是把 Vout 暫時固定在舊值，觀察 duty 命令剛改變後的第一個 PWM 週期。";
     d.append(s,p);words.append(d);
+    let bar=document.getElementById("ti-sim-toolbar");
+    if(!bar){
+      bar=document.createElement("div");bar.id="ti-sim-toolbar";bar.className="ti-sim-toolbar";
+      bar.innerHTML='<button id="ti-run" type="button">Run</button><button id="ti-pause" type="button">Pause</button><button id="ti-reset" type="button">Reset view</button><span id="ti-scope-status">Scope locked</span>';
+      $("ws-plot").before(bar);
+      bar.querySelector("#ti-run").onclick=()=>{if(stage>=2)startAnimation();};
+      bar.querySelector("#ti-pause").onclick=()=>stopAnimation();
+      bar.querySelector("#ti-reset").onclick=()=>{stopAnimation();setCircuitPhase(.1);};
+    }
+    bar.querySelector("#ti-run").disabled=stage<2;
+    bar.querySelector("#ti-pause").disabled=stage<2;
+    bar.querySelector("#ti-reset").disabled=stage<2;
+    bar.querySelector("#ti-scope-status").textContent=stage<2?"Scope locked · predict first":"Scope active · first PWM cycle";
     renderSource();
   }
   function renderSource(){
@@ -101,7 +120,7 @@
     const wrap=document.createElement("div");wrap.className="ti-source";
     const title=document.createElement("strong");title.textContent="TI primary source";
     const a=document.createElement("a");a.href=source.url;a.target="_blank";a.rel="noopener";a.textContent=`${source.id} — ${source.title}`;
-    const note=document.createElement("p");note.textContent="先預測，再看模型證據；來源只負責工程主張，不會先把答案揭露。";
+    const note=document.createElement("span");note.textContent=" · primary source";
     wrap.append(title,a,note);box.append(wrap);
   }
   function svgEl(tag,attrs={},text=""){
@@ -109,8 +128,18 @@
     Object.entries(attrs).forEach(([k,v])=>n.setAttribute(k,v));if(text)n.textContent=text;return n;
   }
   function drawPlot(){
-    const svg=$("ws-plot");svg.replaceChildren();svg.hidden=stage<2;
-    if(stage<2)return;
+    const svg=$("ws-plot");svg.replaceChildren();svg.hidden=false;
+    const grid=svgEl("g",{"class":"ti-scope-grid"});
+    for(let i=1;i<10;i++)grid.append(svgEl("path",{d:`M${70+i*58} 35V225`}));
+    for(let i=1;i<6;i++)grid.append(svgEl("path",{d:`M70 ${35+i*31.5}H650`}));
+    svg.append(grid);
+    if(stage<2){
+      svg.append(svgEl("text",{x:"245",y:"122","class":"ti-scope-lock"},"WAVEFORM LOCKED"));
+      svg.append(svgEl("text",{x:"205",y:"150","class":"ti-scope-lock-sub"},"先提交預測，再解鎖第一個 PWM 週期"));
+      svg.setAttribute("aria-label","波形目前鎖定，先提交預測後才能查看。");
+      $("ws-comparison").textContent="Prediction integrity：先做判斷，再看證據。";
+      return;
+    }
     const before=scenario.before.rows,after=scenario.after.rows;
     const all=[...before,...after],lo=Math.min(...all.map(r=>r.iL))-.15,hi=Math.max(...all.map(r=>r.iL))+.15,T=scenario.periodUs;
     const x=t=>70+t/T*580,y=i=>220-(i-lo)/(hi-lo)*160;
