@@ -169,3 +169,24 @@ test('TI Buck workbench stays usable on 375px mobile without horizontal overflow
   const finalOverflow=await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
   expect(finalOverflow).toBe(false);
 });
+
+
+test('physics views expose steady conduction region and full transient without replacing first-cycle evidence', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await openFresh(page);
+  await page.locator('input[name="ti-predict"][value="time-first"]').check();
+  await page.getByRole('button', { name: 'Lock prediction' }).click();
+  await page.locator('#ws-control').fill('50');
+  await page.getByRole('button', { name: 'Run first cycle' }).click();
+
+  await page.getByRole('button', { name: 'STEADY' }).click();
+  await expect(page.locator('#ws-plot [data-trace="ic"]')).toBeVisible();
+  await expect(page.locator('#ws-comparison')).toContainText('Rcrit');
+
+  await page.getByRole('button', { name: 'TRANSIENT' }).click();
+  await expect(page.locator('#ws-comparison')).toContainText('Full transient');
+  await expect(page.locator('#ws-comparison')).toContainText('FIRST view intentionally freezes old Vout');
+
+  await page.getByRole('button', { name: 'FIRST' }).click();
+  await expect(page.locator('#ws-comparison')).toContainText('first-cycle');
+});
