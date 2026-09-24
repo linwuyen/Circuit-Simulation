@@ -248,3 +248,19 @@ test("TI Evidence view uses authoritative P4-A/P4-B validators and stays fail-cl
   assert.match(ladder,/P4-A/);
   assert.match(ladder,/P4-B/);
 });
+
+
+test("TI Tutor reads V5 evidence through guarded provider packet without granting evidence",async()=>{
+  const [html,ui,tutor]=await Promise.all([
+    readFile(new URL("../learn.html",import.meta.url),"utf8"),
+    readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8"),
+    readFile(new URL("../assets/learning/ti-tutor.js",import.meta.url),"utf8")
+  ]);
+  assert.match(html,/ti-tutor-core\.js/);
+  assert.match(html,/ti-tutor\.js/);
+  assert.match(ui,/open-ti-tutor/);
+  assert.match(ui,/buildPacket/);
+  assert.match(tutor,/PREDICTION LOCK/);
+  assert.match(tutor,/LOCAL GUARDRAIL MODE/);
+  assert.match(tutor,/does not call an LLM/);
+});
