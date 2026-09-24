@@ -1,0 +1,234 @@
+{
+  "version": 1,
+  "policy": {
+    "cacheDir": ".learning-cache/ti",
+    "commitPdfBinaries": false,
+    "sourceRule": "Official TI-hosted sources only; downloaded files are local/CI cache artifacts, not repository content."
+  },
+  "documents": [
+    {
+      "id": "SLVA057",
+      "title": "Understanding Buck Power Stages in Switchmode Power Supplies",
+      "track": "power-stage",
+      "url": "https://www.ti.com/lit/an/slva057/slva057.pdf",
+      "file": "SLVA057-buck-power-stage.pdf",
+      "tags": [
+        "buck",
+        "ccm",
+        "dcm",
+        "inductor",
+        "power-stage"
+      ]
+    },
+    {
+      "id": "SLVA061",
+      "title": "Understanding Boost Power Stages in Switchmode Power Supplies",
+      "track": "power-stage",
+      "url": "https://www.ti.com/lit/an/slva061/slva061.pdf",
+      "file": "SLVA061-boost-power-stage.pdf",
+      "tags": [
+        "boost",
+        "ccm",
+        "dcm",
+        "rhpz",
+        "pfc"
+      ]
+    },
+    {
+      "id": "SLUA119",
+      "title": "Switching Power Supply Topology: Voltage Mode vs. Current Mode",
+      "track": "control",
+      "url": "https://www.ti.com/lit/an/slua119/slua119.pdf",
+      "file": "SLUA119-voltage-vs-current-mode.pdf",
+      "tags": [
+        "voltage-mode",
+        "current-mode",
+        "control"
+      ]
+    },
+    {
+      "id": "SLUA110",
+      "title": "Practical Considerations in Current Mode Power Supplies",
+      "track": "control",
+      "url": "https://www.ti.com/lit/an/slua110/slua110.pdf",
+      "file": "SLUA110-current-mode-practical.pdf",
+      "tags": [
+        "current-mode",
+        "slope-compensation",
+        "subharmonic",
+        "noise"
+      ]
+    },
+    {
+      "id": "SLUA079",
+      "title": "Average Current Mode Control of Switching Power Supplies",
+      "track": "control",
+      "url": "https://www.ti.com/lit/an/slua079/slua079.pdf",
+      "file": "SLUA079-average-current-mode.pdf",
+      "tags": [
+        "average-current-mode",
+        "pfc",
+        "current-loop"
+      ]
+    },
+    {
+      "id": "SLUA101",
+      "title": "Modeling, Analysis and Compensation of the Current-Mode Converter",
+      "track": "control",
+      "url": "https://www.ti.com/lit/an/slua101/slua101.pdf",
+      "file": "SLUA101-current-mode-modeling.pdf",
+      "tags": [
+        "current-mode",
+        "small-signal",
+        "compensation",
+        "slope-compensation"
+      ]
+    },
+    {
+      "id": "SLUP173",
+      "title": "Designing Stable Control Loops",
+      "track": "control",
+      "url": "https://www.ti.com/seclit/ml/slup173/slup173.pdf",
+      "file": "SLUP173-stable-control-loops.pdf",
+      "tags": [
+        "bode",
+        "phase-margin",
+        "gain-margin",
+        "compensation"
+      ]
+    },
+    {
+      "id": "SSZTCG3",
+      "title": "Teaching Your PI Controller to Behave (Part I)",
+      "track": "control",
+      "url": "https://www.ti.com/lit/ta/ssztcg3/ssztcg3.pdf",
+      "file": "SSZTCG3-pi-controller-part-1.pdf",
+      "tags": [
+        "pi",
+        "controller",
+        "tuning"
+      ]
+    },
+    {
+      "id": "SSZTCG4",
+      "title": "Teaching Your PI Controller to Behave (Part II)",
+      "track": "control",
+      "url": "https://www.ti.com/lit/ta/ssztcg4/ssztcg4.pdf",
+      "file": "SSZTCG4-pi-controller-part-2.pdf",
+      "tags": [
+        "pi",
+        "controller",
+        "zero",
+        "tuning"
+      ]
+    },
+    {
+      "id": "SLUP414",
+      "title": "Phase-Shifted Full-Bridge Converter Fundamentals",
+      "track": "topology",
+      "url": "https://www.ti.com/lit/ta/slup414/slup414.pdf",
+      "file": "SLUP414-psfb-fundamentals.pdf",
+      "tags": [
+        "psfb",
+        "zvs",
+        "synchronous-rectification",
+        "light-load"
+      ]
+    },
+    {
+      "id": "SLUP263",
+      "title": "Designing an LLC Resonant Half-Bridge Power Converter",
+      "track": "topology",
+      "url": "https://www.ti.com/lit/ml/slup263/slup263.pdf",
+      "file": "SLUP263-llc-design.pdf",
+      "tags": [
+        "llc",
+        "resonant",
+        "fha",
+        "zvs"
+      ]
+    },
+    {
+      "id": "SLUA582A",
+      "title": "Feedback Loop Design of an LLC Resonant Power Converter",
+      "track": "topology",
+      "url": "https://www.ti.com/lit/an/slua582a/slua582a.pdf",
+      "file": "SLUA582A-llc-feedback-loop.pdf",
+      "tags": [
+        "llc",
+        "bode",
+        "feedback",
+        "compensation"
+      ]
+    },
+    {
+      "id": "SPRAD12A",
+      "title": "C2000 ePWM Developer's Guide",
+      "track": "c2000",
+      "url": "https://www.ti.com/lit/an/sprad12a/sprad12a.pdf",
+      "file": "SPRAD12A-c2000-epwm-developers-guide.pdf",
+      "tags": [
+        "c2000",
+        "epwm",
+        "adc-soc",
+        "trip-zone",
+        "sync"
+      ]
+    },
+    {
+      "id": "SPRUID3",
+      "title": "C2000 Digital Control Library User's Guide",
+      "track": "c2000",
+      "url": "https://www.ti.com/lit/ug/spruid3/spruid3.pdf",
+      "file": "SPRUID3-c2000-dcl.pdf",
+      "tags": [
+        "c2000",
+        "dcl",
+        "pi",
+        "pid",
+        "direct-form"
+      ]
+    },
+    {
+      "id": "SPRUIK4A",
+      "title": "C2000 Software Frequency Response Analyzer (SFRA) Library User's Guide",
+      "track": "c2000",
+      "url": "https://www.ti.com/lit/ug/spruik4a/spruik4a.pdf",
+      "file": "SPRUIK4A-c2000-sfra.pdf",
+      "tags": [
+        "c2000",
+        "sfra",
+        "bode",
+        "measurement"
+      ]
+    },
+    {
+      "id": "C2000-CLA-GUIDE",
+      "title": "C2000 CLA Software Development Guide",
+      "track": "c2000",
+      "url": "https://software-dl.ti.com/C2000/docs/cla_software_dev_guide/_static/pdf/C2000_CLA_Software_Development_Guide.pdf",
+      "file": "C2000-CLA-Software-Development-Guide.pdf",
+      "tags": [
+        "c2000",
+        "cla",
+        "latency",
+        "ownership",
+        "parallelism"
+      ]
+    },
+    {
+      "id": "C2000-C28X-OPT",
+      "title": "C2000 C28x Optimization Guide",
+      "track": "c2000",
+      "url": "https://software-dl.ti.com/C2000/docs/optimization_guide/_static/pdf/C2000_C28x_Optimization_Guide.pdf",
+      "file": "C2000-C28x-Optimization-Guide.pdf",
+      "tags": [
+        "c2000",
+        "wcet",
+        "optimization",
+        "profiling",
+        "interrupts"
+      ]
+    }
+  ]
+}
