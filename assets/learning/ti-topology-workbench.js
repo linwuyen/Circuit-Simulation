@@ -74,9 +74,11 @@
       if(topology==="llc")rows.push(["fn",a.model.normalizedFrequency,"×fr"],["FHA gain",a.model.gain,"×"],["dlnM/dlnf",a.model.normalizedGainSlope,""]);
       if(topology==="inverter")rows.push(["LCL resonance",a.model.resonanceHz,"Hz"],["BW / fres",a.ratio,"×"],["Vrms ideal",a.model.fundamentalVrms,"V"]);
       for(const[label,value,unit]of rows){
-        const box=el("div");box.append(el("span",null,label));const strong=el("strong",null,fmt(value,unit==="Hz"&&value>=1000?0:2)+(unit?" "+unit:""));box.append(strong);metrics.append(box);
+        const box=el("div");box.dataset.topologyMetric=label;box.append(el("span",null,label));const strong=el("strong",null,fmt(value,unit==="Hz"&&value>=1000?0:2)+(unit?" "+unit:""));box.append(strong);metrics.append(box);
       }
-      constraint.replaceChildren(el("span",null,a.constraint.constraint),el("strong",null,a.status),el("p",null,a.constraint.designHint));
+      const constraintName=el("span",null,a.constraint.constraint);constraintName.dataset.topologyConstraint="";
+      const statusNode=el("strong",null,a.status);statusNode.dataset.topologyStatus="";
+      constraint.replaceChildren(constraintName,statusNode,el("p",null,a.constraint.designHint));
       boundary.textContent="Model boundary: "+a.boundary+" · fidelity: "+a.model.fidelity;
       if(typeof onSnapshot==="function")onSnapshot({
         conceptId,topology:a.topology,status:a.status,ratio:a.ratio,
