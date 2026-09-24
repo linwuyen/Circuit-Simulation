@@ -1,7 +1,7 @@
 {
   "name": "Circuit-Simulation TI Learning",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20-bookworm",
-  "postCreateCommand": "npm ci --no-audit --no-fund && npm run learning:ti:bootstrap",
+  "postCreateCommand": "npm ci --no-audit --no-fund && npx playwright install chromium && npm run learning:ti:bootstrap",
   "customizations": {
     "vscode": {
       "settings": {
