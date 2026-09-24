@@ -2,6 +2,7 @@
  'use strict';
  const tiEntry=document.getElementById('open-ti-learning');
  if(tiEntry)tiEntry.onclick=()=>{location.hash='ti-learning';location.reload();};
+ if(location.hash==='#ti-control'){CircuitTIControlWorkbench.mount();return;}
  if(location.hash.startsWith('#ti-concepts')){CircuitTIConceptLabs.mount();return;}
  if(location.hash==='#ti-buck-physics'){CircuitTIBuckPhysics.mount();return;}
  if(location.hash==='#ti-learning'){CircuitTILearning.mount();return;}
