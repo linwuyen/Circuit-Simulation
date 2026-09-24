@@ -81,3 +81,22 @@ test("TI compact workbench keeps circuit inspector overlay and causal controls i
   assert.match(css,/\.route\{display:none\}/);
   assert.match(css,/#ws-plot\{[\s\S]*height:min\(31vh,300px\)/);
 });
+
+
+test("TI scope A/B measurement and reverse trace binding are present",async()=>{
+  const ui=await readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8");
+  assert.match(ui,/ti-cursor-a-btn/);
+  assert.match(ui,/ti-cursor-b-btn/);
+  assert.match(ui,/Δt/);
+  assert.match(ui,/Δi/);
+  assert.match(ui,/setScopeCursorFromEvent/);
+  assert.match(ui,/data-component/);
+  assert.match(ui,/selectComponent\(node\.dataset\.component\)/);
+});
+
+test("TI component slider previews parameter changes before prediction lock",async()=>{
+  const ui=await readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8");
+  assert.match(ui,/refreshScenarioPreview/);
+  assert.match(ui,/input\.oninput/);
+  assert.match(ui,/saveRecord\(\{simConfig/);
+});
