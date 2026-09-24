@@ -302,3 +302,37 @@ test('control concept unlocks transient Bode and SFRA evidence only after commit
   await page.getByRole('button', { name: 'Compare imported CSV' }).click();
   await expect(page.locator('[data-metric="sfra"]')).toContainText('UNVERIFIED_IMPORT');
 });
+
+
+test('C2000 timing concept separates command ready from PWM active and exposes missed load cycle', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await openFresh(page);
+
+  await page.locator('input[name="ti-predict"][value="time-first"]').check();
+  await page.getByRole('button', { name: 'Lock prediction' }).click();
+  await page.locator('#ws-control').fill('50');
+  await page.getByRole('button', { name: 'Run first cycle' }).click();
+  await page.locator('input[name="ti-observe"][value="net-rise"]').check();
+  await page.getByRole('button', { name: 'Check observation' }).click();
+  await page.locator('input[name="ti-reason"][value="volt-second"]').check();
+  await page.getByRole('button', { name: 'Complete loop' }).click();
+  await page.reload();
+
+  await page.getByRole('button', { name: /C2000 ePWM signal path and update timing/ }).click();
+  await expect(page.locator('.ti-timing-lock')).toContainText('LOCKED');
+  await page.locator('#ti-generic-answer').fill('A CMPA write changes software-visible command state first; the pin changes only at the configured shadow-load event.');
+  await page.getByRole('button', { name: 'Commit answer → reveal source' }).click();
+
+  await expect(page.locator('.ti-timing-workbench')).toBeVisible();
+  await expect(page.locator('[data-timing-metric="ready"]')).toContainText('4.75');
+  await expect(page.locator('[data-timing-metric="active"]')).toContainText('10.00');
+  await expect(page.locator('[data-timing-metric="cycle"]')).toContainText('+1');
+  await expect(page.locator('[data-timing-metric="deadline"]')).toContainText('PASS');
+
+  await page.locator('[data-timing="computeUs"]').fill('8.8');
+  await expect(page.locator('[data-timing-metric="ready"]')).toContainText('12.35');
+  await expect(page.locator('[data-timing-metric="active"]')).toContainText('20.00');
+  await expect(page.locator('[data-timing-metric="cycle"]')).toContainText('+2');
+  await expect(page.locator('[data-timing-metric="deadline"]')).toContainText('MISS');
+  await expect(page.locator('.ti-timing-statement')).toContainText('PWM stays old');
+});
