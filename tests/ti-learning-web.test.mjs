@@ -149,3 +149,21 @@ test("TI web exposes all concept cards through one V5 planner and self-review fl
   assert.match(ui,/strength:"none"/);
   assert.match(ui,/circuit-learning-state-v5|STORE_KEY/);
 });
+
+
+test("TI generic control concepts mount the deterministic control workbench after source reveal",async()=>{
+  const [html,ui,wb]=await Promise.all([
+    readFile(new URL("../learn.html",import.meta.url),"utf8"),
+    readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8"),
+    readFile(new URL("../assets/learning/ti-control-workbench.js",import.meta.url),"utf8")
+  ]);
+  assert.match(html,/ti-control-workbench-core\.js/);
+  assert.match(html,/ti-control-workbench\.js/);
+  assert.match(ui,/renderSpecializedConcept/);
+  assert.match(ui,/ti-control-workbench-v1/);
+  assert.match(wb,/loop-stability/);
+  assert.match(wb,/pi-zero-placement/);
+  assert.match(wb,/sfra-measurement/);
+  assert.match(wb,/MODEL_ONLY/);
+  assert.match(wb,/UNVERIFIED_IMPORT/);
+});
