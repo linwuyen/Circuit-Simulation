@@ -1,0 +1,905 @@
+{
+  "version": 1,
+  "labs": [
+    {
+      "id": "buck-energy-flow",
+      "adapter": "buck-first-cycle",
+      "stages": {
+        "predict": {
+          "prompt": "Duty 小幅增加、Vout 尚未變時，最先改的是什麼？",
+          "choices": [
+            [
+              "time",
+              "ON/OFF 作用時間先改，iL 逐步改"
+            ],
+            [
+              "slope",
+              "ON/OFF di/dt 立刻一起變陡"
+            ],
+            [
+              "jump",
+              "iL 瞬間跳高"
+            ]
+          ],
+          "expected": "time"
+        },
+        "diagnose": {
+          "prompt": "量到 ON-time iL slope 只有模型一半，先做哪個最高資訊量檢查？",
+          "choices": [
+            [
+              "measure",
+              "同時量 switch node / Vout / iL，核對 L 與 current scaling"
+            ],
+            [
+              "gain",
+              "直接把 PI gain 加倍"
+            ],
+            [
+              "ignore",
+              "只看平均輸出是否正常"
+            ]
+          ],
+          "expected": "measure"
+        },
+        "transfer": {
+          "prompt": "同步 Buck dead time 時，核心推理怎麼延續？",
+          "choices": [
+            [
+              "path",
+              "先辨認 dead-time 實際續流路徑與 node voltage，再推 vL/di/dt"
+            ],
+            [
+              "same",
+              "永遠直接沿用理想 diode Buck 的 ON/OFF 電壓"
+            ],
+            [
+              "pi",
+              "只要重新調 PI 就好"
+            ]
+          ],
+          "expected": "path"
+        }
+      }
+    },
+    {
+      "id": "boost-rhpz",
+      "adapter": "topology-boost",
+      "stages": {
+        "predict": {
+          "prompt": "CCM Boost duty step ↑，Vout 最初可能怎麼走？",
+          "choices": [
+            [
+              "inverse",
+              "先往反方向／先掉，再往新穩態上升"
+            ],
+            [
+              "instant",
+              "立即單調上升"
+            ],
+            [
+              "none",
+              "完全不受 duty 影響"
+            ]
+          ],
+          "expected": "inverse"
+        },
+        "diagnose": {
+          "prompt": "負載改變後 voltage loop 變脆弱，先檢查什麼？",
+          "choices": [
+            [
+              "rhpz",
+              "RHPZ 位置是否隨 R、D、L 移動並逼近 crossover"
+            ],
+            [
+              "ki",
+              "只提高 Ki"
+            ],
+            [
+              "adc",
+              "先換更高 bit ADC"
+            ]
+          ],
+          "expected": "rhpz"
+        },
+        "transfer": {
+          "prompt": "PFC 中 RHPZ 對哪一層約束最直接？",
+          "choices": [
+            [
+              "outer",
+              "外電壓 loop 需保持慢；內電流 loop 是不同 plant"
+            ],
+            [
+              "both",
+              "兩個 loop 完全同一 RHPZ 限制"
+            ],
+            [
+              "none",
+              "PFC 沒有此限制"
+            ]
+          ],
+          "expected": "outer"
+        }
+      }
+    },
+    {
+      "id": "current-mode-slope-comp",
+      "adapter": "source-evidence",
+      "stages": {
+        "predict": {
+          "prompt": "Peak current mode 在高 duty 下可能出現哪種波形？",
+          "choices": [
+            [
+              "alternate",
+              "相鄰週期 peak current 高低交替"
+            ],
+            [
+              "dc",
+              "只有 DC offset"
+            ],
+            [
+              "random",
+              "純隨機白雜訊"
+            ]
+          ],
+          "expected": "alternate"
+        },
+        "diagnose": {
+          "prompt": "Bode 低頻看起來正常，但 peak current 高低交替，先查什麼？",
+          "choices": [
+            [
+              "ramp",
+              "current comparator / slope compensation / cycle-to-cycle inner path"
+            ],
+            [
+              "outer",
+              "先重調慢速 voltage PI"
+            ],
+            [
+              "uart",
+              "先查通訊"
+            ]
+          ],
+          "expected": "ramp"
+        },
+        "transfer": {
+          "prompt": "數位 slope compensation 要保留什麼本質？",
+          "choices": [
+            [
+              "sampled-ramp",
+              "每週期加入與 PWM 時基同步的等效 ramp 到比較門檻/電流訊號"
+            ],
+            [
+              "filter",
+              "只加低通濾波"
+            ],
+            [
+              "average",
+              "改成平均輸出電壓即可"
+            ]
+          ],
+          "expected": "sampled-ramp"
+        }
+      }
+    },
+    {
+      "id": "average-current-mode",
+      "adapter": "acmc",
+      "stages": {
+        "predict": {
+          "prompt": "Current reference step ↑ 後，哪條鏈先動？",
+          "choices": [
+            [
+              "current",
+              "current error/compensator → duty → measured current，之後才是 Vout loop"
+            ],
+            [
+              "voltage",
+              "Vout 先瞬間到目標"
+            ],
+            [
+              "trip",
+              "Trip Zone 先動"
+            ]
+          ],
+          "expected": "current"
+        },
+        "diagnose": {
+          "prompt": "command 正確但 current shaping 很慢，先查什麼？",
+          "choices": [
+            [
+              "timing",
+              "sampling/filter/compute/PWM update timing 與 current-loop bandwidth"
+            ],
+            [
+              "outer",
+              "只調外 voltage loop"
+            ],
+            [
+              "coss",
+              "只量 MOSFET Coss"
+            ]
+          ],
+          "expected": "timing"
+        },
+        "transfer": {
+          "prompt": "搬到 CCM Boost PFC 時，ACMC 的目標是什麼？",
+          "choices": [
+            [
+              "line",
+              "讓 inner loop 追蹤整流線電壓塑形出的 current reference"
+            ],
+            [
+              "bus",
+              "只追 bus voltage，不需要 current loop"
+            ],
+            [
+              "freq",
+              "只改 switching frequency"
+            ]
+          ],
+          "expected": "line"
+        }
+      }
+    },
+    {
+      "id": "loop-stability",
+      "adapter": "control-bode",
+      "stages": {
+        "predict": {
+          "prompt": "Digital delay 增加、controller 不變，crossover 附近 phase margin 通常？",
+          "choices": [
+            [
+              "down",
+              "下降"
+            ],
+            [
+              "up",
+              "上升"
+            ],
+            [
+              "same",
+              "完全不變"
+            ]
+          ],
+          "expected": "down"
+        },
+        "diagnose": {
+          "prompt": "穩態正常但 load-step ringing，哪組 evidence 最能區分原因？",
+          "choices": [
+            [
+              "bode",
+              "Bode/SFRA + saturation flags + sample/actuate timing"
+            ],
+            [
+              "dc",
+              "只看 DC 誤差"
+            ],
+            [
+              "thermal",
+              "先量殼溫"
+            ]
+          ],
+          "expected": "bode"
+        },
+        "transfer": {
+          "prompt": "跨拓撲設定 crossover 時哪個說法對？",
+          "choices": [
+            [
+              "constraints",
+              "Buck/Boost/LLC 必須尊重各自 plant constraint；Boost RHPZ、LLC operating point 會改限制"
+            ],
+            [
+              "same",
+              "所有拓撲都用同一 crossover 比例"
+            ],
+            [
+              "fast",
+              "越快越好"
+            ]
+          ],
+          "expected": "constraints"
+        }
+      }
+    },
+    {
+      "id": "pi-zero-placement",
+      "adapter": "pi-runtime",
+      "stages": {
+        "predict": {
+          "prompt": "Kp、Ts 固定，Ki ↑ 時 PI zero ωz=Ki/Kp 怎麼變？",
+          "choices": [
+            [
+              "up",
+              "zero 往高頻移，低頻積分作用增強"
+            ],
+            [
+              "down",
+              "zero 往低頻移"
+            ],
+            [
+              "same",
+              "zero 不變"
+            ]
+          ],
+          "expected": "up"
+        },
+        "diagnose": {
+          "prompt": "大飽和後恢復很慢，小訊號 tuning 卻正常，先查什麼？",
+          "choices": [
+            [
+              "windup",
+              "integrator windup / saturation state / anti-windup"
+            ],
+            [
+              "pwm",
+              "只查 switching frequency"
+            ],
+            [
+              "rhpz",
+              "一定是 RHPZ"
+            ]
+          ],
+          "expected": "windup"
+        },
+        "transfer": {
+          "prompt": "Control rate 變 2× 時怎麼保留同一連續時間 PI 意圖？",
+          "choices": [
+            [
+              "rescale",
+              "依 Ts/離散化 convention 重算離散係數並驗證 step/Bode"
+            ],
+            [
+              "copy",
+              "係數原封不動"
+            ],
+            [
+              "kp",
+              "只把 Kp 加倍"
+            ]
+          ],
+          "expected": "rescale"
+        }
+      }
+    },
+    {
+      "id": "psfb-zvs-energy",
+      "adapter": "topology-psfb",
+      "stages": {
+        "predict": {
+          "prompt": "PSFB 輕載時 ZVS margin 通常怎麼變？",
+          "choices": [
+            [
+              "down",
+              "下降，commutation 可用電感/循環能量變少"
+            ],
+            [
+              "up",
+              "一定上升"
+            ],
+            [
+              "same",
+              "與 load 無關"
+            ]
+          ],
+          "expected": "down"
+        },
+        "diagnose": {
+          "prompt": "滿載 ZVS、輕載 hard-switch，先量什麼？",
+          "choices": [
+            [
+              "commutation",
+              "commutation current、dead time、switch-node/Coss 充放電時序"
+            ],
+            [
+              "pi",
+              "先調 voltage PI"
+            ],
+            [
+              "uart",
+              "先查 UART"
+            ]
+          ],
+          "expected": "commutation"
+        },
+        "transfer": {
+          "prompt": "Firmware phase command 應如何尊重 ZVS？",
+          "choices": [
+            [
+              "limit",
+              "依 operating point/ZVS energy margin 設 command/dead-time 邊界"
+            ],
+            [
+              "unlimited",
+              "phase command 0–100% 永遠都等價"
+            ],
+            [
+              "disable",
+              "輕載直接關閉所有保護"
+            ]
+          ],
+          "expected": "limit"
+        }
+      }
+    },
+    {
+      "id": "llc-operating-point",
+      "adapter": "topology-llc",
+      "stages": {
+        "predict": {
+          "prompt": "在常見 above-resonance 工作區，fs 再往高頻移時 gain 通常？",
+          "choices": [
+            [
+              "down",
+              "沿 gain surface 下降；但需以 Ln/Q/operating region 為邊界"
+            ],
+            [
+              "duty",
+              "像 Buck duty 一樣線性上升"
+            ],
+            [
+              "fixed",
+              "永遠固定"
+            ]
+          ],
+          "expected": "down"
+        },
+        "diagnose": {
+          "prompt": "LLC 一個 load 穩、另一個 load 差，先懷疑什麼？",
+          "choices": [
+            [
+              "surface",
+              "Ln/Q/load 改變 plant/gain surface 與 loop dynamics"
+            ],
+            [
+              "code",
+              "一定是程式 syntax"
+            ],
+            [
+              "adc",
+              "一定是 ADC bit 數"
+            ]
+          ],
+          "expected": "surface"
+        },
+        "transfer": {
+          "prompt": "LLC frequency control 與 Buck duty control 的根本差異？",
+          "choices": [
+            [
+              "resonant",
+              "控制量是在 resonant gain surface 移動，不是近似線性 duty-to-output"
+            ],
+            [
+              "same",
+              "完全相同"
+            ],
+            [
+              "open",
+              "LLC 不需要 feedback"
+            ]
+          ],
+          "expected": "resonant"
+        }
+      }
+    },
+    {
+      "id": "llc-loop-measurement",
+      "adapter": "sfra",
+      "stages": {
+        "predict": {
+          "prompt": "LLC load 大幅改變，loop-gain curve 應期待？",
+          "choices": [
+            [
+              "changes",
+              "會變，因 local plant 隨 operating point 改變"
+            ],
+            [
+              "same",
+              "必須完全相同"
+            ],
+            [
+              "zero",
+              "一定變成 0"
+            ]
+          ],
+          "expected": "changes"
+        },
+        "diagnose": {
+          "prompt": "SFRA injection 變大後結果劇烈改變，最可能表示？",
+          "choices": [
+            [
+              "nonlinear",
+              "離開小訊號線性化區、碰到 saturation/limit"
+            ],
+            [
+              "better",
+              "代表量測更準"
+            ],
+            [
+              "alias",
+              "必然只是 alias"
+            ]
+          ],
+          "expected": "nonlinear"
+        },
+        "transfer": {
+          "prompt": "LLC control qualification 最少應怎麼挑 operating points？",
+          "choices": [
+            [
+              "corners",
+              "涵蓋 Vin/load/frequency 的有意義 corners 並比較 Bode"
+            ],
+            [
+              "one",
+              "只量 nominal 一點"
+            ],
+            [
+              "random",
+              "隨機挑一點"
+            ]
+          ],
+          "expected": "corners"
+        }
+      }
+    },
+    {
+      "id": "epwm-signal-path",
+      "adapter": "c2000-timing",
+      "stages": {
+        "predict": {
+          "prompt": "CMPA 在 shadow-load event 剛過後才寫入，何時最早 visible？",
+          "choices": [
+            [
+              "next",
+              "下一個符合設定的 load event，常見為下一 PWM cycle"
+            ],
+            [
+              "now",
+              "write 完立即改 pin"
+            ],
+            [
+              "past",
+              "回到剛過去的 event"
+            ]
+          ],
+          "expected": "next"
+        },
+        "diagnose": {
+          "prompt": "ISR 每拍算 duty，但 pin 總晚一拍，先查哪些 stage？",
+          "choices": [
+            [
+              "pipeline",
+              "CMPA shadow mode/load event、AQ、dead-band、sync/time-base 與 write deadline"
+            ],
+            [
+              "pi",
+              "先調 Kp"
+            ],
+            [
+              "scope",
+              "只換示波器探棒"
+            ]
+          ],
+          "expected": "pipeline"
+        },
+        "transfer": {
+          "prompt": "搬到 PSFB phase command 時要保留什麼？",
+          "choices": [
+            [
+              "commit",
+              "同樣區分 software write、shadow/commit event、最後 pin transition"
+            ],
+            [
+              "immediate",
+              "所有 phase register 都立即生效"
+            ],
+            [
+              "none",
+              "不需要 timing contract"
+            ]
+          ],
+          "expected": "commit"
+        }
+      }
+    },
+    {
+      "id": "trip-zone-authority",
+      "adapter": "protection",
+      "stages": {
+        "predict": {
+          "prompt": "Comparator fault 在 PWM 週期中間來，hardware trip 相較 ISR-only 應？",
+          "choices": [
+            [
+              "veto",
+              "可由硬體路徑直接 veto PWM，不等待 CPU 排程"
+            ],
+            [
+              "wait",
+              "一定等下一次 ISR"
+            ],
+            [
+              "ignore",
+              "只記 log"
+            ]
+          ],
+          "expected": "veto"
+        },
+        "diagnose": {
+          "prompt": "有 fault log 但 PWM 關太慢，先查什麼？",
+          "choices": [
+            [
+              "path",
+              "fault source→digital compare→TZ→output action 的硬體 ownership/latency"
+            ],
+            [
+              "pi",
+              "先調 controller"
+            ],
+            [
+              "display",
+              "先改 UI"
+            ]
+          ],
+          "expected": "path"
+        },
+        "transfer": {
+          "prompt": "搬到其他 MCU 的核心 safety pattern？",
+          "choices": [
+            [
+              "independent",
+              "保留獨立 hardware veto，software 負責設定/診斷/重啟"
+            ],
+            [
+              "software",
+              "全部改成 polling"
+            ],
+            [
+              "retry",
+              "fault 來就自動無條件重試"
+            ]
+          ],
+          "expected": "independent"
+        }
+      }
+    },
+    {
+      "id": "dcl-controller-runtime",
+      "adapter": "dcl",
+      "stages": {
+        "predict": {
+          "prompt": "DCL controller 以設計頻率一半執行、係數不改，哪裡失真？",
+          "choices": [
+            [
+              "timebase",
+              "離散 controller 的 timebase/積分/零極點與原設計不一致"
+            ],
+            [
+              "none",
+              "完全一樣"
+            ],
+            [
+              "adc",
+              "只會改 ADC resolution"
+            ]
+          ],
+          "expected": "timebase"
+        },
+        "diagnose": {
+          "prompt": "換 controller implementation 後 DC 正常，還要什麼 regression？",
+          "choices": [
+            [
+              "dynamic",
+              "known vectors + step response + saturation/limit + execution timing"
+            ],
+            [
+              "dc",
+              "只看 steady-state"
+            ],
+            [
+              "compile",
+              "只要 compile 過"
+            ]
+          ],
+          "expected": "dynamic"
+        },
+        "transfer": {
+          "prompt": "CPU→CLA 遷移同一 control law 的重點？",
+          "choices": [
+            [
+              "semantics",
+              "係數/精度/限幅/呼叫率語意一致，再驗 timing 與 vector equivalence"
+            ],
+            [
+              "copy",
+              "只 copy function name"
+            ],
+            [
+              "fast",
+              "只要 CLA 更快就算成功"
+            ]
+          ],
+          "expected": "semantics"
+        }
+      }
+    },
+    {
+      "id": "sfra-measurement",
+      "adapter": "sfra",
+      "stages": {
+        "predict": {
+          "prompt": "SFRA injection 大到碰 duty saturation，結果會？",
+          "choices": [
+            [
+              "invalid",
+              "非線性失真，不能當 local small-signal transfer truth"
+            ],
+            [
+              "better",
+              "SNR 高所以一定更準"
+            ],
+            [
+              "same",
+              "完全不受影響"
+            ]
+          ],
+          "expected": "invalid"
+        },
+        "diagnose": {
+          "prompt": "高頻 phase 很吵，先做哪些 check？",
+          "choices": [
+            [
+              "snr",
+              "SNR、sampling/compute delay、bandwidth、injection location/level"
+            ],
+            [
+              "ki",
+              "直接提高 Ki"
+            ],
+            [
+              "load",
+              "只換負載"
+            ]
+          ],
+          "expected": "snr"
+        },
+        "transfer": {
+          "prompt": "PFC/LLC 使用同樣 SFRA discipline 的核心？",
+          "choices": [
+            [
+              "local",
+              "在指定 operating point 保持小訊號、足夠 SNR 並做 repeatability/model cross-check"
+            ],
+            [
+              "global",
+              "一次大訊號 sweep 代表所有 operating point"
+            ],
+            [
+              "none",
+              "resonant/PFC 不需量頻響"
+            ]
+          ],
+          "expected": "local"
+        }
+      }
+    },
+    {
+      "id": "cla-ownership",
+      "adapter": "c2000-timing",
+      "stages": {
+        "predict": {
+          "prompt": "CPU 寫、CLA 同時讀同一 structure，沒有 handoff contract，可能？",
+          "choices": [
+            [
+              "race",
+              "torn/stale/incoherent data 與 timing-dependent glitch"
+            ],
+            [
+              "safe",
+              "天然 atomic 且永遠最新"
+            ],
+            [
+              "onlyslow",
+              "最多只是慢一點"
+            ]
+          ],
+          "expected": "race"
+        },
+        "diagnose": {
+          "prompt": "CLA offload 後偶發 glitch，先收什麼 evidence？",
+          "choices": [
+            [
+              "handoff",
+              "trigger timing、producer/consumer sequence、shared-memory ownership、stale-data detection"
+            ],
+            [
+              "average",
+              "只看平均 CPU load"
+            ],
+            [
+              "pi",
+              "先改 PI"
+            ]
+          ],
+          "expected": "handoff"
+        },
+        "transfer": {
+          "prompt": "100 kHz 工作怎麼分 CPU/CLA？",
+          "choices": [
+            [
+              "ownership",
+              "高頻 deterministic math 可 offload；supervisory/state/communication 留明確 owner，handoff 明確"
+            ],
+            [
+              "allcla",
+              "全部都丟 CLA"
+            ],
+            [
+              "allcpu",
+              "永遠不能用 CLA"
+            ]
+          ],
+          "expected": "ownership"
+        }
+      }
+    },
+    {
+      "id": "c28x-wcet-evidence",
+      "adapter": "wcet",
+      "stages": {
+        "predict": {
+          "prompt": "Average ISR time 降了，但 maximum 不變，hard deadline margin 有改善嗎？",
+          "choices": [
+            [
+              "no",
+              "沒有；WCET/max path 未改善"
+            ],
+            [
+              "yes",
+              "有，平均值就是 deadline"
+            ],
+            [
+              "unknown",
+              "只要 CPU utilization 下降就算"
+            ]
+          ],
+          "expected": "no"
+        },
+        "diagnose": {
+          "prompt": "Compiler change 後 100 kHz ISR 偶爾 miss，先收哪些 evidence？",
+          "choices": [
+            [
+              "exact",
+              "exact build/options、generated assembly、path cycle count、memory/interrupt interaction、max timing"
+            ],
+            [
+              "rewrite",
+              "立刻重寫所有 C code"
+            ],
+            [
+              "average",
+              "只看平均 profile"
+            ]
+          ],
+          "expected": "exact"
+        },
+        "transfer": {
+          "prompt": "把 optimization guide 變成 ASR5K 實驗的做法？",
+          "choices": [
+            [
+              "ab",
+              "固定 build/condition 做 baseline→單一變更→WCET evidence→regression→rollback"
+            ],
+            [
+              "big",
+              "一次大重構再看感覺"
+            ],
+            [
+              "style",
+              "只按 clean-code 美觀"
+            ]
+          ],
+          "expected": "ab"
+        }
+      }
+    }
+  ]
+}

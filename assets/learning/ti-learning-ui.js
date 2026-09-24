@@ -95,6 +95,11 @@
       physics.onclick=()=>{location.hash="ti-buck-physics";location.reload();};
       toolbar.insertBefore(physics,toolbar.firstChild);
     }
+    if(toolbar&&!document.getElementById("open-ti-concepts")){
+      const concepts=document.createElement("button");concepts.id="open-ti-concepts";concepts.type="button";concepts.textContent="TI Concepts 15";
+      concepts.onclick=()=>{location.hash="ti-concepts";location.reload();};
+      toolbar.insertBefore(concepts,toolbar.firstChild);
+    }
   }
   function renderProgress(){
     const p=$("workspace-progress");if(!p)return;
