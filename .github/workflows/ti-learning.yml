@@ -2,6 +2,20 @@ name: TI engineering learning
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feat-ti-learning-workflow
+    paths:
+      - ".github/workflows/ti-learning.yml"
+      - "learning/ti/**"
+      - "tools/learning/**"
+      - "assets/learning/ti-learning-*.js"
+      - "assets/learning/workspace.css"
+      - "tests/ti-*.test.mjs"
+      - "tests/e2e/ti-learning-workbench.spec.js"
+      - "learn.html"
+      - "package.json"
+      - "package-lock.json"
 
 permissions:
   contents: read
