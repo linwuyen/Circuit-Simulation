@@ -10,13 +10,13 @@
   });
 
   const scenarios=Object.freeze([
-    {id:"duty",label:"Duty",key:"duty",unit:"%",before:.25,after:.5,display:v=>Math.round(v*100),metric:"vout",prediction:"Duty 增加，穩態 Vout 與平均電流往哪裡走？"},
-    {id:"vin",label:"Vin",key:"vin",unit:"V",before:36,after:48,metric:"vout",prediction:"Duty 不變，Vin 增加時 Vout 與 ON-state vL 怎麼變？"},
-    {id:"inductance",label:"L",key:"inductanceUh",unit:"µH",before:100,after:200,metric:"ripple",prediction:"L 加倍時，同樣 switching 條件下 ΔIL 怎麼變？"},
-    {id:"frequency",label:"fsw",key:"fswKhz",unit:"kHz",before:100,after:200,metric:"ripple",prediction:"fsw 加倍時，每輪斜率作用時間怎麼改？"},
-    {id:"load",label:"Rload",key:"loadOhm",unit:"Ω",before:5,after:50,metric:"regime",prediction:"負載變輕時，iL valley 會不會碰到 0？"},
-    {id:"capacitance",label:"C",key:"capacitanceUf",unit:"µF",before:100,after:470,metric:"vRipple",prediction:"C 增加後，在同一穩態工作點下輸出 ripple 怎麼變？"},
-    {id:"esr",label:"ESR",key:"esrOhm",unit:"Ω",before:0,after:.1,metric:"vRipple",prediction:"ESR 增加會如何改變輸出 ripple？"}
+    {id:"duty",label:"Duty",key:"duty",unit:"%",before:.25,after:.5,display:v=>Math.round(v*100),metric:"vout",expected:"up",prediction:"Duty 增加，穩態 Vout 與平均電流往哪裡走？",equation:"CCM: Vout ≈ D·Vin; vL = L·di/dt",transfer:"換成 Vin=36 V、R=4 Ω，Duty 仍從 25%→50%，主要方向是否一樣？",transferBase:{vin:36,loadOhm:4}},
+    {id:"vin",label:"Vin",key:"vin",unit:"V",before:36,after:48,metric:"vout",expected:"up",prediction:"Duty 不變，Vin 增加時 Vout 與 ON-state vL 怎麼變？",equation:"CCM: Vout ≈ D·Vin; vL,on = Vin−Vout",transfer:"換成 Duty=40%，Vin 36→48 V，Vout 主要方向？",transferBase:{duty:.4}},
+    {id:"inductance",label:"L",key:"inductanceUh",unit:"µH",before:100,after:200,metric:"ripple",expected:"down",prediction:"L 加倍時，同樣 switching 條件下 ΔIL 怎麼變？",equation:"ΔIL = (Vin−Vout)·D / (L·fsw)",transfer:"換成 Duty=40%、R=4 Ω，L 加倍時 ΔIL 方向？",transferBase:{duty:.4,loadOhm:4}},
+    {id:"frequency",label:"fsw",key:"fswKhz",unit:"kHz",before:100,after:200,metric:"ripple",expected:"down",prediction:"fsw 加倍時，每輪斜率作用時間怎麼改？",equation:"ΔIL ∝ 1/fsw when Vin,Vout,D,L are fixed",transfer:"換成 Vin=36 V，fsw 仍加倍，ΔIL 方向？",transferBase:{vin:36}},
+    {id:"load",label:"Rload",key:"loadOhm",unit:"Ω",before:5,after:50,metric:"regime",expected:"boundary",prediction:"負載變輕時，iL valley 會不會碰到 0？",equation:"K = 2·L·fsw/R; boundary K = 1−D",transfer:"換成 Duty=40%，R 5→50 Ω，是否仍可能跨 CCM/DCM boundary？",transferBase:{duty:.4}},
+    {id:"capacitance",label:"C",key:"capacitanceUf",unit:"µF",before:100,after:470,metric:"vRipple",expected:"down",prediction:"C 增加後，在同一穩態工作點下輸出 ripple 怎麼變？",equation:"ΔV_C = (1/C)·∫iC dt",transfer:"換成 Duty=40%，C 增加時 capacitor ripple 方向？",transferBase:{duty:.4}},
+    {id:"esr",label:"ESR",key:"esrOhm",unit:"Ω",before:0,after:.1,metric:"vRipple",expected:"up",prediction:"ESR 增加會如何改變輸出 ripple？",equation:"ΔV_ESR ≈ ESR·ΔIL",transfer:"換成 L=200 µH，ESR 增加時輸出 ripple 的 ESR 分量方向？",transferBase:{inductanceUh:200}}
   ]);
 
   function scenario(id){
@@ -82,6 +82,11 @@
     };
   }
 
+  function transferCompare(buck,id){
+    const s=scenario(id);
+    return compare(buck,id,s.transferBase||{});
+  }
+
   function regimeSweep(buck,input={},loads=[2,5,10,20,50,100]){
     return loads.map(loadOhm=>{
       const x=evaluate(buck,{...input,loadOhm});
@@ -140,5 +145,5 @@
     };
   }
 
-  return {defaults,scenarios,scenario,configFor,derive,evaluate,compare,regimeSweep,transientConfig,runTransient};
+  return {defaults,scenarios,scenario,configFor,derive,evaluate,compare,transferCompare,regimeSweep,transientConfig,runTransient};
 });
