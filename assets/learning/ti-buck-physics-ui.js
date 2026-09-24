@@ -26,7 +26,7 @@
   function setupChrome(){
     document.body.dataset.tiBuckPhysics="true";
     document.body.dataset.tiWorkbench="compact";
-    $(".route")?.setAttribute?.("hidden","");
+    document.querySelector(".route")?.setAttribute("hidden","");
     ["setup-panel","free-controls","concept-note","transfer-preview","workbench-context-slot"].forEach(id=>{const n=$(id);if(n)n.hidden=true;});
     const header=document.querySelector(".workspace-header strong");if(header)header.textContent="Buck Physics Workbench";
     const entry=$("open-ti-learning");if(entry){entry.textContent="返回 TI Learning";entry.onclick=()=>{location.hash="ti-learning";location.reload();};}
