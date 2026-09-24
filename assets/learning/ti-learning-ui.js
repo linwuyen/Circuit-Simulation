@@ -224,12 +224,12 @@
       bar=document.createElement("div");bar.id="ti-sim-toolbar";bar.className="ti-sim-toolbar";
       bar.innerHTML='<button id="ti-run" type="button">▶ Run</button><button id="ti-pause" type="button">Ⅱ Pause</button><button id="ti-reset" type="button">↺ Reset</button><span id="ti-scope-status"></span>';
       $("ws-plot").before(bar);
-      $("#ti-run").onclick=()=>{if(stage>=2)startAnimation();};
-      $("#ti-pause").onclick=()=>stopAnimation();
-      $("#ti-reset").onclick=()=>{stopAnimation();setCircuitPhase(.1);};
+      $("ti-run").onclick=()=>{if(stage>=2)startAnimation();};
+      $("ti-pause").onclick=()=>stopAnimation();
+      $("ti-reset").onclick=()=>{stopAnimation();setCircuitPhase(.1);};
     }
-    $("#ti-run").disabled=stage<2;$("#ti-pause").disabled=stage<2;$("#ti-reset").disabled=stage<2;
-    $("#ti-scope-status").textContent=stage<2?"Scope locked":"Scope · first PWM cycle";
+    $("ti-run").disabled=stage<2;$("ti-pause").disabled=stage<2;$("ti-reset").disabled=stage<2;
+    $("ti-scope-status").textContent=stage<2?"Scope locked":"Scope · first PWM cycle";
     renderCausalChain();
     renderSource();
   }
@@ -298,7 +298,7 @@
     const vL=on?(scenario.config.vin-scenario.vout0):-scenario.vout0;
     const slope=on?scenario.after.onSlopeAUs:scenario.after.offSlopeAUs;
     $("circuit-state").textContent=`${on?"ON":"OFF"} · vL ${vL>=0?"+":""}${vL.toFixed(1)} V · di/dt ${slope>=0?"+":""}${slope.toFixed(3)} A/µs · iL ${i.toFixed(3)} A`;
-    const cursor=$("#ti-scope-cursor");
+    const cursor=$("ti-scope-cursor");
     if(cursor){const x=95+phase*555;cursor.setAttribute("d",`M${x} 20V340`);}
   }
   function animate(ts){if(!running)return;setCircuitPhase((ts/2600)%1);raf=requestAnimationFrame(animate);}
