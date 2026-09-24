@@ -316,3 +316,39 @@ body[data-ti-buck-physics] #ws-question fieldset label:has(input:checked){backgr
   body[data-ti-buck-physics] .coach{width:auto;position:static;order:1}
   body[data-ti-buck-physics] .surface{order:2}
 }
+
+
+/* Epic #66: generic TI concept labs */
+body[data-ti-concept-labs] .route{display:none}
+body[data-ti-concept-labs] main{max-width:min(1760px,98vw);padding:.65rem}
+body[data-ti-concept-labs] .workspace-grid{grid-template-columns:minmax(760px,1fr) 370px;gap:10px}
+body[data-ti-concept-labs] .surface,body[data-ti-concept-labs] .coach{padding:.75rem;border-radius:.7rem}
+body[data-ti-concept-labs] .coach{width:370px;position:sticky;top:.6rem}
+body[data-ti-concept-labs] #circuit,body[data-ti-concept-labs] #circuit-state{display:none}
+body[data-ti-concept-labs] .ti-concept-nav{display:flex;gap:.25rem;overflow-x:auto;padding:.2rem 0 .45rem;scrollbar-width:thin}
+body[data-ti-concept-labs] .ti-concept-nav button{flex:0 0 auto;max-width:220px;min-height:30px;padding:.2rem .5rem;font-size:.7rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body[data-ti-concept-labs] .ti-concept-nav button.is-active{background:#126654;color:white;border-color:#126654}
+body[data-ti-concept-labs] .ti-concept-board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.45rem;margin:.35rem 0}
+body[data-ti-concept-labs] .ti-concept-card{padding:.55rem .65rem;border:1px solid #cfdee5;border-radius:.5rem;background:#f8fbfc}
+body[data-ti-concept-labs] .ti-concept-card strong{font-size:.7rem;color:#41667c;letter-spacing:.04em}
+body[data-ti-concept-labs] .ti-concept-card p{margin:.2rem 0;font-size:.78rem;line-height:1.45}
+body[data-ti-concept-labs] #ws-plot{height:190px;min-height:190px;background:#071a2a}
+body[data-ti-concept-labs] #ws-plot .ti-concept-node{fill:#102f43;stroke:#5c8298;stroke-width:2}
+body[data-ti-concept-labs] #ws-plot .ti-concept-node-text{fill:#e5f1f7;font:700 13px system-ui}
+body[data-ti-concept-labs] #ws-plot .ti-concept-arrow{stroke:#63dfbc;stroke-width:3;fill:none}
+body[data-ti-concept-labs] .ti-concept-sources{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;font-size:.72rem}
+body[data-ti-concept-labs] .ti-concept-sources a{padding:.2rem .35rem;border:1px solid #cfdee5;border-radius:.35rem;background:#f8fbfc}
+body[data-ti-concept-labs] .ti-adapter-link{font-weight:700;background:#e8f6ef!important;border-color:#72ae98!important}
+body[data-ti-concept-labs] .coach fieldset{border:0;padding:0;margin:.4rem 0}
+body[data-ti-concept-labs] .coach fieldset label{display:block;margin:.25rem 0;padding:.45rem .5rem;border:1px solid #cfdee5;border-radius:.4rem}
+body[data-ti-concept-labs] .coach fieldset label:has(input:checked){background:#e9f7f1;border-color:#2a8b70}
+body[data-ti-concept-labs] #ws-question h2{font-size:1rem;margin:.35rem 0}
+body[data-ti-concept-labs] #ws-question>p{font-size:.8rem}
+@media(max-width:1120px){
+  body[data-ti-concept-labs] .workspace-grid{grid-template-columns:1fr}
+  body[data-ti-concept-labs] .coach{width:auto;position:static;order:1}
+  body[data-ti-concept-labs] .surface{order:2}
+}
+@media(max-width:700px){
+  body[data-ti-concept-labs] .ti-concept-board{grid-template-columns:1fr}
+}
