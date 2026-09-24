@@ -230,3 +230,21 @@ test("TI Debug Lab embeds existing hidden repair kernel without creating a new l
   assert.match(wb,/COVERAGE/);
   assert.match(wb,/measure → diagnose → repair → transfer verify/);
 });
+
+
+test("TI Evidence view uses authoritative P4-A/P4-B validators and stays fail-closed",async()=>{
+  const [html,ui,ladder]=await Promise.all([
+    readFile(new URL("../learn.html",import.meta.url),"utf8"),
+    readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8"),
+    readFile(new URL("../assets/learning/ti-evidence-ladder.js",import.meta.url),"utf8")
+  ]);
+  assert.match(html,/physical-board-closure-v1\.js/);
+  assert.match(html,/control-validation-v1\.js/);
+  assert.match(html,/ti-evidence-ladder-core\.js/);
+  assert.match(ui,/open-ti-evidence/);
+  assert.match(ui,/ti-engineering-truth-ladder-v1/);
+  assert.match(ladder,/UNCLAIMED/);
+  assert.match(ladder,/INCOMPLETE_OR_FAIL/);
+  assert.match(ladder,/P4-A/);
+  assert.match(ladder,/P4-B/);
+});
