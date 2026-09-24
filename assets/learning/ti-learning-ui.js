@@ -73,6 +73,10 @@
     $("transfer-preview").hidden=true;
     $("workbench-context-slot").hidden=true;
     $("surface-title").textContent="Buck 第一個 PWM 週期：Duty 25% → 50%";
+    $("ws-count").textContent="TI Concept 1 / 15 · SLVA057";
+    $("ws-title").textContent="Buck 能量流：Duty 變大，最先發生什麼？";
+    $("ws-intro").textContent="這一課不比較兩個穩態。先鎖住舊 Vout，只看 duty command 改變後的第一個 PWM 週期，追 switch state → vL → di/dt → iL。";
+    $("ws-save").textContent=E.storageStatus().saved?"作答與複習日期會寫進既有 circuit-learning-state-v5。":"目前瀏覽器儲存不可用，請先不要把這次作答當成已保存。";
     textNodeLabel($("ws-voltage"),"初始 Vout");
     textNodeLabel($("ws-current"),"初始平均 iL");
     textNodeLabel($("ws-display"),"首週期淨 ΔiL");
@@ -192,7 +196,7 @@
     };
     $("ws-question").append(b);
     $("ws-control").oninput=()=>{
-      dutyPct=Number($("ws-control").value);$("ws-value").textContent=dutyPct+"%";b.disabled=dutyPct!==50;setCircuitPhase(.1);
+      dutyPct=Number($("ws-control").value);$("ws-value").textContent=dutyPct+"%";b.disabled=dutyPct!==50;
     };
   }
   function observationStage(){
@@ -265,7 +269,7 @@
     else resultStage();
   }
   function render(){
-    record=loadRecord();stage=Number(record.progress||0);dutyPct=stage===0?25:50;
+    record=loadRecord();stage=Number(record.progress||0);dutyPct=stage<=1?25:50;
     scenario=C.buildFirstCycle(B.buck,{duty:.25},dutyPct/100);
     setupSurface();route();renderProgress();renderQuestion();drawPlot();
     if(stage>=2){$("ws-display").textContent=scenario.after.deltaI.toFixed(2)+" A";setCircuitPhase(.1);}
