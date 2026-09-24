@@ -71,3 +71,46 @@ test('optional differential-inductance saturation changes physical current and D
   assert.ok(saturated.summary.peakI > healthy.summary.peakI);
   assert.notEqual(dcr.summary.avgV, healthy.summary.avgV);
 });
+
+
+test('steady-state Buck rows expose ON/OFF/ZERO physics, vL and capacitor current', () => {
+  const ccm = Core.buck({ loadOhm: 5 });
+  assert.ok(ccm.rows.some(row => row.state === 'ON'));
+  assert.ok(ccm.rows.some(row => row.state === 'OFF'));
+  assert.equal(ccm.rows.some(row => row.state === 'ZERO'), false);
+  close(ccm.rows.find(row => row.state === 'ON').vL, ccm.config.vin - ccm.vout, 1e-9);
+  close(ccm.rows.find(row => row.state === 'OFF').vL, -ccm.vout, 1e-9);
+  const avgIc = ccm.rows.slice(1).reduce((sum,row,i)=>sum+(row.iC+ccm.rows[i].iC)/2/512,0);
+  close(avgIc, 0, 5e-5);
+
+  const dcm = Core.buck({ loadOhm: 100 });
+  assert.equal(dcm.regime, 'DCM');
+  assert.ok(dcm.rows.some(row => row.state === 'ZERO'));
+  assert.ok(dcm.rows.filter(row => row.state === 'ZERO').every(row => row.iL === 0 && row.vL === 0));
+  assert.ok(dcm.stateFractions.zero > 0);
+});
+
+test('Buck transient distinguishes first-cycle response from later output movement', () => {
+  const t = Core.buckTransient({
+    before: { vin:48, duty:.25, inductanceUh:100, fswKhz:100, loadOhm:5, capacitanceUf:220 },
+    after: { duty:.5 },
+    cycles: 20,
+    stepsPerCycle: 256
+  });
+  close(t.initialVout, 12, 1e-9);
+  assert.equal(t.rows.length, 20 * 256);
+  assert.ok(t.rows.some(row => row.state === 'ON'));
+  assert.ok(t.rows.some(row => row.state === 'OFF'));
+  assert.ok(t.firstCycle.avgVout > t.initialVout);
+  assert.ok(t.lastCycle.avgVout > t.firstCycle.avgVout);
+  assert.ok(Math.abs(t.firstCycle.avgVout - t.initialVout) < Math.abs(t.lastCycle.avgVout - t.initialVout));
+  assert.ok(t.lastCycle.maxI > t.firstCycle.minI);
+});
+
+test('Buck operating-region boundary makes load lightening cross CCM to BCM to DCM', () => {
+  const base = Core.buck();
+  const rcrit = base.boundaryOhm;
+  assert.equal(Core.buck({ loadOhm:rcrit * .5 }).regime, 'CCM');
+  assert.equal(Core.buck({ loadOhm:rcrit }).regime, 'BCM');
+  assert.equal(Core.buck({ loadOhm:rcrit * 2 }).regime, 'DCM');
+});
