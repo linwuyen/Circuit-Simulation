@@ -124,6 +124,19 @@
     const a=document.createElement("a");a.href=source.url;a.target="_blank";a.rel="noopener";a.textContent=`${source.id} — ${source.title}`;
     wrap.append(title,a);box.append(wrap);
   }
+  function ensureCircuitStage(){
+    const circuit=$("circuit"),state=$("circuit-state");
+    let stageBox=$("ti-circuit-stage");
+    if(!stageBox){
+      stageBox=document.createElement("div");
+      stageBox.id="ti-circuit-stage";
+      stageBox.className="ti-circuit-stage";
+      circuit.before(stageBox);
+      stageBox.append(circuit);
+      if(state)stageBox.append(state);
+    }
+    return stageBox;
+  }
   function installCircuitInteractivity(){
     const svg=$("circuit");
     let layer=svg.querySelector("#ti-component-hit-layer");
@@ -150,14 +163,14 @@
     let panel=$("ti-component-inspector");
     if(!panel){
       panel=document.createElement("div");panel.id="ti-component-inspector";panel.className="ti-component-inspector";
-      $("circuit").after(panel);
+      ensureCircuitStage().append(panel);
     }
     const c=COMPONENTS[selectedComponent];panel.replaceChildren();
     const head=document.createElement("div");head.className="ti-inspector-head";
     const title=document.createElement("strong");title.textContent=c.label;
     const state=document.createElement("span");state.textContent=stage===0?"editable":"locked after prediction";
     head.append(title,state);panel.append(head);
-    const help=document.createElement("p");help.textContent=c.help;panel.append(help);
+    const help=document.createElement("p");help.textContent=c.help;help.title=c.help;panel.append(help);
     if(c.key){
       const row=document.createElement("label");row.className="ti-param-row";
       const value=document.createElement("output");value.textContent=simConfig[c.key]+" "+c.unit;
@@ -178,7 +191,9 @@
     let chain=$("ti-causal-chain");
     if(!chain){
       chain=document.createElement("div");chain.id="ti-causal-chain";chain.className="ti-causal-chain";
-      $("ti-sim-toolbar")?.before(chain);
+      const toolbar=$("ti-sim-toolbar");
+      const status=$("ti-scope-status");
+      if(toolbar&&status)toolbar.insertBefore(chain,status);
     }
     chain.replaceChildren();
     if(stage<2){
@@ -217,30 +232,31 @@
     $("ws-control").disabled=stage!==1;
     $("scope-note").textContent=scenario.boundary;
     renderHud();
+    ensureCircuitStage();
     installCircuitInteractivity();
 
     let bar=$("ti-sim-toolbar");
     if(!bar){
       bar=document.createElement("div");bar.id="ti-sim-toolbar";bar.className="ti-sim-toolbar";
-      bar.innerHTML='<button id="ti-run" type="button">▶ Run</button><button id="ti-pause" type="button">Ⅱ Pause</button><button id="ti-reset" type="button">↺ Reset</button><span id="ti-scope-status"></span>';
+      bar.innerHTML='<strong class="ti-scope-title">SCOPE</strong><button id="ti-run" type="button">▶</button><button id="ti-pause" type="button">Ⅱ</button><button id="ti-reset" type="button">↺</button><span id="ti-scope-status"></span>';
       $("ws-plot").before(bar);
       $("ti-run").onclick=()=>{if(stage>=2)startAnimation();};
       $("ti-pause").onclick=()=>stopAnimation();
       $("ti-reset").onclick=()=>{stopAnimation();setCircuitPhase(.1);};
     }
     $("ti-run").disabled=stage<2;$("ti-pause").disabled=stage<2;$("ti-reset").disabled=stage<2;
-    $("ti-scope-status").textContent=stage<2?"Scope locked":"Scope · first PWM cycle";
+    $("ti-scope-status").textContent=stage<2?"locked":"first cycle";
     renderCausalChain();
     renderSource();
   }
   function scopeGrid(svg){
     const g=svgEl("g",{class:"ti-scope-grid"});
-    for(let i=0;i<=10;i++)g.append(svgEl("path",{d:`M${95+i*55} 18V340`}));
-    for(let i=0;i<=8;i++)g.append(svgEl("path",{d:`M95 ${20+i*40}H650`}));
+    for(let i=0;i<=10;i++)g.append(svgEl("path",{d:`M${95+i*55} 18V312`}));
+    for(let i=0;i<=7;i++)g.append(svgEl("path",{d:`M95 ${20+i*40}H650`}));
     svg.append(g);
   }
   function drawPlot(){
-    const svg=$("ws-plot");svg.replaceChildren();svg.hidden=false;svg.setAttribute("viewBox","0 0 720 360");scopeGrid(svg);
+    const svg=$("ws-plot");svg.replaceChildren();svg.hidden=false;svg.setAttribute("viewBox","0 0 720 330");scopeGrid(svg);
     if(stage<2){
       svg.append(svgEl("text",{x:250,y:155,class:"ti-scope-lock"},"WAVEFORM LOCKED"));
       svg.append(svgEl("text",{x:218,y:184,class:"ti-scope-lock-sub"},"Commit prediction before revealing evidence"));
@@ -279,11 +295,11 @@
     svg.append(svgEl("path",{d:`M95 ${yv}H650`,class:"ti-trace ti-trace-vout","data-trace":"vout"}));
     svg.append(svgEl("text",{x:560,y:yv-7,class:"ti-value-label"},`${scenario.vout0.toFixed(1)} V frozen`));
 
-    svg.append(svgEl("path",{d:`M${x(oldOn)} 20V340`,class:"ti-timing ti-timing-old"}));
-    svg.append(svgEl("path",{d:`M${x(onUs)} 20V340`,class:"ti-timing ti-timing-new"}));
-    svg.append(svgEl("text",{x:x(oldOn)-16,y:350,class:"ti-time-label"},"25%"));
-    svg.append(svgEl("text",{x:x(onUs)-16,y:350,class:"ti-time-label"},"50%"));
-    svg.append(svgEl("path",{id:"ti-scope-cursor",d:"M95 20V340",class:"ti-scope-cursor"}));
+    svg.append(svgEl("path",{d:`M${x(oldOn)} 20V312`,class:"ti-timing ti-timing-old"}));
+    svg.append(svgEl("path",{d:`M${x(onUs)} 20V312`,class:"ti-timing ti-timing-new"}));
+    svg.append(svgEl("text",{x:x(oldOn)-16,y:324,class:"ti-time-label"},"25%"));
+    svg.append(svgEl("text",{x:x(onUs)-16,y:324,class:"ti-time-label"},"50%"));
+    svg.append(svgEl("path",{id:"ti-scope-cursor",d:"M95 20V312",class:"ti-scope-cursor"}));
 
     svg.setAttribute("aria-label","Four-trace scope showing PWM, inductor voltage, inductor current and frozen output voltage for the first PWM cycle.");
     $("ws-comparison").textContent=`ON ${scenario.after.onUs.toFixed(2)} µs · vL(on) +${posV.toFixed(1)} V · di/dt(on) +${scenario.after.onSlopeAUs.toFixed(3)} A/µs · first-cycle ΔiL +${scenario.after.deltaI.toFixed(3)} A`;
@@ -297,9 +313,9 @@
     const rows=scenario.after.rows,index=Math.min(rows.length-1,Math.round(phase*(rows.length-1))),i=rows[index].iL;
     const vL=on?(scenario.config.vin-scenario.vout0):-scenario.vout0;
     const slope=on?scenario.after.onSlopeAUs:scenario.after.offSlopeAUs;
-    $("circuit-state").textContent=`${on?"ON":"OFF"} · vL ${vL>=0?"+":""}${vL.toFixed(1)} V · di/dt ${slope>=0?"+":""}${slope.toFixed(3)} A/µs · iL ${i.toFixed(3)} A`;
+    $("circuit-state").textContent=`${on?"ON":"OFF"}  vL ${vL>=0?"+":""}${vL.toFixed(1)}V  di/dt ${slope>=0?"+":""}${slope.toFixed(3)}A/µs  iL ${i.toFixed(3)}A`;
     const cursor=$("ti-scope-cursor");
-    if(cursor){const x=95+phase*555;cursor.setAttribute("d",`M${x} 20V340`);}
+    if(cursor){const x=95+phase*555;cursor.setAttribute("d",`M${x} 20V312`);}
   }
   function animate(ts){if(!running)return;setCircuitPhase((ts/2600)%1);raf=requestAnimationFrame(animate);}
   function startAnimation(){if(running)return;running=true;document.body.dataset.tiRunning="true";raf=requestAnimationFrame(animate);}
@@ -419,7 +435,7 @@
   }
   async function mount(){
     if(!E||!B||!C)throw Error("TI learning dependencies missing");
-    document.body.dataset.tiLearning="true";setHeader();renderProgress();
+    document.body.dataset.tiLearning="true";document.body.dataset.tiWorkbench="compact";setHeader();renderProgress();
     try{await loadSource();record=loadRecord();render();if(stage>=2)startAnimation();}
     catch(error){$("ws-title").textContent="TI Engineering Learning 載入失敗";$("ws-intro").textContent=error.message;console.error(error);}
   }
