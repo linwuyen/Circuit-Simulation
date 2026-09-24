@@ -219,3 +219,44 @@ test('completed loop unlocks DCM exploration while prediction stage stays in CCM
   await expect(page.locator('.ti-mode')).toContainText('DCM');
   await expect(page.locator('#ws-comparison')).toContainText('DCM');
 });
+
+
+test('generic TI concept uses V5 scheduling without learner CLI', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openFresh(page);
+
+  // Complete Buck prerequisite first.
+  await page.locator('input[name="ti-predict"][value="time-first"]').check();
+  await page.getByRole('button', { name: 'Lock prediction' }).click();
+  await page.locator('#ws-control').fill('50');
+  await page.getByRole('button', { name: 'Run first cycle' }).click();
+  await page.locator('input[name="ti-observe"][value="net-rise"]').check();
+  await page.getByRole('button', { name: 'Check observation' }).click();
+  await page.locator('input[name="ti-reason"][value="volt-second"]').check();
+  await page.getByRole('button', { name: 'Complete loop' }).click();
+
+  await page.reload();
+  await expect(page.locator('#ws-title')).toContainText('duty can initially move output opposite');
+
+  await page.locator('#ti-generic-answer').fill('More ON time stores energy in L while diode delivery pauses, so the capacitor can initially discharge.');
+  await page.getByRole('button', { name: 'Commit answer → reveal source' }).click();
+  await expect(page.locator('.ti-generic-evidence')).toContainText('TI primary sources');
+  await expect(page.locator('.ti-generic-evidence')).toContainText('SLVA061');
+
+  await page.locator('#ti-generic-correction').fill('Check the inverse transient and compare it with the RHPZ frequency before increasing voltage-loop bandwidth.');
+  await page.getByRole('button', { name: 'Save correction' }).click();
+  await page.getByRole('button', { name: 'PASS' }).click();
+
+  const state=await page.evaluate(()=>{
+    const s=CircuitEvidence.load();
+    return s.benchmark.tiEngineeringLearning.concepts['boost-rhpz'];
+  });
+  expect(state.lastResult).toBe('pass');
+  expect(state.mastery).toBe(.8);
+  expect(state.attempts).toBe(1);
+  expect(state.nextReview).toBeTruthy();
+
+  await page.reload();
+  const restored=await page.evaluate(()=>CircuitEvidence.load().benchmark.tiEngineeringLearning.concepts['boost-rhpz']);
+  expect(restored.lastResult).toBe('pass');
+});
