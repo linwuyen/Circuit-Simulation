@@ -91,6 +91,42 @@
       boundary:"第一個 PWM 週期近似：Vin 固定、Vout 尚未改變、理想 CCM Buck；用於觀察 duty 改變後最先發生的因果，不代表新穩態。"
     };
   }
+  function sampleRows(rows,tUs){
+    if(!Array.isArray(rows)||!rows.length) throw new Error("rows required");
+    const t=Math.max(rows[0].tUs,Math.min(rows.at(-1).tUs,Number(tUs)));
+    let lo=0,hi=rows.length-1;
+    while(lo+1<hi){
+      const mid=(lo+hi)>>1;
+      if(rows[mid].tUs<=t)lo=mid;else hi=mid;
+    }
+    const a=rows[lo],b=rows[hi];
+    if(!b||b.tUs===a.tUs)return {...a,tUs:t};
+    const mix=(t-a.tUs)/(b.tUs-a.tUs);
+    return {tUs:t,iL:a.iL+(b.iL-a.iL)*mix};
+  }
+  function sampleFirstCycle(scenario,tUs){
+    if(!scenario?.after?.rows) throw new Error("first-cycle scenario required");
+    const t=Math.max(0,Math.min(scenario.periodUs,Number(tUs)));
+    const current=sampleRows(scenario.after.rows,t);
+    const on=t<=scenario.after.onUs;
+    return {
+      tUs:t,
+      pwm:on?1:0,
+      on,
+      vL:on?scenario.config.vin-scenario.vout0:-scenario.vout0,
+      iL:current.iL,
+      vout:scenario.vout0
+    };
+  }
+  function cursorDelta(scenario,aUs,bUs){
+    const a=sampleFirstCycle(scenario,aUs),b=sampleFirstCycle(scenario,bUs);
+    return {
+      a,b,
+      dtUs:b.tUs-a.tUs,
+      diA:b.iL-a.iL,
+      dvL:b.vL-a.vL
+    };
+  }
   function gradeResult({predictionCorrect=false,observationFirstCorrect=false,reasonFirstCorrect=false,reasonPassed=false,transferPassed=false}={}){
     if(transferPassed) return "transfer";
     if(!reasonPassed) return "fail";
@@ -117,5 +153,5 @@
       progress:4
     };
   }
-  return {lesson,policy,isoDayLocal,addDays,buildFirstCycle,gradeResult,nextReview,applyResult};
+  return {lesson,policy,isoDayLocal,addDays,buildFirstCycle,sampleFirstCycle,cursorDelta,gradeResult,nextReview,applyResult};
 });
