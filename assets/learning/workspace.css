@@ -286,3 +286,33 @@ body[data-ti-learning] #ti-cursor-clear{
 @media(max-width:760px){
   body[data-ti-learning] #ti-cursor-readout{order:3;width:100%;max-width:none;margin-left:0}
 }
+
+
+/* Epic #65: Buck physics layered workbench */
+body[data-ti-buck-physics] .route{display:none}
+body[data-ti-buck-physics] main{max-width:min(1760px,98vw);padding:.6rem}
+body[data-ti-buck-physics] .workspace-grid{grid-template-columns:minmax(760px,1fr) 360px;gap:10px}
+body[data-ti-buck-physics] .surface,body[data-ti-buck-physics] .coach{padding:.75rem;border-radius:.7rem}
+body[data-ti-buck-physics] .coach{width:360px;position:sticky;top:.6rem}
+body[data-ti-buck-physics] #circuit{max-height:215px;margin:.25rem 0}
+body[data-ti-buck-physics] .ti-physics-scenarios{display:flex;flex-wrap:wrap;gap:.3rem;margin:.2rem 0 .4rem}
+body[data-ti-buck-physics] .ti-physics-scenarios button{min-height:30px;padding:.2rem .55rem;font-size:.75rem}
+body[data-ti-buck-physics] .ti-physics-scenarios button.is-active{background:#126654;color:white;border-color:#126654}
+body[data-ti-buck-physics] .metrics{display:flex;margin:.2rem 0}
+body[data-ti-buck-physics] .metrics p{margin:.1rem 1.2rem .1rem 0;font-size:.7rem}
+body[data-ti-buck-physics] .metrics strong{font-size:1rem}
+body[data-ti-buck-physics] #ws-plot{height:min(34vh,320px);min-height:250px;margin:.3rem 0;background:#071a2a}
+body[data-ti-buck-physics] #ws-plot .ti-physics-before,
+body[data-ti-buck-physics] #ws-plot .ti-physics-after{fill:none;stroke-width:3}
+body[data-ti-buck-physics] #ws-plot .ti-physics-before{stroke:#8ea3b2;stroke-dasharray:7 5}
+body[data-ti-buck-physics] #ws-plot .ti-physics-after{stroke:#63dfbc}
+body[data-ti-buck-physics] .ti-physics-change{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;background:#eef5f8;padding:.35rem .5rem;border-radius:.35rem}
+body[data-ti-buck-physics] .ti-physics-evidence{margin:.6rem 0;padding:.55rem .65rem;border-left:3px solid #238365;background:#edf8f1;font-size:.8rem}
+body[data-ti-buck-physics] #ws-question fieldset{border:0;padding:0}
+body[data-ti-buck-physics] #ws-question fieldset label{display:block;margin:.25rem 0;padding:.4rem .5rem;border:1px solid #cfdee5;border-radius:.4rem}
+body[data-ti-buck-physics] #ws-question fieldset label:has(input:checked){background:#e9f7f1;border-color:#2a8b70}
+@media(max-width:1100px){
+  body[data-ti-buck-physics] .workspace-grid{grid-template-columns:1fr}
+  body[data-ti-buck-physics] .coach{width:auto;position:static;order:1}
+  body[data-ti-buck-physics] .surface{order:2}
+}
