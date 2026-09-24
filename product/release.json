@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "product": "Circuit Simulation Learning Pack",
+  "version": "0.1.0-beta.1",
+  "channel": "beta",
+  "releasedAt": "2026-09-24",
+  "publicUrl": "https://linwuyen.github.io/Circuit-Simulation/",
+  "customDomain": null,
+  "customDomainStatus": "NOT_CONFIGURED",
+  "state": {
+    "key": "circuit-learning-state-v5",
+    "schema": "circuit-learning-state",
+    "version": 5
+  },
+  "pwa": {
+    "offlineShell": true,
+    "serviceWorker": "service-worker.js",
+    "manifest": "manifest.webmanifest"
+  },
+  "sync": {
+    "mode": "LOCAL_FIRST",
+    "cloudBackend": "NOT_CONFIGURED",
+    "transportContract": "Evidence V5 exportBackup() → remote opaque transport → Evidence.merge()"
+  },
+  "evidenceBoundary": "Product release metadata never upgrades model, target, measured-control, or board evidence.",
+  "paidSourceVersion": "v0.1"
+}
