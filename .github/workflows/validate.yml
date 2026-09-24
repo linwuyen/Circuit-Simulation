@@ -101,6 +101,36 @@ jobs:
           path: build/verification/
           if-no-files-found: warn
 
+  ti-learning-closure:
+    if: github.event_name == 'pull_request' && github.head_ref == 'feat-ti-learning-workflow'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run exact-head TI closure
+        run: npm run learning:ti:closure
+      - name: Preserve TI closure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ti-learning-closure-${{ github.run_id }}
+          path: |
+            .learning-cache/ti/
+            .learning-cache/codespace-bootstrap-report.json
+            .learning-cache/codespace-evidence.md
+            .learning-cache/ti-closure-evidence.md
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
   browser:
     runs-on: ubuntu-latest
     env:
