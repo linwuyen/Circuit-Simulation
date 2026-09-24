@@ -1,4 +1,5 @@
-import { mkdir, writeFile } from "node:fs/promises";\nimport { execFileSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { downloadDocuments } from "./ti-docs.mjs";
@@ -16,6 +17,15 @@ const pdfDir = path.join(cacheDir, "ti");
 const stateFile = path.join(cacheDir, "learning-state.json");
 const sessionFile = path.join(cacheDir, "today-session.md");
 const reportFile = path.join(cacheDir, "codespace-bootstrap-report.json");
+const evidenceFile = path.join(cacheDir, "codespace-evidence.md");
+
+function git(args) {
+  try {
+    return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
+  } catch {
+    return null;
+  }
+}
 
 async function main() {
   await mkdir(cacheDir, { recursive: true });
@@ -34,9 +44,14 @@ async function main() {
   const session = renderSession(plan, manifest);
   await writeFile(sessionFile, session, "utf8");
 
+  const gitHead = git(["rev-parse", "HEAD"]);
+  const gitBranch = git(["branch", "--show-current"]);
   const report = {
     generatedAt: new Date().toISOString(),
     execution: "github-codespaces",
+    gitHead,
+    gitBranch,
+    node: process.version,
     documents: {
       requested: download.requested,
       passed: download.passed,
@@ -53,8 +68,26 @@ async function main() {
   };
 
   await writeFile(reportFile, JSON.stringify(report, null, 2) + "\n", "utf8");
+
+  const evidence = [
+    "# TI Learning Codespace Evidence",
+    "",
+    `- generated: ${report.generatedAt}`,
+    `- branch: ${gitBranch ?? "unknown"}`,
+    `- HEAD: ${gitHead ?? "unknown"}`,
+    `- Node: ${process.version}`,
+    `- TI PDFs: ${download.passed}/${download.requested} PASS`,
+    `- Concept Cards: ${model.conceptCount}`,
+    `- Session: ${path.relative(root, sessionFile)}`,
+    `- Download report: ${path.relative(root, path.join(pdfDir, "download-report.json"))}`,
+    "",
+    download.failed === 0 ? "BOOTSTRAP_PASS" : "BOOTSTRAP_FAIL",
+    ""
+  ].join("\n");
+  await writeFile(evidenceFile, evidence, "utf8");
+
   console.log(JSON.stringify(report, null, 2));
-  console.log("\nCodespace bootstrap PASS");
+  console.log("\n" + evidence);
 }
 
 main().catch(error => {
