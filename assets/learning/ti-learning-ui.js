@@ -72,7 +72,8 @@
       fetch("learning/ti/concept-cards.json",{cache:"no-store"}).then(r=>{if(!r.ok)throw Error("Concept Cards 載入失敗");return r.json();}),
       fetch("learning/ti/manifest.json",{cache:"no-store"}).then(r=>{if(!r.ok)throw Error("TI manifest 載入失敗");return r.json();})
     ]);
-    catalog=cards.cards;\n    card=catalog.find(x=>x.id===C.lesson.id);
+    catalog=cards.cards;
+    card=catalog.find(x=>x.id===C.lesson.id);
     source=manifest.documents.find(x=>x.id===C.lesson.sourceId);
     if(!card||!source)throw Error("TI Buck lesson source closure missing");
   }
