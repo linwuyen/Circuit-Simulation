@@ -285,3 +285,47 @@ body[data-ti-learning] .ti-grade-buttons{display:grid;grid-template-columns:repe
   body[data-ti-learning] .ti-generic-evidence{grid-template-columns:1fr}
   body[data-ti-learning] .ti-grade-buttons{grid-template-columns:1fr 1fr}
 }
+
+
+/* TI digital control workbench */
+body[data-ti-learning] .ti-specialized-workbench{margin:.4rem 0}
+body[data-ti-learning] .ti-control-workbench{display:grid;gap:.5rem;padding:.6rem;border:1px solid #b8ccd7;border-radius:.6rem;background:#f7fafc}
+body[data-ti-learning] .ti-control-head{display:flex;justify-content:space-between;gap:.5rem;align-items:center}
+body[data-ti-learning] .ti-control-head span{font:700 .7rem ui-monospace,SFMono-Regular,Consolas,monospace;color:#496879}
+body[data-ti-learning] .ti-control-controls{display:grid;grid-template-columns:repeat(5,minmax(100px,1fr)) auto;gap:.35rem}
+body[data-ti-learning] .ti-control-input{display:grid;gap:.1rem;padding:.3rem;border:1px solid #d2e0e6;border-radius:.4rem;background:white}
+body[data-ti-learning] .ti-control-input span{display:flex;justify-content:space-between;gap:.3rem;font-size:.68rem}
+body[data-ti-learning] .ti-control-input input{min-height:26px}
+body[data-ti-learning] .ti-control-toggle{display:flex;align-items:center;white-space:nowrap;font-size:.72rem;padding:.3rem}
+body[data-ti-learning] .ti-control-blocks{display:flex;align-items:center;justify-content:center;gap:.3rem;flex-wrap:wrap;padding:.35rem;background:#eaf2f6;border-radius:.4rem;font-size:.72rem}
+body[data-ti-learning] .ti-control-blocks b{padding:.18rem .35rem;background:white;border:1px solid #c8d9e1;border-radius:.3rem}
+body[data-ti-learning] .ti-control-metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:.3rem}
+body[data-ti-learning] .ti-control-metrics div{padding:.35rem;background:#102438;color:#dcebf3;border-radius:.35rem}
+body[data-ti-learning] .ti-control-metrics span{display:block;font-size:.58rem;color:#91adbd}
+body[data-ti-learning] .ti-control-metrics strong{display:block;font:700 .7rem ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-learning] .ti-control-plots{display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem}
+body[data-ti-learning] .ti-control-chart{min-width:0;background:#071a2a;border-radius:.4rem;overflow:hidden}
+body[data-ti-learning] .ti-control-chart-head{display:flex;justify-content:space-between;padding:.25rem .4rem;color:#d8e8f1;font-size:.62rem}
+body[data-ti-learning] .ti-control-chart-head span{color:#789aae}
+body[data-ti-learning] .ti-control-chart svg{display:block;width:100%;height:auto;margin:0;background:#071a2a;border-radius:0}
+body[data-ti-learning] .ti-control-grid{fill:none;stroke:#173248;stroke-width:1}
+body[data-ti-learning] .ti-control-line{fill:none;stroke-width:2.5}
+body[data-ti-learning] .ti-control-line-a{stroke:#63dfbc}
+body[data-ti-learning] .ti-control-line-b{stroke:#f0c967}
+body[data-ti-learning] .ti-control-sfra{display:grid;gap:.3rem}
+body[data-ti-learning] .ti-control-sfra-head{display:flex;justify-content:space-between;gap:.5rem;font-size:.72rem}
+body[data-ti-learning] .ti-control-sfra textarea{width:100%;font: .68rem ui-monospace,SFMono-Regular,Consolas,monospace;padding:.4rem;border:1px solid #b4cbd7;border-radius:.35rem}
+body[data-ti-learning] .ti-control-sfra-actions{display:flex;gap:.3rem}
+body[data-ti-learning] .ti-control-sfra-actions button{min-height:30px;padding:.2rem .45rem;font-size:.68rem}
+body[data-ti-learning] .ti-control-sfra-status{margin:0!important;padding:.3rem .4rem;background:#edf5f8;border-left:3px solid #1683a2;font-size:.67rem!important}
+body[data-ti-learning] .ti-control-boundary{margin:0!important;font-size:.64rem!important;color:#627985}
+body[data-ti-learning] .ti-control-lock{padding:1rem;border:1px dashed #8ea9b8;border-radius:.5rem;background:#f4f8fa;font:700 .72rem ui-monospace,SFMono-Regular,Consolas,monospace}
+@media(max-width:1100px){
+  body[data-ti-learning] .ti-control-controls{grid-template-columns:repeat(3,1fr)}
+  body[data-ti-learning] .ti-control-metrics{grid-template-columns:repeat(3,1fr)}
+  body[data-ti-learning] .ti-control-plots{grid-template-columns:1fr}
+}
+@media(max-width:600px){
+  body[data-ti-learning] .ti-control-controls{grid-template-columns:1fr 1fr}
+  body[data-ti-learning] .ti-control-metrics{grid-template-columns:1fr 1fr}
+}

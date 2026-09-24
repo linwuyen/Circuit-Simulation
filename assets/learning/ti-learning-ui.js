@@ -366,6 +366,7 @@
     $("ws-control").disabled=stage!==1;
     $("scope-note").textContent=scenario.boundary;
     renderHud();
+    const special=ensureSpecializedHost();special.hidden=true;special.replaceChildren();
     const circuitStage=ensureCircuitStage();circuitStage.hidden=false;
     $("lesson-control").hidden=false;
     $("ws-plot").hidden=false;
@@ -636,6 +637,38 @@
     $("ws-result").hidden=false;$("ws-ability").textContent="Evidence: PWM + vL + iL + frozen Vout.";$("ws-transition").textContent="Next due review should change the condition instead of repeating the same wording.";
     $("ws-next").textContent="Replay scope";$("ws-next").onclick=()=>{stage=2;render();startAnimation();};
   }
+  function ensureSpecializedHost(){
+    let host=$("ti-specialized-workbench");
+    if(!host){
+      host=document.createElement("div");
+      host.id="ti-specialized-workbench";
+      host.className="ti-specialized-workbench";
+      $("surface-help").before(host);
+    }
+    return host;
+  }
+  function renderSpecializedConcept(concept,revealed){
+    const host=ensureSpecializedHost();
+    host.hidden=true;host.replaceChildren();
+    const workbench=root.CircuitTIControlWorkbench;
+    if(!workbench||!workbench.supports(concept.id))return;
+    host.hidden=false;
+    workbench.mount({
+      host,
+      conceptId:concept.id,
+      revealed,
+      onSnapshot:snapshot=>{
+        E.recordMachine("ti:"+concept.id,"ti-control-workbench",snapshot,{
+          passed:false,
+          model:{
+            id:"ti-control-workbench-v1",
+            version:"1",
+            boundary:"Deterministic teaching/model evidence only. Imported SFRA without provenance is not independent measured evidence."
+          }
+        });
+      }
+    });
+  }
   function renderGenericEvidence(concept,revealed){
     const box=$("surface-help");box.hidden=false;box.replaceChildren();
     const panel=document.createElement("div");panel.className="ti-generic-evidence";
@@ -693,6 +726,7 @@
     $("ws-save").textContent=E.storageStatus().saved?"Saved in circuit-learning-state-v5":"Storage unavailable — do not count this attempt as saved.";
     genericStepNav(step);
     renderGenericEvidence(concept,step>=1);
+    renderSpecializedConcept(concept,step>=1);
     $("ws-result").hidden=true;$("explore").hidden=true;$("back-to-lesson").hidden=true;$("ws-hint").hidden=true;$("ws-explanation").hidden=true;
     $("ws-question").replaceChildren();feedback("");
 
