@@ -102,6 +102,8 @@ export async function downloadDocuments(manifest, outDir, { concurrency = 3 } = 
       const destination = path.join(outDir, doc.file);
       const temp = destination + ".tmp";
       const started = Date.now();
+      await rm(destination, { force: true });
+      await rm(temp, { force: true });
       try {
         const { bytes, requestedUrl, finalUrl, contentType, attempts, sourceFailures } = await fetchPdf(doc);
         await writeFile(temp, bytes);
