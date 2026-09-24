@@ -100,8 +100,8 @@
       }
     }catch(error){release.textContent="Release metadata unavailable: "+error.message;}
 
-    const sw=await registerServiceWorker();pwaStatus.textContent="PWA: "+sw.status+(sw.scope?" · "+sw.scope:"");
     root.addEventListener?.("beforeinstallprompt",event=>{event.preventDefault();deferredInstall=event;install.hidden=false;});
+    const sw=await registerServiceWorker();pwaStatus.textContent="PWA: "+sw.status+(sw.scope?" · "+sw.scope:"");
     install.onclick=async()=>{if(!deferredInstall)return;deferredInstall.prompt();await deferredInstall.userChoice;deferredInstall=null;install.hidden=true;};
 
     button.onclick=()=>{drawer.hidden=false;};
