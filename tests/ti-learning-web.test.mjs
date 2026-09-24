@@ -136,5 +136,6 @@ test("Epic 101 full transient falsifies the frozen-Vout approximation after the 
   });
   assert.ok(Math.abs(t.firstCycle.avgVout-t.initialVout)<.1);
   assert.ok(t.lastCycle.avgVout>t.firstCycle.avgVout+5);
-  assert.notEqual(t.lastCycle.regime,undefined);
+  assert.ok(t.rows.some(row=>row.state==="ON"));
+  assert.ok(t.rows.some(row=>row.state==="OFF"));
 });
