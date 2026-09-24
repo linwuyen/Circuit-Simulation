@@ -39,10 +39,19 @@
     const current = phase => phase <= D ? minI + ripple * phase / D
       : phase < D + discharge ? minI + ripple * (1 - (phase - D) / discharge) : minI;
     const n = 512, T = 1 / f;
-    const rows = Array.from({ length: n + 1 }, (_, i) => ({ tUs: i / n * T * 1e6, iL: current(i / n) }));
+    const rows = Array.from({ length: n + 1 }, (_, i) => {
+      const phase = i / n, iL = current(phase);
+      const state = phase <= D ? "ON" : phase < D + discharge && iL > 0 ? "OFF" : "ZERO";
+      const vL = state === "ON" ? c.vin - vout : state === "OFF" ? -vout : 0;
+      return {
+        tUs: phase * T * 1e6, phase, state, vL, iL,
+        iC: iL - avgI,
+        energyL: .5 * L * iL * iL
+      };
+    });
     let chargeV = 0;
     rows.forEach((row, i) => {
-      if (i) chargeV += ((rows[i - 1].iL + row.iL) / 2 - avgI) * T / n / (c.capacitanceUf * 1e-6);
+      if (i) chargeV += (rows[i - 1].iC + row.iC) / 2 * T / n / (c.capacitanceUf * 1e-6);
       row.capRipple = chargeV;
     });
     const offset = mean(rows.map(row => row.capRipple));
@@ -53,7 +62,70 @@
       boundaryOhm: 2 * L * f / (1 - D), idealCcmVout: D * c.vin,
       zeroFraction: Math.max(0, 1 - D - discharge), periodUs: T * 1e6, vRipple,
       validSmallRipple: vRipple <= .1 * vout, rows,
-      boundary: "固定 duty、二極體續流、穩態小漣波估算；不含閉環、磁飽和、開關損耗或熱模型。ESR 僅估計輸出漣波。"
+      stateFractions: {
+        on: D,
+        off: discharge,
+        zero: Math.max(0, 1 - D - discharge)
+      },
+      boundary: "固定 duty、二極體續流、穩態小漣波估算；CCM/BCM/DCM 皆顯式標示 ON/OFF/ZERO。未包含閉環、磁飽和、開關損耗或熱模型。ESR 僅估計輸出漣波。"
+    };
+  }
+
+  // Multi-cycle ideal Buck transient after an instantaneous parameter change at t=0.
+  // Unlike the first-cycle teaching approximation, capacitor voltage is integrated every step.
+  function buckTransient(input = {}) {
+    const before = buckConfig(input.before || {});
+    const after = buckConfig({ ...before, ...(input.after || {}) });
+    const cycles = Math.round(number(input.cycles, 20, 1, 200));
+    const stepsPerCycle = Math.round(number(input.stepsPerCycle, 128, 32, 2048));
+    const initial = buck(before);
+    const L = after.inductanceUh * 1e-6, C = after.capacitanceUf * 1e-6;
+    const f = after.fswKhz * 1000, T = 1 / f, dt = T / stepsPerCycle;
+    let iL = initial.rows[0].iL, vC = initial.vout;
+    const rows = [];
+    const cycleSummaries = [];
+
+    for (let cycle = 0; cycle < cycles; cycle++) {
+      let sumV = 0, minI = Infinity, maxI = -Infinity;
+      for (let step = 0; step < stepsPerCycle; step++) {
+        const phase = step / stepsPerCycle;
+        const state = phase < after.duty ? "ON" : iL > 0 ? "OFF" : "ZERO";
+        const vL = state === "ON" ? after.vin - vC : state === "OFF" ? -vC : 0;
+        const iC = iL - vC / after.loadOhm;
+        const vout = vC + after.esrOhm * iC;
+        rows.push({
+          tUs: (cycle * T + step * dt) * 1e6,
+          cycle, phase, state, vL, iL, iC, vout,
+          energyL: .5 * L * iL * iL
+        });
+        sumV += vout; minI = Math.min(minI, iL); maxI = Math.max(maxI, iL);
+
+        let nextIL = iL + vL / L * dt;
+        if (state !== "ON" && nextIL < 0) nextIL = 0;
+        const nextVC = Math.max(0, vC + iC / C * dt);
+        iL = Math.max(0, nextIL);
+        vC = nextVC;
+      }
+      cycleSummaries.push({
+        cycle,
+        avgVout: sumV / stepsPerCycle,
+        minI,
+        maxI,
+        endVout: vC + after.esrOhm * (iL - vC / after.loadOhm),
+        endIL: iL
+      });
+    }
+    return {
+      version: VERSION,
+      before, after, cycles, stepsPerCycle,
+      initialVout: initial.vout,
+      initialRegime: initial.regime,
+      periodUs: T * 1e6,
+      rows,
+      cycleSummaries,
+      firstCycle: cycleSummaries[0],
+      lastCycle: cycleSummaries.at(-1),
+      boundary: "理想二極體 Buck 的固定 duty 多週期數值積分；t=0 後 capacitor voltage 會逐步改變。未包含閉環、dead-time、寄生、磁飽和、switching loss 或 thermal dynamics。"
     };
   }
   function scopeConfig(input = {}) {
@@ -194,5 +266,5 @@
     });
     return { record: clean, final };
   }
-  return { VERSION, BUCK_INPUTS, buckConfig, buck, scopeConfig, acquire, question, checkAnswer, miniExperiment, fingerprint, snapshot, createExperiment, replay, changeExperiment, capture, validateExperiment };
+  return { VERSION, BUCK_INPUTS, buckConfig, buck, buckTransient, scopeConfig, acquire, question, checkAnswer, miniExperiment, fingerprint, snapshot, createExperiment, replay, changeExperiment, capture, validateExperiment };
 });
