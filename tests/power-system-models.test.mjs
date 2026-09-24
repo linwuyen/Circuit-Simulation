@@ -107,3 +107,24 @@ test('diagnostic measurement reduces hypothesis space quantitatively', () => {
   assert.equal(result.reduction, 80);
   assert.ok(result.bits > 2);
 });
+
+
+test('PI surrogate honors configured duty limits and anti-windup policy', () => {
+  Store.reset();
+  Store.set('control.vref', 40);
+  Store.set('control.kp', 1.8);
+  Store.set('control.ki', 800);
+  Store.set('limits.dutyMax', .45);
+  Store.set('control.antiWindup', true);
+  const protectedRun = Models.simulatePi(Store.snapshot());
+  assert.equal(protectedRun.dutyMax, .45);
+  assert.equal(protectedRun.antiWindup, true);
+  assert.ok(protectedRun.saturatedSamples > 0);
+  assert.ok(protectedRun.duties.every(value => value <= .45 + 1e-12));
+
+  Store.set('control.antiWindup', false);
+  const windupRun = Models.simulatePi(Store.snapshot());
+  assert.equal(windupRun.antiWindup, false);
+  assert.ok(windupRun.saturatedSamples > 0);
+  assert.ok(Math.abs(windupRun.finalIntegrator) > Math.abs(protectedRun.finalIntegrator));
+});
