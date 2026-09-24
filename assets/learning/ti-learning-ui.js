@@ -650,7 +650,7 @@
   function renderSpecializedConcept(concept,revealed){
     const host=ensureSpecializedHost();
     host.hidden=true;host.replaceChildren();
-    const workbenches=[root.CircuitTIControlWorkbench,root.CircuitTITimingWorkbench].filter(Boolean);
+    const workbenches=[root.CircuitTIControlWorkbench,root.CircuitTITimingWorkbench,root.CircuitTIProtectionWorkbench].filter(Boolean);
     const workbench=workbenches.find(item=>item.supports(concept.id));
     if(!workbench)return;
     host.hidden=false;
@@ -662,11 +662,14 @@
         E.recordMachine("ti:"+concept.id,"ti-control-workbench",snapshot,{
           passed:false,
           model:{
-            id:workbench===root.CircuitTITimingWorkbench?"ti-c2000-timing-workbench-v1":"ti-control-workbench-v1",
+            id:workbench===root.CircuitTITimingWorkbench?"ti-c2000-timing-workbench-v1":
+              workbench===root.CircuitTIProtectionWorkbench?"ti-pwm-authority-workbench-v1":"ti-control-workbench-v1",
             version:"1",
             boundary:workbench===root.CircuitTITimingWorkbench
               ?"Deterministic C2000 timing teaching model only. Exact target timing requires TRM plus GPIO/scope evidence."
-              :"Deterministic teaching/model evidence only. Imported SFRA without provenance is not independent measured evidence."
+              :workbench===root.CircuitTIProtectionWorkbench
+                ?"Deterministic PWM authority model only. Hardware trip latency requires target configuration and scope evidence."
+                :"Deterministic teaching/model evidence only. Imported SFRA without provenance is not independent measured evidence."
           }
         });
       }

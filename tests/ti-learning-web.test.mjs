@@ -184,3 +184,19 @@ test("TI timing concepts mount the C2000 timing workbench after prediction",asyn
   assert.match(wb,/shadow LOAD/);
   assert.match(wb,/PWM active/);
 });
+
+
+test("TI Trip Zone concept mounts PWM authority workbench after prediction",async()=>{
+  const [html,ui,wb]=await Promise.all([
+    readFile(new URL("../learn.html",import.meta.url),"utf8"),
+    readFile(new URL("../assets/learning/ti-learning-ui.js",import.meta.url),"utf8"),
+    readFile(new URL("../assets/learning/ti-protection-workbench.js",import.meta.url),"utf8")
+  ]);
+  assert.match(html,/ti-protection-workbench-core\.js/);
+  assert.match(html,/ti-protection-workbench\.js/);
+  assert.match(ui,/CircuitTIProtectionWorkbench/);
+  assert.match(ui,/ti-pwm-authority-workbench-v1/);
+  assert.match(wb,/trip-zone-authority/);
+  assert.match(wb,/MEASURE_REQUIRED/);
+  assert.match(wb,/Physical PWM/);
+});

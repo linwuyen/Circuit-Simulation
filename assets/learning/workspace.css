@@ -366,3 +366,36 @@ body[data-ti-learning] .ti-timing-lock{padding:1rem;border:1px dashed #8ea9b8;bo
   body[data-ti-learning] .ti-timing-metrics{grid-template-columns:1fr 1fr}
   body[data-ti-learning] .ti-timing-track{overflow:visible}
 }
+
+
+/* TI protection / PWM authority workbench */
+body[data-ti-learning] .ti-protection-workbench{display:grid;gap:.5rem;padding:.6rem;border:1px solid #b8ccd7;border-radius:.6rem;background:#f7fafc}
+body[data-ti-learning] .ti-protection-head{display:flex;justify-content:space-between;gap:.5rem;align-items:center}
+body[data-ti-learning] .ti-protection-head span{font:700 .66rem ui-monospace,SFMono-Regular,Consolas,monospace;color:#496879}
+body[data-ti-learning] .ti-authority-gates{display:flex;gap:.3rem;flex-wrap:wrap}
+body[data-ti-learning] .ti-authority-check{padding:.25rem .4rem;border:1px solid #cbdce4;border-radius:.35rem;background:white;font-size:.68rem}
+body[data-ti-learning] .ti-protection-controls{display:grid;grid-template-columns:1fr 1fr;gap:.35rem}
+body[data-ti-learning] .ti-protection-controls label{display:grid;gap:.1rem;padding:.3rem;border:1px solid #d2e0e6;border-radius:.4rem;background:white}
+body[data-ti-learning] .ti-protection-controls span{display:flex;justify-content:space-between;font-size:.7rem}
+body[data-ti-learning] .ti-authority-cards{display:grid;grid-template-columns:repeat(5,1fr);gap:.3rem}
+body[data-ti-learning] .ti-authority-cards div{padding:.35rem;background:#102438;color:#dcebf3;border-radius:.35rem}
+body[data-ti-learning] .ti-authority-cards span{display:block;font-size:.56rem;color:#91adbd}
+body[data-ti-learning] .ti-authority-cards strong{display:block;font:700 .68rem ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-learning] .ti-protection-paths{display:grid;grid-template-columns:1fr 1fr;gap:.35rem}
+body[data-ti-learning] .ti-protection-path{display:grid;gap:.15rem;padding:.45rem;border-radius:.4rem}
+body[data-ti-learning] .ti-protection-path.hardware{background:#e8f7f0;border:1px solid #9bcab7}
+body[data-ti-learning] .ti-protection-path.software{background:#edf4f8;border:1px solid #b5ccd8}
+body[data-ti-learning] .ti-protection-path span{font-size:.56rem;font-weight:800}
+body[data-ti-learning] .ti-protection-path b{font-size:.7rem}
+body[data-ti-learning] .ti-protection-path strong{font:700 .65rem ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-learning] .ti-protection-actions{display:flex;gap:.35rem;flex-wrap:wrap}
+body[data-ti-learning] .ti-protection-actions button{min-height:32px;padding:.25rem .5rem;font-size:.68rem}
+body[data-ti-learning] .ti-protection-status{margin:0!important;padding:.4rem .5rem;background:#eaf3f7;border-left:3px solid #1683a2;font-size:.7rem!important}
+body[data-ti-learning] .ti-protection-workbench.is-tripped .ti-protection-status{background:#fff0ef;border-left-color:#b9473e}
+body[data-ti-learning] .ti-protection-boundary{margin:0!important;font-size:.62rem!important;color:#627985}
+body[data-ti-learning] .ti-protection-lock{padding:1rem;border:1px dashed #8ea9b8;border-radius:.5rem;background:#f4f8fa;font:700 .72rem ui-monospace,SFMono-Regular,Consolas,monospace}
+@media(max-width:760px){
+  body[data-ti-learning] .ti-authority-cards{grid-template-columns:1fr 1fr}
+  body[data-ti-learning] .ti-protection-paths{grid-template-columns:1fr}
+  body[data-ti-learning] .ti-protection-controls{grid-template-columns:1fr}
+}
