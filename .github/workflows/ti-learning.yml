@@ -1,15 +1,6 @@
 name: TI engineering learning
 
 on:
-  pull_request:
-    paths:
-      - "learning/ti/**"
-      - "tools/learning/ti-docs.mjs"
-      - "tools/learning/engineering-learning.mjs"
-      - "tests/ti-engineering-learning.test.mjs"
-      - ".github/workflows/ti-learning.yml"
-      - "package.json"
-      - ".gitignore"
   workflow_dispatch:
 
 permissions:
