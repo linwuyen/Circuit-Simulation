@@ -4,7 +4,7 @@
   "scripts": {
     "test": "node tools/run-tests.mjs",
     "test:e2e": "playwright test",
-    "learning:ti:validate": "node tools/learning/ti-docs.mjs validate && node tools/learning/engineering-learning.mjs validate && node --test tests/ti-engineering-learning.test.mjs tests/ti-learning-web.test.mjs tests/ti-control-workbench.test.mjs tests/ti-timing-workbench.test.mjs tests/ti-protection-workbench.test.mjs",
+    "learning:ti:validate": "node tools/learning/ti-docs.mjs validate && node tools/learning/engineering-learning.mjs validate && node --test tests/ti-engineering-learning.test.mjs tests/ti-learning-web.test.mjs tests/ti-control-workbench.test.mjs tests/ti-timing-workbench.test.mjs tests/ti-protection-workbench.test.mjs tests/ti-topology-workbench.test.mjs",
     "learning:ti:download": "node tools/learning/ti-docs.mjs download",
     "learning:ti:plan": "node tools/learning/engineering-learning.mjs plan",
     "learning:ti:session": "node tools/learning/engineering-learning.mjs session",
