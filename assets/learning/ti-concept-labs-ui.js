@@ -18,7 +18,7 @@
     "topology-psfb":"17_power_topology_control/",
     "topology-llc":"17_power_topology_control/",
     "sfra":"19_c2000_buck_firmware_lab/",
-    "c2000-timing":"19_c2000_buck_firmware_lab/",
+    "c2000-timing":"#ti-timing",
     "protection":"14_power_protection/",
     "dcl":"19_c2000_buck_firmware_lab/",
     "wcet":"6.10μs 高頻控制迴路模擬器/"
