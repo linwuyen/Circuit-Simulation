@@ -273,3 +273,33 @@ body[data-ti-learning] #ws-plot .ti-measure-cursor{fill:none;stroke-width:1.6;st
 body[data-ti-learning] #ws-plot .ti-measure-cursor-a{stroke:#f0c967}
 body[data-ti-learning] #ws-plot .ti-measure-cursor-b{stroke:#ff7e79}
 body[data-ti-learning] #ws-plot .ti-cursor-label{font:700 11px ui-monospace,SFMono-Regular,Consolas,monospace}
+
+
+/* Epic #82 Buck physics workbench */
+body[data-ti-physics] main{max-width:min(1720px,97vw)}
+body[data-ti-physics] .route{display:none}
+body[data-ti-physics] .workspace-grid{grid-template-columns:minmax(760px,1fr) 370px;gap:10px}
+body[data-ti-physics] .surface{padding:.8rem}
+body[data-ti-physics] .coach{width:370px;position:sticky;top:10px;padding:.8rem}
+body[data-ti-physics] #circuit{max-height:235px;margin:.35rem 0}
+body[data-ti-physics] #circuit-state{font:600 .72rem ui-monospace,SFMono-Regular,Consolas,monospace;margin:.25rem 0}
+body[data-ti-physics] .ti-physics-controls{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:.35rem .55rem;margin:.45rem 0}
+body[data-ti-physics] .ti-physics-control{display:grid;grid-template-columns:45px 1fr 72px;align-items:center;gap:.35rem;padding:.3rem .4rem;border:1px solid #d1dfe6;border-radius:.4rem;background:#f7fafb;font-size:.72rem}
+body[data-ti-physics] .ti-physics-control input{min-height:26px}
+body[data-ti-physics] .ti-physics-control output{text-align:right;font:600 .68rem ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-physics] .ti-physics-modebar{display:flex;align-items:center;gap:.35rem;margin:.4rem 0}
+body[data-ti-physics] .ti-physics-modebar button{min-height:34px;padding:.25rem .55rem;font-size:.72rem}
+body[data-ti-physics] .ti-physics-modebar button[aria-current="page"]{background:#126654;color:white;border-color:#126654}
+body[data-ti-physics] .ti-physics-status{margin-left:auto;font:600 .7rem ui-monospace,SFMono-Regular,Consolas,monospace;color:#466579}
+body[data-ti-physics] #ws-plot{height:min(35vh,330px);min-height:280px;margin:.25rem 0}
+body[data-ti-physics] #ws-plot .ti-target-line{fill:none;stroke:#8da1b1;stroke-dasharray:6 5}
+body[data-ti-physics] #ws-plot .ti-boundary-line{fill:none;stroke:#f0c967;stroke-width:2;stroke-dasharray:5 4}
+body[data-ti-physics] #ws-plot .ti-regime-label{fill:#c7d7e1;font:700 13px ui-monospace,SFMono-Regular,Consolas,monospace}
+body[data-ti-physics] .ti-physics-metrics{display:grid;grid-template-columns:1fr 1fr;gap:.35rem;margin:.4rem 0}
+body[data-ti-physics] .ti-physics-metrics div{padding:.4rem .5rem;border:1px solid #d4e1e7;border-radius:.4rem;background:#f8fbfc}
+body[data-ti-physics] .ti-physics-metrics span{display:block;font-size:.65rem;color:#67808d}
+body[data-ti-physics] .ti-physics-metrics strong{font:700 .82rem ui-monospace,SFMono-Regular,Consolas,monospace;color:#155f55}
+body[data-ti-physics] .ti-physics-rule{margin:.45rem 0;padding:.5rem .6rem;background:#edf5f8;border-left:3px solid #1683a2;font-size:.76rem}
+body[data-ti-physics] .ti-physics-rule p{margin:.2rem 0}
+@media(max-width:1100px){body[data-ti-physics] .workspace-grid{grid-template-columns:1fr}body[data-ti-physics] .coach{width:auto;position:static;order:1}body[data-ti-physics] .surface{order:2}}
+@media(max-width:760px){body[data-ti-physics] .ti-physics-controls{grid-template-columns:1fr}}
