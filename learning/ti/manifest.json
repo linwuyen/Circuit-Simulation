@@ -95,6 +95,10 @@
         "phase-margin",
         "gain-margin",
         "compensation"
+      ],
+      "fallbackUrls": [
+        "https://www.ti.com/lit/ml/slup173/slup173.pdf",
+        "https://www.ti.com/lit/pdf/slup173"
       ]
     },
     {
@@ -146,6 +150,11 @@
         "resonant",
         "fha",
         "zvs"
+      ],
+      "fallbackUrls": [
+        "https://www.ti.com/seclit/ml/slup263/slup263.pdf",
+        "https://www.ti.com/lit/pdf/slup263",
+        "https://e2e.ti.com/cfs-file/__key/communityserver-discussions-components-files/196/slup263.pdf"
       ]
     },
     {
@@ -231,4 +240,4 @@
       ]
     }
   ]
-}
+}\n
