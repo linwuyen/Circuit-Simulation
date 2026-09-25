@@ -1,0 +1,10 @@
+{
+  "name": "Circuit Simulation Learning Pack",
+  "short_name": "Circuit Learning",
+  "start_url": "./learn.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#111827",
+  "description": "Evidence-aware power electronics and C2000 engineering learning workspace"
+}
