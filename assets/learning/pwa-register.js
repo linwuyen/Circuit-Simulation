@@ -1,0 +1,1 @@
+(function(){"use strict";if(!("serviceWorker" in navigator))return;window.addEventListener("load",function(){navigator.serviceWorker.register("./sw.js").catch(function(){/* Offline support is optional; the learning workspace remains usable online. */});});})();
