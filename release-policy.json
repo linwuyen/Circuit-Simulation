@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "product": "Circuit Simulation Learning Pack",
+  "releaseVersion": "1.0.0",
+  "stateSchema": "circuit-learning-state-v5",
+  "compatibility": {
+    "state": "backward-compatible-with-v5",
+    "evidence": "never-upgraded-by-packaging",
+    "offline": "static-shell-only"
+  },
+  "releaseGates": [
+    "static-unit-browser-exact-head",
+    "github-hosted-actions",
+    "required-human-or-hardware-evidence-when-claimed"
+  ],
+  "failClosed": [
+    "state-schema-change-without-migration",
+    "evidence-truth-upgrade",
+    "required-gate-missing-or-unverified"
+  ]
+}

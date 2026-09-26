@@ -1,0 +1,21 @@
+{
+  "product": "Circuit Simulation Learning Pack",
+  "releaseVersion": "1.0.0",
+  "stateSchema": "circuit-learning-state-v5",
+  "entrypoint": "learn.html",
+  "pwa": {
+    "manifest": "manifest.webmanifest",
+    "serviceWorker": "sw.js",
+    "offlinePolicy": "cache-static-only"
+  },
+  "evidencePolicy": {
+    "tierNeverUpgradesEvidence": true,
+    "boardEvidenceRequiredForBoardPass": true,
+    "controlValidationRequiredForControlValidationPass": true
+  },
+  "distribution": {
+    "publicContentOnly": true,
+    "learnerAnswersBundled": false,
+    "boardEvidenceBundled": false
+  }
+}
