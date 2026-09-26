@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "releasePolicy": "release-policy.json",
+  "canonicalState": "circuit-learning-state-v5",
+  "artifacts": {
+    "web": {
+      "entry": "learn.html",
+      "offline": "static-shell-only",
+      "persistence": "canonical-v5-only"
+    },
+    "engineeringPack": {
+      "inheritsWeb": true,
+      "evidenceAuthority": "none",
+      "mayUpgradeEvidence": false
+    }
+  },
+  "invariants": [
+    "no-parallel-state-store",
+    "no-packaging-evidence-upgrade",
+    "no-fabricated-human-hil-or-board-evidence"
+  ],
+  "verification": {
+    "staticUnitBrowser": "exact-head-required",
+    "githubHostedActions": "required-before-release",
+    "humanOrHardwareEvidence": "required-only-for-corresponding-claims"
+  }
+}
