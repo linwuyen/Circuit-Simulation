@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Verify public Pages matches this commit
+      - name: Verify selected published assets match checked-out files
         shell: bash
         run: |
           set -euo pipefail
@@ -43,12 +43,12 @@ jobs:
               fi
             done
             if [[ "$failed" -eq 0 ]]; then
-              echo "PASS: Pages serves exact main checkout files at $site/"
-              echo "Pages exact-asset smoke PASS for $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+              echo "PASS: sampled published assets match checkout at $GITHUB_SHA"
+              echo "Pages selected-asset bytes PASS against checkout $GITHUB_SHA (not full deployment attestation)" >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
             if [[ "$attempt" -lt 12 ]]; then sleep 20; fi
           done
-          echo "FAIL: Pages inaccessible or does not serve exact commit $GITHUB_SHA" >&2
-          echo "Pages exact-asset smoke FAIL for $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "FAIL: Pages unavailable or sampled published files differ from checkout $GITHUB_SHA" >&2
+          echo "Pages selected-asset bytes FAIL against checkout $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
           exit 1
