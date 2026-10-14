@@ -104,6 +104,23 @@ test("PFC separates stiff-bus current plant, slow energy plant, and forced 2omeg
   assert.ok(outerHigh.phaseDeg < outerLow.phaseDeg);
 });
 
+test("PFC flags the necessary boost headroom boundary without mislabeling the equations as measured", () => {
+  const p={vrms:230,powerW:1500,vbus:400,busCapF:680e-6,lineHz:50};
+  const valid=Transfer.pfcBoost(p);
+  close(valid.linePeakV,Math.SQRT2*230);
+  assert.equal(valid.boostBusAboveLinePeak,true);
+  const invalid=Transfer.pfcBoost({...p,vrms:265,vbus:300});
+  close(invalid.linePeakV,Math.SQRT2*265);
+  assert.equal(invalid.boostBusAboveLinePeak,false);
+  // The average energy equations still return an extrapolation; UI must label its scope.
+  assert.ok(Number.isFinite(invalid.busRippleVpk));
+  assert.ok(Number.isFinite(invalid.outerPoleHz));
+  const justAbove=Transfer.pfcBoost({...p,vbus:Math.SQRT2*230+0.01});
+  assert.equal(justAbove.boostBusAboveLinePeak,true);
+  const atPeak=Transfer.pfcBoost({...p,vbus:Math.SQRT2*230});
+  assert.equal(atPeak.boostBusAboveLinePeak,false);
+});
+
 test("PSFB keeps ZVS energy estimate separate from ideal no-duty-loss output plant", () => {
   const heavy=Transfer.psfb({ vin:400, phaseDeg:90, turnsRatio:0.1, leakageH:5e-6, primaryCurrentA:10, commutationCapF:2e-9, outputInductanceH:100e-6, outputCapacitanceF:470e-6, loadOhm:4 });
   const light=Transfer.psfb({ vin:400, phaseDeg:90, turnsRatio:0.1, leakageH:5e-6, primaryCurrentA:2, commutationCapF:2e-9 });

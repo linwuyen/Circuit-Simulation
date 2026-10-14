@@ -70,3 +70,17 @@ test('changing a topology operating point redraws its actual response curves', a
     expect(curve.paintedPixels).toBeGreaterThan(80);
   }
 });
+
+test('PFC flags impossible boost headroom and clears the warning after returning to a valid point', async ({ page }) => {
+  await page.goto('/17_power_topology_control/');
+  const boundary=page.locator('#pfc-boost-boundary');
+  await expect(boundary).toHaveAttribute('data-headroom','pass');
+  await page.locator('#pfcVrms').fill('265');
+  await page.locator('#pfcBus').fill('300');
+  await expect(boundary).toHaveAttribute('data-headroom','out-of-range');
+  await expect(boundary).toContainText('公式外推');
+  await expect(boundary).toContainText('374.8 V');
+  await page.locator('#pfcBus').fill('450');
+  await expect(boundary).toHaveAttribute('data-headroom','pass');
+  await expect(boundary).toContainText('必要工作點條件符合');
+});
