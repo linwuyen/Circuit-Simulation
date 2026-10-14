@@ -47,6 +47,11 @@
   function pfc(){
     const p={vrms:n("pfcVrms"),powerW:n("pfcPower"),vbus:n("pfcBus"),busCapF:n("pfcC")*1e-6,lineHz:n("pfcHz"),inductanceH:n("pfcL")*1e-6,efficiency:.97};const m=T.pfcBoost(p);
     out("pfcVrmsOut",p.vrms.toFixed(0)+" Vrms");out("pfcPowerOut",p.powerW.toFixed(0)+" W");out("pfcBusOut",p.vbus.toFixed(0)+" V");out("pfcCOut",(p.busCapF*1e6).toFixed(0)+" µF");out("pfcLOut",(p.inductanceH*1e6).toFixed(0)+" µH");out("pfcHzOut",p.lineHz.toFixed(0)+" Hz");out("pfcIrms",m.inputCurrentRms.toFixed(2)+" A");out("pfcIpk",m.inputCurrentPeak.toFixed(2)+" A");out("pfcRippleHz",m.doubleLineHz.toFixed(0)+" Hz");out("pfcOuterPole",hz(m.outerPoleHz));
+    const boundary=$("pfc-boost-boundary");
+    boundary.dataset.headroom=m.boostBusAboveLinePeak?"pass":"out-of-range";
+    boundary.textContent=m.boostBusAboveLinePeak
+      ? `必要工作點條件符合：Vbus ${p.vbus.toFixed(0)} V > 整流交流峰值 ${m.linePeakV.toFixed(1)} V。仍需驗證損耗、最大 duty 與控制裕度。`
+      : `超出一般 Boost PFC 可調節範圍：Vbus ${p.vbus.toFixed(0)} V 不高於整流交流峰值 ${m.linePeakV.toFixed(1)} V。下方 Bode 與計算數字僅為公式外推，不能當作可穩壓工作點。`;
     bode("pfcCurrentBode","PFC fast inner plant · stiff Vbus",10,50000,f=>T.pfcCurrentPlantAt({vbus:p.vbus,inductanceH:p.inductanceH},f),"A/duty");
     bode("pfcVoltageBode","PFC slow bus-energy plant · current-peak command",.1,1000,f=>T.pfcVoltagePlantAt(p,f),"V/Apeak");
   }
