@@ -76,6 +76,9 @@
   function pfcBoost({ vrms, powerW, vbus, busCapF, lineHz, efficiency=0.97, inductanceH=null }) {
     const Vrms=positive(vrms,"vrms"), P=positive(powerW,"powerW"), Vbus=positive(vbus,"vbus"), C=positive(busCapF,"busCapF"), f=positive(lineHz,"lineHz"), eta=Number(efficiency);
     if (!Number.isFinite(eta) || eta<=0 || eta>1) throw new RangeError("efficiency must be 0..1");
+    const linePeakV=Math.SQRT2*Vrms;
+    // Necessary (not sufficient) condition for a conventional bridge-rectified boost PFC.
+    const boostBusAboveLinePeak=Vbus>linePeakV;
     const inputCurrentRms=P/(Vrms*eta);
     const inputCurrentPeak=Math.SQRT2*inputCurrentRms;
     const doubleLineHz=2*f;
@@ -84,7 +87,7 @@
     const outerPoleRadS=2/(loadOhm*C);
     const outerPoleHz=outerPoleRadS/(2*pi);
     const L=inductanceH===null || inductanceH===undefined ? null : positive(inductanceH,"inductanceH");
-    return Object.freeze({ topology:"BOOST_PFC", inputCurrentRms, inputCurrentPeak, doubleLineHz, busRippleVpk, loadOhm, outerPoleHz, inductanceH:L, suggestedOuterLoopMaxHz:doubleLineHz/10, controlVariable:"current-reference amplitude + duty", architecture:"fast current loop / slow voltage loop", fidelity:"EQUATION_GRADE_AVERAGED_IDEAL" });
+    return Object.freeze({ topology:"BOOST_PFC", linePeakV, boostBusAboveLinePeak, inputCurrentRms, inputCurrentPeak, doubleLineHz, busRippleVpk, loadOhm, outerPoleHz, inductanceH:L, suggestedOuterLoopMaxHz:doubleLineHz/10, controlVariable:"current-reference amplitude + duty", architecture:"fast current loop / slow voltage loop", fidelity:"EQUATION_GRADE_AVERAGED_IDEAL" });
   }
 
   function pfcCurrentPlantAt({ vbus, inductanceH }, frequencyHz) {
