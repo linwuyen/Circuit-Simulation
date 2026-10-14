@@ -35,6 +35,48 @@
  function experimentPlan(id){const lessons=experimentLessons(),index=lessons.findIndex(l=>l.id===id);if(index<0)throw Error('未知連續實驗');let before=JSON.parse(JSON.stringify(experimentDefaults));for(let i=0;i<index;i++)before={...before,...lessons[i].prepare,...lessons[i].change};const prepared={...before,...lessons[index].prepare};return {before,prepared,after:{...prepared,...lessons[index].change}};}
  function experimentRun(config){const registry=root.CircuitModelRegistry||(typeof require==='function'?require('./model-registry.js'):null);return registry.run('generic-power-causal-kernel',config);}
  function experimentTransfer(plan){return {before:{...plan.prepared,vin:36},after:{...plan.after,vin:36}};}
+ // Read-only projection of actual registered-kernel outputs. Does not score answers.
+ function experimentReadout(id,before,after){
+  if(!before||!after)return null;
+  const last=r=>r.trace.at(-1),tail=r=>r.trace.slice(-320);
+  const loadMean=r=>{const rows=tail(r);return rows.reduce((s,x)=>s+x.vOut/x.load,0)/rows.length;};
+  const row=(label,start,end,unit)=>({label,before:start,after:end,unit});
+  let rows=[],context='同一起點、相同模擬時長的兩次計算';
+  switch(id){
+   case 'energy':
+    rows=[row('最後一段平均 Vout',before.summary.avgV,after.summary.avgV,'V'),
+          row('啟動最高 Vout',before.summary.peakV,after.summary.peakV,'V')];break;
+   case 'storage':{
+    const off=(after.waveform||[]).filter(x=>!x.gate);
+    if(off.length<2)return null;
+    context='同一輪開關關閉區段：首點 → 末點（不是改動前後）';
+    rows=[row('電感電流 iL',off[0].iL,off.at(-1).iL,'A')];break;
+   }
+   case 'demand':
+    rows=[row('最後一段平均負載電流',loadMean(before),loadMean(after),'A'),
+          row('最後一段平均 Vout',before.summary.avgV,after.summary.avgV,'V')];break;
+   case 'sensing':
+    rows=[row('最後一次取樣的實際電壓',last(before).samplePhysicalV,last(after).samplePhysicalV,'V'),
+          row('同次取樣的控制器讀值',last(before).sampledV,last(after).sampledV,'V')];break;
+   case 'feedback':{
+    const target=after.config.commandProfile[0].vref;
+    rows=[row('最後一段平均 Vout',before.summary.avgV,after.summary.avgV,'V'),
+          row('平均輸出距目標的絕對差',Math.abs(target-before.summary.avgV),Math.abs(target-after.summary.avgV),'V')];break;
+   }
+   case 'deadline':
+    rows=[row('第 0 輪命令排定生效輪次',before.trace[0].scheduledApplyCycle,after.trace[0].scheduledApplyCycle,'輪'),
+          row('錯過更新點次數',before.summary.missedCommits,after.summary.missedCommits,'次')];break;
+   case 'response':
+    rows=[row('啟動最高 Vout',before.summary.peakV,after.summary.peakV,'V'),
+          row('最後一段平均 Vout',before.summary.avgV,after.summary.avgV,'V')];break;
+   case 'protection':
+    rows=[row('最後一輪實際 PWM duty',last(before).appliedDuty*100,last(after).appliedDuty*100,'%'),
+          row('最後輸出電壓',before.summary.finalV,after.summary.finalV,'V')];break;
+   default:return null;
+  }
+  if(rows.some(x=>!Number.isFinite(x.before)||!Number.isFinite(x.after)))return null;
+  return {context,rows,source:'generic-power-causal-kernel 模擬資料；不是實板量測或獨立模型驗證'};
+ }
  function topologyParams(raw){
   const ranges={vin:[5,100],duty:[.05,.8],inductanceH:[20e-6,.01],capacitanceF:[1e-6,.01],loadOhm:[.5,1000],esrOhm:[0,0],switchingHz:[1000,1000000]},p={};
   for(const[k,[lo,hi]]of Object.entries(ranges)){const v=raw?.[k];if(typeof v!=='number'||!Number.isFinite(v)||v<lo||v>hi)throw Error('比較條件無效：'+k);p[k]=v;}return p;
@@ -82,5 +124,5 @@
   });
   return [...practiceRecords(evidence),{id:'topology-assessment',title:'換條件評量與到期複習',rows:assessments,completed:assessments.filter(r=>r.passed).length,total:assessments.length}];
  }
- return {practiceRecords,learningRecords,applicationLessons,applicationPlan,applicationRun,applicationProof,topologyParams,topologyPlan,topologyCompare,topologyProof,experimentLessons,experimentPlan,experimentRun,experimentTransfer,ids,titles,abilities,resources,defaults,plan,changed,apply,transfer,locate,bucket,history};
+ return {practiceRecords,learningRecords,applicationLessons,applicationPlan,applicationRun,applicationProof,topologyParams,topologyPlan,topologyCompare,topologyProof,experimentLessons,experimentPlan,experimentRun,experimentTransfer,experimentReadout,ids,titles,abilities,resources,defaults,plan,changed,apply,transfer,locate,bucket,history};
 });

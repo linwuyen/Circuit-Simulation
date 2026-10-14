@@ -34,6 +34,7 @@
   const run=el('button','', $('surface-help'));run.id='experiment-run';run.type='button';run.className='primary';
   const caption=el('p','每次從零電流、零電壓重跑相同時間（16 ms），比較單一改動。課程之間沿用設定；不是連續運轉的真板。',$('surface-help'));caption.className='experiment-boundary';
   const timeline=el('ol',undefined,$('surface-help'));timeline.id='experiment-events';timeline.className='experiment-events';
+  const evidence=el('section',undefined,$('surface-help'));evidence.id='experiment-causal-evidence';evidence.className='context-note';evidence.hidden=true;
   const legacy=el('a','重看原有八課與作答',document.querySelector('footer'));legacy.href='index.html#duty';
   const lesson=()=>lessons.find(l=>l.id===id);
   const proven=key=>P.proven(session.rows[key]);
@@ -94,6 +95,16 @@
    $('ws-comparison').textContent=masked?'請根據剛才的因果關係判斷，不先查看新條件的答案。':l.view==='current'?'綠線来自同一次模擬內的一輪；開關關閉後，電流仍為正，並逐步下降。':`平均輸出 ${fmt(first.summary.avgV)} → ${fmt(result.summary.avgV)} V；最高輸出 ${fmt(first.summary.peakV)} → ${fmt(result.summary.peakV)} V。${l.view==='signal'?'綠線是真實量，黃虛線是讀值。':'灰虛線是改動前，綠線是改動後。'}`;
    timeline.replaceChildren();timeline.hidden=masked||!['deadline','protection'].includes(id);
    if(!timeline.hidden){const types=id==='deadline'?['ADC_SOC','CONTROL_DONE','PWM_COMMIT_MISSED','PWM_SHADOW_LOAD']:['TRIP_DETECT','TRIP_ACTUATE'];const names={ADC_SOC:'開始量測',CONTROL_DONE:'計算完成',PWM_COMMIT_MISSED:'寫入已晚於這輪更新點',PWM_SHADOW_LOAD:'命令真正載入開關',TRIP_DETECT:'偵測過流',TRIP_ACTUATE:'保護禁止開關'};for(const type of types){const e=result.events.find(e=>e.type===type);el('li',e?`${names[type]}：${fmt(e.tUs)} µs${e.sourceCycle!==undefined?'（來自第 '+e.sourceCycle+' 輪）':''}`:names[type]+'：這次未發生',timeline);}}
+   // No evidence before operation; unseen transfer predictions must stay masked.
+   const readout=!masked&&record.operated&&[1,2,4].includes(shown)?W.experimentReadout(id,before,after):null;
+   evidence.replaceChildren();evidence.hidden=!readout;
+   if(readout){
+    el('h3','這次模擬的量測證據',evidence);
+    el('p',readout.context,evidence);
+    const list=el('ul',undefined,evidence);
+    for(const item of readout.rows)el('li',`${item.label}：${fmt(item.before)} → ${fmt(item.after)} ${item.unit}`,list);
+    el('p',readout.source,evidence);
+   }
   }
   function render(){
    const l=lesson(),stage=P.stage(record);document.body.dataset.workspaceStage=String(shown);

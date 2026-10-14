@@ -41,3 +41,23 @@ test('resume from embedded records returns to the outer experiment without nesti
  expect(await page.evaluate(()=>window.keptCircuit===document.getElementById('circuit'))).toBe(true);
  expect(await page.evaluate(()=>CircuitEvidence.load().benchmark.learningWorkspace.experiment.rows.energy.operated)).toBe(true);
 });
+
+test('model evidence appears only after operation and stays hidden on unseen transfer',async({page})=>{
+ const evidence=page.locator('#experiment-causal-evidence');
+ await expect(evidence).toBeHidden();
+ await expect(page.locator('#ws-plot')).toBeVisible();
+ await answer(page,'up');
+ await expect(evidence).toBeHidden();
+ await page.locator('#experiment-run').click();
+ await expect(evidence).toBeVisible();
+ await expect(evidence).toContainText('最後一段平均 Vout');
+ await expect(evidence).toContainText('generic-power-causal-kernel');
+ await answer(page,'up');
+ await expect(evidence).toBeVisible();
+ await answer(page,'reason');
+ await expect(page.locator('#ws-voltage')).toHaveText('先預測');
+ await expect(evidence).toBeHidden();
+ await answer(page,'up');
+ await expect(evidence).toBeVisible();
+ await expect(evidence).toContainText('不是實板量測');
+});
