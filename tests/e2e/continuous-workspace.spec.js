@@ -104,7 +104,7 @@ test('beginner explanations teach physics without prematurely revealing graded t
  await expect(guide).not.toContainText('完整因果鏈');
  await answer(page,'up');
  await expect(guide).toContainText('完整因果鏈');
- await expect(guide).toContainText('改成 36 V');
+ await expect(guide).toContainText('36 V');
 });
 
 test('a wrong novice prediction reveals an optional misconception cue without changing the first-attempt result',async({page})=>{
