@@ -123,7 +123,7 @@
         const effectiveL=knee>0?L*(ratio+(1-ratio)/(1+Math.pow(iL/knee,4))):L;
         const di=vL/effectiveL,dv=(iL-vOut/load)/C;
         iL=Math.max(0,iL+di*dt);vOut=Math.max(0,vOut+dv*dt);peakIThis=Math.max(peakIThis,iL);
-        if(k===c.detailCycle)waveform.push({tUs:cycleStart+t1,phaseUs:t1,iL,vOut,gate});
+        if(k===c.detailCycle)waveform.push({tUs:cycleStart+t1,phaseUs:t1,iL,vOut,gate,vL,diDtAperS:di});
         if(iL>=c.tripCurrent&&tripDueAbs===null&&state.state==="RUN"&&!state.fault){tripDueAbs=abs+c.tripLatencyUs;events.push({tUs:abs,type:"TRIP_DETECT",cycle:k});}
         if(iL>=c.tripCurrent&&state.state==="RUN"&&!state.fault)faultEnergy+=iL*iL*dt;
         if(!sampleCaptured&&t1>=sampleAt){
