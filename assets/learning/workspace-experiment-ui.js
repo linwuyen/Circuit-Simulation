@@ -197,7 +197,7 @@
     if(shown===0){if(record.first)return;record.first=attempt;}
     else if(shown===1||shown===2){if(shown===1&&!record.operated)return;const key=shown===1?'observation':'reason';record[key+'First']||=attempt;record.proof||={};if(correct)record.proof[key]=true;}
     else{record.transferFirst||=attempt;if(correct){record.transferPassed=true;const t=W.experimentTransfer(plan);retain('新條件驗證（不覆蓋主電路）',W.experimentRun(t.after));}}
-    if(!save())return;if(shown!==0&&!correct){$('ws-feedback').textContent='這個判斷還不能解釋結果。請回看曲線或事件，首次作答仍會保留。';return;}
+    if(!save())return;if(shown!==0&&!correct){$('ws-feedback').textContent='這個判斷還不能解釋結果。請回看曲線或事件，首次作答仍會保留。';renderNoviceGuide();return;}
     shown=P.stage(record);render();$('ws-question h2')?.focus();
    };
   }
