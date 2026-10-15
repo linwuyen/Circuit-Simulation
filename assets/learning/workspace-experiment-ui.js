@@ -72,6 +72,35 @@
    if(!save())return;render();
   }
   const fmt=n=>Number(n).toFixed(2);
+  function updateSwitching(){
+   const s=CircuitSwitchingLessonV1.snapshot(activeWave,selectedSwitchSample);
+   if(!s)return;
+   swSlider.value=String(s.index);
+   $('switch').setAttribute('d',s.phase==='on'?'M140 70L200 70':'M140 70L200 45');
+   $('on-path').style.display=s.phase==='on'?'':'none';
+   $('off-path').style.display=s.phase==='freewheel'?'':'none';
+   const x=56+s.phaseUs/activeWave.waveform.at(-1).phaseUs*630;
+   if(activeCursor){activeCursor.setAttribute('x1',x);activeCursor.setAttribute('x2',x);}
+   swStatus.textContent=`第 ${s.index+1}/${s.count} 個模擬取樣 · ${fmt(s.phaseUs)} µs · ${s.label}`;
+   swValues.textContent=`電感電流 ${fmt(s.currentA)} A · 輸出 ${fmt(s.outputV)} V · ${s.inductorV===null?'此區段不宣稱有效電感斜率':`電感電壓 ${fmt(s.inductorV)} V · di/dt ${fmt(s.slopeAperMs)} A/ms`}`;
+   swExplanation.textContent=s.explanation+' '+s.source;
+  }
+  function renderSwitching(result,show){
+   switching.hidden=!show;activeWave=show?result:null;
+   if(!show){activeCursor=null;return;}
+   const samples=result.waveform,NS='http://www.w3.org/2000/svg';
+   swPlot.replaceChildren();
+   const node=(tag,attrs)=>{const n=document.createElementNS(NS,tag);for(const[k,v]of Object.entries(attrs))n.setAttribute(k,String(v));swPlot.append(n);return n;};
+   const maxT=samples.at(-1).phaseUs,maxI=Math.max(1e-3,...samples.map(x=>x.iL))*1.15;
+   node('path',{d:'M56 16V116H686',stroke:'#a5b7aa','stroke-width':2,fill:'none'});
+   node('polyline',{points:samples.map(s=>`${56+s.phaseUs/maxT*630},${116-s.iL/maxI*91}`).join(' '),stroke:'#12684d','stroke-width':3,fill:'none'});
+   activeCursor=node('line',{x1:56,x2:56,y1:16,y2:116,stroke:'#aa6500','stroke-width':3,'stroke-dasharray':'5 3'});
+   const label=node('text',{x:60,y:142,fill:'#24483a','font-size':17});label.textContent='一輪內時間（µs）→　綠線：電感電流 iL（A）';
+   swSlider.max=String(samples.length-1);
+   selectedSwitchSample=Math.max(0,Math.min(selectedSwitchSample,samples.length-1));
+   updateSwitching();
+  }
+  swSlider.addEventListener('input',()=>{selectedSwitchSample=Number(swSlider.value);updateSwitching();});
   function plot(result,previous,view){
    const svg=$('ws-plot'),NS='http://www.w3.org/2000/svg';svg.replaceChildren();
    const node=(tag,attrs,text)=>{const n=document.createElementNS(NS,tag);for(const[k,v]of Object.entries(attrs))n.setAttribute(k,v);if(text)n.textContent=text;svg.append(n);return n;};
