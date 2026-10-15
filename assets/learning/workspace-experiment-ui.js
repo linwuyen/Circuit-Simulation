@@ -33,6 +33,16 @@
   $('ws-steps').setAttribute('aria-label','先猜、操作觀察、說原因、換條件');
   const run=el('button','', $('surface-help'));run.id='experiment-run';run.type='button';run.className='primary';
   const caption=el('p','每次從零電流、零電壓重跑相同時間（16 ms），比較單一改動。課程之間沿用設定；不是連續運轉的真板。',$('surface-help'));caption.className='experiment-boundary';
+  const switching=el('section',undefined,$('surface-help'));switching.id='switching-inspector';switching.className='switching-inspector';switching.hidden=true;
+  el('h3','把一輪開關放慢看',switching);
+  el('p','拖動時間，對照開關、電流路徑和電感電流。這是模擬資料，不是示波器實測。',switching);
+  const swPlot=document.createElementNS('http://www.w3.org/2000/svg','svg');swPlot.id='switching-current-plot';swPlot.setAttribute('viewBox','0 0 720 155');swPlot.setAttribute('role','img');swPlot.setAttribute('aria-label','同一輪電感電流與選取時間的游標');switching.append(swPlot);
+  const swLabel=el('label','時間位置（µs）',switching);swLabel.htmlFor='switching-sample';
+  const swSlider=el('input',undefined,switching);swSlider.id='switching-sample';swSlider.type='range';swSlider.min='0';swSlider.step='1';
+  const swStatus=el('p','',switching);swStatus.id='switching-status';
+  const swValues=el('p','',switching);swValues.id='switching-values';
+  const swExplanation=el('p','',switching);swExplanation.id='switching-explanation';
+  let selectedSwitchSample=0,activeWave=null,activeCursor=null;
   const timeline=el('ol',undefined,$('surface-help'));timeline.id='experiment-events';timeline.className='experiment-events';
   const evidence=el('section',undefined,$('surface-help'));evidence.id='experiment-causal-evidence';evidence.className='context-note';evidence.hidden=true;
   const legacy=el('a','重看原有八課與作答',document.querySelector('footer'));legacy.href='index.html#duty';
