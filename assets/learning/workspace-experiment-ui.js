@@ -33,6 +33,16 @@
   $('ws-steps').setAttribute('aria-label','先猜、操作觀察、說原因、換條件');
   const run=el('button','', $('surface-help'));run.id='experiment-run';run.type='button';run.className='primary';
   const caption=el('p','每次從零電流、零電壓重跑相同時間（16 ms），比較單一改動。課程之間沿用設定；不是連續運轉的真板。',$('surface-help'));caption.className='experiment-boundary';
+  const switching=el('section',undefined,$('surface-help'));switching.id='switching-inspector';switching.className='switching-inspector';switching.hidden=true;
+  el('h3','把一輪開關放慢看',switching);
+  el('p','拖動時間，對照開關、電流路徑和電感電流。這是模擬資料，不是示波器實測。',switching);
+  const swPlot=document.createElementNS('http://www.w3.org/2000/svg','svg');swPlot.id='switching-current-plot';swPlot.setAttribute('viewBox','0 0 720 155');swPlot.setAttribute('role','img');swPlot.setAttribute('aria-label','同一輪電感電流與選取時間的游標');switching.append(swPlot);
+  const swLabel=el('label','時間位置（µs）',switching);swLabel.htmlFor='switching-sample';
+  const swSlider=el('input',undefined,switching);swSlider.id='switching-sample';swSlider.type='range';swSlider.min='0';swSlider.step='1';
+  const swStatus=el('p','',switching);swStatus.id='switching-status';
+  const swValues=el('p','',switching);swValues.id='switching-values';
+  const swExplanation=el('p','',switching);swExplanation.id='switching-explanation';
+  let selectedSwitchSample=0,activeWave=null,activeCursor=null;
   const timeline=el('ol',undefined,$('surface-help'));timeline.id='experiment-events';timeline.className='experiment-events';
   const evidence=el('section',undefined,$('surface-help'));evidence.id='experiment-causal-evidence';evidence.className='context-note';evidence.hidden=true;
   const legacy=el('a','重看原有八課與作答',document.querySelector('footer'));legacy.href='index.html#duty';
@@ -49,6 +59,7 @@
   function choose(key){
    const index=lessons.findIndex(l=>l.id===key);if(index<0)return;
    if(lessons.slice(0,index).some(l=>!proven(l.id))){key=lessons.find(l=>!proven(l.id)).id;history.replaceState(null,'','#experiment-'+key);}
+   selectedSwitchSample=0;
    id=key;record=session.rows[id]&&typeof session.rows[id]==='object'&&!Array.isArray(session.rows[id])?session.rows[id]:{};plan=W.experimentPlan(id);prepared=!lesson().prepare||record.prepared===true;shown=P.stage(record);
    before=W.experimentRun(prepared?plan.prepared:plan.before);after=record.operated?W.experimentRun(plan.after):null;
    $('setup-panel').hidden=prepared;
@@ -62,6 +73,35 @@
    if(!save())return;render();
   }
   const fmt=n=>Number(n).toFixed(2);
+  function updateSwitching(){
+   const s=CircuitSwitchingLessonV1.snapshot(activeWave,selectedSwitchSample);
+   if(!s)return;
+   swSlider.value=String(s.index);
+   $('switch').setAttribute('d',s.phase==='on'?'M140 70L200 70':'M140 70L200 45');
+   $('on-path').style.display=s.phase==='on'?'':'none';
+   $('off-path').style.display=s.phase==='freewheel'?'':'none';
+   const x=56+s.phaseUs/activeWave.waveform.at(-1).phaseUs*630;
+   if(activeCursor){activeCursor.setAttribute('x1',x);activeCursor.setAttribute('x2',x);}
+   swStatus.textContent=`第 ${s.index+1}/${s.count} 個模擬取樣 · ${fmt(s.phaseUs)} µs · ${s.label}`;
+   swValues.textContent=`電感電流 ${fmt(s.currentA)} A · 輸出 ${fmt(s.outputV)} V · ${s.inductorV===null?'此區段不宣稱有效電感斜率':`電感電壓 ${fmt(s.inductorV)} V · di/dt ${fmt(s.slopeAperMs)} A/ms`}`;
+   swExplanation.textContent=s.explanation+' '+s.source;
+  }
+  function renderSwitching(result,show){
+   switching.hidden=!show;activeWave=show?result:null;
+   if(!show){activeCursor=null;return;}
+   const samples=result.waveform,NS='http://www.w3.org/2000/svg';
+   swPlot.replaceChildren();
+   const node=(tag,attrs)=>{const n=document.createElementNS(NS,tag);for(const[k,v]of Object.entries(attrs))n.setAttribute(k,String(v));swPlot.append(n);return n;};
+   const maxT=samples.at(-1).phaseUs,maxI=Math.max(1e-3,...samples.map(x=>x.iL))*1.15;
+   node('path',{d:'M56 16V116H686',stroke:'#a5b7aa','stroke-width':2,fill:'none'});
+   node('polyline',{points:samples.map(s=>`${56+s.phaseUs/maxT*630},${116-s.iL/maxI*91}`).join(' '),stroke:'#12684d','stroke-width':3,fill:'none'});
+   activeCursor=node('line',{x1:56,x2:56,y1:16,y2:116,stroke:'#aa6500','stroke-width':3,'stroke-dasharray':'5 3'});
+   const label=node('text',{x:60,y:142,fill:'#24483a','font-size':17});label.textContent='一輪內時間（µs）→　綠線：電感電流 iL（A）';
+   swSlider.max=String(samples.length-1);
+   selectedSwitchSample=Math.max(0,Math.min(selectedSwitchSample,samples.length-1));
+   updateSwitching();
+  }
+  swSlider.addEventListener('input',()=>{selectedSwitchSample=Number(swSlider.value);updateSwitching();});
   function plot(result,previous,view){
    const svg=$('ws-plot'),NS='http://www.w3.org/2000/svg';svg.replaceChildren();
    const node=(tag,attrs,text)=>{const n=document.createElementNS(NS,tag);for(const[k,v]of Object.entries(attrs))n.setAttribute(k,v);if(text)n.textContent=text;svg.append(n);return n;};
@@ -89,8 +129,9 @@
    $('ws-display-wrap').hidden=false;$('ws-display').textContent=masked?'先預測':fmt(result.trace.at(-1).sampledV)+' V';
    $('ws-voltage').parentNode.firstChild.textContent='最後一段平均輸出';$('ws-current').parentNode.firstChild.textContent='最後一段平均負載電流';$('ws-display-wrap').firstChild.textContent='最後一次電壓讀值';
    $('ws-plot').toggleAttribute('hidden',masked);if(!masked)plot(result,first,l.view);
-   $('on-path').style.display='none';$('off-path').style.display=!masked&&l.view==='current'?'':'none';
+   $('on-path').style.display='none';$('off-path').style.display='none';
    $('switch').setAttribute('d','M140 70L200 45');
+   renderSwitching(after,!!after&&record.operated&&!masked&&[1,2].includes(shown));
    $('circuit-state').textContent=masked?'新條件尚未揭曉。':`輸入 ${result.config.vin} V · 電感 ${result.config.inductanceUh} µH · 電容 ${result.config.capacitanceUf} µF · 負載 ${result.config.loadProfile[0].ohm} Ω · ${result.config.controlMode==='manual'?'固定開關比例':'依量測自動調整'} · ${result.summary.tripSeen?'保護已鎖定':'允許運作'}`;
    $('ws-comparison').textContent=masked?'請根據剛才的因果關係判斷，不先查看新條件的答案。':l.view==='current'?'綠線来自同一次模擬內的一輪；開關關閉後，電流仍為正，並逐步下降。':`平均輸出 ${fmt(first.summary.avgV)} → ${fmt(result.summary.avgV)} V；最高輸出 ${fmt(first.summary.peakV)} → ${fmt(result.summary.peakV)} V。${l.view==='signal'?'綠線是真實量，黃虛線是讀值。':'灰虛線是改動前，綠線是改動後。'}`;
    timeline.replaceChildren();timeline.hidden=masked||!['deadline','protection'].includes(id);

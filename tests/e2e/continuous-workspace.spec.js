@@ -61,3 +61,30 @@ test('model evidence appears only after operation and stays hidden on unseen tra
  await expect(evidence).toBeVisible();
  await expect(evidence).toContainText('不是實板量測');
 });
+
+test('first Buck lesson synchronizes switch, current path and voltage slope on a scrubbed kernel cycle',async({page})=>{
+ const inspector=page.locator('#switching-inspector');
+ await expect(inspector).toBeHidden();
+ await answer(page,'up');
+ await expect(inspector).toBeHidden();
+ await page.locator('#experiment-run').click();
+ await expect(inspector).toBeVisible();
+ await expect(page.locator('#switching-current-plot polyline')).toHaveCount(1);
+ await expect(page.locator('#switching-status')).toContainText('開關 ON');
+ await expect(page.locator('#switching-values')).toContainText('di/dt');
+ await expect(page.locator('#switch')).toHaveAttribute('d','M140 70L200 70');
+ const offIndex=await page.evaluate(()=>{
+  const x=CircuitWorkspace.experimentRun(CircuitWorkspace.experimentPlan('energy').after);
+  return x.waveform.findIndex(s=>!s.gate&&s.iL>1e-6);
+ });
+ expect(offIndex).toBeGreaterThan(0);
+ await page.locator('#switching-sample').fill(String(offIndex));
+ await expect(page.locator('#switching-status')).toContainText('開關 OFF');
+ await expect(page.locator('#switching-explanation')).toContainText('二極體');
+ await expect(page.locator('#switch')).toHaveAttribute('d','M140 70L200 45');
+ await expect(page.locator('#switching-current-plot line')).toHaveCount(1);
+ await answer(page,'up');
+ await answer(page,'reason');
+ await expect(page.locator('#ws-voltage')).toHaveText('先預測');
+ await expect(inspector).toBeHidden();
+});
