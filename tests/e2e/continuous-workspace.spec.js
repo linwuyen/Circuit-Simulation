@@ -88,3 +88,34 @@ test('first Buck lesson synchronizes switch, current path and voltage slope on a
  await expect(page.locator('#ws-voltage')).toHaveText('先預測');
  await expect(inspector).toBeHidden();
 });
+
+test('beginner explanations teach physics without prematurely revealing graded transfer answers',async({page})=>{
+ const guide=page.locator('#novice-guide');
+ await expect(guide).toContainText('PWM');
+ await expect(guide).not.toContainText('完整因果鏈');
+ await answer(page,'up');
+ await expect(guide).not.toContainText('拿著這個問題去看電路');
+ await page.locator('#experiment-run').click();
+ await expect(guide).toContainText('拿著這個問題去看電路');
+ await expect(guide).toContainText('時間游標');
+ await answer(page,'up');
+ await answer(page,'reason');
+ await expect(page.locator('#ws-voltage')).toHaveText('先預測');
+ await expect(guide).not.toContainText('完整因果鏈');
+ await answer(page,'up');
+ await expect(guide).toContainText('完整因果鏈');
+ await expect(guide).toContainText('改成 36 V');
+});
+
+test('a wrong novice prediction reveals an optional misconception cue without changing the first-attempt result',async({page})=>{
+ await answer(page,'down');
+ await page.locator('#experiment-run').click();
+ const hint=page.locator('#novice-remediation');
+ await expect(hint).toBeVisible();
+ await hint.locator('summary').click();
+ await expect(hint).toContainText('輸入的電流路徑');
+ const first=await page.evaluate(()=>CircuitEvidence.load().benchmark.learningWorkspace.experiment.rows.energy.first.correct);
+ expect(first).toBe(false);
+ await page.reload();
+ await expect(page.locator('#novice-remediation')).toBeVisible();
+});
