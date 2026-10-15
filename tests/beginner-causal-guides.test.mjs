@@ -27,3 +27,10 @@ test('novice vocabulary is linked to analog physics, ADC, PWM, feedback and prot
  assert.match(g.response.basics,/PI/);
  assert.match(g.protection.basics,/保護/);
 });
+
+test('before-answer vocabulary avoids leaking the named overshoot or hardware-veto solution',()=>{
+ const g=Curriculum.workbenchGuides;
+ assert.doesNotMatch(g.response.basics,/過衝增加|更高|過多能量/);
+ assert.doesNotMatch(g.protection.basics,/禁止開關|否決權|瞬間歸零/);
+ assert.doesNotMatch(g.energy.basics,/輸出提高|平均電壓上升/);
+});
