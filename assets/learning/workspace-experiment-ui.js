@@ -45,6 +45,7 @@
   let selectedSwitchSample=0,activeWave=null,activeCursor=null;
   const timeline=el('ol',undefined,$('surface-help'));timeline.id='experiment-events';timeline.className='experiment-events';
   const evidence=el('section',undefined,$('surface-help'));evidence.id='experiment-causal-evidence';evidence.className='context-note';evidence.hidden=true;
+  const novice=el('section',undefined,$('coach-help'));novice.id='novice-guide';novice.className='novice-guide';novice.setAttribute('aria-label','初學者概念與因果提示');
   const legacy=el('a','重看原有八課與作答',document.querySelector('footer'));legacy.href='index.html#duty';
   const lesson=()=>lessons.find(l=>l.id===id);
   const proven=key=>P.proven(session.rows[key]);
@@ -147,6 +148,29 @@
     el('p',readout.source,evidence);
    }
   }
+  function renderNoviceGuide(){
+   const g=CircuitEngineeringCurriculum.workbenchGuides[id];
+   novice.replaceChildren();
+   if(!g){novice.hidden=true;return;}
+   novice.hidden=false;
+   const h=el('h3','先弄懂這些詞，再做判斷',novice);h.className='novice-heading';
+   el('p',g.basics,novice);
+   if((shown===1||shown===2)&&record.operated){
+    const heading=el('h3','拿著這個問題去看電路',novice);heading.className='novice-heading';
+    el('p',g.observe,novice);
+   }
+   const wrong=[record.first,record.observationFirst,record.reasonFirst].some(x=>x?.correct===false);
+   if(wrong&&(shown===1||shown===2)&&record.operated){
+    const tip=el('details',undefined,novice);tip.id='novice-remediation';
+    el('summary','剛才判斷不對？展開一個線索',tip);
+    el('p',g.hint,tip);
+   }
+   if(shown===4&&record.transferPassed){
+    el('h3','從元件到結果：完整因果鏈',novice);
+    el('p',g.cause,novice);
+    el('p','離開選項後，自己試著說一次：'+g.transfer,novice);
+   }
+  }
   function render(){
    const l=lesson(),stage=P.stage(record);document.body.dataset.workspaceStage=String(shown);
    $('ws-question').replaceChildren();$('ws-steps').replaceChildren();$('ws-feedback').textContent='';
@@ -156,7 +180,7 @@
    $('ws-result').hidden=stage!==4; $('ws-ability').textContent='已完成這個模型條件下的觀察、原因與新條件練習。';
    $('ws-transition').textContent=currentIndex()<7?'下一個問題會沿用這份電路設定。':'八個實驗完成。接著取回手動實驗的條件，比較降壓與升壓；這裡的練習不代替正式測驗。';
    $('ws-next').textContent=currentIndex()<7?'沿用電路，進入下一個問題':'沿用條件，比較降壓與升壓';
-   draw();if(shown===4)return;
+   renderNoviceGuide();draw();if(shown===4)return;
    const heading=el('h2',['先記下你的預測','跑過電路後，你看到了什麼？','哪個原因符合結果？','換成 36 V，還能判斷嗎？'][shown],$('ws-question'));heading.tabIndex=-1;
    el('p',shown===2?'對照真實電壓、讀值、命令與事件，選出能解釋剛才結果的原因。':l.question,$('ws-question'));
    let choices=shown===2?[['reason',l.reason],['other',l.wrong]]:l.choices;
@@ -173,7 +197,7 @@
     if(shown===0){if(record.first)return;record.first=attempt;}
     else if(shown===1||shown===2){if(shown===1&&!record.operated)return;const key=shown===1?'observation':'reason';record[key+'First']||=attempt;record.proof||={};if(correct)record.proof[key]=true;}
     else{record.transferFirst||=attempt;if(correct){record.transferPassed=true;const t=W.experimentTransfer(plan);retain('新條件驗證（不覆蓋主電路）',W.experimentRun(t.after));}}
-    if(!save())return;if(shown!==0&&!correct){$('ws-feedback').textContent='這個判斷還不能解釋結果。請回看曲線或事件，首次作答仍會保留。';return;}
+    if(!save())return;if(shown!==0&&!correct){$('ws-feedback').textContent='這個判斷還不能解釋結果。請回看曲線或事件，首次作答仍會保留。';renderNoviceGuide();return;}
     shown=P.stage(record);render();$('ws-question h2')?.focus();
    };
   }

@@ -63,6 +63,66 @@
     {id:'response',title:'調得更用力，一定更好嗎？',intro:'先把計算時間修回原值，避免同時改兩個因素，再加強累積誤差的修正。比較整段啟動波形，別只看最後一點。',prepare:{computeUs:1.7},action:'把累積修正強度從 40 改為 400，重跑',change:{kiV:400},question:'這組條件下，加強累積修正後，啟動時的最高電壓會？',choices:[['higher','更高，更容易越過目標'],['perfect','保證更平順且永不越過'],['same','一定完全相同']],answer:'higher',reason:'電路儲能與反應需要時間，累積修正太強可能在輸出追上前送入過多能量。',wrong:'最後接近目標，就代表整段啟動過程都沒有問題。',view:'voltage',modules:[4,16,18]},
     {id:'protection',title:'超過限制，誰能讓它停下？',intro:'沿用控制器與電路，把保護門檻降到 2 A，觀察偵測後的開關命令、電流與輸出。這是故意觸發保護的教學試驗。',action:'把過流保護門檻從 18 A 改為 2 A，重跑',change:{tripCurrent:2},question:'過流保護觸發後，控制器仍想送電時會？',choices:[['veto','開關被禁止，儲能再逐漸消退'],['continue','照常執行控制器命令'],['instant','所有電流與電壓瞬間歸零']],answer:'veto',reason:'保護擁有否決開關輸出的權限；關閉能量入口後，電感與電容的能量仍需要時間消退。',wrong:'只要誤差夠大，控制器就可以越過故障鎖定繼續輸出。',view:'voltage',modules:[14,15,19]}
   ];
+  // Beginner explanations are learning facts, not model computations or scoring criteria.
+  // 'basics' never contains the graded answer; complete causal explanation is post-transfer.
+  const workbenchGuides={
+   energy:{
+    basics:'PWM 就是讓開關每個固定週期打開一段時間。例如 10 µs 週期、25% 代表每輪打開 2.5 µs。先找開關與電感，不必先背公式。',
+    observe:'看「最後一段平均 Vout」的前後差異，再拖動一輪時間游標，確認開關 ON 與 OFF 時電流怎麼變。',
+    hint:'先看哪段時間有來自輸入的電流路徑，再看電感能量如何改變輸出。不要只看某一個瞬間。',
+    cause:'開關每輪導通較久，這組固定負載的模擬會讓輸出建立到較高電壓；電感先改變電流，電容再讓電壓逐漸變化。',
+    transfer:'換成 36 V 後，說明是哪一個輸入條件改變，而不是背下 48 V 時的輸出數字。'
+   },
+   storage:{
+    basics:'電感用磁場儲存能量。vL = L × di/dt 的意思是：電感兩端有電壓，電流才會按照斜率改變。',
+    observe:'拖動同一輪時間游標，從 ON 到 OFF；分別看綠色電流曲線、開關圖形與二極體路徑。',
+    hint:'先盯住「開關關閉的第一個取樣點」，觀察 iL 是否在那一瞬間跳到零。',
+    cause:'開關打開時輸入能量進到電感；開關關閉後，二極體提供另一條路徑，電感電流仍可流動並逐漸降低。這段描述限於模型有續流的區間。',
+    transfer:'輸入由 48 V 改成 36 V 時，重新看 ON/OFF 電流斜率，不要把電感當成瞬間切斷的電線。'
+   },
+   demand:{
+    basics:'負載電阻 R 是電路用電的方式。歐姆定律 I = V / R，但變更 R 時 Vout 也可能跟著改，所以兩個數值都要看。',
+    observe:'一起比較「平均負載電流」和「平均輸出電壓」，不要只依電阻標籤回答。',
+    hint:'先用同一個電壓假設算一遍 I = V/R，再拿真實模擬 Vout 修正這個假設。',
+    cause:'這組條件下負載電阻變大，所需電流降低；但若電感電流變成斷續，原來的 CCM 簡化公式就不一定適用。',
+    transfer:'改變輸入電壓後，重新檢查 V、R 和 I 的關係，不能只背「電阻變大就一定怎樣」。'
+   },
+   sensing:{
+    basics:'電路上真正存在的是物理電壓；ADC 與感測電路把它轉成 MCU 使用的讀值。讀值不等於真值。',
+    observe:'看波形的實際電壓與控制器讀值，再比對最新取樣的兩個數字。這堂課仍是手動 PWM。',
+    hint:'先確認 PWM 命令有沒有改，再問改的是物理電路，還是感測倍率。',
+    cause:'感測倍率錯誤讓控制器看到的數字偏低；手動 PWM 沒用這個回授，所以這時實際電壓可以維持原樣。閉環後這種錯誤則可能影響控制。',
+    transfer:'改到 36 V 時，仍要分清「電路輸出」與「控制器看見的輸出」。'
+   },
+   feedback:{
+    basics:'回授控制先比較目標值 r 與量測值 y，再算誤差 e = r - y；控制器據此改變 PWM 命令，不會瞬間把電壓改好。',
+    observe:'先看感測倍率是否已修回 1，再比較啟動後平均 Vout 距離 24 V 目標有多遠。',
+    hint:'將「設定 24 V」和「當下真正 24 V」分開。電感與電容需要時間反應。',
+    cause:'控制器根據誤差更新開關命令，經過電感電容後才改變輸出；模擬可以趨近目標，但受延遲、負載與飽和限制。',
+    transfer:'改變 Vin 後仍要檢查誤差、命令與實際輸出，而不是只看目標值。'
+   },
+   deadline:{
+    basics:'MCU 量到電壓後，ADC、ISR 和計算都需要時間；PWM Shadow 是先存命令、到指定更新點才生效的暫存器。',
+    observe:'看事件時間表：ADC 何時開始量測、計算何時完成、PWM 命令何時載入。再比對錯過更新點的次數。',
+    hint:'把「寫完比較值」與「PWM 真正更新」畫成兩個不同時間點。',
+    cause:'如果計算及寫入晚於更新點，命令必須等到之後的更新時刻才生效；這是延遲來源，不等於電源立即停機。',
+    transfer:'改成 36 V 不會讓 10 µs 週期倒轉。仍需檢查 sample-to-actuate 的時序。'
+   },
+   response:{
+    basics:'PI 的 I 是積分：把一段時間未消除的誤差累積成控制修正。觀察時要分開看啟動最高電壓與末段平均電壓，兩者是不同指標。',
+    observe:'看完整啟動曲線的最高點和末段平均，不要只以最後一個電壓判定調得好不好。',
+    hint:'比較啟動時的最高 Vout 與目標值，再問控制器在輸出追上之前已累積多少修正。',
+    cause:'這組實驗把積分強度加大，使啟動的過衝增加；實際控制品質仍要一起考慮反應速度、飽和及穩定性。',
+    transfer:'不同 Vin 仍要看完整暫態，不能把「最終值接近」誤認成「整段反應都好」。'
+   },
+   protection:{
+    basics:'保護路徑會觀察電流與狀態。控制器命令、保護訊號與電感／電容儲能是三件不同的事；先在圖上辨認它們再預測結果。',
+    observe:'先找過流偵測事件，再看 Trip 生效時間、開關實際 duty 與剩餘電感電流。',
+    hint:'將控制器想要的命令與真正允許的 PWM 輸出分開；再回頭看電容電壓為何尚未立刻為零。',
+    cause:'當模型的 Trip 生效後，開關被禁止；原本儲存在電感和電容的能量仍需要一段時間消退。這是教學保護模型，不是已驗證的 MCU Trip Zone 時序。',
+    transfer:'改成 36 V 也不能讓控制器命令越過保護否決權；真板仍要驗證量測與關斷延遲。'
+   }
+  };
   const topologySteps=[
     {id:'prediction',label:'先猜',title:'把開關開久一點，哪個輸出會升高？',note:'輸入、電感、電容與負載相同。先分開猜降壓與升壓，之後再算。',choices:[['both','兩者都升高'],['buck','只有降壓升高'],['boost','只有升壓升高']],answer:'both'},
     {id:'observation',label:'操作比較',title:'看完同條件比較，你發現什麼？',note:'對照兩種輸出，再看升壓動態限制那一列。',choices:[['separate','輸出都升高，但升壓的動態限制移到更低頻率'],['faster','輸出升高，代表控制一定能更快'],['same','兩種電路的輸出數值一定相同']],answer:'separate'},
@@ -95,5 +155,5 @@
      question:'濾波器的共振頻率會？',answer:'lower',metrics:[['resonanceHz','共振頻率','Hz'],['fundamentalVrms','理想橋臂基波','Vrms']],
      reason:'儲能元件的組合變了，共振位置也會改變；在加快控制之前，必須重新檢查阻尼與電網條件。',wrong:'只要增加電容，所有共振就會消失，也不再需要阻尼。',boundary:'此模型沒有真實阻尼與電網阻抗。共振點的理想奇異值不是實際可達到的電壓或電流。'}
   ];
-  return {applicationLessons,topologySteps,workbenchLessons,views,taxonomy,moduleTopics,faultTaxonomy,diagnosticChain,viewTopics};
+  return {applicationLessons,topologySteps,workbenchLessons,workbenchGuides,views,taxonomy,moduleTopics,faultTaxonomy,diagnosticChain,viewTopics};
 });
