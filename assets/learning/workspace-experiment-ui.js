@@ -59,6 +59,7 @@
   function choose(key){
    const index=lessons.findIndex(l=>l.id===key);if(index<0)return;
    if(lessons.slice(0,index).some(l=>!proven(l.id))){key=lessons.find(l=>!proven(l.id)).id;history.replaceState(null,'','#experiment-'+key);}
+   selectedSwitchSample=0;
    id=key;record=session.rows[id]&&typeof session.rows[id]==='object'&&!Array.isArray(session.rows[id])?session.rows[id]:{};plan=W.experimentPlan(id);prepared=!lesson().prepare||record.prepared===true;shown=P.stage(record);
    before=W.experimentRun(prepared?plan.prepared:plan.before);after=record.operated?W.experimentRun(plan.after):null;
    $('setup-panel').hidden=prepared;
@@ -128,8 +129,9 @@
    $('ws-display-wrap').hidden=false;$('ws-display').textContent=masked?'先預測':fmt(result.trace.at(-1).sampledV)+' V';
    $('ws-voltage').parentNode.firstChild.textContent='最後一段平均輸出';$('ws-current').parentNode.firstChild.textContent='最後一段平均負載電流';$('ws-display-wrap').firstChild.textContent='最後一次電壓讀值';
    $('ws-plot').toggleAttribute('hidden',masked);if(!masked)plot(result,first,l.view);
-   $('on-path').style.display='none';$('off-path').style.display=!masked&&l.view==='current'?'':'none';
+   $('on-path').style.display='none';$('off-path').style.display='none';
    $('switch').setAttribute('d','M140 70L200 45');
+   renderSwitching(after,!!after&&record.operated&&!masked&&[1,2].includes(shown));
    $('circuit-state').textContent=masked?'新條件尚未揭曉。':`輸入 ${result.config.vin} V · 電感 ${result.config.inductanceUh} µH · 電容 ${result.config.capacitanceUf} µF · 負載 ${result.config.loadProfile[0].ohm} Ω · ${result.config.controlMode==='manual'?'固定開關比例':'依量測自動調整'} · ${result.summary.tripSeen?'保護已鎖定':'允許運作'}`;
    $('ws-comparison').textContent=masked?'請根據剛才的因果關係判斷，不先查看新條件的答案。':l.view==='current'?'綠線来自同一次模擬內的一輪；開關關閉後，電流仍為正，並逐步下降。':`平均輸出 ${fmt(first.summary.avgV)} → ${fmt(result.summary.avgV)} V；最高輸出 ${fmt(first.summary.peakV)} → ${fmt(result.summary.peakV)} V。${l.view==='signal'?'綠線是真實量，黃虛線是讀值。':'灰虛線是改動前，綠線是改動後。'}`;
    timeline.replaceChildren();timeline.hidden=masked||!['deadline','protection'].includes(id);
