@@ -48,9 +48,9 @@
   function stateRuntime(c){return{state:c.initialState||"RUN",precheck:!!c.precheckPassed,fault:false,rearm:false,violations:[]};}
   function applyStateAction(s,action){
     if(action==="precheck-pass"&&!s.fault){s.precheck=true;if(s.state==="OFF")s.state="PRECHECK";}
-    else if(action==="ready"&&s.precheck&&!s.fault)s.state="READY";
+    else if(action==="ready"){if(s.state==="PRECHECK"&&s.precheck&&!s.fault)s.state="READY";else s.violations.push("invalid-ready-transition");}
     else if(action==="run"){if(s.state==="READY"&&s.precheck&&!s.fault)s.state="RUN";else s.violations.push("illegal-run-transition");}
-    else if(action==="fault"){s.fault=true;s.rearm=false;s.state="FAULT";}
+    else if(action==="fault"){s.fault=true;s.precheck=false;s.rearm=false;s.state="FAULT";}
     else if(action==="fault-clear"){s.fault=false;s.state="FAULT";}
     else if(action==="rearm"){if(!s.fault&&s.state==="FAULT"){s.rearm=true;s.state="RECOVERY";}else s.violations.push("invalid-rearm");}
     else if(action==="recover"){if(s.rearm&&!s.fault){s.precheck=false;s.rearm=false;s.state="OFF";}else s.violations.push("invalid-recovery");}
