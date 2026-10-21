@@ -138,7 +138,7 @@
    timeline.replaceChildren();timeline.hidden=masked||!['deadline','protection'].includes(id);
    if(!timeline.hidden){const types=id==='deadline'?['ADC_SOC','CONTROL_DONE','PWM_COMMIT_MISSED','PWM_SHADOW_LOAD']:['TRIP_DETECT','TRIP_ACTUATE'];const names={ADC_SOC:'開始量測',CONTROL_DONE:'計算完成',PWM_COMMIT_MISSED:'寫入已晚於這輪更新點',PWM_SHADOW_LOAD:'命令真正載入開關',TRIP_DETECT:'偵測過流',TRIP_ACTUATE:'保護禁止開關'};for(const type of types){const e=result.events.find(e=>e.type===type);el('li',e?`${names[type]}：${fmt(e.tUs)} µs${e.sourceCycle!==undefined?'（來自第 '+e.sourceCycle+' 輪）':''}`:names[type]+'：這次未發生',timeline);}}
    // No evidence before operation; unseen transfer predictions must stay masked.
-   const readout=!masked&&record.operated&&[1,2,4].includes(shown)?W.experimentReadout(id,before,after):null;
+   const readout=!masked&&record.operated&&[1,2,4].includes(shown)?W.experimentReadout(id,first,result):null;
    evidence.replaceChildren();evidence.hidden=!readout;
    if(readout){
     el('h3','這次模擬的量測證據',evidence);
