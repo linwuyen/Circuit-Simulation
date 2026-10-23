@@ -60,10 +60,10 @@
           pending=payload;preview.hidden=false;confirm.hidden=false;cancel.hidden=false;status.textContent='請確認內容；已有紀錄依原合併規則保留，摘要不代表合併後的成績。';
         }catch(error){if(current!==selection||!input.isConnected)return;clear();status.textContent='無法讀取這份備份：'+error.message+' 原有紀錄沒有變更。';}
       };
-      confirm.onclick=()=>{
+      confirm.onclick=async()=>{
         if(!pending)return;
-        try{const restored=E.merge(pending);backupFeedback=(E.storageStatus().saved?'已合併備份，地圖與下一步已更新。':'已合併到暫存，但尚未寫入瀏覽器；請先下載備份。')+(restored.benchmark.outcomeImportPreservedLocal?' 本機正式測驗與既有封存紀錄均保留。':'');pending=null;render();}
-        catch(error){status.textContent='無法合併這份備份：'+error.message;}
+        try{confirm.disabled=true;const restored=E.merge(pending);const saved=await E.flush();if(!saved.saved)throw new Error('尚未儲存（'+(saved.reason||'pending')+'）；備份仍保留，請先解決衝突。');backupFeedback=(E.storageStatus().saved?'已合併備份，地圖與下一步已更新。':'已合併到暫存，但尚未寫入瀏覽器；請先下載備份。')+(restored.benchmark.outcomeImportPreservedLocal?' 本機正式測驗與既有封存紀錄均保留。':'');pending=null;render();}
+        catch(error){status.textContent='無法合併這份備份：'+error.message;}finally{confirm.disabled=false;}
       };
       make('p',E.storageStatus().saved?'進度儲存在這個瀏覽器。':'目前無法寫入瀏覽器，離開前請下載備份。',section);
     }

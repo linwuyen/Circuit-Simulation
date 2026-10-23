@@ -5,7 +5,7 @@
   if (!Session || !Benchmark) return;
   const $ = selector => document.querySelector(selector);
   const $$ = selector => [...document.querySelectorAll(selector)];
-  let activePhase = "pre";
+  let activePhase = "pre", saving = false, renderGeneration = 0;
 
   const competencyLabel = Object.freeze({
     physics: "Physics",
@@ -83,7 +83,8 @@
     return status.cases.find(item => !first[item.id]) || null;
   }
 
-  function renderQuestion() {
+  async function renderQuestion() {
+    const generation = ++renderGeneration;
     const allowed = phaseAllowed(activePhase);
     if (!allowed.ok) {
       $('#outcomeQuestion').innerHTML = `<p class="truth-box">${allowed.reason}</p>`;
@@ -91,6 +92,9 @@
       return;
     }
     Session.startPhase(activePhase);
+    const persisted = await window.CircuitEvidence.flush();
+    if (generation !== renderGeneration) return;
+    if (!persisted.saved) { $('#outcomeQuestion').textContent = '尚未儲存（'+(persisted.reason||'pending')+'）；本次紀錄未被接受，不揭示下一題。'; return; }
     const item = currentItem();
     const status = Session.phaseStatus(activePhase);
     if (!item) {
@@ -120,12 +124,21 @@
     renderDashboard();
   }
 
-  function submit(item, answer) {
-    const result = Session.recordAttempt(activePhase, item.id, answer);
+  async function submit(item, answer) {
+    if (saving) return;
+    saving = true;
     const status = $('#outcomeAnswerStatus');
-    status.dataset.result = result.correct ? 'pass' : 'fail';
-    status.textContent = result.correct ? '✓ First attempt correct。' : '✗ First attempt 已鎖定；保留錯誤作為學習證據。';
-    window.setTimeout(renderQuestion, 450);
+    $$('#outcomeQuestion button, .outcome-phase-button').forEach(button => { button.disabled = true; });
+    try {
+      const result = Session.recordAttempt(activePhase, item.id, answer);
+      status.dataset.result = 'pending';
+      status.textContent = '正在儲存首次作答；尚未接受成績。';
+      const persisted = await window.CircuitEvidence.flush();
+      if (!persisted.saved) { status.dataset.result = 'unaccepted'; status.textContent = '尚未儲存（'+(persisted.reason||'pending')+'）；本次作答未被接受，不揭示下一題。'; return; }
+      status.dataset.result = result.correct ? 'pass' : 'fail';
+      status.textContent = result.correct ? '✓ First attempt correct。' : '✗ First attempt 已鎖定；保留錯誤作為學習證據。';
+      window.setTimeout(() => { saving = false; $$('.outcome-phase-button').forEach(button => { button.disabled = false; }); renderQuestion(); }, 450);
+    } catch (error) { status.dataset.result = 'unaccepted'; status.textContent = '本次作答未被接受：'+error.message; }
   }
 
   function loadScript(src) {
@@ -155,8 +168,9 @@
     } catch (_) {
       $('#outcomeStudyStatus').textContent = 'study model 載入失敗'; return;
     }
-    $('#outcomeStudyDownload').addEventListener('click', () => {
+    $('#outcomeStudyDownload').addEventListener('click', async () => {
       try {
+        const persisted=await window.CircuitEvidence.flush();if(!persisted.saved)throw new Error('尚未接受的紀錄不可匯出正式統計');
         const bundle = window.CircuitOutcomeStudyV1.exportParticipant(Session.summary(), { participantId:$('#outcomeParticipantId').value });
         downloadJson(bundle, 'outcome-study');
         $('#outcomeStudyStatus').textContent = `exported ${bundle.participantId} · profile ${bundle.outcomeProfile} · raw answers/prompts: no`;
@@ -166,6 +180,7 @@
       const status = $('#outcomeCalibrationStatus');
       try {
         if (!window.CircuitOutcomeCalibrationV1) await loadScript('../assets/learning/outcome-calibration-v1.js');
+        const persisted=await window.CircuitEvidence.flush();if(!persisted.saved)throw new Error('尚未接受的紀錄不可匯出正式統計');
         const bundle = window.CircuitOutcomeCalibrationV1.exportParticipant(Session.summary(), { participantId:$('#outcomeParticipantId').value });
         downloadJson(bundle, 'outcome-calibration');
         status.textContent = `exported ${bundle.participantId} · ${bundle.outcomeProfile} v${Session.summary().instrumentVersion || 1} · item correctness: yes · raw answers/prompts: no`;
@@ -178,9 +193,9 @@
     renderQuestion();
   }));
 
-  $('#outcomeReset')?.addEventListener('click', () => {
+  $('#outcomeReset')?.addEventListener('click', async () => {
     if (window.confirm('清除本機 PRE/POST/retention benchmark evidence？此操作只影響瀏覽器 local state。')) {
-      Session.reset(); activePhase = 'pre'; renderQuestion();
+      Session.reset(); const persisted=await window.CircuitEvidence.flush();if(!persisted.saved){$('#outcomeQuestion').textContent='重置尚未儲存；請先保留備份並處理衝突。';return;}activePhase = 'pre'; renderQuestion();
     }
   });
 

@@ -1,5 +1,8 @@
 (()=>{
- 'use strict';const P=CircuitPlainCourse,E=CircuitEvidence,$=id=>document.getElementById(id);
+ 'use strict';
+ async function durableNavigate(action){const status=await CircuitEvidence.flush();if(status.saved){action();return true;}const node=document.getElementById('ws-save')||document.getElementById('save-status')||document.getElementById('application-status');if(node)node.textContent='尚未儲存（'+(status.reason||'pending')+'）；已取消離開，請先匯出備份或處理衝突。';return false;}
+ window.addEventListener('circuit:evidence-persistence',event=>{const node=document.getElementById('ws-save')||document.getElementById('save-status');if(node)node.textContent=event.detail.saved?'進度已儲存在這個瀏覽器。':'尚未儲存（'+(event.detail.reason||'pending')+'）；請保留備份，不要重新整理。';});
+const P=CircuitPlainCourse,E=CircuitEvidence,$=id=>document.getElementById(id);
  const stored=E.load().benchmark.bridgeLessons,progress=stored?.version===1&&stored.rows?stored:{version:1,rows:{}};
  let index=0,value=8,viewStep=null;const lesson=()=>P.bridge[index],row=()=>progress.rows[lesson().id]||=( {edition:2} );
  function save(){const s=E.load();s.benchmark.bridgeLessons=progress;E.save(s);$('save-status').textContent=E.storageStatus().saved?'進度已儲存在這個瀏覽器。':'進度暫存記憶體；離開前請到詳細紀錄下載備份。';}
@@ -12,6 +15,6 @@
  $('experiment-control').oninput=e=>{const r=row();if(!r.first)return;value=Number(e.target.value);r.value=value;if(P.correct(lesson().target,value))r.operated=true;draw();save();};
  $('transfer-submit').onclick=()=>{const r=row();if(!r.proof?.reason)return;const answer=$('transfer-value').value;if(!answer.trim()){$('transfer-status').textContent='請先填寫答案。';return;}const correct=P.correct(lesson().expected,answer);r.transferFirst||={answer,correct};r.transferAttempts=(r.transferAttempts||0)+1;if(correct)r.transferPassed=true;save();if(correct){viewStep=null;renderSteps();}else $('transfer-status').textContent='先算剩餘差距，再算這次補多少；首次答案會保留，可以再試一次。';};
  for(const id of ['hint','explanation'])$(id).addEventListener('toggle',()=>{if($(id).open){row().assisted=true;save();}});
- $('next-lesson').onclick=()=>{if(!P.proven(row()))return;if(index<2)location.hash=P.bridge[index+1].id;else location.href='index.html';};
+ $('next-lesson').onclick=()=>{if(!P.proven(row()))return;if(index<2)location.hash=P.bridge[index+1].id;else durableNavigate(()=>{location.href='index.html';});};
  P.bridge.forEach((l,i)=>{const a=document.createElement('a');a.href='#'+l.id;a.textContent=`${i+6}. ${l.title}`;$('bridge-nav').append(a);});window.addEventListener('hashchange',()=>{select();$('lesson-title').focus();});select();
 })();

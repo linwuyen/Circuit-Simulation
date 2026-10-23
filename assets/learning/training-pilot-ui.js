@@ -25,6 +25,8 @@
   $("training-restore").onchange = async event => {
     try {
       const restored = Evidence.merge(await Records.readFile(event.target.files[0]));
+      const saved = await Evidence.flush();
+      if (!saved.saved) throw new Error("尚未儲存（" + (saved.reason || "pending") + "）；請保留原備份，不要重新整理。");
       refresh(); $("pilot-status").textContent = "已合併學習紀錄與主線進度，保留本機首次作答。重新整理可載入最近的實驗。" +
         (restored.benchmark.outcomeImportPreservedLocal ? " 此裝置已有正式測驗首答，因此保留本機測驗；外來測驗已保存在完整備份的 outcomeBackupArchives，未混合成績。" : "");
     } catch (error) { $("pilot-status").textContent = error.message; }

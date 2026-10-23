@@ -1,5 +1,8 @@
 (() => {
   'use strict';
+ async function durableNavigate(action){const status=await CircuitEvidence.flush();if(status.saved){action();return true;}const node=document.getElementById('ws-save')||document.getElementById('save-status')||document.getElementById('application-status');if(node)node.textContent='尚未儲存（'+(status.reason||'pending')+'）；已取消離開，請先匯出備份或處理衝突。';return false;}
+ window.addEventListener('circuit:evidence-persistence',event=>{const node=document.getElementById('ws-save')||document.getElementById('save-status');if(node)node.textContent=event.detail.saved?'進度已儲存在這個瀏覽器。':'尚未儲存（'+(event.detail.reason||'pending')+'）；請保留備份，不要重新整理。';});
+
   const { lessons, accepts, updateAt, complete } = CircuitBeginnerLessons;
   const E = CircuitEvidence, $ = id => document.getElementById(id);
   const stored = E.load().benchmark.beginnerLessons;
@@ -154,7 +157,7 @@
     if(correct)r.transferPassed=true;
     $('transfer-status').textContent=correct?'新條件驗證通過！這項能力已完成練習。':'還沒對。請回到觀察重點，使用分段提示，再試一次；首次答案仍會保留。';save();
   });
-  $('next-lesson').addEventListener('click',()=>{if(!complete(record()))return;if(index<lessons.length-1)location.hash=lessons[index+1].id;else location.href='../control-basics.html';});
+  $('next-lesson').addEventListener('click',()=>{if(!complete(record()))return;if(index<lessons.length-1)location.hash=lessons[index+1].id;else durableNavigate(()=>{location.href='../control-basics.html';});});
   $('backup').addEventListener('click',()=>{const url=URL.createObjectURL(new Blob([E.exportBackup()],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='circuit-learning-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
   const glossary=globalThis.CircuitLearningGlossary;
   for(const [term,meaning] of Object.entries(glossary)){const d=document.createElement('details'),s=document.createElement('summary'),p=document.createElement('p');s.textContent=term;p.textContent=meaning;d.append(s,p);$('glossary').append(d);}

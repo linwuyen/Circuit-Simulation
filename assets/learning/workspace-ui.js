@@ -1,5 +1,8 @@
 (()=>{
  'use strict';
+ async function durableNavigate(action){const status=await CircuitEvidence.flush();if(status.saved){action();return true;}const node=document.getElementById('ws-save')||document.getElementById('save-status')||document.getElementById('application-status');if(node)node.textContent='尚未儲存（'+(status.reason||'pending')+'）；已取消離開，請先匯出備份或處理衝突。';return false;}
+ window.addEventListener('circuit:evidence-persistence',event=>{const node=document.getElementById('ws-save')||document.getElementById('save-status');if(node)node.textContent=event.detail.saved?'進度已儲存在這個瀏覽器。':'尚未儲存（'+(event.detail.reason||'pending')+'）；請保留備份，不要重新整理。';});
+
  if(location.hash==='#topology'){CircuitWorkspace.mountTopology();return;}
  if(!location.hash||location.hash.startsWith('#experiment')){CircuitWorkspace.mountExperiment();return;}
 
@@ -164,6 +167,6 @@
  const recommendation=U.next(initial,CircuitCoreFlowV1.snapshot()),recommended=W.locate(recommendation.id.replace(/^(basic|bridge)-/,''));
  function renderRecommendation(){const recommendation=U.next(E.load(),CircuitCoreFlowV1.snapshot()),recommended=W.locate(recommendation.id.replace(/^(basic|bridge)-/,''));$('resume-task').hidden=!!recommended;if(!recommended){const b=$('resume-task');b.hidden=false;b.textContent=['formal','quiz'].includes(recommendation.id)?'接續到期複習':'繼續原本的進階任務';b.dataset.route=recommendation.remediation?U.remediationRoute(recommendation.id,recommendation.remediation):U.route(recommendation.id);b.onclick=()=>{if(recommendation.remediation)U.beginReturn(recommendation.id,recommendation.remediation);reference(b.dataset.route,U.task(recommendation.id).title);};}}
  renderRecommendation();window.addEventListener("storage",()=>{if(protectRecord())return;renderProgress();renderRecommendation();});
- window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#experiment'))location.reload();else select(W.locate(location.hash)||'duty',true);});
+ window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#experiment'))durableNavigate(()=>location.reload());else select(W.locate(location.hash)||'duty',true);});
  select(W.locate(location.hash)||W.locate(workspace.currentLesson)||recommended||'duty');
 })();

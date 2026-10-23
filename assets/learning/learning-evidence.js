@@ -20,24 +20,47 @@
   let corruptRaw = null;
   let persistence = { saved: true, reason: null };
   const stores = new Map();
+  const browser = root.window === root && !!root.document;
+  const snapshots = new WeakMap();
+  let observedRaw = null, pendingBaseline = null, localRevision = 0;
+  let pendingObject = null, writePromise = null, conflict = false, committedRevision = null;
+  const rejectedDrafts = [];
+  const pendingAuxiliary = new Map();
+  const remember = state => { snapshots.set(state, { raw: pending ? pendingBaseline : observedRaw, revision: localRevision }); return state; };
+  if (browser && root.addEventListener) for (const type of ['click','input','change','submit','keydown']) root.addEventListener(type, event => {
+    if (!conflict || event.target?.closest?.('#learning-storage-status')) return;
+    event.preventDefault(); event.stopImmediatePropagation();
+  }, true);
+  if (browser && root.addEventListener) root.addEventListener('beforeunload', event => {
+    if (!pending && !conflict && !pendingAuxiliary.size) return;
+    event.preventDefault(); event.returnValue = '';
+  });
   function registerStore(name, store) { stores.set(name, store); refreshStorageStatus(); }
-  function refreshStorageStatus() { updatePersistence(!pending, pending ? "unavailable" : null); }
+  function refreshStorageStatus() { updatePersistence(!pending && !conflict && !pendingAuxiliary.size, conflict ? "conflict" : pending ? persistence.reason || "pending" : null); }
 
 
   function updatePersistence(saved, reason) {
-    saved = saved && [...stores.values()].every(store => !store.isPending());
+    saved = saved && !pending && !conflict && !pendingAuxiliary.size && [...stores.values()].every(store => !store.isPending());
     persistence = { saved, reason: saved ? null : reason || "unavailable" };
+    const emitted = persistence;
+    if (browser && root.dispatchEvent && root.CustomEvent) root.dispatchEvent(new root.CustomEvent('circuit:evidence-persistence', { detail: { ...persistence } }));
+    if (persistence !== emitted) return;
     const doc = root && root.document;
     if (!doc || !doc.body) return;
+    if (doc.documentElement) doc.documentElement.dataset.evidencePersistence = saved ? 'saved' : persistence.reason;
     let notice = doc.getElementById('learning-storage-status');
     if (saved) { if (notice) notice.remove(); return; }
-    if (notice) return;
+    if (notice) {
+      const message = notice.querySelector('p');
+      if (message) message.textContent = persistenceMessage();
+      return;
+    }
     notice = doc.createElement('aside');
     notice.id = 'learning-storage-status';
     notice.setAttribute('role', 'alert');
     notice.style.cssText = 'position:fixed;bottom:12px;left:12px;right:12px;z-index:10000;padding:16px;background:#fff3cd;color:#332701;border:2px solid #856404;border-radius:8px';
     const message = doc.createElement('p');
-    message.textContent = '學習紀錄或八層主線進度尚未儲存，關閉或重新整理可能遺失。請重試或先匯出完整備份。';
+    message.textContent = persistenceMessage();
     notice.appendChild(message);
     const retry = doc.createElement('button');
     retry.textContent = '重試儲存';
@@ -55,10 +78,18 @@
     doc.body.appendChild(notice);
   }
 
+  function persistenceMessage() {
+    if (persistence.reason === 'conflict') return '紀錄已衝突，未覆蓋既有證據。本頁結果尚未提交，不計為已保存正式證據；操作已暫停。本頁草稿尚未儲存；請先匯出備份，再重新載入比較。重試不會覆蓋另一頁。';
+    if (persistence.reason === 'concurrency-lock-unavailable') return '此瀏覽器無法安全鎖定跨頁紀錄，目前只保留本頁暫存。請匯出備份，或改用支援 Web Locks 的瀏覽器／本機伺服器。';
+    return '學習紀錄或八層主線進度尚未儲存，關閉或重新整理可能遺失。請等待、重試或先匯出完整備份。';
+  }
+
   function exportBackup() {
     const state = clone(load());
+    if (rejectedDrafts.length) state.unsavedConflictDrafts = clone(rejectedDrafts);
     state.auxiliary = {};
     for (const [name, store] of stores) state.auxiliary[name] = store.snapshot();
+    for (const [name, raw] of pendingAuxiliary) state.auxiliary[name] = clone(raw);
     // Lesson pages may not load CoreFlow, but their backups must still contain it.
     if (!state.auxiliary.coreFlow) {
       const core = read("circuit-core-flow-v1", null);
@@ -90,6 +121,7 @@
     let raw;
     try {
       raw = storage().getItem(key);
+      if (key === KEY) observedRaw = raw;
       if (!raw) return fallback;
       const value = JSON.parse(raw);
       if (key === KEY && (!value || value.schema !== SCHEMA || value.version !== VERSION)) throw new Error('Invalid learning state');
@@ -165,30 +197,78 @@
       Object.assign(state.reports, v2.reports || {});
       state.migrations.v2 = now();
     }
-    save(state);
+    save(remember(state));
     return state;
   }
 
-  function load() { return normalizeState(migrate()); }
+  function load() { return remember(normalizeState(migrate())); }
 
-  function save(state) {
-    const normalized = normalizeState(state);
-    normalized.updatedAt = now();
-    const serialized = JSON.stringify(normalized);
-    memory.set(KEY, serialized);
-    pending = true;
+  function commitPending() {
+    if ((!pending && !pendingAuxiliary.size) || conflict) return;
     try {
       const target = root.localStorage;
-      if (corruptRaw !== null) {
-        target.setItem(KEY + '-corrupt-backup', corruptRaw);
-        corruptRaw = null;
+      const baseline = pending ? pendingBaseline : observedRaw;
+      // Compare while holding the one lock for the ENTIRE JSON storage key.
+      if (browser && target.getItem(KEY) !== baseline) {
+        conflict = true; updatePersistence(false, "conflict"); return;
       }
-      target.setItem(KEY, serialized);
-      pending = false;
+      if (pending) {
+        const serialized = memory.get(KEY);
+        if (corruptRaw !== null) { target.setItem(KEY + '-corrupt-backup', corruptRaw); corruptRaw = null; }
+        target.setItem(KEY, serialized);
+        committedRevision = { revision: localRevision, from: pendingBaseline, to: serialized };
+        observedRaw = serialized; pending = false;
+        if (pendingObject) snapshots.set(pendingObject, { raw: serialized, revision: localRevision });
+      }
+      // Delete only successfully restored entries. A throwing auxiliary remains
+      // exportable and retryable against the now-committed primary baseline.
+      for (const [name, raw] of pendingAuxiliary) {
+        stores.get(name).restore(raw); pendingAuxiliary.delete(name);
+      }
       updatePersistence(true);
-    } catch (error) {
-      updatePersistence(false, error && error.name || 'unavailable');
+    } catch (error) { updatePersistence(false, error && error.name || "unavailable"); }
+  }
+
+  function scheduleCommit() {
+    if (conflict || (!pending && !pendingAuxiliary.size)) return;
+    if (!browser) { commitPending(); return; }
+    if (!root.navigator?.locks?.request) { updatePersistence(false, "concurrency-lock-unavailable"); return; }
+    updatePersistence(false, "pending");
+    if (writePromise) return;
+    // Drain newer revisions queued by commit notifications, but never spin on
+    // a quota/security failure of the same revision. Explicit retry owns that.
+    writePromise = Promise.resolve().then(async () => {
+      let attempted;
+      do {
+        attempted = localRevision;
+        await root.navigator.locks.request(KEY, { mode: 'exclusive' }, () => {
+          attempted = localRevision; commitPending();
+        });
+      } while ((pending || pendingAuxiliary.size) && !conflict && localRevision > attempted);
+    }).catch(() => updatePersistence(false, "concurrency-lock-unavailable"))
+      .finally(() => { writePromise = null; });
+  }
+
+  async function flush() {
+    scheduleCommit();
+    if (writePromise) await writePromise;
+    return { ...persistence };
+  }
+
+  function save(state) {
+    const normalized = normalizeState(state), snapshot = snapshots.get(state);
+    if (browser && (!snapshot || snapshot.revision !== localRevision)) {
+      rejectedDrafts.push(clone(normalized)); conflict = true;
+      updatePersistence(false, "conflict"); return normalized;
     }
+    // Read-normalization must not create writes or move a stale baseline.
+    if (JSON.stringify(normalized) === (pending ? memory.get(KEY) : observedRaw)) { if (pending || pendingAuxiliary.size) scheduleCommit(); return remember(normalized); }
+    if (!pending) pendingBaseline = snapshot ? (committedRevision?.revision === snapshot.revision && committedRevision.from === snapshot.raw ? committedRevision.to : snapshot.raw) : observedRaw;
+    normalized.updatedAt = now();
+    memory.set(KEY, JSON.stringify(normalized));
+    pending = true; pendingObject = normalized; localRevision++;
+    snapshots.set(normalized, { raw: pendingBaseline, revision: localRevision });
+    scheduleCommit();
     return normalized;
   }
 
@@ -537,22 +617,34 @@
       if (!current.pilot && imported.pilot) current.pilot = imported.pilot;
       state.benchmark.trainingPractice = current;
     }
-    for (const [name, raw] of Object.entries(payload.auxiliary || {})) stores.get(name).restore(raw);
+    for (const [name, raw] of Object.entries(payload.auxiliary || {})) {
+      if (browser) pendingAuxiliary.set(name, clone(raw));
+      else stores.get(name).restore(raw);
+    }
     pushEvent(state, { type: "import", fromVersion: payload.version || "unknown" });
     return save(state);
   }
 
   function resetForTests() {
-    [KEY, V4_KEY, V3_KEY, V2_KEY].forEach(key => storage().removeItem(key));
-    memory.clear();
-    pending = false;
-    corruptRaw = null;
-    persistence = { saved: true, reason: null };
+    const clear = () => {
+      [KEY, V4_KEY, V3_KEY, V2_KEY].forEach(key => storage().removeItem(key));
+      memory.clear(); pending = false; conflict = false; corruptRaw = null;
+      observedRaw = null; pendingBaseline = null; pendingObject = null; committedRevision = null;
+      localRevision++; rejectedDrafts.length = 0; pendingAuxiliary.clear();
+      persistence = { saved: true, reason: null };
+    };
+    if (!browser) { clear(); return; }
+    const baseline = pending ? pendingBaseline : observedRaw;
+    if (!root.navigator?.locks?.request) { updatePersistence(false, 'concurrency-lock-unavailable'); return Promise.resolve(false); }
+    return root.navigator.locks.request(KEY, { mode: 'exclusive' }, () => {
+      if (conflict || storage().getItem(KEY) !== baseline) { updatePersistence(false, 'conflict'); return false; }
+      clear(); return true;
+    });
   }
 
   const api = {
     KEY, SCHEMA, VERSION, STRENGTH,
-    emptyState, normalizeState, load, save, retrySave, exportBackup, registerStore, refreshStorageStatus,
+    emptyState, normalizeState, load, save, flush, retrySave, exportBackup, registerStore, refreshStorageStatus,
     storageStatus: () => ({ ...persistence }),
     evidenceLevel, recordEvidence, recordStep, recordMachine, machineEvents, getEvidence,
     commitPrediction, getPrediction, predictionStatus,
