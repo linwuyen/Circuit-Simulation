@@ -280,7 +280,7 @@ EPwm1Regs.CMPA.bit.CMPA = duty;</code></pre>
           <p class="eyebrow">MODEL → MEASUREMENT</p>
           <h2>SFRA 不是「幫你畫 Bode」而已：它是在問模型到底漏了什麼</h2>
         </div>
-        <button id="sweepButton" class="primary">▶ 開始 SFRA sweep</button>
+        <button id="sweepButton" class="primary">▶ 合成 SFRA 示範 sweep</button>
       </div>
 
       <div class="teaching-grid">
@@ -299,11 +299,14 @@ EPwm1Regs.CMPA.bit.CMPA = duty;</code></pre>
         <div class="chain-arrow">→</div>
         <div class="chain-box">Response<small>Vout / Iout</small></div>
       </div>
+      <p class="hint">此 sweep 是兩個 pole（70 Hz、700 Hz）加 10 µs pure delay 的合成數值示範，不是硬體 SFRA。純延遲只改 phase，不會讓 magnitude 提早下降。</p>
       <div class="sweep-track"><div id="sweepDot" class="sweep-dot"></div></div>
       <div class="formula-strip">
         <div><span>掃描頻率</span><strong id="sweepFreq">—</strong></div>
         <div><span>Model |T|</span><strong id="modelMag">—</strong></div>
-        <div><span>Measured |T|</span><strong id="measuredMag">—</strong></div>
+        <div><span>Synthetic delayed |T|（非實測）</span><strong id="measuredMag">—</strong></div>
+        <div><span>Model phase</span><strong id="modelPhase">—</strong></div>
+        <div><span>Synthetic phase（+10 µs delay）</span><strong id="measuredPhase">—</strong></div>
         <div><span>判讀</span><strong id="sweepVerdict">等待 sweep</strong></div>
       </div>
       <div class="diagnostic-grid">

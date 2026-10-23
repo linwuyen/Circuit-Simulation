@@ -131,10 +131,14 @@ function calculateBode(kp, ki){
     for (let i=1;i<freqs.length;i++){ if (Lg[i-1]>0 && Lg[i]<=0){
         const r=Lg[i-1]/(Lg[i-1]-Lg[i]); const lf=Math.log10(freqs[i-1])+r*(Math.log10(freqs[i])-Math.log10(freqs[i-1]));
         fc=Math.pow(10,lf); pcAtFc=Lp[i-1]+r*(Lp[i]-Lp[i-1]); pm=180+pcAtFc; hasCross=true; break; } }
+    // Applicability: report a scalar PM only for a single crossing in this scan.
+    let crossingCount=0;
+    for(let i=0;i<Lg.length;i++) if(Lg[i]===0 || (i>0 && Lg[i-1]*Lg[i]<0)) crossingCount++;
+    if(crossingCount!==1){hasCross=false;fc=null;pm=null;pcAtFc=null;}
     let gm=Infinity,gmFinite=false;
     for (let i=1;i<freqs.length;i++){ if (Lp[i-1]>-180 && Lp[i]<=-180){
         const r=(Lp[i-1]+180)/(Lp[i-1]-Lp[i]); const gAt=Lg[i-1]+r*(Lg[i]-Lg[i-1]); gm=-gAt; gmFinite=true; break; } }
-    return { Lg:Lg.map((y,i)=>({x:freqs[i],y})), m:{hasCross,fc,pm,pcAtFc,gm,gmFinite} };
+    return { Lg:Lg.map((y,i)=>({x:freqs[i],y})), m:{crossingCount,hasCross,fc,pm,pcAtFc,gm,gmFinite} };
 }
 function simulateStep(kp, ki){
     const a2=TwoZetaWn, a1=WnSq*(1+kp), a0=ki*WnSq, b1=kp*WnSq, b0=ki*WnSq;
@@ -157,14 +161,14 @@ const missions = [
     desc:'最基本功：讓頻寬 fc 至少 300Hz,而且系統穩定(不發散)。',
     hint:'試 Kp≈0.1、Ki≈2000 讓藍線穿過 0dB、頻寬到 300Hz 以上。只要不發散就過關。',
     checks:[
-      { label:'頻寬 fc ≥ 300 Hz', val:m=> m.hasCross?fmtHz(m.fc):'未交越', test:m=> m.hasCross && m.fc>=300 },
+      { label:'頻寬 fc ≥ 300 Hz', val:m=> m.hasCross?fmtHz(m.fc):(m.crossingCount>1?'多重交越':'未交越'), test:m=> m.hasCross && m.fc>=300 },
       { label:'系統穩定（不發散、PM>0）', val:m=> m.diverged?'發散':(m.hasCross?m.pm.toFixed(0)+'°':'--'), test:m=> m.stable }
     ]},
   { id:'m2', name:'② 留裕度', color:'#2563eb',
     desc:'頻寬 fc ≥ 400Hz,同時保有安全餘量：相位裕度 PM ≥ 45°、增益裕度 GM > 6dB。',
     hint:'試 Kp≈0.2、Ki≈2400。GM 卡在 6dB 邊緣時把 Ki 降一點,諧振峰會離 0dB 更遠。',
     checks:[
-      { label:'頻寬 fc ≥ 400 Hz', val:m=> m.hasCross?fmtHz(m.fc):'未交越', test:m=> m.hasCross && m.fc>=400 },
+      { label:'頻寬 fc ≥ 400 Hz', val:m=> m.hasCross?fmtHz(m.fc):(m.crossingCount>1?'多重交越':'未交越'), test:m=> m.hasCross && m.fc>=400 },
       { label:'相位裕度 PM ≥ 45°', val:m=> m.hasCross?m.pm.toFixed(0)+'°':'--', test:m=> m.hasCross && m.pm>=45 },
       { label:'增益裕度 GM > 6 dB', val:m=> m.gmFinite?m.gm.toFixed(1)+' dB':'∞', test:m=> !m.gmFinite || m.gm>6 }
     ]},
@@ -181,7 +185,7 @@ const missions = [
     desc:'高手關：把頻寬推到 fc ≥ 700Hz(很接近安全上限),同時仍守住 PM ≥ 45°、GM > 6dB。窗口很窄!',
     hint:'甜蜜點在 Kp≈0.40、Ki≈3200。Kp 別超過約 0.43,否則交越點會跳到諧振之上、PM 直接崩掉。fc 不足就略增 Ki。',
     checks:[
-      { label:'頻寬 fc ≥ 700 Hz', val:m=> m.hasCross?fmtHz(m.fc):'未交越', test:m=> m.hasCross && m.fc>=700 },
+      { label:'頻寬 fc ≥ 700 Hz', val:m=> m.hasCross?fmtHz(m.fc):(m.crossingCount>1?'多重交越':'未交越'), test:m=> m.hasCross && m.fc>=700 },
       { label:'相位裕度 PM ≥ 45°', val:m=> m.hasCross?m.pm.toFixed(0)+'°':'--', test:m=> m.hasCross && m.pm>=45 },
       { label:'增益裕度 GM > 6 dB', val:m=> m.gmFinite?m.gm.toFixed(1)+' dB':'∞', test:m=> !m.gmFinite || m.gm>6 }
     ]}
@@ -224,7 +228,7 @@ function update(){
     const step = simulateStep(kp, ki);
     const lowFreqGain = bodePoint(60, kp, ki).Lg;
     const metrics = {
-        hasCross: b.m.hasCross, fc: b.m.fc,
+        crossingCount: b.m.crossingCount, hasCross: b.m.hasCross, fc: b.m.fc,
         pm: b.m.hasCross ? b.m.pm : -999,
         gm: b.m.gm, gmFinite: b.m.gmFinite,
         lowFreqGain, overshoot: step.overshoot, diverged: step.diverged,
@@ -232,7 +236,7 @@ function update(){
     };
 
     // 即時量測
-    document.getElementById('r-fc').textContent = metrics.hasCross ? fmtHz(metrics.fc) : '未交越';
+    document.getElementById('r-fc').textContent = metrics.hasCross ? fmtHz(metrics.fc) : (metrics.crossingCount>1?'多重交越':'未交越');
     document.getElementById('r-pm').textContent = metrics.hasCross ? metrics.pm.toFixed(0)+'°' : '--';
     document.getElementById('r-gm').textContent = metrics.gmFinite ? metrics.gm.toFixed(1)+' dB' : '∞';
     document.getElementById('r-lf').textContent = metrics.lowFreqGain.toFixed(1)+' dB';
