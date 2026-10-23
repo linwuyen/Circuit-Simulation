@@ -86,13 +86,14 @@
                     <!-- Load Power -->
                     <div>
                         <div class="flex justify-between text-xs mb-1">
-                            <span class="text-slate-300">外部負載功率 (P_load)</span>
-                            <span class="text-amber-400 font-bold" id="lbl-load">1200 W</span>
+                            <span class="text-slate-300">外部負載視在功率 (S_load)</span>
+                            <span class="text-amber-400 font-bold" id="lbl-load">1200 VA</span>
                         </div>
                         <input type="range" id="param-load" min="50" max="2500" value="1200" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-400">
-                        <span class="text-[10px] text-slate-500">注意：負載過低（&lt;300W）時，相移全橋原邊能量不足將失去 ZVS 軟切換！</span>
+                        <span class="text-[10px] text-slate-500">注意：有效功率 S×|PF| 過低（&lt;300 W，僅定性估算）時，相移全橋原邊能量不足將失去 ZVS 軟切換！</span>
                     </div>
 
+                    <p class="text-[10px] text-slate-500">正弦穩態示意：S = Vrms × Irms [VA]，P = S × |PF| [W]。PF 正負只表示感性／容性，不代表發電；ZVS、效率及保護均為定性估算。</p>
                     <!-- Power Factor / Phase Shift -->
                     <div>
                         <div class="flex justify-between text-xs mb-1">
@@ -441,7 +442,7 @@
     <script>
         // --- System State Variables ---
         let fsw = 100; // kHz
-        let loadPower = 1200; // Watts
+        let loadApparentVA = 1200; // VA; active power is S * |PF|
         let powerFactor = 0.95; // pf
         let ddsResolution = 1024; // DDS wave table entries
         let isSyncSampling = true; // Sampling mode
@@ -525,8 +526,8 @@
         });
 
         loadSlider.addEventListener('input', (e) => {
-            loadPower = parseInt(e.target.value);
-            lblLoad.innerText = `${loadPower} W`;
+            loadApparentVA = parseInt(e.target.value);
+            lblLoad.innerText = `${loadApparentVA} VA`;
             updateZvsStatus();
         });
 
@@ -535,6 +536,7 @@
             powerFactor = val;
             const type = val >= 0 ? "感性" : "容性";
             lblPf.innerText = `${Math.abs(val).toFixed(2)} (${type})`;
+            updateZvsStatus();
         });
 
         ddsSelect.addEventListener('change', (e) => {
@@ -592,7 +594,7 @@
         }
 
         function updateZvsStatus() {
-            if (loadPower < 300) {
+            if (loadApparentVA * Math.abs(powerFactor) < 300) {
                 lblZvsStatus.innerText = "ZVS 失效 (硬切換)";
                 lblZvsStatus.className = "text-rose-400 font-bold animate-pulse";
                 lblZvsEff.innerText = "88.2%";
@@ -603,7 +605,7 @@
             } else {
                 lblZvsStatus.innerText = "ZVS 生效";
                 lblZvsStatus.className = "text-emerald-400 font-bold";
-                let eff = 95.0 + (loadPower / 2500) * 1.8;
+                let eff = 95.0 + (loadApparentVA * Math.abs(powerFactor) / 2500) * 1.8;
                 lblZvsEff.innerText = `${eff.toFixed(1)}%`;
                 lblZvsEff.className = "text-emerald-400";
                 zvsDot.className = "h-1.5 w-1.5 rounded-full bg-emerald-500";
@@ -651,10 +653,10 @@
                 offsetSlider.value = 0;
                 lblDcOffset.innerText = "0.0 V";
             }
-            if (loadPower > dacOcpLimit * 140) { // rough approximation of overcurrent
-                loadPower = 1200;
+            if (loadApparentVA > dacOcpLimit * 140) { // rough approximation of overcurrent
+                loadApparentVA = 1200;
                 loadSlider.value = 1200;
-                lblLoad.innerText = "1200 W";
+                lblLoad.innerText = "1200 VA";
                 updateZvsStatus();
             }
         }
@@ -726,7 +728,7 @@
             // Live metrics variables
             let v_eff = 110.0; // Normal regulation target
             // Calculate raw RMS values based on load parameters
-            let i_rms = loadPower / v_eff;
+            let i_rms = loadApparentVA / v_eff;
             // Adjust current based on power factor
             const pfAngle = Math.acos(Math.abs(powerFactor));
             const pfSign = powerFactor >= 0 ? 1 : -1; // 1 inductive (lag), -1 capacitive (lead)

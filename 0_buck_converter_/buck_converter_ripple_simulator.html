@@ -246,7 +246,8 @@
       return;
     }
     var lH=L/1e6,fH=fsw*1e3,T=1/fH,Cf=C/1e6;
-    var D=(vout+Vd)/(vin+Vd); if(D>0.95)D=0.95; if(D<0)D=0;
+    // The ideal teaching switch has no minimum off-time: preserve volt-second balance.
+    var D=(vout+Vd)/(vin+Vd);
     var m1s=(vin-vout)/lH, m2s=(vout+Vd)/lH, m1A=(vin-vout)/L, m2A=(vout+Vd)/L;
     var rCCM=Math.abs(m1s)*D*T, valleyCCM=iout-rCCM/2, isDCM=(valleyCCM<0)&&(m1s>0);
 
