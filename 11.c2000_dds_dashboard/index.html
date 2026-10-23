@@ -131,7 +131,7 @@
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                     <button id="cal-none" class="py-1.5 px-3 rounded text-xs bg-slate-800 border border-slate-700 hover:bg-slate-700 transition">無校正 (減2048)</button>
-                    <button id="cal-dynamic" class="py-1.5 px-3 rounded text-xs bg-emerald-600/30 border border-emerald-500 hover:bg-emerald-600/50 transition text-emerald-300 font-semibold">動態 LPF 校正</button>
+                    <button id="cal-dynamic" class="py-1.5 px-3 rounded text-xs bg-emerald-600/30 border border-emerald-500 hover:bg-emerald-600/50 transition text-emerald-300 font-semibold">整週期平均校正</button>
                 </div>
             </div>
 
@@ -287,7 +287,7 @@
 
     <!-- 頁尾說明 -->
     <footer class="border-t border-slate-800 bg-slate-900/40 text-slate-500 text-center py-4 text-xs">
-        <p>© 2026 Texas Instruments C2000 Power Development Reference Tool. 模擬器基於數位雙生概念開發。</p>
+        <p>獨立教學模型，非 TI 官方或經實機驗證的計量工具。動態 offset 使用上一整週期平均；頻率/偏置突變、ADC clipping、非整週期與雜訊會造成暫態誤差。</p>
     </footer>
 
     <!-- 模擬器核心 JavaScript -->
@@ -323,7 +323,7 @@
             vRms: 0,
             iRms: 0,
             vAvg: 0,
-            vEma: 2048, // 用於動態 LPF 的估算值，初始化為中值
+            vEma: 2048, // 上一個有效週期的 DC 平均；週期內保持，不濾掉 AC
             acFreq: 60,
             acFreqAvg: 60,
             pRms: 0,
@@ -344,7 +344,7 @@
             slewPowerUpdate: 0,
             pRmsSumMul: 0,
             acFreqSum: 0,
-            emaFilterMultiplier: 0.005, // K1 濾波係數
+            offsetSum: 0, // raw ADC counts for cycle-mean offset
         };
 
         // 示波器圖表繪製緩衝區
@@ -479,8 +479,7 @@
             let v_offset_counts = 2048; // 預設
 
             if (calMode === 'dynamic') {
-                // 實時低通濾波器：動態追蹤直流中點 (對應 C2000 的 EMA 動態校正)
-                pml.vEma = pml.vEma * (1.0 - pml.emaFilterMultiplier) + adcV * pml.emaFilterMultiplier;
+                // 保持前一整週期的平均，避免 sample-by-sample EMA 改變 AC 幅值與相位。
                 v_offset_counts = pml.vEma;
             } else {
                 // 無動態校正，寫死為 12-bit 的中點 2048
@@ -500,6 +499,7 @@
 
             // C. 累積數據 (存錢筒)
             pml.nSamples++;
+            pml.offsetSum += adcV;
             pml.vSum += Math.abs(pml.v);
             pml.vSqrSum += (pml.v * pml.v);
             pml.iSqrSum += (pml.i * pml.i);
@@ -514,7 +514,7 @@
             if ((pml.prevSign !== pml.currSign) && (pml.currSign === 1)) {
                 
                 // 防抖動：判斷點數是否在預設的電網頻率範圍合理區間內
-                if (pml.nSamples > pml.nSamplesMin) {
+                if (pml.nSamples > pml.nSamplesMin && pml.nSamples <= pml.nSamplesMax) {
                     pml.zcd = 1; // 觸發過零，開始月底結算！
 
                     // 1. 週期頻率與開根號計算
@@ -550,6 +550,9 @@
                         pml.slewPowerUpdate = 0;
                     }
 
+                    // Offset changes are applied only at a complete-cycle boundary.
+                    if (calMode === 'dynamic') pml.vEma = pml.offsetSum / pml.nSamples;
+                    pml.offsetSum = 0;
                     // 3. 清空存錢筒以進入下一週期
                     pml.nSamples = 0;
                     pml.vSum = 0;
@@ -557,17 +560,26 @@
                     pml.iSqrSum = 0;
                     pml.pSum = 0;
                     pml.jitterCount = 0;
-                } else {
+                } else if (pml.nSamples <= pml.nSamplesMax) {
                     // 若週期太短，視為雜訊引起的 Jitter (抖動)
                     if (pml.jitterCount < 30) {
                         pml.jitterCount++;
                     }
-                    pml.nSamples = 0; // 重置這一次錯誤的採樣
+                    // Reject the whole partial window, not merely its denominator.
+                    pml.nSamples = 0;
+                    pml.offsetSum = 0;
+                    pml.vSum = pml.vSqrSum = pml.iSqrSum = pml.pSum = 0;
                 }
             }
 
             // E. 安全防呆保護：如果電網斷線 (很久都沒有收到過零信號)
             if (pml.nSamples > pml.nSamplesMax || pml.jitterCount > 25) {
+                // A no-crossing window may be DC: re-center only for re-acquisition.
+                if (calMode === 'dynamic' && pml.nSamples) pml.vEma = pml.offsetSum / pml.nSamples;
+                pml.offsetSum = 0;
+                pml.vSum = pml.vSqrSum = pml.iSqrSum = pml.pSum = 0;
+                pml.pRmsSumMul = pml.vaSumMul = pml.acFreqSum = 0;
+                pml.slewPowerUpdate = 0;
                 pml.vRms = 0;
                 pml.iRms = 0;
                 pml.pRms = 0;
@@ -589,7 +601,7 @@
             document.getElementById('disp-vrms').innerText = pml.vRms.toFixed(2);
             document.getElementById('disp-irms').innerText = pml.iRms.toFixed(2);
             document.getElementById('disp-p').innerText = pml.pRms.toFixed(2);
-            document.getElementById('disp-pf').innerText = Math.abs(pml.powerFactor).toFixed(3);
+            document.getElementById('disp-pf').innerText = pml.powerFactor.toFixed(3);
             document.getElementById('disp-freq').innerText = pml.acFreqAvg.toFixed(2);
 
             // 暫存器監控顯示

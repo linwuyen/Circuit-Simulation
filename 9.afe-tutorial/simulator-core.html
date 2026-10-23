@@ -150,7 +150,7 @@
                         <span id="val-thd" class="text-sky-400 font-mono-tech">0 %</span>
                     </div>
                     <input type="range" id="slide-thd" min="0" max="50" value="0" class="w-full accent-sky-500 bg-slate-800 rounded-lg appearance-none h-2">
-                    <p class="text-[10px] text-slate-500 leading-normal">增加諧波會扭曲輸入交流電網波形，此時可以觀察 SOGI-PLL（鎖相環）如何依託強大的二階濾波器維持極致純淨的鋸齒相位波，不發生抖動。</p>
+                    <p class="text-[10px] text-slate-500 leading-normal">增加諧波會扭曲輸入交流電網波形，觀察 SOGI-PLL 的有限濾波能力；諧波與暫態仍會造成相位誤差。這是簡化教學模型，不是已驗證的實機控制器。</p>
                 </div>
 
                 <!-- 電網相位突變 -->
@@ -345,7 +345,7 @@
             i_grid_actual: 0.0,
             v_bus_actual: 380.0,
             i_load: 15.0 / 400.0, // 初始 1.5kW @ 400V 負載電流
-            pf: 0.999
+            pf: 0.0
         };
 
         // 參數設定 (來自 UI 阻尼 slider)
@@ -431,29 +431,23 @@
             sysState.v_grid_sampled = sysState.v_grid_raw;
 
             // 2. SOGI-PLL 相位觀測 (模擬 C28 / CLA 的實時核心)
-            let pll_err = sysState.v_grid_sampled - pll.v_alpha;
-            let osg_u = pll_err * pll.k;
-            
-            pll.v_alpha += pll.osg_x0 * TS;
-            pll.osg_x0 += (osg_u * pll.omega - pll.v_beta * pll.omega * pll.omega) * TS;
-            pll.v_beta += pll.osg_x0 * TS;
+            // SOGI: alpha' = omega*(k*(v-alpha)-beta), beta' = omega*alpha.
+            // Midpoint integration; alpha and beta are independent voltage states.
+            const da = pll.omega * (pll.k * (sysState.v_grid_sampled - pll.v_alpha) - pll.v_beta);
+            const db = pll.omega * pll.v_alpha;
+            const am = pll.v_alpha + 0.5 * TS * da;
+            const bm = pll.v_beta + 0.5 * TS * db;
+            pll.v_alpha += TS * pll.omega * (pll.k * (sysState.v_grid_sampled - am) - bm);
+            pll.v_beta += TS * pll.omega * am;
 
-            // DQ 坐標變換
-            let cos_t = Math.cos(pll.theta);
-            let sin_t = Math.sin(pll.theta);
-            let v_q = -pll.v_alpha * sin_t + pll.v_beta * cos_t;
-
-            // PLL 環路濾波 PI
-            let pll_pi_err = v_q;
+            // Input convention is sin(theta); SOGI beta is -cos(theta).
+            // Normalize volts to per-unit before applying the PLL gains.
+            const pll_pi_err = (pll.v_alpha * Math.cos(pll.theta) + pll.v_beta * Math.sin(pll.theta)) / 155;
             pll.pi_out += settings.pllKp * (pll_pi_err - pll.pi_err_prev) + settings.pllKi * TS * pll_pi_err;
+            pll.pi_out = Math.max(-0.2 * GRID_OMEGA_NOMINAL, Math.min(0.2 * GRID_OMEGA_NOMINAL, pll.pi_out));
             pll.pi_err_prev = pll_pi_err;
-
             pll.omega = GRID_OMEGA_NOMINAL + pll.pi_out;
-            pll.theta += pll.omega * TS;
-            
-            // 限制在 [0, 2PI]
-            if (pll.theta >= 2.0 * Math.PI) pll.theta -= 2.0 * Math.PI;
-            if (pll.theta < 0.0) pll.theta += 2.0 * Math.PI;
+            pll.theta = ((pll.theta + pll.omega * TS) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
 
             // 3. 雙閉迴路控制與 DDS 對接點
             
@@ -487,40 +481,40 @@
             ctrl.i_err_prev = i_err;
 
             // 4. 物理受控系統模擬 (Plant Model)
-            // 實際電網電流受 H 橋輸出調變控制與電感濾波的動態物理方程
+            // 教學用一階電流代理模型；不是 H 橋/LCL 開關級電路求解器
             sysState.i_grid_actual += (ctrl.i_out - sysState.i_grid_actual) * 0.35;
 
             // DC Bus 電能儲存與消耗動態模擬
-            // 交流端輸送的主動功 P_ac_avg = 0.5 * V_pk * I_pk
-            let power_ac = 0.5 * 155.0 * sysState.i_grid_actual; // 控制在 155VAC
+            // 交流端瞬時功率 p(t) = v(t)*i(t)，不可把瞬時 i 當作 I_peak
+            let power_ac = sysState.v_grid_sampled * sysState.i_grid_actual; // instantaneous signed watts
             // DC 側消費主動功
             let power_dc_load = settings.loadWatts; 
             
             // C * dV/dt = (P_ac - P_dc) / V_bus
             let c_bus_farad = 0.0012; // 1200uF 直流母線電容
-            let d_vbus = ((power_ac - power_dc_load) / sysState.v_bus_actual) * (TS / c_bus_farad);
-            sysState.v_bus_actual += d_vbus;
+            const energy = 0.5 * c_bus_farad * sysState.v_bus_actual ** 2 + (power_ac - power_dc_load) * TS;
+            sysState.v_bus_actual = Math.sqrt(Math.max(0, 2 * energy / c_bus_farad));
 
             // 限制防炸機物理極限
             if (sysState.v_bus_actual < 50.0) sysState.v_bus_actual = 50.0;
             if (sysState.v_bus_actual > 600.0) sysState.v_bus_actual = 600.0;
 
-            // 5. 計算功率因數 (PF) 模擬 (利用實際電流與參考電流的角度交叉差值)
-            let angle_diff = 0;
-            if (Math.abs(dds.gain) > 0.1) {
-                // 利用簡單的相關性逼近 PF
-                let pf_approx = Math.max(0.0, Math.min(1.0, 1.0 - (Math.abs(ctrl.i_err_prev) * 0.02)));
-                sysState.pf = 0.95 + 0.049 * pf_approx;
-            } else {
-                sysState.pf = 1.0;
-            }
-
+            // PF is a sampled window measurement, not a current-error score.
+            // Nominal 60 Hz window (~333 samples); transient/noninteger-window error remains.
             // 6. 壓入示波器繪圖緩衝器
             scopeBuffer.v_grid.push(sysState.v_grid_sampled);
             scopeBuffer.i_grid.push(sysState.i_grid_actual);
             scopeBuffer.i_ref.push(ctrl.i_ref);
             scopeBuffer.theta.push(pll.theta);
             scopeBuffer.v_bus.push(sysState.v_bus_actual);
+
+            const count = Math.min(Math.round(1 / (60 * TS)), scopeBuffer.v_grid.length);
+            let vv = 0, ii = 0, vi = 0;
+            for (let n = scopeBuffer.v_grid.length - count; n < scopeBuffer.v_grid.length; n++) {
+                const v = scopeBuffer.v_grid[n], i = scopeBuffer.i_grid[n];
+                vv += v * v; ii += i * i; vi += v * i;
+            }
+            sysState.pf = vv > 0 && ii > 1e-12 ? Math.max(-1, Math.min(1, vi / Math.sqrt(vv * ii))) : 0;
 
             // 維持緩衝大小
             if (scopeBuffer.v_grid.length > BUFFER_SIZE) {
@@ -688,13 +682,13 @@
             // 功率因數顯示
             statPf.innerText = sysState.pf.toFixed(3);
             if (sysState.pf > 0.99) {
-                statPfLabel.innerText = "完美同相 (極致能效 AFE)";
+                statPfLabel.innerText = "量測 PF 接近 +1（不是效率）";
                 statPfLabel.className = "text-xs text-emerald-400 mt-2";
             } else if (sysState.pf > 0.95) {
-                statPfLabel.innerText = "輕微相位偏置 (高頻濾波作用)";
+                statPfLabel.innerText = "量測 PF 小於 +1；需分辨相位與諧波";
                 statPfLabel.className = "text-xs text-amber-400 mt-2";
             } else {
-                statPfLabel.innerText = "相位顯著失真 (PI 環路震盪警告)";
+                statPfLabel.innerText = "低/負 PF：可能無載、反送電、相移或失真";
                 statPfLabel.className = "text-xs text-rose-400 mt-2";
             }
 
@@ -853,28 +847,20 @@
 void runSogiPll(PLL_OBJ *p, float v_grid_adc) 
 {
     // 1. SOGI 二階廣義積分正交濾波器 (Orthogonal Signal Generator)
-    float error = v_grid_adc - p->v_alpha;
-    float osg_u = error * p->k;
-    
-    p->v_alpha += p->osg_x0 * TS;
-    p->osg_x0  += (osg_u * p->omega - p->v_beta * p->omega * p->omega) * TS;
-    p->v_beta  += p->osg_x0 * TS;
-
-    // 2. dq 旋轉坐標變換 (Park Transform) - 提取正交分量
-    float cos_t = __cosf(p->theta); // 使用 C28 內核 TMU 特殊硬體三角加速
-    float sin_t = __sinf(p->theta);
-    float v_q = -p->v_alpha * sin_t + p->v_beta * cos_t;
-
-    // 3. PI 環路濾波器修正相位誤差
-    float pll_pi_err = v_q;
-    p->pi_out += PLL_KP * (pll_pi_err - p->pi_err_prev) + PLL_KI * TS * pll_pi_err;
-    p->pi_err_prev = pll_pi_err;
-
-    // 4. 角頻率累加生成精準相位 Theta (接管 DDS)
+    // Educational midpoint SOGI; production firmware needs target validation.
+    float da = p->omega * (p->k * (v_grid_adc - p->v_alpha) - p->v_beta);
+    float db = p->omega * p->v_alpha;
+    float am = p->v_alpha + 0.5f * TS * da;
+    float bm = p->v_beta + 0.5f * TS * db;
+    p->v_alpha += TS * p->omega * (p->k * (v_grid_adc - am) - bm);
+    p->v_beta += TS * p->omega * am;
+    // sin(theta) input: beta = -cos(theta), normalize to per-unit.
+    float err = (p->v_alpha * cosf(p->theta) + p->v_beta * sinf(p->theta)) / 155.0f;
+    p->pi_out += PLL_KP * (err - p->pi_err_prev) + PLL_KI * TS * err;
+    p->pi_out = fmaxf(-0.2f * GRID_OMEGA_NOMINAL, fminf(0.2f * GRID_OMEGA_NOMINAL, p->pi_out));
+    p->pi_err_prev = err;
     p->omega = GRID_OMEGA_NOMINAL + p->pi_out;
-    p->theta += p->omega * TS;
-
-    if (p->theta >= 2.0 * PI) p->theta -= 2.0 * PI;
+    p->theta = fmodf(p->theta + p->omega * TS, 2.0f * PI);
 }`
             },
             afe: {
