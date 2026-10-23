@@ -1,8 +1,9 @@
+const { resetEvidence } = require('./evidence-fixture');
 const { test, expect } = require('@playwright/test');
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/catalog.html');
-  await page.evaluate(() => localStorage.clear());
+  await resetEvidence(page);
 });
 
 test('advanced catalog exposes the OP AMP dynamic-response module inside the expanded system', async ({ page }) => {

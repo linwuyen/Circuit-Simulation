@@ -1,6 +1,7 @@
+const { resetEvidence } = require('./evidence-fixture');
 const {test,expect}=require('@playwright/test');
 async function answer(page,value){await page.locator(`input[name=application-answer][value=${value}]`).check();await page.locator('#application-submit').click();}
-test.beforeEach(async({page})=>{await page.goto('/17_power_topology_control/');await page.evaluate(()=>localStorage.clear());await page.reload();await expect(page.locator('#application-prepare')).toBeVisible();});
+test.beforeEach(async({page})=>{await page.goto('/17_power_topology_control/');await resetEvidence(page);await page.reload();await expect(page.locator('#application-prepare')).toBeVisible();});
 test('all four applications operate the original controls and preserve separate snapshots',async({page})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  for(const id of ['pfc','psfb','llc','inverter']){
@@ -19,7 +20,7 @@ test('first wrong answers survive refresh; native edits require an explicit setu
 });
 test('viewing tools alone does not create application progress and malformed saved snapshots fail closed',async({page})=>{
  expect(await page.evaluate(()=>CircuitEvidence.load().benchmark.learningWorkspace?.topologyApplications)).toBeUndefined();
- await page.evaluate(()=>{const s=CircuitEvidence.load();s.benchmark.learningWorkspace={version:1,topologyApplications:{version:1,rows:{pfc:{operated:true}}}};CircuitEvidence.save(s);});await page.reload();await expect(page.locator('#application-status')).toContainText('對照不完整');await expect(page.locator('#application-submit')).toHaveCount(0);
+ await page.evaluate(async ()=>{const s=CircuitEvidence.load();s.benchmark.learningWorkspace={version:1,topologyApplications:{version:1,rows:{pfc:{operated:true}}}};CircuitEvidence.save(s);if(!(await CircuitEvidence.flush()).saved)throw Error("Fixture evidence not committed");});await page.reload();await expect(page.locator('#application-status')).toContainText('對照不完整');await expect(page.locator('#application-submit')).toHaveCount(0);
 });
 test('native chart return keeps the selected lesson and its heading below the sticky header',async({page})=>{
  await page.locator('#application-prepare').click();await answer(page,'lower');

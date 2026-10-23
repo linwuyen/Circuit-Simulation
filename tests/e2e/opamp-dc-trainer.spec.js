@@ -1,8 +1,9 @@
+const { resetEvidence } = require('./evidence-fixture');
 const { test, expect } = require('@playwright/test');
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/12_opamp_slew_rate/reasoning_trainer.html');
-  await page.evaluate(() => localStorage.clear());
+  await resetEvidence(page);
   await page.reload();
 });
 

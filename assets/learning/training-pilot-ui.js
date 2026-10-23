@@ -12,6 +12,10 @@
     const rows = Records.read().studySessions || Records.read().sessions;
     const repairs = rows.filter(x => x.kind === "repair" && x.diagnosisCommitted && !x.rehearsal);
     const remediation = rows.filter(x => x.kind === "remediation" && x.first && !x.rehearsal);
+    if (!Evidence.storageStatus().saved) {
+      $("pilot-summary").textContent = "目前含尚未儲存的操作紀錄；未接受為本機已提交成績。可先匯出完整備份，處理儲存問題後再確認。";
+      return;
+    }
     $("pilot-summary").textContent = repairs.length || remediation.length ? `本機已提交 ${repairs.length} 個維修案例、${remediation.length} 個補救練習。未驗證案例會單獨列為未評分，不當成零分。` : "尚無學員操作資料；不產生示範成績。";
   }
   $("pilot-export").onclick = () => {
@@ -33,5 +37,6 @@
     event.target.value = "";
   };
   document.addEventListener("training:updated", refresh);
+  window.addEventListener("circuit:evidence-persistence", refresh);
   refresh();
 })();

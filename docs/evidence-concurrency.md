@@ -17,3 +17,13 @@ Browser writes to the entire `circuit-learning-state-v5` JSON use one exclusive 
 Supported mutation contract: start from `load()` (or `merge()` for backups), mutate the returned state, then `save()`. Untracked replacement objects are rejected in browsers rather than guessed to be current snapshots.
 
 Tests: `evidence-concurrency.test.mjs`, `evidence-async-callers.test.mjs`, `e2e/evidence-concurrency.spec.js`, existing storage/backup/restore tests. The lock only coordinates cooperating versions of this application; an older already-open deployment or arbitrary DevTools code can bypass it. Reload old tabs before using the corrected version.
+
+## Browser acceptance follow-up (2026-10-23)
+
+CI run `39999496680` on `ded666c` exposed three remaining caller races (report prediction, bridge completion, topology reason) despite earlier local passes. The actual trace showed visible progression before the queued Web Lock write completed, followed by immediate navigation/reload. This is not repaired by increasing sleeps or retrying CI.
+
+Explicit accepted judgments, first-answer disclosure, completed stages, saved settings, report/quiz grades, and remediation pass events now wait for `flush().saved` in the active report/shell, bridge, root/experiment/topology/application workspaces, Module 17 fixed-concept cards, and training remediation UI. During a pending write the relevant controls remain frozen and completion is not displayed. Failed persistence keeps the unaccepted draft available for backup; retry either restores the durable view or explicitly asks for reload after successful saving. Export/backup controls remain usable. Existing computed circuit/model outputs are not hidden merely because evidence is pending: model validity and durable learning evidence remain separate claims.
+
+Deterministic browser regressions hold the real origin Web Lock, check that pending answers do not advance or disclose accepted results, then release it and verify persistence through reload. Quota/conflict vectors test failure and recovery without rewriting first answers. Cached bridge/fixed-concept record groups reject a newer same-group snapshot before writing; unrelated evidence remains intact.
+
+Browser fixture initialization now flushes and uses the lock-aware test reset rather than deleting the primary key behind its owner. Seeded records must commit before navigation or cross-tab inspection. User-flow tests wait for the durable visible state before external reload; one numeric/radio helper waits for the submit control to become enabled before choosing the next input type. No answer, first-attempt, color, grading or persistence assertions are removed.

@@ -20,7 +20,8 @@
   const run=el('button','把開關比例加上 10 個百分點，計算比較',$('surface-help'));run.id='topology-run';run.className='primary';
   const contracts=el('details',undefined,$('surface-help'));el('summary','模型來源與適用範圍',contracts);
   const steps=CircuitEngineeringCurriculum.topologySteps;
-  let session,comparison,shown=0,blocked=false;
+  let session,comparison,shown=0,blocked=false,saving=false;
+  async function accept(){saving=true;const controls=[...document.querySelectorAll("button,input")].filter(n=>!n.closest("#learning-storage-status")&&!["workspace-backup","detailed-records","all-materials"].includes(n.id)).map(n=>[n,n.disabled]);controls.forEach(([n])=>n.disabled=true);if(!save())return false;const status=await E.flush();if(!status.saved){const recovered=event=>{if(!event.detail.saved)return;$('ws-save').textContent='重試儲存已成功；請重新整理以繼續這次已保存的判斷。';window.removeEventListener('circuit:evidence-persistence',recovered);};window.addEventListener('circuit:evidence-persistence',recovered);$("ws-save").textContent="尚未儲存（"+(status.reason||"pending")+"）；本次判斷尚未接受；請先重試儲存，成功後重新整理，或下載備份。";return false;}saving=false;controls.forEach(([n,disabled])=>n.disabled=disabled);return true;}
   let expectedRecord=JSON.stringify(E.load().benchmark.learningWorkspace?.topologyTransfer);
   function protectRecord(){
    const stored=E.load().benchmark.learningWorkspace?.topologyTransfer;
@@ -58,7 +59,7 @@
    field.disabled=(shown===0&&!!r.first)||(shown===1&&!session.operated);
    const submit=el('button',shown===0?'記下預測':'檢查判斷',$('ws-question'));submit.id='topology-submit';submit.className='primary';submit.disabled=field.disabled;
    if(r.first)el('p','首次判斷：'+(s.choices.find(c=>c[0]===r.first.answer)?.[1]||r.first.answer)+(r.first.correct?'（符合模型）':'（已保留，可繼續修正）'),$('ws-question'));
-   submit.onclick=()=>{const answer=field.querySelector('input:checked')?.value;if(!answer){$('ws-feedback').textContent='請先選擇判斷。';return;}const correct=P.correct(s.answer,answer);session.rows[s.id]||={};const row=session.rows[s.id];row.first||={answer,correct,at:new Date().toISOString()};if(correct)row.passed=true;if(!save())return;if(shown!==0&&!correct){$('ws-feedback').textContent='回看比較結果：輸出變化和控制速度限制是兩件事。首次判斷已保留，請再試一次。';return;}shown=stage();render();};
+   submit.onclick=async()=>{if(saving)return;const answer=field.querySelector('input:checked')?.value;if(!answer){$('ws-feedback').textContent='請先選擇判斷。';return;}const correct=P.correct(s.answer,answer);session.rows[s.id]||={};const row=session.rows[s.id];row.first||={answer,correct,at:new Date().toISOString()};if(correct)row.passed=true;if(!await accept())return;if(shown!==0&&!correct){$('ws-feedback').textContent='回看比較結果：輸出變化和控制速度限制是兩件事。首次判斷已保留，請再試一次。';return;}shown=stage();render();};
   }
   try{
    await CircuitModelRegistry.loadTopologyContracts(new URL('.',location.href));
@@ -72,7 +73,7 @@
    shown=stage();if(save())render();
    }
   }catch(error){$('ws-question').textContent=error.message;run.hidden=true;$('ws-save').textContent='未覆蓋已有紀錄。';const a=el('a','返回手動電路實驗',$('ws-question'));a.href='#experiment-energy';}
-  run.onclick=()=>{session.operated=true;if(!save())return;render();};
+  run.onclick=async()=>{if(saving)return;session.operated=true;if(!await accept())return;render();};
   $('workspace-route').replaceChildren();for(const[href,label]of [['#experiment','回到連續電路實驗'],['#topology','降壓／升壓比較']]){const a=el('a',label,el('li',undefined,$('workspace-route')));a.href=href;}
   $('deeper').textContent='用這份條件，打開完整電路工具';$('deeper').onclick=()=>durableNavigate(()=>location.assign('17_power_topology_control/index.html#workspace-transfer'));
   $('ws-next').onclick=()=>{if(W.topologyProof(session))durableNavigate(()=>location.assign(U.route('applications')));};

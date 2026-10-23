@@ -1,5 +1,6 @@
+const { resetEvidence } = require('./evidence-fixture');
 const {test,expect}=require('@playwright/test');
-test.beforeEach(async({page})=>{await page.goto('/15_power_capstone/learn_basics.html');await page.evaluate(()=>localStorage.clear());await page.reload();});
+test.beforeEach(async({page})=>{await page.goto('/15_power_capstone/learn_basics.html');await resetEvidence(page);await page.reload();});
 async function predict(page,value){await page.locator(`input[name=prediction][value="${value}"]`).check();await page.locator('#predict').click();}
 async function prove(page,id='duty'){const c=await page.evaluate(id=>CircuitPlainCourse.checks[id],id);await page.locator(`input[name=observation][value="${c.observed}"]`).check();await page.locator('#observation-submit').click();await page.locator(`input[name=reason][value="${c.because}"]`).check();await page.locator('#reason-submit').click();}
 async function control(page,value){await page.locator('#experiment-control').fill(String(value));}

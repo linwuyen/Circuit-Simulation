@@ -1,8 +1,9 @@
+const { resetEvidence } = require('./evidence-fixture');
 const { test, expect } = require('@playwright/test');
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await page.evaluate(() => localStorage.clear());
+  await resetEvidence(page);
 });
 
 test('prediction commit precedes simulator and produces A-strength verified evidence', async ({ page }) => {

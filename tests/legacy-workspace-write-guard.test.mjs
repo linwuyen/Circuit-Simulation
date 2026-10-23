@@ -6,7 +6,7 @@ const source=fs.readFileSync(new URL('../assets/learning/workspace-ui.js',import
 function harness(initial){
  let state=structuredClone(initial),writes=0;
  const node=new Proxy({},{get:(_t,k)=>k==='hidden'?false:()=>node,set:()=>true});
- const c={E:{load:()=>structuredClone(state),save:s=>{state=structuredClone(s);writes++;},storageStatus:()=>({saved:true})},W:{bucket:()=> 'beginnerLessons'},id:'duty',record:{first:{answer:'up',correct:true}},model:{vin:48},mode:'lesson',workspace:structuredClone(initial.benchmark.learningWorkspace),$:()=>node,document:{querySelector:()=>node,querySelectorAll:()=>[],createElement:()=>node},el:()=>node,renderProgress:()=>{},blocked:false,expectedRecord:JSON.stringify(initial.benchmark.beginnerLessons?.rows?.duty)};
+ const c={E:{load:()=>structuredClone(state),save:s=>{state=structuredClone(s);writes++;},storageStatus:()=>({saved:true})},W:{bucket:()=> 'beginnerLessons'},id:'duty',record:{first:{answer:'up',correct:true}},model:{vin:48},mode:'lesson',workspace:structuredClone(initial.benchmark.learningWorkspace),$:()=>node,document:{querySelector:()=>node,querySelectorAll:()=>[],createElement:()=>node},el:()=>node,renderProgress:()=>{},blocked:false,saving:false,expectedRecord:JSON.stringify(initial.benchmark.beginnerLessons?.rows?.duty)};
  vm.createContext(c);
  const start=source.indexOf(' function legacyFields('),end=source.indexOf(' function log(');
  // Production helpers and save, excluding one mount-only guard invocation.

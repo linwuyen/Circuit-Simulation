@@ -1,8 +1,9 @@
+const { resetEvidence } = require('./evidence-fixture');
 const { test, expect } = require('@playwright/test');
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await page.evaluate(() => localStorage.clear());
+  await resetEvidence(page);
 });
 
 test('progress exposes uncertainty and measurement coverage instead of silent green', async ({ page }) => {

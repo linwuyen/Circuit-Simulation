@@ -1,7 +1,8 @@
+const { resetEvidence } = require('./evidence-fixture');
 const {test,expect}=require('@playwright/test');
 test('four application families use canonical quiz history, reload and native return',async({page},testInfo)=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto('/quiz.html?module=power-topology-control');await page.evaluate(async()=>localStorage.clear());await page.reload();
+ await page.goto('/quiz.html?module=power-topology-control');await resetEvidence(page);await page.reload();
  await expect(page.locator('#topology-assessment-context')).toBeVisible();await expect(page.locator('[data-current-question]')).toHaveCount(4);
  await expect(page.locator('.core-quiz-path')).not.toHaveAttribute('open','');
  await page.locator('#topology-assessment-context').scrollIntoViewIfNeeded();
@@ -18,7 +19,7 @@ test('four application families use canonical quiz history, reload and native re
  await page.getByRole('link',{name:'回原電路操作',exact:true}).click();await expect(page.locator('#application-prepare')).toBeVisible();expect(errors).toEqual([]);
 });
 test('home resumes unfinished topology assessment and returns to core after all four transfers',async({page})=>{
- await page.goto('/');await page.evaluate(async()=>{await CircuitEvidence.flush();await CircuitEvidence._resetForTests();const s=CircuitEvidence.load();s.benchmark.learningWorkspace={version:1,experiment:{version:1,completed:true,rows:Object.fromEntries(CircuitWorkspace.experimentLessons().map(l=>[l.id,{first:{correct:false},proof:{observation:true,reason:true},transferPassed:true}]))},topologyTransfer:{version:1,completed:true,protocol:'topology-workbench-v1',operated:true,rows:{prediction:{first:{correct:false}},observation:{passed:true},reason:{passed:true},return:{passed:true}}},topologyApplications:{version:1,completed:true,rows:Object.fromEntries(CircuitWorkspace.applicationLessons().map(l=>[l.id,{protocol:'topology-application-v1',first:{correct:false},operated:true,observationPassed:true,reasonPassed:true}]))}};CircuitEvidence.save(s);if(!(await CircuitEvidence.flush()).saved)throw Error("Fixture evidence not committed");});
+ await page.goto('/');await page.evaluate(async()=>{if(!(await CircuitEvidence.flush()).saved)throw Error("Fixture evidence not committed");if(!(await CircuitEvidence._resetForTests()))throw Error("Fixture reset refused");const s=CircuitEvidence.load();s.benchmark.learningWorkspace={version:1,experiment:{version:1,completed:true,rows:Object.fromEntries(CircuitWorkspace.experimentLessons().map(l=>[l.id,{first:{correct:false},proof:{observation:true,reason:true},transferPassed:true}]))},topologyTransfer:{version:1,completed:true,protocol:'topology-workbench-v1',operated:true,rows:{prediction:{first:{correct:false}},observation:{passed:true},reason:{passed:true},return:{passed:true}}},topologyApplications:{version:1,completed:true,rows:Object.fromEntries(CircuitWorkspace.applicationLessons().map(l=>[l.id,{protocol:'topology-application-v1',first:{correct:false},operated:true,observationPassed:true,reasonPassed:true}]))}};CircuitEvidence.save(s);if(!(await CircuitEvidence.flush()).saved)throw Error("Fixture evidence not committed");});
  expect(await page.evaluate(async()=>CircuitUnifiedLearning.next(CircuitEvidence.load(),{}).id)).toBe('topology-assessment');
  await page.goto('/quiz.html?module=power-topology-control');
  for(const id of ['pfc','psfb','llc','inverter']){const b=page.locator(`[data-family="topology-${id}-scaling"][data-option="correct"]`);await b.click();await b.click();if(id!=='inverter')await page.locator('[data-quiz-next]').click();}

@@ -1,8 +1,9 @@
+const { resetEvidence } = require('./evidence-fixture');
 const { test, expect } = require('@playwright/test');
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/catalog.html');
-  await page.evaluate(() => localStorage.clear());
+  await resetEvidence(page);
 });
 
 test('home exposes the integrated eight-layer Power Firmware path', async ({ page }) => {

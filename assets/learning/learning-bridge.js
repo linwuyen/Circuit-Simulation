@@ -32,8 +32,13 @@
     document.body.prepend(dock);if(window.top!==window)dock.hidden=true;
     const make=(tag,text,parent)=>{const n=document.createElement(tag);if(text)n.textContent=text;parent?.append(n);return n;};
     function link(parent,text,href){const a=make('a',text,parent);a.href=url(href);return a;}
-    function nextLink(parent){const n=U.next(E.load(),F.snapshot()),href=n.remediation?U.remediationRoute(n.id,n.remediation):U.route(n.id);const a=link(parent,'繼續學習：'+U.task(n.id).title,href);a.dataset.unifiedResume='';if(n.remediation)a.addEventListener('click',()=>U.beginReturn(n.id,n.remediation));return n;}
-    let rendering=false,backupFeedback='';
+    function nextLink(parent){const n=U.next(E.load(),F.snapshot()),href=n.remediation?U.remediationRoute(n.id,n.remediation):U.route(n.id);const a=link(parent,'繼續學習：'+U.task(n.id).title,href);a.dataset.unifiedResume='';if(n.remediation)a.addEventListener('click',async event=>{
+      event.preventDefault();if(returnPending)return;
+      const destination=a.href;returnPending=true;U.beginReturn(n.id,n.remediation);render();
+      try{const status=await E.flush();if(status.saved){returnPending=false;location.assign(destination);return;}}catch(_){}
+      render();
+    });return n;}
+    let rendering=false,backupFeedback='',returnPending=false;
     function renderBackup(hub){
       const section=make('section',null,hub);section.id='learning-backup';section.className='learning-stage';
       make('h2','把學習紀錄帶走，或接回來',section);
@@ -74,9 +79,10 @@
         link(nav,'學習總覽','learn.html');const n=nextLink(nav);link(nav,'同一案例實驗','learning-case.html'+(U.validTask(here())?'?learnFrom='+here():''));
         if(U.validTask(origin))link(nav,'返回原任務：'+U.task(origin).title,U.route(origin));
         const ticket=U.read().returnTask;
-        if(ticket&&U.validTask(ticket.id)&&ticket.passedAt&&path==='15_power_capstone/lab_sandbox.html')make('p','補強新條件已通過。請返回原任務作答，原首次判斷保留。',dock);
+        if(returnPending)make('p','往返紀錄尚未儲存；導航暫停，請等待儲存或重試。仍可匯出備份。',dock);
+        if(!returnPending&&ticket&&U.validTask(ticket.id)&&ticket.passedAt&&path==='15_power_capstone/lab_sandbox.html')make('p','補強新條件已通過。請返回原任務作答，原首次判斷保留。',dock);
         const details=make('details',null,dock);make('summary','此刻需要的工具與白話詞彙',details);
-        make('p',n.reason,details);
+        make('p',returnPending?'往返紀錄尚未儲存，請等待儲存或重試。':n.reason,details);
         const active=U.stages.find(s=>s.layers.includes(here().replace('core-',''))||s.basics.includes(here().replace('basic-',''))||s.modules.includes(Number(here().replace('module-',''))));
         if(active){make('p',active.focus,details);const list=make('div',null,details);list.className='learning-links';for(const m of CircuitLearningMap.filter(m=>active.modules.includes(m.number)))link(list,m.title,U.route('module-'+m.number,U.validTask(origin)?origin:here()));}
         link(details,'能力地圖與詳細紀錄','map.html');link(details,'完整教材目錄','catalog.html');
@@ -89,7 +95,7 @@
     function renderHub(n){
       const hub=document.querySelector('[data-learning-hub]');hub.replaceChildren();
       make('h1','沿著同一條路學習',hub);make('p','先接續目前任務；只有需要時才打開專題。能力紀錄共用，入門練習、主線完成與正式測驗分開呈現。',hub);
-      const resume=make('section',null,hub);resume.className='learning-next';make('h2','你現在的下一步',resume);nextLink(resume);make('p',n.reason,resume);link(resume,'備份與接回學習紀錄','map.html#learning-backup');
+      const resume=make('section',null,hub);resume.className='learning-next';make('h2','你現在的下一步',resume);nextLink(resume);make('p',returnPending?'往返紀錄尚未儲存，請等待儲存或重試。':n.reason,resume);link(resume,'備份與接回學習紀錄','map.html#learning-backup');
       const label=make('label','學習起點 ',resume),select=make('select',null,label);select.id='learning-track';
       for(const[v,t]of [['auto','依已有進度接續'],['beginner','從入門補齊'],['core','直接進八層主線'],['specialize','挑選進階應用']]){const option=make('option',t,select);option.value=v;}
       select.value=U.read().track||'auto';select.addEventListener('change',()=>U.write({track:select.value}));
@@ -128,7 +134,20 @@
     }
     const requested=params.get('remediation');
     if(U.validTask(origin)&&U.categories[origin.replace('core-','')]===requested){const old=U.read().returnTask;if(!old||old.id!==origin||old.category!==requested)U.beginReturn(origin,requested);}
-    document.addEventListener('learning:remediation-passed',event=>{U.finishReturn(event.detail.category,event.detail);render();});
+    document.addEventListener('learning:remediation-passed',async event=>{
+      // write() emits a synchronous render event: mark pending before touching the ticket.
+      const wasPending=returnPending;returnPending=true;
+      if(!U.finishReturn(event.detail.category,event.detail)){returnPending=wasPending;render();return;}
+      render();
+      try{const status=await E.flush();if(status.saved)returnPending=false;}catch(_){}
+      render();
+    });
+    window.addEventListener('circuit:evidence-persistence',()=>{
+      if(returnPending&&E.storageStatus().saved){returnPending=false;render();}
+    });
+    document.addEventListener('click',event=>{
+      if(returnPending&&event.target.closest('.learning-bridge a[href]:not([download]),[data-learning-hub] a[href]:not([download])')){event.preventDefault();event.stopImmediatePropagation();}
+    },true);
     // Keep the original task while navigating deeper inside a supporting module.
     document.addEventListener('click',event=>{
       const a=event.target.closest('a[href]');if(!a||!U.validTask(origin)||a.hasAttribute('download'))return;
