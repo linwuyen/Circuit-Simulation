@@ -60,7 +60,7 @@
     <ul>
       <li><b>單級(標準)</b>:VOUT = −VREF × (D/2¹⁶),輸出與 VREF 反號;最省、最準。</li>
       <li><b>雙級(正輸出)</b>:再串一級增益 −1 反相器把它翻正,代價是多一份運放誤差與成本。</li>
-      <li>四象限:<b>VREF 正負</b> × <b>拓樸正負</b> 任意組合,輸出可正可負 —— 這是乘法 DAC 的彈性。</li>
+      <li>本頁是兩種<b>單極性碼轉移</b>，不是四象限：固定 VREF 與拓樸時，掃描 unsigned D 不會跨越零點。</li>
     </ul>
   </div>
 
@@ -69,6 +69,7 @@
     (例如 AD8676 雙包裝),且 R1 與 R2 採 <b>0.1% 或更佳</b>的精密電阻,以確保增益精準為 −1.000。
   </div>
 
+  <div class="eng"><b>適用邊界：</b>固定 VREF 下，真正的 bipolar code transfer 為 VOUT = (D/32768 − 1) × VREF：D=0 時 −VREF、中碼 32768 時 0、滿碼時 VREF − 2 VREF/65536。需要 offset summing amplifier；本頁的 −1 反相器不能代替。參考 <a href="https://www.analog.com/media/en/technical-documentation/data-sheets/ad5543_5553.pdf">AD5543/AD5553 datasheet，Bipolar Output</a>。</div>
   <div class="quiz" id="quiz"></div>
   <div id="refs"></div>
   <div id="nav-bottom"></div>
@@ -104,7 +105,7 @@ DAC.renderNav('05-polarity.html');
 render();
 document.getElementById('refs').innerHTML = DAC.readMore([
   { term: 'Unipolar Output', desc: '單級標準接法,輸出單一極性(與 VREF 反號),最省零件、最準。' },
-  { term: 'Bipolar / 4-Quadrant', desc: 'datasheet 的雙極性應用電路:配合第二級或雙極 VREF,輸出可正可負。' },
+  { term: 'Bipolar / 4-Quadrant', desc: '真正雙極性需要帶 VREF offset 的加總級，不是單純增益 −1。VOUT = (D/32768 − 1) × VREF；中碼為 0 V。本頁未模擬此拓樸。' },
   { term: 'Gain = −R2/R1', desc: '第二級反相器增益由 R2/R1 決定;要精準 −1.000 需匹配良好的精密電阻。' },
   { term: 'Op-Amp Pairing', desc: 'U2 建議與 U1 同等級(如 AD8676 雙包裝),避免第二級引入額外失調。' },
 ]);

@@ -61,7 +61,7 @@
       <div class="concept"><div class="t">〰️ 波形產生 / 縮放</div><p>VREF 餵入參考波形,連續更新數位碼即可做振幅調變(AM)、包絡控制或任意波形縮放。</p></div>
       <div class="concept"><div class="t">🎯 自動校正 / 微調源</div><p>當作高解析度的可程式電壓/增益微調(trim),取代手調可變電阻,做產線自動校正。</p></div>
       <div class="concept"><div class="t">🔧 增益微調 (Gain Trim)</div><p>串在訊號鏈中對既有增益做 ±少許百分比的精細修正,補償元件容差。</p></div>
-      <div class="concept"><div class="t">🧪 四象限相乘</div><p>VREF 與碼皆可正負 → 真正的類比相乘器,可做相位敏感偵測等運算。</p></div>
+      <div class="concept"><div class="t">🧪 四象限相乘</div><p>D 是 unsigned 0…65535，不是 signed code。需額外偏移加總級實現 (D/32768 − 1) × VREF，才能得到四象限乘法；本課模擬器未包含此級。</p></div>
     </div>
   </div>
 

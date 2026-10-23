@@ -84,7 +84,7 @@ DAC.renderNav('01-ratio.html');
 render();
 document.getElementById('refs').innerHTML = DAC.readMore([
   { term: 'Transfer Function', desc: 'datasheet 的轉移函數式,就是本課的 VOUT = −VREF × (D / 2¹⁶);先看懂這條,其餘規格都圍著它轉。' },
-  { term: 'VREF Range', desc: '參考電壓可達約 ±10 V,且可為交流訊號 —— 這是它能做「乘法/四象限」的前提。' },
+  { term: 'VREF Range', desc: '參考電壓可達約 ±10 V,且可為交流訊號 —— 標準 unsigned code 接法是二象限乘法；四象限還需偏移加總級。' },
   { term: '2- / 4-Quadrant Multiplication', desc: '單極性 VREF 是 2 象限;VREF 可正可負(或 AC)時為 4 象限相乘。' },
 ]);
 DAC.quiz('quiz', [
@@ -99,7 +99,7 @@ DAC.quiz('quiz', [
   { q: '為什麼它被叫做「乘法 (multiplying) DAC」?',
     options: ['因為要用乘法器晶片','因為輸出是兩個數位碼相乘','因為輸出 = 比例 × VREF,VREF 可變甚至可為交流','因為價格是別人的兩倍'],
     answer: 2,
-    explain: '輸出正比於 VREF 與 D 的乘積,VREF 可正可負、可為交流訊號,所以能做四象限相乘。' },
+    explain: '輸出正比於 VREF 與 D 的乘積,VREF 可正可負、可為交流訊號,但 unsigned D 不會變負；四象限還需要偏移加總級。' },
   { q: 'VREF 不變,把數位碼從 0x4000 加倍到 0x8000,VOUT 會?',
     options: ['不變','大約變兩倍','變一半','反相'],
     answer: 1,
