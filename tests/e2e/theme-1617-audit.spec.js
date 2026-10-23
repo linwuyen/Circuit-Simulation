@@ -56,8 +56,7 @@ function asUrlPath(ref) {
 
 const pages = [...new Set([...shellPages, ...formalCurriculumPages()])];
 
-async function waitForAuditReady(page, { shell = false, reference = false, timeout = 12000 } = {}) {
-  await page.waitForFunction(({ shell, reference }) => {
+function auditDocumentReady({ shell = false, reference = false } = {}) {
     // goto(DOMContentLoaded) may belong to a zero-delay meta-refresh launcher.
     // Do not sample that document or its still-initializing destination.
     if (document.readyState === 'loading' || document.querySelector('meta[http-equiv="refresh" i]')) return false;
@@ -71,10 +70,23 @@ async function waitForAuditReady(page, { shell = false, reference = false, timeo
     };
     // Shell pages import the sheet via learning-v3.css; lessons inject it after
     // async tutor dependencies. The class alone precedes CSS loading.
-    return (shell ? Boolean(document.querySelector('#app main')) : document.body.classList.contains('cl-theme-1617'))
+    const themed = (shell ? Boolean(document.querySelector('#app main')) : document.body.classList.contains('cl-theme-1617'))
       && [...document.styleSheets].some(themeLoaded)
       && Boolean(getComputedStyle(document.documentElement).getPropertyValue('--ui-bg').trim());
-  }, { shell, reference }, { timeout });
+    if (!themed) return false;
+    // Applying the loaded compatibility sheet can start a legacy fill/background
+    // transition. Sample its endpoint, not an intermediate pale interpolation.
+    // getAnimations flushes style and discovers transitions started by this sheet;
+    // do not wait for unrelated perpetual teaching animations or for dark colors.
+    const paletteProperties = new Set(['fill', 'stroke', 'background-color', 'color', 'opacity']);
+    return !document.getAnimations().some(animation => animation instanceof CSSTransition
+      && paletteProperties.has(animation.transitionProperty)
+      && Number.isFinite(animation.effect.getComputedTiming().endTime)
+      && animation.playState !== 'finished' && animation.playState !== 'idle');
+}
+
+async function waitForAuditReady(page, { shell = false, reference = false, timeout = 12000 } = {}) {
+  await page.waitForFunction(auditDocumentReady, { shell, reference }, { timeout });
 }
 
 
@@ -99,6 +111,38 @@ test.describe('Module 0-15 visual language audit', () => {
     expect(ready, `Final target card background at sampling: ${cardBackground}`).toEqual({ themed: true, stylesheet: '#07101d' });
     expect(delayed.some(url => url.endsWith('/tutor.js'))).toBe(true);
     expect(delayed.some(url => url.endsWith('/theme-1617.css'))).toBe(true);
+  });
+
+  test('readiness waits for palette transitions but does not hide a pale endpoint', async ({ page }) => {
+    await page.goto('/7.28388d_bms_tutorial/08_failsafe.html', { waitUntil: 'domcontentloaded' });
+    await waitForAuditReady(page);
+    await page.evaluate(async () => {
+      await Promise.all(document.getAnimations().filter(a => a instanceof CSSTransition).map(a => a.finished));
+      const rect=document.querySelector('.fsm-svg .node rect');
+      rect.style.setProperty('transition','none','important');
+      rect.style.setProperty('fill','rgb(255, 255, 255)','important');
+      getComputedStyle(rect).fill;
+      rect.style.setProperty('transition','fill 10s linear','important');
+      rect.style.setProperty('fill','rgb(17, 26, 40)','important');
+      getComputedStyle(rect).fill;
+      const transition=rect.getAnimations().find(a=>a instanceof CSSTransition&&a.transitionProperty==='fill');
+      if(!transition)throw Error('Palette transition fixture did not start');
+      transition.pause();transition.currentTime=100;
+      window.auditPaletteTransition=transition;
+    });
+    expect(await page.evaluate(auditDocumentReady, {})).toBe(false);
+    await page.evaluate(()=>auditPaletteTransition.finish());
+    await waitForAuditReady(page);
+    await expect(page.locator('.fsm-svg .node rect').first()).toHaveCSS('fill','rgb(17, 26, 40)');
+    // Readiness must not disguise a genuinely wrong settled color by waiting
+    // for a dark pixel. The unchanged pale-surface audit must still inspect it.
+    await page.evaluate(()=>{
+      const rect=document.querySelector('.fsm-svg .node rect');
+      rect.style.setProperty('transition','none','important');
+      rect.style.setProperty('fill','rgb(255, 255, 255)','important');
+    });
+    await waitForAuditReady(page);
+    await expect(page.locator('.fsm-svg .node rect').first()).toHaveCSS('fill','rgb(255, 255, 255)');
   });
 
   test('readiness fails closed when the compatibility stylesheet is missing', async ({ page }) => {
