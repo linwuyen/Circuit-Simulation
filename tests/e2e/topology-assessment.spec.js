@@ -10,6 +10,8 @@ test('four application families use canonical quiz history, reload and native re
  const family='topology-pfc-scaling';
  await page.locator(`[data-family="${family}"][data-option="correct"]`).click();
  await page.locator(`[data-family="${family}"][data-option="wrong-0"]`).click();
+ await expect(page.locator(`[data-family-id="${family}"] .quiz-result`)).toContainText("可能迷思");
+ await expect(page.locator(`[data-family="${family}"][data-option="correct"]`)).toBeEnabled();
  await page.reload();
  expect(await page.evaluate(id=>CircuitEvidence.load().questions[id].history.filter(h=>h.assessmentRole==='transfer')[0].correct,family)).toBe(false);
  await page.locator(`[data-family="${family}"][data-option="correct"]`).click();

@@ -24,7 +24,7 @@ test('eight experiments use one circuit, carry settings and preserve separate pr
 test('wrong attempts cannot unlock proof, reload retains first attempts and legacy evidence',async({page})=>{
  await page.evaluate(async ()=>{const s=CircuitEvidence.load();s.benchmark.beginnerLessons={version:1,rows:{duty:{first:{answer:'down',correct:false},transferPassed:true}}};CircuitEvidence.save(s);if(!(await CircuitEvidence.flush()).saved)throw Error("Fixture evidence not committed");});
  await answer(page,'down');await expect(page.locator('#workspace-submit')).toBeDisabled();await page.locator('#experiment-run').click();await answer(page,'same');await expect(page.locator('#ws-steps button').nth(2)).toBeDisabled();
- await answer(page,'up');await answer(page,'other');await expect(page.locator('#ws-steps button').nth(3)).toBeDisabled();await page.reload();
+ await answer(page,'up');await answer(page,'other');await expect(page.locator('#ws-feedback')).toContainText('這個判斷還不能解釋結果');await expect(page.locator('#workspace-submit')).toBeEnabled();await expect(page.locator('#ws-steps button').nth(3)).toBeDisabled();await page.reload();
  const s=await page.evaluate(()=>CircuitEvidence.load().benchmark);
  expect(s.learningWorkspace.experiment.rows.energy.first.correct).toBe(false);expect(s.learningWorkspace.experiment.rows.energy.observationFirst.correct).toBe(false);expect(s.learningWorkspace.experiment.rows.energy.reasonFirst.correct).toBe(false);
  expect(s.beginnerLessons.rows.duty.first.answer).toBe('down');await page.goto('/#experiment-protection');await expect(page.locator('#ws-title')).toContainText('開久一點');

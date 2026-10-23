@@ -47,6 +47,7 @@ test('targeted unit remediation preserves the wrong first attempt after transfer
   await page.locator('#tr-answer-controls input').fill('1'); await page.locator('#tr-answer').click();
   await expect(page.locator('#tr-feedback')).toContainText('單位換算');
   await page.locator('#tr-mini').click();
+  await expect(page.locator('#tr-transfer-answer')).toBeEnabled();
   const prompt = await page.locator('#tr-transfer-question').innerText();
   const uh = Number(prompt.match(/([\d.]+) µH/)[1]);
   await page.locator('#tr-transfer-controls input').fill(String(uh * 1e-6));

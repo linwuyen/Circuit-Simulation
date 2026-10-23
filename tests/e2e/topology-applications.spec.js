@@ -14,7 +14,7 @@ test('all four applications operate the original controls and preserve separate 
 });
 test('first wrong answers survive refresh; native edits require an explicit setup before operation',async({page})=>{
  await expect(page.locator('#application-submit')).toBeDisabled();await page.locator('#application-prepare').click();await answer(page,'higher');await page.locator('#pfcC').fill('1500');await expect(page.locator('#application-run')).toBeDisabled();await expect(page.locator('#application-live-state')).toContainText('其他設定');
- await page.locator('#application-prepare').click();await page.locator('#application-run').click();await answer(page,'higher');await expect(page.locator('.application-steps button').nth(2)).toBeDisabled();await answer(page,'lower');await answer(page,'other');await page.reload();
+ await page.locator('#application-prepare').click();await page.locator('#application-run').click();await answer(page,'higher');await expect(page.locator('.application-steps button').nth(2)).toBeDisabled();await answer(page,'lower');await answer(page,'other');await expect(page.locator('#application-status')).toContainText('首次判斷會保留');await expect(page.locator('#application-submit')).toBeEnabled();await page.reload();
  const r=await page.evaluate(()=>CircuitEvidence.load().benchmark.learningWorkspace.topologyApplications.rows.pfc);expect(r.first.correct).toBe(false);expect(r.observationFirst.correct).toBe(false);expect(r.reasonFirst.correct).toBe(false);expect(r.reasonPassed).toBeUndefined();
  await expect(page.locator('#application-live-state')).toContainText('其他設定');await expect(page.locator('#application-comparison')).toBeVisible();await answer(page,'reason');await expect(page.locator('#application-next')).toBeVisible();
 });

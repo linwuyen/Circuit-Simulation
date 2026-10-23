@@ -28,7 +28,21 @@
  document.querySelectorAll('[data-case],[data-control]').forEach(input=>input.addEventListener('change',()=>{try{if(!input.value.trim())throw new Error('請填寫完整數值');const nextModel=input.dataset.case?B.buckConfig({...model,[input.dataset.case]:Number(input.value)}):model;const nextControl=input.dataset.control?{...control,[input.dataset.control]:Number(input.value)}:control;CircuitSharedCase.views(nextModel,nextControl);previous=CircuitSharedCase.views(model,control);changed=[input.closest("label").childNodes[0].textContent.trim()];model=nextModel;control=nextControl;render();$('case-storage').textContent='設定已更新所有視圖；跨頁前請保存共用設定。';}catch(e){$('case-storage').textContent=e.message;input.value=input.dataset.case?model[input.dataset.case]:control[input.dataset.control];}}));
  const tabs=[...document.querySelectorAll('[data-view]')];function activate(tab){tabs.forEach(b=>{b.setAttribute('aria-selected',String(b===tab));b.tabIndex=b===tab?0:-1;document.getElementById('view-'+b.dataset.view).hidden=b!==tab;});}
  tabs.forEach((b,i)=>{b.addEventListener('click',()=>activate(b));b.addEventListener('keydown',e=>{let next;if(e.key==='ArrowRight')next=(i+1)%tabs.length;if(e.key==='ArrowLeft')next=(i+tabs.length-1)%tabs.length;if(e.key==='Home')next=0;if(e.key==='End')next=tabs.length-1;if(next!==undefined){e.preventDefault();activate(tabs[next]);tabs[next].focus();}});});activate(tabs[0]);
- $('case-save').onclick=()=>{U.saveScenario(model,'case');$('case-storage').textContent=CircuitEvidence.storageStatus().saved?'已保存，進階量測頁可預覽後套用。':'瀏覽器無法寫入，請從學習總覽下載備份。';};
+ let publishing=false;
+ $('case-save').parentElement.querySelector('a').addEventListener('click',event=>{if(publishing)event.preventDefault();});
+ $('case-save').onclick=async()=>{
+  const controls=[...document.querySelectorAll('[data-case],[data-control],#case-save,#case-load-saved')],disabled=controls.map(n=>n.disabled);
+  const restore=()=>{publishing=false;controls.forEach((n,i)=>n.disabled=disabled[i]);};
+  const accepted=()=>{restore();$('case-storage').textContent='已保存，進階量測頁可預覽後套用。';};
+  try{
+   publishing=true;controls.forEach(n=>n.disabled=true);U.saveScenario(model,'case');$('case-storage').textContent='尚未儲存；請等待共用設定提交後再跨頁。';
+   const status=await CircuitEvidence.flush();
+   if(status.saved){accepted();return;}
+   $('case-storage').textContent='尚未儲存（'+(status.reason||'pending')+'）；請重試或匯出完整備份，暫勿跨頁。';
+   const recover=event=>{if(!event.detail.saved)return;window.removeEventListener('circuit:evidence-persistence',recover);accepted();};
+   window.addEventListener('circuit:evidence-persistence',recover);
+  }catch(error){restore();$('case-storage').textContent='尚未儲存：'+error.message;}
+ };
  $('case-load-saved').onclick=()=>{try{const incoming=U.validateScenario(U.read().scenarios?.['buck-steady-v1']).model;previous=CircuitSharedCase.views(model,control);changed=Object.keys(model).filter(k=>model[k]!==incoming[k]);model=incoming;apply();$('case-storage').textContent='已套用同模型設定；目前控制器參數保持本頁設定。';}catch(e){$('case-storage').textContent=e.message;}};
  render();
 })();

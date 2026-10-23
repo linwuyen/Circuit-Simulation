@@ -25,3 +25,8 @@ test('parameter durability message cannot claim saved while lock is held',async(
  await expect(page.locator('#tr-replay-status')).not.toContainText('已保存參數');
  await page.evaluate(()=>releaseAuditLock());await expect(page.locator('#tr-replay-status')).toContainText('已保存參數操作');
 });
+test('mini experiment reveals transfer prompt only after its record is durable',async({page})=>{
+ await setup(page);await page.fill('#tr-answer-controls input','1');await page.click('#tr-answer');await expect(page.locator('#tr-mini')).toBeEnabled();
+ await hold(page);await page.click('#tr-mini');await expect(page.locator('#tr-mini-result')).toContainText('尚未接受');await expect(page.locator('#tr-transfer-question')).toBeEmpty();await expect(page.locator('#tr-transfer-answer')).toBeDisabled();
+ await page.evaluate(()=>releaseAuditLock());await expect(page.locator('#tr-transfer-answer')).toBeEnabled();await expect(page.locator('#tr-transfer-question')).toContainText('µH');
+});

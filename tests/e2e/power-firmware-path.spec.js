@@ -1,3 +1,4 @@
+const {machineCount,waitForMachineEvidence}=require('./machine-evidence-ready');
 const { resetEvidence } = require('./evidence-fixture');
 const { test, expect } = require('@playwright/test');
 
@@ -22,8 +23,9 @@ test('PWM ADC timing lab records independently verified same-cycle timing', asyn
   await expect(page.locator('.clt-root')).toBeAttached();
   await expect(page.locator('#sync-period')).toContainText('10000 ns');
   await expect(page.locator('#sync-margin')).toContainText('2950 ns');
+  const beforeMachine=await machineCount(page,'power-sync.lab.timing');
   await page.locator('#sync-control').fill('1100');
-  await page.waitForTimeout(700);
+  await waitForMachineEvidence(page,'power-sync.lab.timing',beforeMachine,{"controlNs": 1100});
   await expect(page.locator('#sync-margin')).toContainText('2850 ns');
   const event=await page.evaluate(()=>{const s=JSON.parse(localStorage.getItem('circuit-learning-state-v5')||'{}');const m=s.evidence&&s.evidence['power-sync.lab.timing']&&s.evidence['power-sync.lab.timing'].machine||[];return m.find(x=>x.verification&&x.verification.oracleVersion==='power-fw-1.0');});
   expect(event).toBeTruthy();expect(event.verification.passed).toBe(true);expect(event.verification.independentValidated).toBe(true);expect(event.verification.observableContract.labId).toBe('power-sync.lab.timing');
@@ -34,8 +36,9 @@ test('protection latency lab proves hardware path against independent reference'
   await expect(page.locator('.clt-root')).toBeAttached();
   await expect(page.locator('#prot-hw')).toContainText('400 ns');
   await expect(page.locator('#prot-sw')).toContainText('5000 ns');
+  const beforeMachine=await machineCount(page,'protection.lab.trip-latency');
   await page.locator('#prot-filter').fill('220');
-  await page.waitForTimeout(700);
+  await waitForMachineEvidence(page,'protection.lab.trip-latency',beforeMachine,{"filterNs": 220});
   await expect(page.locator('#prot-hw')).toContainText('420 ns');
   const pass=await page.evaluate(()=>{const s=JSON.parse(localStorage.getItem('circuit-learning-state-v5')||'{}');const m=s.evidence&&s.evidence['protection.lab.trip-latency']&&s.evidence['protection.lab.trip-latency'].machine||[];return m.some(x=>x.verification&&x.verification.passed&&x.verification.independentValidated);});
   expect(pass).toBe(true);
@@ -46,8 +49,9 @@ test('capstone budget keeps background work outside serial critical path', async
   await expect(page.locator('.clt-root')).toBeAttached();
   await expect(page.locator('#cap-critical')).toContainText('4.00 us');
   await expect(page.locator('#cap-margin')).toContainText('6.00 us');
+  const beforeMachine=await machineCount(page,'power-capstone.lab.integration-budget');
   await page.locator('#cap-background').fill('7');
-  await page.waitForTimeout(700);
+  await waitForMachineEvidence(page,'power-capstone.lab.integration-budget',beforeMachine,{"backgroundUs": 7});
   await expect(page.locator('#cap-critical')).toContainText('4.00 us');
   const pass=await page.evaluate(()=>{const s=JSON.parse(localStorage.getItem('circuit-learning-state-v5')||'{}');const m=s.evidence&&s.evidence['power-capstone.lab.integration-budget']&&s.evidence['power-capstone.lab.integration-budget'].machine||[];return m.some(x=>x.verification&&x.verification.passed);});
   expect(pass).toBe(true);

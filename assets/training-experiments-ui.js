@@ -3,7 +3,7 @@
   const Core = globalThis.CircuitTrainingExperiments, Records = globalThis.CircuitTrainingRecords;
   if (!Core || !Records || !document.getElementById("training-workbench")) return;
   const $ = id => document.getElementById(id), text = (id, value) => { $(id).textContent = value; };
-  let experiment = Core.createExperiment({}, {}), started = Date.now();
+  let experiment = Core.createExperiment({}, {}), started = Date.now(), importInFlight = false;
   let question, transfer, first = null, miniDone = false, transferred = false, remediationId, remediationSaving = false;
   const fmt = (value, digits = 3) => Number(value).toFixed(digits);
   function safe(action, target = "tr-replay-status") {
@@ -112,9 +112,11 @@
   $("tr-export").onclick = () => Records.download("circuit-experiment.json", experiment);
   $("tr-replay").onclick = () => safe(() => { experiment = Core.validateExperiment(experiment).record; render(); text("tr-replay-status", `已依序重播 ${experiment.actions.length} 個操作，重新計算三組波形。`); });
   $("tr-import").onchange = async event => {
+    if (importInFlight) return;
+    const disabled = event.target.disabled; event.target.disabled = true; importInFlight = true;
     try { experiment = Core.validateExperiment(await Records.readFile(event.target.files[0])).record; experiment.id = `import-${Date.now()}`; render(); save(); await durableStatus("tr-replay-status", "匯入完成；波形與數值已重新計算。"); }
     catch (error) { text("tr-replay-status", error.message); }
-    event.target.value = "";
+    event.target.value = ""; event.target.disabled = disabled; importInFlight = false;
   };
   function answerControls(id, q) {
     const target = $(id); target.replaceChildren();
@@ -213,6 +215,7 @@
   } catch (_) { /* A damaged optional experiment must not hide the lesson. */ }
   render(); newQuestion();
   function installSharedSettings() {
+    let publishing=false;
     const U=globalThis.CircuitUnifiedLearning;
     if(!U||document.getElementById('shared-settings'))return;
     const panel=document.createElement('section');panel.id='shared-settings';panel.className='card';
@@ -220,9 +223,22 @@
     const note=document.createElement('p');note.textContent='只共用下方固定導通比例的 Buck 穩態模型。套用會另開一份實驗；上方閉環故障機器與既有紀錄不受影響。';
     const preview=document.createElement('p'),status=document.createElement('p');status.setAttribute('role','status');
     function describe(){try{const s=U.validateScenario(U.read().scenarios?.['buck-steady-v1']);preview.textContent=`待套用：Vin ${s.model.vin} V、導通比例 ${s.model.duty}、L ${s.model.inductanceUh} µH、頻率 ${s.model.fswKhz} kHz、負載 ${s.model.loadOhm} Ω、C ${s.model.capacitanceUf} µF、ESR ${s.model.esrOhm} Ω。`;}catch(_){preview.textContent='尚無可套用的同模型設定。';}}
-    const publish=document.createElement('button');publish.type='button';publish.textContent='保存目前電路為共用設定';publish.onclick=()=>safe(()=>{U.saveScenario(Core.replay(experiment).model,'sandbox');describe();status.textContent=globalThis.CircuitEvidence.storageStatus().saved?'已保存，可在同一案例頁套用。':'暫存於記憶體，離開前請下載備份。';});
+    const publish=document.createElement('button');publish.type='button';publish.textContent='保存目前電路為共用設定';publish.onclick=async()=>{
+      if(importInFlight){status.textContent='匯入尚未完成；請等待後再保存共用設定。';return;}
+      const controls=[publish,apply,...document.querySelectorAll('[data-model],#tr-import')],disabled=controls.map(n=>n.disabled);
+      const restore=()=>{publishing=false;controls.forEach((n,i)=>n.disabled=disabled[i]);};
+      const accepted=()=>{restore();describe();status.textContent='已保存，可在同一案例頁套用。';};
+      try{
+        publishing=true;controls.forEach(n=>n.disabled=true);U.saveScenario(Core.replay(experiment).model,'sandbox');describe();status.textContent='尚未儲存；請等待共用設定提交後再跨頁。';
+        const saved=await globalThis.CircuitEvidence.flush();
+        if(saved.saved){accepted();return;}
+        status.textContent='尚未儲存（'+(saved.reason||'pending')+'）；請重試或匯出完整備份，暫勿跨頁。';
+        const recover=event=>{if(!event.detail.saved)return;window.removeEventListener('circuit:evidence-persistence',recover);accepted();};
+        window.addEventListener('circuit:evidence-persistence',recover);
+      }catch(error){restore();status.textContent='尚未儲存：'+error.message;}
+    };
     const apply=document.createElement('button');apply.type='button';apply.textContent='套用上述設定，另開實驗';apply.onclick=()=>{try{const shared=U.validateScenario(U.read().scenarios?.['buck-steady-v1']);experiment=Core.createExperiment(shared.model,{});render();save();status.textContent='已開啟同模型新實驗，量測設定恢復預設。';}catch(e){status.textContent=e.message;}};
-    const a=document.createElement('a');a.href='../learning-case.html';a.textContent='同一案例：電路／量測／時序／控制';
+    const a=document.createElement('a');a.href='../learning-case.html';a.textContent='同一案例：電路／量測／時序／控制';a.addEventListener('click',event=>{if(publishing)event.preventDefault();});
     panel.append(title,note,preview,publish,apply,a,status);document.getElementById('boundary-lab').before(panel);describe();window.addEventListener('learning:unified-change',describe);
   }
   document.addEventListener('learning:bridge-ready',installSharedSettings);installSharedSettings();
