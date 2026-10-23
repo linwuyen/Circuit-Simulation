@@ -6,15 +6,18 @@
  W.mountExperiment=()=>{
   const $=id=>document.getElementById(id),lessons=W.experimentLessons();
   const el=(tag,text,parent)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(parent)parent.append(n);return n;};
+  let expectedRecord=JSON.stringify(E.load().benchmark.learningWorkspace?.experiment);
+  let blocked=false;
   function protectRecord(){
    const stored=E.load().benchmark.learningWorkspace?.experiment;
-   if(!stored||stored.version===1)return false;
+   if(!blocked&&(!stored||stored.version===1)&&JSON.stringify(stored)===expectedRecord)return false;
+   blocked=true;
    if(!$('experiment-record-protection')){
     const main=document.querySelector('main');main.hidden=true;
     document.querySelectorAll('button').forEach(button=>button.disabled=true);
     const notice=el('section');notice.id='experiment-record-protection';notice.className='context-note';notice.setAttribute('role','status');
     el('h1','先保留你的學習紀錄',notice);
-    el('p','這份練習紀錄使用目前頁面無法讀取的版本。練習已暫停，原有紀錄沒有被覆蓋。請先到學習紀錄頁下載備份。',notice);
+    el('p','紀錄已被另一頁更新，或使用目前頁面無法讀取的版本。練習已暫停，原有紀錄沒有被覆蓋。請先到學習紀錄頁下載備份。',notice);
     const link=el('a','查看學習紀錄與下載備份',notice);link.href='map.html';
     main.before(notice);
    }
@@ -53,7 +56,7 @@
   function save(){
    if(protectRecord())return false;
    session.rows[id]=record;session.currentLesson=id;session.completed=lessons.every(l=>proven(l.id));
-   const state=E.load();state.benchmark.learningWorkspace={...(state.benchmark.learningWorkspace||{version:1,history:[]}),experiment:session};E.save(state);
+   const state=E.load();state.benchmark.learningWorkspace={...(state.benchmark.learningWorkspace||{version:1,history:[]}),experiment:session};E.save(state);expectedRecord=JSON.stringify(session);
    $('ws-save').textContent=E.storageStatus().saved?'電路條件、首次判斷與試驗紀錄已儲存。':'目前只能暫存，請下載學習備份。';progress();recommendation();return true;
   }
   function retain(kind,result){session.history=[...session.history,{at:new Date().toISOString(),lesson:id,kind,modelId:'generic-power-causal-kernel',modelVersion:CircuitEngineeringSandboxCore.version,config:result.config,summary:result.summary}].slice(-32);}

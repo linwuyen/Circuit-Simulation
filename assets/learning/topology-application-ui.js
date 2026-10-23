@@ -11,16 +11,17 @@
   const content=el('div',undefined,panel),status=el('p',undefined,panel);status.id='application-status';status.setAttribute('role','status');
   const back=el('a','返回降壓／升壓比較',panel);back.href='../index.html#topology';
   const lessons=W.applicationLessons();let session,id,record,plan,shown=0,applying=false,blocked=false;
+  let expectedRecord=JSON.stringify(E.load().benchmark.learningWorkspace?.topologyApplications);
   function protectRecord(){
    const stored=E.load().benchmark.learningWorkspace?.topologyApplications;
-   if(!blocked&&(!stored||stored.version===1))return false;
+   if(!blocked&&(!stored||stored.version===1)&&JSON.stringify(stored)===expectedRecord)return false;
    blocked=true;nav.hidden=true;content.hidden=true;progress.hidden=true;
    document.querySelectorAll('.application-return').forEach(button=>button.disabled=true);
-   status.setAttribute('data-record-protection','');status.textContent='這份電路練習紀錄的版本目前無法讀取。練習已暫停，原有紀錄保留；下方原電路工具仍可操作。';
+   status.setAttribute('data-record-protection','');status.textContent='電路練習紀錄已被另一頁更新，或版本目前無法讀取。練習已暫停，原有紀錄保留；下方原電路工具仍可操作。';
    el('a',' 查看學習紀錄與下載備份',status).href='../map.html';return true;
   }
   window.addEventListener('storage',protectRecord);
-  function save(){if(protectRecord())return false;const changed=location.hash!=='#guided-applications',target=new URL(location.href);target.searchParams.set('lesson',id);target.hash='guided-applications';history.replaceState(null,'',target.href);if(changed)dispatchEvent(new HashChangeEvent('hashchange'));session.completed=lessons.every(l=>W.applicationProof(session.rows[l.id]));session.currentLesson=id;const s=E.load();s.benchmark.learningWorkspace||={version:1};s.benchmark.learningWorkspace.topologyApplications=session;E.save(s);return true;}
+  function save(){if(protectRecord())return false;const changed=location.hash!=='#guided-applications',target=new URL(location.href);target.searchParams.set('lesson',id);target.hash='guided-applications';history.replaceState(null,'',target.href);if(changed)dispatchEvent(new HashChangeEvent('hashchange'));session.completed=lessons.every(l=>W.applicationProof(session.rows[l.id]));session.currentLesson=id;const s=E.load();s.benchmark.learningWorkspace||={version:1};s.benchmark.learningWorkspace.topologyApplications=session;E.save(s);expectedRecord=JSON.stringify(session);return true;}
   function stage(){return W.applicationProof(record)?3:!record.first?0:!record.operated||!record.observationPassed?1:2;}
   function value(id){const n=$(id);return n.tagName==='SELECT'?n.value:Number(n.value);}
   function matches(values){return Object.entries(values).every(([id,v])=>typeof v==='number'?Math.abs(value(id)-v)<1e-8:value(id)===v);}

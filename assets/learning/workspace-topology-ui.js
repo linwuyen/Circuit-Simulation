@@ -18,17 +18,18 @@
   const contracts=el('details',undefined,$('surface-help'));el('summary','模型來源與適用範圍',contracts);
   const steps=CircuitEngineeringCurriculum.topologySteps;
   let session,comparison,shown=0,blocked=false;
+  let expectedRecord=JSON.stringify(E.load().benchmark.learningWorkspace?.topologyTransfer);
   function protectRecord(){
    const stored=E.load().benchmark.learningWorkspace?.topologyTransfer;
-   if(!blocked&&(!stored||stored.version===1))return false;
+   if(!blocked&&(!stored||stored.version===1)&&JSON.stringify(stored)===expectedRecord)return false;
    blocked=true;run.hidden=true;$('ws-steps').hidden=true;$('ws-result').hidden=true;
    const notice=$('ws-question');notice.replaceChildren();notice.setAttribute('data-record-protection','');notice.setAttribute('role','status');
-   el('p','這份比較紀錄的版本目前無法讀取。練習已暫停，原有紀錄保留；請先下載備份。',notice);
+   el('p','比較紀錄已被另一頁更新，或版本目前無法讀取。練習已暫停，原有紀錄保留；請先下載備份。',notice);
    el('a','查看學習紀錄與下載備份',notice).href='map.html';$('ws-save').textContent='未覆蓋已有紀錄。';return true;
   }
   window.addEventListener('storage',protectRecord);
   const stage=()=>W.topologyProof(session)?4:!session.rows.prediction?.first?0:!session.operated||!session.rows.observation?.passed?1:!session.rows.reason?.passed?2:3;
-  function save(){if(protectRecord())return false;session.models=['buck-ccm-control-output-esr','boost-ccm-control-output'].map(id=>({id,version:CircuitModelRegistry.describe(id).version}));session.completed=W.topologyProof(session);const s=E.load();s.benchmark.learningWorkspace||={version:1};s.benchmark.learningWorkspace.topologyTransfer=session;E.save(s);$('ws-save').textContent=E.storageStatus().saved?'比較條件與首次判斷已保存在這個瀏覽器。':'目前只能暫存，離開前請下載學習備份。';return true;}
+  function save(){if(protectRecord())return false;session.models=['buck-ccm-control-output-esr','boost-ccm-control-output'].map(id=>({id,version:CircuitModelRegistry.describe(id).version}));session.completed=W.topologyProof(session);const s=E.load();s.benchmark.learningWorkspace||={version:1};s.benchmark.learningWorkspace.topologyTransfer=session;E.save(s);expectedRecord=JSON.stringify(session);$('ws-save').textContent=E.storageStatus().saved?'比較條件與首次判斷已保存在這個瀏覽器。':'目前只能暫存，離開前請下載學習備份。';return true;}
   function draw(){
    const reveal=session.operated,fmt=n=>n.toFixed(2),p=session.params;
    conditions.textContent=`輸入 ${p.vin} V · 電感 ${(p.inductanceH*1e6).toFixed(0)} µH · 電容 ${(p.capacitanceF*1e6).toFixed(0)} µF · 負載 ${p.loadOhm} Ω · 開關 ${(p.switchingHz/1000).toFixed(0)} kHz · 忽略損耗`;

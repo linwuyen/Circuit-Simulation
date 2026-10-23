@@ -28,3 +28,15 @@ test('an open experiment cannot overwrite an unsupported record saved later',asy
  expect(await page.evaluate(()=>CircuitEvidence.load().benchmark.learningWorkspace.experiment)).toEqual(future);
  await expect(page.locator('#experiment-record-protection')).toBeVisible();
 });
+for(const [route,key,notice] of [
+ ['/index.html#experiment-energy','experiment','#experiment-record-protection'],
+ ['/index.html#topology','topologyTransfer','[data-record-protection]'],
+ ['/17_power_topology_control/index.html#guided-applications','topologyApplications','[data-record-protection]']
+]) test(`same-version cross-tab ${key} evidence cannot be overwritten`,async({page,context})=>{
+ await page.goto(route); await page.waitForFunction(()=>!!window.CircuitEvidence);
+ await page.waitForTimeout(300);
+ const other=await context.newPage();await other.goto('/map.html');await other.waitForSelector('#workspace-learning-records');
+ const newer=await other.evaluate(key=>{const e=CircuitEvidence.load();const prior=e.benchmark.learningWorkspace?.[key]||{version:1,rows:{}};const updated={...prior,externalMarker:'preserve first answer from other tab'};e.benchmark.learningWorkspace||={version:1};e.benchmark.learningWorkspace[key]=updated;CircuitEvidence.save(e);return updated;},key);
+ await expect(page.locator(notice).first()).toBeVisible();
+ expect(await page.evaluate(key=>CircuitEvidence.load().benchmark.learningWorkspace[key],key)).toEqual(newer);
+});
