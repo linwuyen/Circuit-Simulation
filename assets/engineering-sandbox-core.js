@@ -114,7 +114,7 @@
       for(let s=0;s<substeps;s++){
         const t0=s*dtUs,t1=(s+1)*dtUs,abs=cycleStart+t0;
         if(tripDueAbs!==null&&abs>=tripDueAbs&&state.state!=="FAULT"){
-          state.fault=true;state.state="FAULT";appliedDuty=0;events.push({tUs:tripDueAbs,type:"TRIP_ACTUATE",cycle:k});tripDueAbs=null;
+          state.fault=true;state.state="FAULT";appliedDuty=0;events.push({tUs:abs,requestedTUs:tripDueAbs,type:"TRIP_ACTUATE",cycle:k});tripDueAbs=null;
         }
         const gate=state.state==="RUN"&&!state.fault&&t0<appliedDuty*T;
         const vL=(gate?(c.vin-vOut):(-vOut))-iL*Math.max(0,finite(c.inductorDcrOhm,0));
@@ -124,7 +124,9 @@
         const di=vL/effectiveL,dv=(iL-vOut/load)/C;
         iL=Math.max(0,iL+di*dt);vOut=Math.max(0,vOut+dv*dt);peakIThis=Math.max(peakIThis,iL);
         if(k===c.detailCycle)waveform.push({tUs:cycleStart+t1,phaseUs:t1,iL,vOut,gate,vL,diDtAperS:di});
-        if(iL>=c.tripCurrent&&tripDueAbs===null&&state.state==="RUN"&&!state.fault){tripDueAbs=abs+c.tripLatencyUs;events.push({tUs:abs,type:"TRIP_DETECT",cycle:k});}
+        // Detection uses the integrated end-of-step sample; actuation is quantized
+        // to the next integration boundary, not backdated to its requested deadline.
+        if(iL>=c.tripCurrent&&tripDueAbs===null&&state.state==="RUN"&&!state.fault){tripDueAbs=cycleStart+t1+Math.max(0,c.tripLatencyUs);events.push({tUs:cycleStart+t1,type:"TRIP_DETECT",cycle:k});}
         if(iL>=c.tripCurrent&&state.state==="RUN"&&!state.fault)faultEnergy+=iL*iL*dt;
         if(!sampleCaptured&&t1>=sampleAt){
           const edgeDistance=Math.min(Math.abs(sampleAt),Math.abs(sampleAt-pwmEdge),Math.abs(T-sampleAt));
