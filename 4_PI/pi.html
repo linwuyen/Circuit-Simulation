@@ -239,7 +239,7 @@
             // 60Hz 低頻追隨能力（直接算，不依賴取樣點剛好落在 60Hz）
             const lowFreqGain = bodePoint(60, kp, ki).Lg;
 
-            // 交越頻率：取「最低頻」那次往下穿越 0dB（諧振峰可能造成多次穿越，主頻寬看第一次）
+            // 暫存第一個向下交越；下方若發現多重交越，撤銷單一 PM / 頻寬判定。
             let fc = 0, pm = 0, pcAtFc = null, hasCross = false;
             for (let i = 1; i < freqs.length; i++) {
                 if (Lg[i - 1] > 0 && Lg[i] <= 0) {
@@ -255,7 +255,11 @@
             }
 
             // 增益裕度 GM：相位第一次穿越 -180° 處，0dB 還差多少（諧振峰是否安全的量化）
-            let gm = Infinity, fGm = 0, gmFinite = false;
+            // Applicability: report a scalar PM only for a single crossing in this scan.
+    let crossingCount=0;
+    for(let i=0;i<Lg.length;i++) if(Lg[i]===0 || (i>0 && Lg[i-1]*Lg[i]<0)) crossingCount++;
+    if(crossingCount!==1){hasCross=false;fc=null;pm=null;pcAtFc=null;}
+    let gm = Infinity, fGm = 0, gmFinite = false;
             for (let i = 1; i < freqs.length; i++) {
                 if (Lp[i - 1] > -180 && Lp[i] <= -180) {
                     const r = (Lp[i - 1] + 180) / (Lp[i - 1] - Lp[i]);
@@ -269,14 +273,15 @@
 
             return {
                 Lg, Cg, Pg, Lp, Cp, Pp,
-                metrics: { hasCross, fc, pm, pcAtFc, lowFreqGain, gm, fGm, gmFinite }
+                metrics: { crossingCount, hasCross, fc, pm, pcAtFc, lowFreqGain, gm, fGm, gmFinite }
             };
         }
 
         // ===== 動態白話解讀 =====
         function buildNarrative(m) {
+    if(m.crossingCount>1) return "多重 0 dB 交越：不可用第一個交越的 PM 宣稱穩定或通過；需完整 Nyquist / 極點分析。";
             if (!m.hasCross) {
-                return "目前增益曲線整段都在 0dB 以下，等於系統幾乎追不動指令（頻寬≈0）。把 Ki 或 Kp 調大，藍線會上移、開始穿越 0dB。";
+                return "掃描範圍內沒有可解讀的單一向下交越；不可推論零頻寬或穩定性。";
             }
             let s = `交越頻率約 <b>${fmtHz(m.fc)}</b>，代表系統能跟上這個頻率以下的指令。`;
             if (m.pm >= 45 && m.pm <= 70) {
@@ -318,7 +323,7 @@
             const m = data.metrics;
 
             // ---- 數據面板 ----
-            document.getElementById('bandwidth-val').textContent = m.hasCross ? fmtHz(m.fc) : "未交越";
+            document.getElementById('bandwidth-val').textContent = m.hasCross ? fmtHz(m.fc) : (m.crossingCount>1?"多重交越":"未交越");
             document.getElementById('low-freq-gain-val').textContent = `${m.lowFreqGain.toFixed(1)} dB`;
             document.getElementById('gm-val').textContent = m.gmFinite ? `${m.gm.toFixed(1)} dB` : "∞ (無 -180° 穿越)";
             document.getElementById('narrative').innerHTML = buildNarrative(m);
@@ -336,7 +341,7 @@
                 }
             } else {
                 document.getElementById('pm-val').textContent = "--";
-                pmStatus.textContent = "未交越"; pmStatus.className = "status-badge status-warn";
+                pmStatus.textContent = m.crossingCount>1?"多重交越":"未交越"; pmStatus.className = "status-badge status-warn";
             }
 
             // ---- 增益圖資料 ----

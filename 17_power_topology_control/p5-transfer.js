@@ -70,9 +70,32 @@
     const E=window.CircuitEvidence;
     if(!E){list.textContent='學習紀錄尚未載入，暫不接受作答。';return;}
     const stored=E.load().benchmark.learningWorkspace?.topologyConcepts;
+    if(stored!==undefined&&(!stored||stored.version!==1||!stored.rows||typeof stored.rows!=='object'||Array.isArray(stored.rows))){
+      list.textContent='不支援的固定觀念紀錄版本或格式；原始內容已保留，暫不接受首次作答。請先到學習紀錄頁匯出備份，再比較版本。';
+      $("p5ChallengeScore").textContent='未評分';return;
+    }
     const rows=stored?.version===1&&stored.rows&&typeof stored.rows==='object'&&!Array.isArray(stored.rows)?stored.rows:{};
     const first = new Map(cases.filter(c=>rows[c.id]?.first&&c.choices.includes(rows[c.id].first.answer)).map(c=>[c.id,rows[c.id].first.answer]));
-    function persist(){const state=E.load();state.benchmark.learningWorkspace||={version:1};state.benchmark.learningWorkspace.topologyConcepts={version:1,rows};E.save(state);}
+    let pendingAnswer = null, recordConflict = false;
+    let expectedRecord = JSON.stringify(stored ?? null);
+    function persist(){
+      const state=E.load(), current=state.benchmark.learningWorkspace?.topologyConcepts;
+      // A fresh parent snapshot cannot legitimize these cached first-answer rows.
+      // Do not merge or overwrite another tab's concept record.
+      if(JSON.stringify(current ?? null)!==expectedRecord){
+        recordConflict=true;
+        const {card,item,answer}=pendingAnswer;
+        card.querySelector('[data-p5-result]').textContent='紀錄已變更；本次首次判斷尚未接受。請匯出未接受判斷，再重新載入比較。';
+        const draft={status:'unaccepted-conflict',caseId:item.id,attempted:{answer,at:rows[item.id].first.at},observed:current??null};
+        const download=document.createElement('button');download.type='button';download.textContent='匯出未接受判斷';
+        download.addEventListener('click',()=>{
+          const url=URL.createObjectURL(new Blob([JSON.stringify(draft,null,2)],{type:'application/json'}));
+          const link=document.createElement('a');link.href=url;link.download='p5-unaccepted-answer.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+        });
+        card.append(download);return false;
+      }
+      state.benchmark.learningWorkspace||={version:1};state.benchmark.learningWorkspace.topologyConcepts={version:1,rows};E.save(state);return true;
+    }
     function show(card,item){const answer=first.get(item.id);card.querySelector('[data-p5-result]').textContent=answer===undefined?'尚未作答':answer===item.expected?'✓ 首次判斷符合模型':'首次判斷已保留：'+answer+'；對照原因後的正確選項：'+item.expected;}
 
     const score = () => {
@@ -80,11 +103,32 @@
       $("p5ChallengeScore").textContent = `${correct}/${cases.length} 首次符合模型`;
     };
     list.innerHTML = cases.map(item => `<article class="explain-card" data-p5-case="${item.id}"><h3>${escapeHtml(item.topology.toUpperCase())}</h3><p>${escapeHtml(item.prompt)}</p><div class="topology-nav">${item.choices.map(choice=>`<button type="button" data-p5-answer="${escapeHtml(choice)}">${escapeHtml(choice)}</button>`).join("")}</div><small data-p5-result>First attempt 尚未作答</small></article>`).join("");
-    list.querySelectorAll("[data-p5-case]").forEach(card => card.querySelectorAll("[data-p5-answer]").forEach(button => button.addEventListener("click", () => {
+    function settle(status) {
+      if (!pendingAnswer || recordConflict) return;
+      const {card,item,answer} = pendingAnswer;
+      if (!status.saved) {
+        card.querySelector('[data-p5-result]').textContent = '尚未儲存（'+(status.reason||'pending')+'）；首次判斷尚未接受，請重試或匯出備份。';
+        return;
+      }
+      expectedRecord=JSON.stringify({version:1,rows});
+      first.set(item.id,answer);
+      pendingAnswer=null;
+      list.querySelectorAll('[data-p5-answer]').forEach(button=>button.disabled=false);
+      show(card,item);score();
+    }
+    // A failed write remains exportable in the evidence owner. Only its durable
+    // success event (including explicit retry) can accept the original answer.
+    window.addEventListener('circuit:evidence-persistence',event=>settle(event.detail));
+    list.querySelectorAll("[data-p5-case]").forEach(card => card.querySelectorAll("[data-p5-answer]").forEach(button => button.addEventListener("click", async () => {
+      if (pendingAnswer) return;
       const item = cases.find(row=>row.id===card.dataset.p5Case);
-      if (!first.has(item.id)) {first.set(item.id, button.dataset.p5Answer);rows[item.id]={first:{answer:button.dataset.p5Answer,correct:button.dataset.p5Answer===item.expected,at:new Date().toISOString()}};persist();}
-      show(card,item);
-      score();
+      if (first.has(item.id)) {show(card,item);score();return;}
+      const answer=button.dataset.p5Answer;
+      pendingAnswer={card,item,answer};
+      list.querySelectorAll('[data-p5-answer]').forEach(button=>button.disabled=true);
+      card.querySelector('[data-p5-result]').textContent='儲存中；首次判斷尚未接受。';
+      rows[item.id]={first:{answer,correct:answer===item.expected,at:new Date().toISOString()}};
+      if(persist()) settle(await E.flush());
     })));
     list.querySelectorAll("[data-p5-case]").forEach(card=>show(card,cases.find(c=>c.id===card.dataset.p5Case)));
     score();

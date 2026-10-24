@@ -56,7 +56,102 @@ function asUrlPath(ref) {
 
 const pages = [...new Set([...shellPages, ...formalCurriculumPages()])];
 
+function auditDocumentReady({ shell = false, reference = false } = {}) {
+    // goto(DOMContentLoaded) may belong to a zero-delay meta-refresh launcher.
+    // Do not sample that document or its still-initializing destination.
+    if (document.readyState === 'loading' || document.querySelector('meta[http-equiv="refresh" i]')) return false;
+    if (reference) return Boolean(document.querySelector('.clt-root'));
+    const themeLoaded = sheet => {
+      try {
+        const rules = [...sheet.cssRules];
+        if (sheet.href && new URL(sheet.href).pathname.endsWith('/theme-1617.css')) return rules.length > 0;
+        return rules.some(rule => rule.styleSheet && themeLoaded(rule.styleSheet));
+      } catch (_) { return false; }
+    };
+    // Shell pages import the sheet via learning-v3.css; lessons inject it after
+    // async tutor dependencies. The class alone precedes CSS loading.
+    const themed = (shell ? Boolean(document.querySelector('#app main')) : document.body.classList.contains('cl-theme-1617'))
+      && [...document.styleSheets].some(themeLoaded)
+      && Boolean(getComputedStyle(document.documentElement).getPropertyValue('--ui-bg').trim());
+    if (!themed) return false;
+    // Applying the loaded compatibility sheet can start a legacy fill/background
+    // transition. Sample its endpoint, not an intermediate pale interpolation.
+    // getAnimations flushes style and discovers transitions started by this sheet;
+    // do not wait for unrelated perpetual teaching animations or for dark colors.
+    const paletteProperties = new Set(['fill', 'stroke', 'background-color', 'color', 'opacity']);
+    return !document.getAnimations().some(animation => animation instanceof CSSTransition
+      && paletteProperties.has(animation.transitionProperty)
+      && Number.isFinite(animation.effect.getComputedTiming().endTime)
+      && animation.playState !== 'finished' && animation.playState !== 'idle');
+}
+
+async function waitForAuditReady(page, { shell = false, reference = false, timeout = 12000 } = {}) {
+  await page.waitForFunction(auditDocumentReady, { shell, reference }, { timeout });
+}
+
+
 test.describe('Module 0-15 visual language audit', () => {
+  test('redirect readiness waits for delayed target tutor and theme stylesheet', async ({ page }) => {
+    const delayed = [];
+    await page.route('**/assets/learning/{tutor.js,theme-1617.css}', async route => {
+      if (!new URL(route.request().frame().url()).pathname.endsWith('/7.28388d_bms_tutorial/index.html')) { await route.continue(); return; }
+      delayed.push(new URL(route.request().url()).pathname);
+      // Inject a slow target dependency, not a readiness sleep in the audit.
+      await new Promise(resolve => setTimeout(resolve, 450));
+      await route.continue();
+    });
+    await page.goto('/7.28388d_bms_tutorial/START_HERE.html', { waitUntil: 'domcontentloaded' });
+    await waitForAuditReady(page);
+    expect(new URL(page.url()).pathname).toBe('/7.28388d_bms_tutorial/index.html');
+    const ready = await page.evaluate(() => ({
+      themed: document.body.classList.contains('cl-theme-1617'),
+      stylesheet: getComputedStyle(document.documentElement).getPropertyValue('--ui-bg').trim()
+    }));
+    const cardBackground = await page.locator('.card').first().evaluate(el => getComputedStyle(el).backgroundColor);
+    expect(ready, `Final target card background at sampling: ${cardBackground}`).toEqual({ themed: true, stylesheet: '#07101d' });
+    expect(delayed.some(url => url.endsWith('/tutor.js'))).toBe(true);
+    expect(delayed.some(url => url.endsWith('/theme-1617.css'))).toBe(true);
+  });
+
+  test('readiness waits for palette transitions but does not hide a pale endpoint', async ({ page }) => {
+    await page.goto('/7.28388d_bms_tutorial/08_failsafe.html', { waitUntil: 'domcontentloaded' });
+    await waitForAuditReady(page);
+    await page.evaluate(async () => {
+      await Promise.all(document.getAnimations().filter(a => a instanceof CSSTransition).map(a => a.finished));
+      const rect=document.querySelector('.fsm-svg .node rect');
+      rect.style.setProperty('transition','none','important');
+      rect.style.setProperty('fill','rgb(255, 255, 255)','important');
+      getComputedStyle(rect).fill;
+      rect.style.setProperty('transition','fill 10s linear','important');
+      rect.style.setProperty('fill','rgb(17, 26, 40)','important');
+      getComputedStyle(rect).fill;
+      const transition=rect.getAnimations().find(a=>a instanceof CSSTransition&&a.transitionProperty==='fill');
+      if(!transition)throw Error('Palette transition fixture did not start');
+      transition.pause();transition.currentTime=100;
+      window.auditPaletteTransition=transition;
+    });
+    expect(await page.evaluate(auditDocumentReady, {})).toBe(false);
+    await page.evaluate(()=>auditPaletteTransition.finish());
+    await waitForAuditReady(page);
+    await expect(page.locator('.fsm-svg .node rect').first()).toHaveCSS('fill','rgb(17, 26, 40)');
+    // Readiness must not disguise a genuinely wrong settled color by waiting
+    // for a dark pixel. The unchanged pale-surface audit must still inspect it.
+    await page.evaluate(()=>{
+      const rect=document.querySelector('.fsm-svg .node rect');
+      rect.style.setProperty('transition','none','important');
+      rect.style.setProperty('fill','rgb(255, 255, 255)','important');
+    });
+    await waitForAuditReady(page);
+    await expect(page.locator('.fsm-svg .node rect').first()).toHaveCSS('fill','rgb(255, 255, 255)');
+  });
+
+  test('readiness fails closed when the compatibility stylesheet is missing', async ({ page }) => {
+    await page.route('**/assets/learning/theme-1617.css', route => route.abort());
+    await page.goto('/7.28388d_bms_tutorial/index.html', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('body')).toHaveClass(/cl-theme-1617/);
+    await expect(waitForAuditReady(page, { timeout: 1000 })).rejects.toThrow(/Timeout/);
+  });
+
   test('learning shell and formal curriculum pages contain no legacy pale surfaces', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop', 'Run the expensive full-site surface audit once on desktop.');
     test.setTimeout(300000);
@@ -73,7 +168,7 @@ test.describe('Module 0-15 visual language audit', () => {
         failures.push(`${ref}: navigation failed (${response ? response.status() : 'no response'})`);
         continue;
       }
-      await page.waitForTimeout(140);
+      await waitForAuditReady(page, { shell: shellPages.includes(ref) });
 
       const result = await page.evaluate(() => {
         const parseRgb = value => {
@@ -149,7 +244,7 @@ test.describe('Module 0-15 visual language audit', () => {
     for (const ref of referencePages) {
       const response = await page.goto(asUrlPath(ref), { waitUntil: 'domcontentloaded' });
       expect(response && response.ok(), `${ref} should load`).toBeTruthy();
-      await page.waitForTimeout(100);
+      await waitForAuditReady(page, { reference: true });
       const themed = await page.evaluate(() => document.body.classList.contains('cl-theme-1617'));
       expect(themed, `${ref} must not receive the Module 0-15 compatibility theme`).toBe(false);
     }

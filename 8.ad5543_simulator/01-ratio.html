@@ -55,6 +55,7 @@
       <li>核心公式只有一條:<b>VOUT = −VREF × (D / 2¹⁶)</b>(這顆晶片內建反相,所以有負號)。</li>
       <li>D 從 0 到 65535,等於把比例從 <b>0% 轉到 ~100%</b>;輸出跟著線性走。</li>
       <li>VREF 決定<b>滿刻度與極性</b>,D 決定<b>目前佔幾成</b>。兩個分工要分清楚。</li>
+      <li>D 是 unsigned，標準增益 −D/65536 僅為非正；VREF 改為正負或 AC 仍是<b>二象限</b>。四象限須另加參考偏移加總級。</li>
     </ul>
   </div>
 
@@ -84,10 +85,14 @@ DAC.renderNav('01-ratio.html');
 render();
 document.getElementById('refs').innerHTML = DAC.readMore([
   { term: 'Transfer Function', desc: 'datasheet 的轉移函數式,就是本課的 VOUT = −VREF × (D / 2¹⁶);先看懂這條,其餘規格都圍著它轉。' },
-  { term: 'VREF Range', desc: '參考電壓可達約 ±10 V,且可為交流訊號 —— 這是它能做「乘法/四象限」的前提。' },
-  { term: '2- / 4-Quadrant Multiplication', desc: '單極性 VREF 是 2 象限;VREF 可正可負(或 AC)時為 4 象限相乘。' },
+  { term: 'VREF Range', desc: '參考電壓可達約 ±10 V,且可為交流訊號 —— 標準 unsigned code 接法是二象限乘法；四象限還需偏移加總級。' },
+  { term: '2- / 4-Quadrant Multiplication', desc: 'unsigned D 使標準增益 −D/65536 僅為非正；VREF 可正可負或為 AC，仍是二象限。四象限須以參考偏移加總級實現 VOUT = (D/32768 − 1) × VREF，讓增益跨越零點；單純 −1 反相器不能代替。參考 <a href="https://www.analog.com/media/en/technical-documentation/data-sheets/ad5543_5553.pdf#page=11">AD5543/AD5553 Rev. H，第 11 頁 Bipolar Output</a>。' },
 ]);
 DAC.quiz('quiz', [
+  { q: '標準接法保留 unsigned D，VREF 改為正負交替的 AC，就成為四象限乘法嗎?',
+    options: ['會，AC 的正負半週就代表四象限','不會，仍是二象限；需偏移加總級才有四象限','會，只要 D 超過中碼','會，再接增益 −1 反相器即可'],
+    answer: 1,
+    explain: 'D/65536 介於 0 與 65535/65536，標準增益 −D/65536 僅為非正；AC 只讓 VREF 變號。四象限需偏移加總級實作 (D/32768 − 1) × VREF，本模擬器未包含此級。' },
   { q: '把數位碼設成滿刻度 0xFFFF、VREF = 10 V,VOUT 大約是多少?',
     options: ['約 +10 V','約 −10 V','約 0 V','約 −5 V'],
     answer: 1,
@@ -99,7 +104,7 @@ DAC.quiz('quiz', [
   { q: '為什麼它被叫做「乘法 (multiplying) DAC」?',
     options: ['因為要用乘法器晶片','因為輸出是兩個數位碼相乘','因為輸出 = 比例 × VREF,VREF 可變甚至可為交流','因為價格是別人的兩倍'],
     answer: 2,
-    explain: '輸出正比於 VREF 與 D 的乘積,VREF 可正可負、可為交流訊號,所以能做四象限相乘。' },
+    explain: '輸出正比於 VREF 與 D 的乘積,VREF 可正可負、可為交流訊號,但 unsigned D 不會變負；四象限還需要偏移加總級。' },
   { q: 'VREF 不變,把數位碼從 0x4000 加倍到 0x8000,VOUT 會?',
     options: ['不變','大約變兩倍','變一半','反相'],
     answer: 1,

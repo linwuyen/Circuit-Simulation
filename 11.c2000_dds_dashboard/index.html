@@ -131,11 +131,12 @@
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                     <button id="cal-none" class="py-1.5 px-3 rounded text-xs bg-slate-800 border border-slate-700 hover:bg-slate-700 transition">無校正 (減2048)</button>
-                    <button id="cal-dynamic" class="py-1.5 px-3 rounded text-xs bg-emerald-600/30 border border-emerald-500 hover:bg-emerald-600/50 transition text-emerald-300 font-semibold">動態 LPF 校正</button>
+                    <button id="cal-dynamic" class="py-1.5 px-3 rounded text-xs bg-emerald-600/30 border border-emerald-500 hover:bg-emerald-600/50 transition text-emerald-300 font-semibold">整週期平均校正</button>
                 </div>
             </div>
 
             <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-3 text-[11px] text-slate-400 space-y-1">
+                <p>45–65 Hz 以 10 個完整週期的總時間確認，含整數取樣量化容差；取樣率變更後先重新取得真實過零邊界，確認前不發布量測。</p>
                 <span class="text-slate-300 font-semibold block mb-1">💡 實驗室測試提示：</span>
                 <p>1. 拖曳「直流偏壓 Offset」看看 ADC 訊號是如何整體上抬的。</p>
                 <p>2. 切換為「無校正」後，若偏壓不是 1.65V，你會發現量測出來的 RMS 直接偏差爆表！</p>
@@ -220,7 +221,7 @@
                     </div>
                     <div class="flex justify-between">
                         <span>期望點數範圍 (Min/Max):</span>
-                        <span class="font-mono text-slate-300" id="reg-nsamples-range">307 / 444</span>
+                        <span class="font-mono text-slate-300" id="reg-nsamples-range">307 / 445</span>
                     </div>
                 </div>
 
@@ -287,7 +288,7 @@
 
     <!-- 頁尾說明 -->
     <footer class="border-t border-slate-800 bg-slate-900/40 text-slate-500 text-center py-4 text-xs">
-        <p>© 2026 Texas Instruments C2000 Power Development Reference Tool. 模擬器基於數位雙生概念開發。</p>
+        <p>獨立教學模型，非 TI 官方或經實機驗證的計量工具。動態 offset 使用上一整週期平均；頻率/偏置突變、ADC clipping、非整週期與雜訊會造成暫態誤差。</p>
     </footer>
 
     <!-- 模擬器核心 JavaScript -->
@@ -323,9 +324,9 @@
             vRms: 0,
             iRms: 0,
             vAvg: 0,
-            vEma: 2048, // 用於動態 LPF 的估算值，初始化為中值
-            acFreq: 60,
-            acFreqAvg: 60,
+            vEma: 2048, // 上一個有效週期的 DC 平均；週期內保持，不濾掉 AC
+            acFreq: 0,
+            acFreqAvg: 0,
             pRms: 0,
             vaRms: 0,
             powerFactor: 0,
@@ -338,13 +339,19 @@
             pSum: 0,
             vaSumMul: 0,
             nSamples: 0,
-            nSamplesMin: 307,
-            nSamplesMax: 444,
+            nSamplesMin: Math.floor(param.samplingHz / 65),
+            nSamplesMax: Math.ceil(param.samplingHz / 45),
             jitterCount: 0,
             slewPowerUpdate: 0,
             pRmsSumMul: 0,
             acFreqSum: 0,
-            emaFilterMultiplier: 0.005, // K1 濾波係數
+            offsetSum: 0, // raw ADC counts for cycle-mean offset
+            batchSamples: 0,
+            prevSign: 0,
+            currSign: 0,
+            signReady: false,
+            cycleArmed: false,
+            frequencyQualified: false,
         };
 
         // 示波器圖表繪製緩衝區
@@ -357,6 +364,30 @@
             offsetV: new Float32Array(bufferSize), // 軟體動態估算出來的 Offset 線
         };
         let writePtr = 0;
+
+        const clearPmlCycle = () => {
+            pml.nSamples = pml.offsetSum = 0;
+            pml.vSum = pml.vSqrSum = pml.iSqrSum = pml.pSum = 0;
+        };
+        const clearPmlBatch = () => {
+            pml.pRmsSumMul = pml.vaSumMul = pml.acFreqSum = 0;
+            pml.batchSamples = pml.slewPowerUpdate = 0;
+        };
+        const clearPmlReadout = () => {
+            pml.vAvg = pml.vRms = pml.iRms = 0;
+            pml.pRms = pml.vaRms = pml.powerFactor = 0;
+            pml.acFreq = pml.acFreqAvg = pml.zcd = 0;
+            pml.frequencyQualified = false;
+        };
+        const resetPmlAcquisition = () => {
+            clearPmlCycle();
+            clearPmlBatch();
+            clearPmlReadout();
+            pml.prevSign = pml.currSign = pml.jitterCount = 0;
+            pml.signReady = pml.cycleArmed = false;
+            pml.v = pml.i = 0;
+        };
+
 
         // --- 2. 硬體與設定事件聯動 ---
         const setupInputs = () => {
@@ -386,9 +417,16 @@
                     // 更新 DDS 步長
                     ddsStep = (2 * Math.PI * param.freq) / param.samplingHz;
                     // 更新 PML 極限範圍 (例如 20kHz 採樣：60Hz 預計點數 333)
+                    if (pml.sampleFreq !== param.samplingHz) {
+                        // A new time base must acquire a real first boundary before measuring.
+                        resetPmlAcquisition();
+                        Object.values(waveHistory).forEach(wave => wave.fill(0));
+                        writePtr = 0;
+                    }
                     pml.sampleFreq = param.samplingHz;
-                    pml.nSamplesMax = Math.round(param.samplingHz / 45); // 最小 45Hz 點數
-                    pml.nSamplesMin = Math.round(param.samplingHz / 65); // 最大 65Hz 點數
+                    // A sampled endpoint alternates between floor(Fs/f) and ceil(Fs/f).
+                    pml.nSamplesMax = Math.ceil(param.samplingHz / 45);
+                    pml.nSamplesMin = Math.floor(param.samplingHz / 65);
                 };
 
                 slider.addEventListener('input', update);
@@ -475,110 +513,86 @@
 
         // --- 4. TI PML 軟體電力分析核心演算法 ---
         const runPML = (adcV, adcI) => {
-            // A. 直流偏壓校正 (Offset Correction)
-            let v_offset_counts = 2048; // 預設
-
-            if (calMode === 'dynamic') {
-                // 實時低通濾波器：動態追蹤直流中點 (對應 C2000 的 EMA 動態校正)
-                pml.vEma = pml.vEma * (1.0 - pml.emaFilterMultiplier) + adcV * pml.emaFilterMultiplier;
-                v_offset_counts = pml.vEma;
-            } else {
-                // 無動態校正，寫死為 12-bit 的中點 2048
-                v_offset_counts = 2048;
-                pml.vEma = 2048;
-            }
-
-            // B. 卸除偏壓，還原純交流成分 (AC Waveform)
-            // 電壓 ADC 物理刻度轉換：12-bit 轉回伏特
-            // 物理還原：AC電壓 = (ADC讀值 - Offset) * Gain
-            const vGain = 155 / (1.2 * (4095 / 3.3)); // 比例尺
-            pml.v = (adcV - v_offset_counts) * vGain;
-
-            // 電流也卸除 1.65V 偏壓 (電流通常也有偏置，假設固定為 2048 中點)
+            const v_offset_counts = calMode === 'dynamic' ? pml.vEma : 2048;
+            if (calMode !== 'dynamic') pml.vEma = 2048;
+            const vGain = 155 / (1.2 * (4095 / 3.3));
             const iGain = 30 / (1.2 * (4095 / 3.3));
+            pml.v = (adcV - v_offset_counts) * vGain;
             pml.i = (adcI - 2048) * iGain;
-
-            // C. 累積數據 (存錢筒)
             pml.nSamples++;
+            pml.offsetSum += adcV;
             pml.vSum += Math.abs(pml.v);
-            pml.vSqrSum += (pml.v * pml.v);
-            pml.iSqrSum += (pml.i * pml.i);
-            pml.pSum += (pml.v * pml.i);
-
-            // D. 過零檢測 (ZCD) 與 結算判定
-            // 判定基準：以經過校正後的電壓信號，如果大於閾值則視為正，反之為負。
-            pml.currSign = (pml.v > pml.threshold) ? 1 : 0;
+            pml.vSqrSum += pml.v * pml.v;
+            pml.iSqrSum += pml.i * pml.i;
+            pml.pSum += pml.v * pml.i;
+            pml.currSign = pml.v > pml.threshold ? 1 : 0;
             pml.zcd = 0;
 
-            // ZCD 觸發條件：由負轉正的上升沿 (Rising Edge)
-            if ((pml.prevSign !== pml.currSign) && (pml.currSign === 1)) {
-                
-                // 防抖動：判斷點數是否在預設的電網頻率範圍合理區間內
-                if (pml.nSamples > pml.nSamplesMin) {
-                    pml.zcd = 1; // 觸發過零，開始月底結算！
-
-                    // 1. 週期頻率與開根號計算
-                    pml.inverse_nSamples = 1.0 / pml.nSamples;
-                    pml.vAvg = pml.vSum * pml.inverse_nSamples;
-                    pml.vRms = Math.sqrt(pml.vSqrSum * pml.inverse_nSamples);
-                    pml.iRms = Math.sqrt(pml.iSqrSum * pml.inverse_nSamples);
-
-                    // 2. 計算實功與視在功率
-                    // 為了使顯示更為穩定，比照 TI 原始碼進行 100 次週期平均。
-                    pml.pRmsSumMul += (pml.pSum * pml.inverse_nSamples);
-                    pml.vaSumMul += (pml.vRms * pml.iRms);
-                    
-                    pml.acFreq = pml.sampleFreq / pml.nSamples;
-                    pml.acFreqSum += pml.acFreq;
-
+            // Synchronize the first sign without inventing a rising edge mid-positive.
+            if (!pml.signReady) {
+                pml.prevSign = pml.currSign;
+                pml.signReady = true;
+            } else if (pml.prevSign !== pml.currSign && pml.currSign === 1) {
+                if (!pml.cycleArmed) {
+                    // This genuine first crossing is a boundary, not a measured period.
+                    clearPmlCycle();
+                    clearPmlBatch();
+                    clearPmlReadout();
+                    pml.cycleArmed = true;
+                    pml.jitterCount = 0;
+                } else if (pml.nSamples >= pml.nSamplesMin && pml.nSamples <= pml.nSamplesMax) {
+                    const inverseN = 1 / pml.nSamples;
+                    const cycleVAvg = pml.vSum * inverseN;
+                    const cycleVrms = Math.sqrt(pml.vSqrSum * inverseN);
+                    const cycleIrms = Math.sqrt(pml.iSqrSum * inverseN);
+                    const cycleFrequency = pml.sampleFreq * inverseN;
+                    pml.pRmsSumMul += pml.pSum * inverseN;
+                    pml.vaSumMul += cycleVrms * cycleIrms;
+                    // Sum one Fs per period; divide by total samples for cycles / elapsed time.
+                    pml.acFreqSum += pml.sampleFreq;
+                    pml.batchSamples += pml.nSamples;
                     pml.slewPowerUpdate++;
 
-                    // 當累積 100 次時，更新大面板數值
-                    if (pml.slewPowerUpdate >= 10) { // 網頁版調整為 10 次加速反應
-                        pml.pRms = pml.pRmsSumMul * 0.1;
-                        pml.pRmsSumMul = 0;
-                        
-                        pml.vaRms = pml.vaSumMul * 0.1;
-                        pml.vaSumMul = 0;
-
-                        pml.powerFactor = pml.vaRms > 0 ? (pml.pRms / pml.vaRms) : 0;
-                        if (pml.powerFactor > 1.0) pml.powerFactor = 1.0;
-                        if (pml.powerFactor < -1.0) pml.powerFactor = -1.0;
-
-                        pml.acFreqAvg = pml.acFreqSum * 0.1;
-                        pml.acFreqSum = 0;
-                        pml.slewPowerUpdate = 0;
+                    if (pml.slewPowerUpdate >= 10) {
+                        const cycles = pml.slewPowerUpdate;
+                        const minBatch = Math.floor(cycles * pml.sampleFreq / 65);
+                        const maxBatch = Math.ceil(cycles * pml.sampleFreq / 45);
+                        if (pml.batchSamples >= minBatch && pml.batchSamples <= maxBatch) {
+                            pml.pRms = pml.pRmsSumMul / cycles;
+                            pml.vaRms = pml.vaSumMul / cycles;
+                            pml.powerFactor = pml.vaRms > 0 ? Math.max(-1, Math.min(1, pml.pRms / pml.vaRms)) : 0;
+                            pml.acFreqAvg = pml.acFreqSum / pml.batchSamples;
+                            pml.frequencyQualified = true;
+                        } else {
+                            clearPmlReadout();
+                        }
+                        clearPmlBatch();
                     }
-
-                    // 3. 清空存錢筒以進入下一週期
-                    pml.nSamples = 0;
-                    pml.vSum = 0;
-                    pml.vSqrSum = 0;
-                    pml.iSqrSum = 0;
-                    pml.pSum = 0;
+                    if (pml.frequencyQualified) {
+                        pml.zcd = 1;
+                        pml.vAvg = cycleVAvg;
+                        pml.vRms = cycleVrms;
+                        pml.iRms = cycleIrms;
+                        pml.acFreq = cycleFrequency;
+                    }
+                    // Offset changes use only a complete period, never the acquisition fragment.
+                    if (calMode === 'dynamic') pml.vEma = pml.offsetSum * inverseN;
+                    clearPmlCycle();
                     pml.jitterCount = 0;
                 } else {
-                    // 若週期太短，視為雜訊引起的 Jitter (抖動)
-                    if (pml.jitterCount < 30) {
-                        pml.jitterCount++;
-                    }
-                    pml.nSamples = 0; // 重置這一次錯誤的採樣
+                    // A rejected period breaks the consecutive qualification batch.
+                    pml.jitterCount = Math.min(30, pml.jitterCount + 1);
+                    clearPmlCycle();
+                    clearPmlBatch();
+                    clearPmlReadout();
                 }
             }
 
-            // E. 安全防呆保護：如果電網斷線 (很久都沒有收到過零信號)
             if (pml.nSamples > pml.nSamplesMax || pml.jitterCount > 25) {
-                pml.vRms = 0;
-                pml.iRms = 0;
-                pml.pRms = 0;
-                pml.vaRms = 0;
-                pml.powerFactor = 0;
-                pml.acFreq = 0;
-                pml.acFreqAvg = 0;
-                pml.nSamples = 0;
-                pml.jitterCount = 0;
+                // A no-crossing window may be DC: re-center only for re-acquisition.
+                if (calMode === 'dynamic' && pml.nSamples) pml.vEma = pml.offsetSum / pml.nSamples;
+                resetPmlAcquisition();
             }
-
             pml.prevSign = pml.currSign;
             return v_offset_counts;
         };
@@ -589,7 +603,7 @@
             document.getElementById('disp-vrms').innerText = pml.vRms.toFixed(2);
             document.getElementById('disp-irms').innerText = pml.iRms.toFixed(2);
             document.getElementById('disp-p').innerText = pml.pRms.toFixed(2);
-            document.getElementById('disp-pf').innerText = Math.abs(pml.powerFactor).toFixed(3);
+            document.getElementById('disp-pf').innerText = pml.powerFactor.toFixed(3);
             document.getElementById('disp-freq').innerText = pml.acFreqAvg.toFixed(2);
 
             // 暫存器監控顯示

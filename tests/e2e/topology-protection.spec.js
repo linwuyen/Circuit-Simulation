@@ -5,14 +5,14 @@ for(const item of cases){
  test(item.key+' rejects a newer record at save time',async({page})=>{
   await page.goto(item.url);await expect(page.locator(item.ready)).toBeVisible();
   if(item.key==='topologyTransfer')await page.locator('#ws-question input').first().check();
-  await page.evaluate(({key,record})=>{const e=CircuitEvidence.load();e.benchmark.learningWorkspace||={version:1};e.benchmark.learningWorkspace[key]=record;CircuitEvidence.save(e);},{key:item.key,record:future});
+  await page.evaluate(async ({key,record})=>{const e=CircuitEvidence.load();e.benchmark.learningWorkspace||={version:1};e.benchmark.learningWorkspace[key]=record;CircuitEvidence.save(e);if(!(await CircuitEvidence.flush()).saved)throw Error("Fixture evidence not committed");},{key:item.key,record:future});
   await page.locator(item.ready).click();
   expect(await page.evaluate(key=>CircuitEvidence.load().benchmark.learningWorkspace[key],item.key)).toEqual(future);
   await expect(page.locator('[data-record-protection]')).toBeVisible();await expect(page.locator('[data-record-protection] a')).toHaveAttribute('href',/map.html$/);
  });
  test(item.key+' pauses for a cross-tab future record and retains it on direct reload',async({page,context})=>{
   await page.goto(item.url);await expect(page.locator(item.ready)).toBeVisible();const other=await context.newPage();await other.goto('/map.html');await other.waitForSelector('#workspace-learning-records');
-  await other.evaluate(({key,record})=>{const e=CircuitEvidence.load();e.benchmark.learningWorkspace||={version:1};e.benchmark.learningWorkspace[key]=record;CircuitEvidence.save(e);},{key:item.key,record:future});
+  await other.evaluate(async ({key,record})=>{const e=CircuitEvidence.load();e.benchmark.learningWorkspace||={version:1};e.benchmark.learningWorkspace[key]=record;CircuitEvidence.save(e);if(!(await CircuitEvidence.flush()).saved)throw Error("Fixture evidence not committed");},{key:item.key,record:future});
   await expect(page.locator('[data-record-protection]')).toBeVisible();
   expect(await page.evaluate(key=>CircuitEvidence.load().benchmark.learningWorkspace[key],item.key)).toEqual(future);
   await page.reload();await expect(page.locator('[data-record-protection]')).toBeVisible();

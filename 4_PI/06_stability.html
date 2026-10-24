@@ -153,6 +153,10 @@ function calculateBode(kp, ki){
             fc = Math.pow(10,lf); pcAtFc = Lp[i-1]+r*(Lp[i]-Lp[i-1]); pm = 180+pcAtFc; hasCross=true; break;
         }
     }
+    // Applicability: report a scalar PM only for a single crossing in this scan.
+    let crossingCount=0;
+    for(let i=0;i<Lg.length;i++) if(Lg[i]===0 || (i>0 && Lg[i-1]*Lg[i]<0)) crossingCount++;
+    if(crossingCount!==1){hasCross=false;fc=null;pm=null;pcAtFc=null;}
     let gm=Infinity,fGm=0,gmFinite=false;
     for (let i=1;i<freqs.length;i++){
         if (Lp[i-1]>-180 && Lp[i]<=-180){
@@ -162,7 +166,7 @@ function calculateBode(kp, ki){
         }
     }
     return { Lg:Lg.map((y,i)=>({x:freqs[i],y})), Lp:Lp.map((y,i)=>({x:freqs[i],y})),
-             m:{hasCross,fc,pm,pcAtFc,gm,fGm,gmFinite} };
+             m:{crossingCount,hasCross,fc,pm,pcAtFc,gm,fGm,gmFinite} };
 }
 
 // 閉迴路 T(s)=L/(1+L) 的單位階躍響應（3 階狀態空間 + RK4）
@@ -190,7 +194,8 @@ function simulateStep(kp, ki){
 }
 
 function buildNarrative(m, step){
-    if (!m.hasCross) return "增益整段在 0dB 以下,系統幾乎追不動指令(頻寬≈0)。把 Kp/Ki 調大,藍線上移開始穿越 0dB。";
+    if(m.crossingCount>1) return "多重 0 dB 交越：不可用第一個交越的 PM 宣稱穩定或通過；需完整 Nyquist / 極點分析。";
+    if (!m.hasCross) return "掃描範圍內沒有可解讀的單一向下交越；不可推論零頻寬或穩定性。";
     if (step.diverged || m.pm<=0) return `相位裕度為 ${m.pm.toFixed(0)}°(≤0)→ 閉迴路發散!右圖振幅越衝越大,這就是翻車。多半是太貪心撞上 ${fmtHz(m.fGm||F_RES)} 的諧振峰。`;
     let s = `交越頻率約 <b>${fmtHz(m.fc)}</b>,PM <b>${m.pm.toFixed(0)}°</b>。`;
     if (m.pm>=45 && m.pm<=70) s += `落在黃金區間 → 右圖快速到位、過衝僅 ${step.overshoot.toFixed(0)}%,又快又穩 👍。`;
@@ -211,7 +216,7 @@ function update(){
     const step = simulateStep(kp, ki);
 
     // 指標面板
-    document.getElementById('fc-val').textContent = m.hasCross ? fmtHz(m.fc) : '未交越';
+    document.getElementById('fc-val').textContent = m.hasCross ? fmtHz(m.fc) : (m.crossingCount>1?'多重交越':'未交越');
     document.getElementById('gm-val').textContent = m.gmFinite ? m.gm.toFixed(1)+' dB' : '∞';
     document.getElementById('os-val').textContent = step.diverged ? '發散 💥' : step.overshoot.toFixed(0)+' %';
     const pmStatus = document.getElementById('pm-status');
@@ -221,7 +226,7 @@ function update(){
         if (m.pm>45 && m.pm<70 && gmOk){ pmStatus.textContent='最佳'; pmStatus.className='status-badge status-safe'; }
         else if (m.pm>0 && (!m.gmFinite||m.gm>0)){ pmStatus.textContent='欠阻尼'; pmStatus.className='status-badge status-warn'; }
         else { pmStatus.textContent='發散'; pmStatus.className='status-badge status-danger'; }
-    } else { document.getElementById('pm-val').textContent='--'; pmStatus.textContent='未交越'; pmStatus.className='status-badge status-warn'; }
+    } else { document.getElementById('pm-val').textContent='--'; pmStatus.textContent=m.crossingCount>1?'多重交越':'未交越'; pmStatus.className='status-badge status-warn'; }
     document.getElementById('narrative').innerHTML = buildNarrative(m, step);
 
     // 增益圖

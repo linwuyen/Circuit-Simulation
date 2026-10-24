@@ -1,6 +1,9 @@
 /* CircuitWorkspace renderer. Shared state: Evidence V5; calculations: model registry. */
 (()=>{
  'use strict';
+ async function durableNavigate(action){const status=await CircuitEvidence.flush();if(status.saved){action();return true;}const node=document.getElementById('ws-save')||document.getElementById('save-status')||document.getElementById('application-status');if(node)node.textContent='尚未儲存（'+(status.reason||'pending')+'）；已取消離開，請先匯出備份或處理衝突。';return false;}
+ window.addEventListener('circuit:evidence-persistence',event=>{const node=document.getElementById('ws-save')||document.getElementById('save-status');if(node)node.textContent=event.detail.saved?'進度已儲存在這個瀏覽器。':'尚未儲存（'+(event.detail.reason||'pending')+'）；請保留備份，不要重新整理。';});
+
  const W=CircuitWorkspace,E=CircuitEvidence,U=CircuitUnifiedLearning,P=CircuitPlainCourse;
  W.mountTopology=async()=>{
   const $=id=>document.getElementById(id),el=(tag,text,parent)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;parent?.append(n);return n;};
@@ -17,18 +20,20 @@
   const run=el('button','把開關比例加上 10 個百分點，計算比較',$('surface-help'));run.id='topology-run';run.className='primary';
   const contracts=el('details',undefined,$('surface-help'));el('summary','模型來源與適用範圍',contracts);
   const steps=CircuitEngineeringCurriculum.topologySteps;
-  let session,comparison,shown=0,blocked=false;
+  let session,comparison,shown=0,blocked=false,saving=false;
+  async function accept(){saving=true;const controls=[...document.querySelectorAll("button,input")].filter(n=>!n.closest("#learning-storage-status")&&!["workspace-backup","detailed-records","all-materials"].includes(n.id)).map(n=>[n,n.disabled]);controls.forEach(([n])=>n.disabled=true);if(!save())return false;const status=await E.flush();if(!status.saved){const recovered=event=>{if(!event.detail.saved)return;$('ws-save').textContent='重試儲存已成功；請重新整理以繼續這次已保存的判斷。';window.removeEventListener('circuit:evidence-persistence',recovered);};window.addEventListener('circuit:evidence-persistence',recovered);$("ws-save").textContent="尚未儲存（"+(status.reason||"pending")+"）；本次判斷尚未接受；請先重試儲存，成功後重新整理，或下載備份。";return false;}saving=false;controls.forEach(([n,disabled])=>n.disabled=disabled);return true;}
+  let expectedRecord=JSON.stringify(E.load().benchmark.learningWorkspace?.topologyTransfer);
   function protectRecord(){
    const stored=E.load().benchmark.learningWorkspace?.topologyTransfer;
-   if(!blocked&&(!stored||stored.version===1))return false;
+   if(!blocked&&(!stored||stored.version===1)&&JSON.stringify(stored)===expectedRecord)return false;
    blocked=true;run.hidden=true;$('ws-steps').hidden=true;$('ws-result').hidden=true;
    const notice=$('ws-question');notice.replaceChildren();notice.setAttribute('data-record-protection','');notice.setAttribute('role','status');
-   el('p','這份比較紀錄的版本目前無法讀取。練習已暫停，原有紀錄保留；請先下載備份。',notice);
+   el('p','比較紀錄已被另一頁更新，或版本目前無法讀取。練習已暫停，原有紀錄保留；請先下載備份。',notice);
    el('a','查看學習紀錄與下載備份',notice).href='map.html';$('ws-save').textContent='未覆蓋已有紀錄。';return true;
   }
   window.addEventListener('storage',protectRecord);
   const stage=()=>W.topologyProof(session)?4:!session.rows.prediction?.first?0:!session.operated||!session.rows.observation?.passed?1:!session.rows.reason?.passed?2:3;
-  function save(){if(protectRecord())return false;session.models=['buck-ccm-control-output-esr','boost-ccm-control-output'].map(id=>({id,version:CircuitModelRegistry.describe(id).version}));session.completed=W.topologyProof(session);const s=E.load();s.benchmark.learningWorkspace||={version:1};s.benchmark.learningWorkspace.topologyTransfer=session;E.save(s);$('ws-save').textContent=E.storageStatus().saved?'比較條件與首次判斷已保存在這個瀏覽器。':'目前只能暫存，離開前請下載學習備份。';return true;}
+  function save(){if(protectRecord())return false;session.models=['buck-ccm-control-output-esr','boost-ccm-control-output'].map(id=>({id,version:CircuitModelRegistry.describe(id).version}));session.completed=W.topologyProof(session);const s=E.load();s.benchmark.learningWorkspace||={version:1};s.benchmark.learningWorkspace.topologyTransfer=session;E.save(s);expectedRecord=JSON.stringify(session);$('ws-save').textContent=E.storageStatus().saved?'比較條件與首次判斷已保存在這個瀏覽器。':'目前只能暫存，離開前請下載學習備份。';return true;}
   function draw(){
    const reveal=session.operated,fmt=n=>n.toFixed(2),p=session.params;
    conditions.textContent=`輸入 ${p.vin} V · 電感 ${(p.inductanceH*1e6).toFixed(0)} µH · 電容 ${(p.capacitanceF*1e6).toFixed(0)} µF · 負載 ${p.loadOhm} Ω · 開關 ${(p.switchingHz/1000).toFixed(0)} kHz · 忽略損耗`;
@@ -54,7 +59,7 @@
    field.disabled=(shown===0&&!!r.first)||(shown===1&&!session.operated);
    const submit=el('button',shown===0?'記下預測':'檢查判斷',$('ws-question'));submit.id='topology-submit';submit.className='primary';submit.disabled=field.disabled;
    if(r.first)el('p','首次判斷：'+(s.choices.find(c=>c[0]===r.first.answer)?.[1]||r.first.answer)+(r.first.correct?'（符合模型）':'（已保留，可繼續修正）'),$('ws-question'));
-   submit.onclick=()=>{const answer=field.querySelector('input:checked')?.value;if(!answer){$('ws-feedback').textContent='請先選擇判斷。';return;}const correct=P.correct(s.answer,answer);session.rows[s.id]||={};const row=session.rows[s.id];row.first||={answer,correct,at:new Date().toISOString()};if(correct)row.passed=true;if(!save())return;if(shown!==0&&!correct){$('ws-feedback').textContent='回看比較結果：輸出變化和控制速度限制是兩件事。首次判斷已保留，請再試一次。';return;}shown=stage();render();};
+   submit.onclick=async()=>{if(saving)return;const answer=field.querySelector('input:checked')?.value;if(!answer){$('ws-feedback').textContent='請先選擇判斷。';return;}const correct=P.correct(s.answer,answer);session.rows[s.id]||={};const row=session.rows[s.id];row.first||={answer,correct,at:new Date().toISOString()};if(correct)row.passed=true;if(!await accept())return;if(shown!==0&&!correct){$('ws-feedback').textContent='回看比較結果：輸出變化和控制速度限制是兩件事。首次判斷已保留，請再試一次。';return;}shown=stage();render();};
   }
   try{
    await CircuitModelRegistry.loadTopologyContracts(new URL('.',location.href));
@@ -68,15 +73,15 @@
    shown=stage();if(save())render();
    }
   }catch(error){$('ws-question').textContent=error.message;run.hidden=true;$('ws-save').textContent='未覆蓋已有紀錄。';const a=el('a','返回手動電路實驗',$('ws-question'));a.href='#experiment-energy';}
-  run.onclick=()=>{session.operated=true;if(!save())return;render();};
+  run.onclick=async()=>{if(saving)return;session.operated=true;if(!await accept())return;render();};
   $('workspace-route').replaceChildren();for(const[href,label]of [['#experiment','回到連續電路實驗'],['#topology','降壓／升壓比較']]){const a=el('a',label,el('li',undefined,$('workspace-route')));a.href=href;}
-  $('deeper').textContent='用這份條件，打開完整電路工具';$('deeper').onclick=()=>location.assign('17_power_topology_control/index.html#workspace-transfer');
-  $('ws-next').onclick=()=>{if(W.topologyProof(session))location.assign(U.route('applications'));};
+  $('deeper').textContent='用這份條件，打開完整電路工具';$('deeper').onclick=()=>durableNavigate(()=>location.assign('17_power_topology_control/index.html#workspace-transfer'));
+  $('ws-next').onclick=()=>{if(W.topologyProof(session))durableNavigate(()=>location.assign(U.route('applications')));};
   $('show-progress').onclick=()=>{$('workspace-progress-panel').hidden=false;$('progress-summary').textContent=W.topologyProof(session)?'比較練習完成；正式成績由原驗證系統判定。':'比較練習尚未完成。';$('progress-abilities').replaceChildren();if(session)for(const s of steps){const r=session.rows[s.id];el('li',s.label+'：'+(r?.first?(r.first.correct?'首次符合模型':'首次需修正'):'尚未作答'),$('progress-abilities'));}};
   $('close-progress').onclick=()=>$('workspace-progress-panel').hidden=true;
   $('workspace-backup').onclick=()=>{const url=URL.createObjectURL(new Blob([E.exportBackup()],{type:'application/json'})),a=el('a');a.href=url;a.download='circuit-learning-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
-  $('detailed-records').onclick=()=>location.assign('map.html');$('all-materials').onclick=()=>location.assign('catalog.html');
-  const n=U.next(E.load(),CircuitCoreFlowV1.snapshot());$('resume-task').hidden=!['formal','quiz'].includes(n.id);$('resume-task').textContent='先完成到期複習';$('resume-task').onclick=()=>location.assign(U.route(n.id));
-  addEventListener('hashchange',()=>{if(location.hash!=='#topology')location.reload();});
+  $('detailed-records').onclick=()=>durableNavigate(()=>location.assign('map.html'));$('all-materials').onclick=()=>durableNavigate(()=>location.assign('catalog.html'));
+  const n=U.next(E.load(),CircuitCoreFlowV1.snapshot());$('resume-task').hidden=!['formal','quiz'].includes(n.id);$('resume-task').textContent='先完成到期複習';$('resume-task').onclick=()=>durableNavigate(()=>location.assign(U.route(n.id)));
+  addEventListener('hashchange',()=>{if(location.hash!=='#topology')durableNavigate(()=>location.reload());});
  };
 })();

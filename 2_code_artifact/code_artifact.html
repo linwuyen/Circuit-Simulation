@@ -50,7 +50,8 @@
             </div>
             <div>
                 <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-teal-200 bg-clip-text text-transparent">高精度電力電子拓撲實時虛擬半實物模擬器</h1>
-                <p class="text-xs text-slate-400">自適應示波器刻度、動態觸發同步與物理續流模型</p>
+                <p class="text-xs text-slate-400">自適應示波器刻度、動態觸發同步與續流教學模型</p>
+                <p class="text-xs text-slate-400">教學邊界：理想開關、固定步長近似；續流方向由橋側電感電流決定。未求解二極體截止的精確零交越、寄生與三相浮接節點換流，不能當作實機死區／保護驗證。</p>
             </div>
         </div>
         
@@ -390,7 +391,7 @@
                     </label>
                     <label class="flex items-center gap-1.5 cursor-pointer text-amber-500">
                         <input type="checkbox" id="chk-ch3" checked class="rounded accent-amber-500 bg-slate-950 border-slate-800">
-                        CH3: 負載電流
+                        CH3: 負載電流（LC：電阻支路，非續流電感）
                     </label>
                     <label class="flex items-center gap-1.5 cursor-pointer text-red-400">
                         <input type="checkbox" id="chk-ch4" class="rounded accent-red-500 bg-slate-950 border-slate-800">
@@ -1050,6 +1051,10 @@
 
             // Determine electrical outputs of physical nodes
             diodeStates = [false, false, false, false, false, false];
+            // LC diodes carry filter inductor current, not resistor output current.
+            const bridgeI = loadType === 'LC' ? il_filter : current_L;
+            const bridgeIb = loadType === 'LC' ? il_filter_b : current_L_b;
+            const bridgeIc = loadType === 'LC' ? il_filter_c : current_L_c;
 
             if (currentTopology === 'half') {
                 // HALF BRIDGE CORE PHYSICS
@@ -1062,11 +1067,11 @@
                     v_applied = -V_half;
                 } else {
                     // Freewheeling
-                    if (loadType === 'RL') {
-                        if (current_L > 0.05) {
+                    if (loadType === 'RL' || loadType === 'LC') {
+                        if (bridgeI > 0) {
                             diodeStates[1] = true; 
                             v_applied = -V_half;
-                        } else if (current_L < -0.05) {
+                        } else if (bridgeI < 0) {
                             diodeStates[0] = true; 
                             v_applied = V_half;
                         } else {
@@ -1105,12 +1110,12 @@
                 let vb_leg = q3 ? V_half : (q4 ? -V_half : 0);
 
                 if (!q1 && !q2) { 
-                    if (current_L > 0.05) { diodeStates[1] = true; va_leg = -V_half; }
-                    else if (current_L < -0.05) { diodeStates[0] = true; va_leg = V_half; }
+                    if (bridgeI > 0) { diodeStates[1] = true; va_leg = -V_half; }
+                    else if (bridgeI < 0) { diodeStates[0] = true; va_leg = V_half; }
                 }
                 if (!q3 && !q4) { 
-                    if (current_L > 0.05) { diodeStates[2] = true; vb_leg = V_half; }
-                    else if (current_L < -0.05) { diodeStates[3] = true; vb_leg = -V_half; }
+                    if (bridgeI > 0) { diodeStates[2] = true; vb_leg = V_half; }
+                    else if (bridgeI < 0) { diodeStates[3] = true; vb_leg = -V_half; }
                 }
 
                 v_applied = va_leg - vb_leg;
@@ -1137,13 +1142,13 @@
                 const legVoltage = (qUp, qLow, iPhase, dUp, dLow) => {
                     if (qUp) return V_half;
                     if (qLow) return -V_half;
-                    if (iPhase > 0.05) { diodeStates[dLow] = true; return -V_half; }
-                    if (iPhase < -0.05) { diodeStates[dUp] = true; return V_half; }
+                    if (iPhase > 0) { diodeStates[dLow] = true; return -V_half; }
+                    if (iPhase < 0) { diodeStates[dUp] = true; return V_half; }
                     return 0;
                 };
-                let va_leg = legVoltage(switchStates[0], switchStates[1], current_L,   0, 1);
-                let vb_leg = legVoltage(switchStates[2], switchStates[3], current_L_b, 2, 3);
-                let vc_leg = legVoltage(switchStates[4], switchStates[5], current_L_c, 4, 5);
+                let va_leg = legVoltage(switchStates[0], switchStates[1], bridgeI,   0, 1);
+                let vb_leg = legVoltage(switchStates[2], switchStates[3], bridgeIb, 2, 3);
+                let vc_leg = legVoltage(switchStates[4], switchStates[5], bridgeIc, 4, 5);
 
                 let vn_load = (va_leg + vb_leg + vc_leg) / 3.0;
 

@@ -232,8 +232,22 @@
     out.vin.textContent=vin+" V"; out.vout.textContent=vout+" V"; out.iout.textContent=iout+" A";
     out.ind.textContent=L+" μH"; out.fsw.textContent=fsw+" kHz"; out.cap.textContent=C+" μF";
 
+    // Ideal Buck (including a freewheel diode) cannot regulate at or above Vin.
+    // Fail closed: no valid ripple, duty or waveform claim for this operating point.
+    if(vout>=vin){
+      var invalid=$("modeLine");
+      invalid.style.background="#fee2e2"; invalid.style.color="#991b1b";
+      invalid.textContent="條件不成立：此降壓 Buck 模型要求 Vin > Vout。不能用 95% duty 製造看似有效的 CCM/DCM 結果。";
+      ["rippleVal","ripplePct","voutVal","voutPct","dutyVal","tonVal"].forEach(function(key){$(key).textContent="—";});
+      ["fD","fI","fSlope","fV"].forEach(function(key){$(key).textContent="此輸入條件下不適用";});
+      $("fNote").textContent="請將 Vin 調高或 Vout 調低；此教學模型不包含升壓轉換。";
+      $("scopeSvg").replaceChildren(); $("voutSvg").replaceChildren();
+      $("dcmBadge").style.display="none"; $("legDead").style.display="none";
+      return;
+    }
     var lH=L/1e6,fH=fsw*1e3,T=1/fH,Cf=C/1e6;
-    var D=(vout+Vd)/(vin+Vd); if(D>0.95)D=0.95; if(D<0)D=0;
+    // The ideal teaching switch has no minimum off-time: preserve volt-second balance.
+    var D=(vout+Vd)/(vin+Vd);
     var m1s=(vin-vout)/lH, m2s=(vout+Vd)/lH, m1A=(vin-vout)/L, m2A=(vout+Vd)/L;
     var rCCM=Math.abs(m1s)*D*T, valleyCCM=iout-rCCM/2, isDCM=(valleyCCM<0)&&(m1s>0);
 

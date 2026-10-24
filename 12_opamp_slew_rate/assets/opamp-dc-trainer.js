@@ -146,9 +146,15 @@
   class AnswerEvaluator{
     evaluate(question,answer){
       if(question.answerType==="choice"){const value=String(answer||"").trim();return {correct:value===question.expected,normalized:value,expected:question.expected,errorType:question.errorType};}
-      const normalized=Number(String(answer).trim().replace(",","."));
+      const raw=String(answer ?? "").trim();
+      const normalized=raw===""?NaN:Number(raw.replace(",","."));
       if(!Number.isFinite(normalized))return {correct:false,normalized:null,expected:question.expected,errorType:question.errorType||"ARITHMETIC",reason:"NOT_NUMERIC"};
-      const tol=Math.max(Number(question.tolerance)||.01,Math.abs(Number(question.expected))*.01);
+      // Ideal zero is exact: a unit-blind 0.01 A window admits 10 mA.
+      // Nonzero answers permit 1% relative rounding, never an absolute window
+      // larger than the value itself. Explicit tighter tolerances remain authoritative.
+      const expected=Number(question.expected);
+      const requested=Number(question.tolerance);
+      const tol=expected===0?0:Number.isFinite(requested)&&requested>=0?Math.min(requested,Math.abs(expected)*.01):Math.abs(expected)*.01;
       return {correct:Math.abs(normalized-Number(question.expected))<=tol,normalized,expected:Number(question.expected),errorType:question.errorType};
     }
   }

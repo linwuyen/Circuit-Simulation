@@ -12,6 +12,10 @@
     const rows = Records.read().studySessions || Records.read().sessions;
     const repairs = rows.filter(x => x.kind === "repair" && x.diagnosisCommitted && !x.rehearsal);
     const remediation = rows.filter(x => x.kind === "remediation" && x.first && !x.rehearsal);
+    if (!Evidence.storageStatus().saved) {
+      $("pilot-summary").textContent = "目前含尚未儲存的操作紀錄；未接受為本機已提交成績。可先匯出完整備份，處理儲存問題後再確認。";
+      return;
+    }
     $("pilot-summary").textContent = repairs.length || remediation.length ? `本機已提交 ${repairs.length} 個維修案例、${remediation.length} 個補救練習。未驗證案例會單獨列為未評分，不當成零分。` : "尚無學員操作資料；不產生示範成績。";
   }
   $("pilot-export").onclick = () => {
@@ -25,11 +29,14 @@
   $("training-restore").onchange = async event => {
     try {
       const restored = Evidence.merge(await Records.readFile(event.target.files[0]));
+      const saved = await Evidence.flush();
+      if (!saved.saved) throw new Error("尚未儲存（" + (saved.reason || "pending") + "）；請保留原備份，不要重新整理。");
       refresh(); $("pilot-status").textContent = "已合併學習紀錄與主線進度，保留本機首次作答。重新整理可載入最近的實驗。" +
         (restored.benchmark.outcomeImportPreservedLocal ? " 此裝置已有正式測驗首答，因此保留本機測驗；外來測驗已保存在完整備份的 outcomeBackupArchives，未混合成績。" : "");
     } catch (error) { $("pilot-status").textContent = error.message; }
     event.target.value = "";
   };
   document.addEventListener("training:updated", refresh);
+  window.addEventListener("circuit:evidence-persistence", refresh);
   refresh();
 })();

@@ -1,5 +1,8 @@
 (()=>{
  'use strict';
+ async function durableNavigate(action){const status=await CircuitEvidence.flush();if(status.saved){action();return true;}const node=document.getElementById('ws-save')||document.getElementById('save-status')||document.getElementById('application-status');if(node)node.textContent='尚未儲存（'+(status.reason||'pending')+'）；已取消離開，請先匯出備份或處理衝突。';return false;}
+ window.addEventListener('circuit:evidence-persistence',event=>{const node=document.getElementById('ws-save')||document.getElementById('save-status');if(node)node.textContent=event.detail.saved?'進度已儲存在這個瀏覽器。':'尚未儲存（'+(event.detail.reason||'pending')+'）；請保留備份，不要重新整理。';});
+
  if(location.hash==='#topology'){CircuitWorkspace.mountTopology();return;}
  if(!location.hash||location.hash.startsWith('#experiment')){CircuitWorkspace.mountExperiment();return;}
 
@@ -10,20 +13,51 @@
  let workspace=stored?.version===1?stored:{version:1,history:[]},model;
  try{model=B.buckConfig(workspace.model||W.defaults);}catch{model=B.buckConfig(W.defaults);}
  let id,value,record,baseline,planned,prepared=true,stepView=null,mode='lesson',freeReturn=null,phase=.1;
+ let saving=false;
+ async function accept(){saving=true;const controls=[...document.querySelectorAll('button,input')].filter(n=>!n.closest('#learning-storage-status')&&!['workspace-backup','detailed-records','all-materials'].includes(n.id)).map(n=>[n,n.disabled]);controls.forEach(([n])=>n.disabled=true);if(!save())return false;const status=await E.flush();if(!status.saved){const recovered=event=>{if(!event.detail.saved)return;$('ws-save').textContent='重試儲存已成功；請重新整理以繼續這次已保存的判斷。';window.removeEventListener('circuit:evidence-persistence',recovered);};window.addEventListener('circuit:evidence-persistence',recovered);$('ws-save').textContent='尚未儲存（'+(status.reason||'pending')+'）；本次判斷尚未接受；請先重試儲存，成功後重新整理，或下載備份。';return false;}saving=false;controls.forEach(([n,disabled])=>n.disabled=disabled);renderProgress();return true;}
+ let blocked=false,expectedRecord,expectedWorkspace=JSON.stringify(legacyFields(stored));
  const lesson=()=>CircuitBeginnerLessons.lessons.find(l=>l.id===id)||P.bridge.find(l=>l.id===id);
  const isConcept=()=>W.ids.indexOf(id)>=5;
  const rowFrom=(state,key)=>state.benchmark[W.bucket(key)]?.rows?.[key];
  const count=()=>W.ids.filter(key=>P.proven(rowFrom(E.load(),key))).length;
  const el=(tag,text,parent)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(parent)parent.append(n);return n;};
+ function legacyFields(value){
+  if(!value)return undefined;
+  const fields={};for(const key of ['version','currentLesson','model','mode','history','freeModel'])if(Object.hasOwn(value,key))fields[key]=value[key];return fields;
+ }
+ function protectRecord(state=E.load()){
+  const current=state.benchmark.learningWorkspace,bucket=id?state.benchmark[W.bucket(id)]:null;
+  const rootOk=!current||(typeof current==='object'&&!Array.isArray(current)&&current.version===1);
+  const bucketOk=!bucket||(typeof bucket==='object'&&!Array.isArray(bucket)&&bucket.version===1);
+  if(!blocked&&rootOk&&bucketOk&&JSON.stringify(legacyFields(current))===expectedWorkspace&&(!id||JSON.stringify(bucket?.rows?.[id])===expectedRecord))return false;
+  blocked=true;
+  if(!$('legacy-record-protection')){
+   const main=document.querySelector('main');main.hidden=true;
+   document.querySelectorAll('button,input').forEach(control=>control.disabled=true);
+   const notice=el('section');notice.id='legacy-record-protection';notice.className='context-note';notice.setAttribute('role','status');
+   el('h1','先保留你的學習紀錄',notice);
+   el('p','紀錄已由另一頁更新，或使用目前頁面不支援的版本。已暫停寫入，沒有覆蓋已有作答；請先下載備份。',notice);
+   el('a','查看學習紀錄與下載備份',notice).href='map.html';main.before(notice);
+  }
+  return true;
+ }
  function save(){
-  const state=E.load(),key=W.bucket(id);state.benchmark[key]||={version:1,rows:{}};state.benchmark[key].rows||={};state.benchmark[key].rows[id]=record;
-  workspace={...workspace,version:1,currentLesson:id,model:{...model},mode,history:workspace.history||[]};state.benchmark.learningWorkspace=workspace;E.save(state);
-  $('ws-save').textContent=E.storageStatus().saved?'進度與電路設定已保存在這個瀏覽器。':'目前只能暫存；離開前請從「我的學習紀錄」下載備份。';renderProgress();
+  const state=E.load();if(protectRecord(state))return false;
+  const key=W.bucket(id);state.benchmark[key]||={version:1,rows:{}};state.benchmark[key].rows||={};state.benchmark[key].rows[id]=record;
+  // Only this legacy renderer's own fields come from its mounted session.
+  // New experiment/topology records are preserved from the freshly loaded root.
+  // This detects sequential stale writes, not simultaneous cross-tab transactions:
+  // atomic closure requires a storage-key protocol respected by every E.save writer.
+  const own={version:1,currentLesson:id,model:{...model},mode,history:workspace.history||[]};
+  if(Object.hasOwn(workspace,'freeModel'))own.freeModel=workspace.freeModel;
+  workspace={...(state.benchmark.learningWorkspace||{}),...own};state.benchmark.learningWorkspace=workspace;E.save(state);
+  expectedWorkspace=JSON.stringify(legacyFields(workspace));expectedRecord=JSON.stringify(record);
+  $('ws-save').textContent=E.storageStatus().saved?'進度與電路設定已保存在這個瀏覽器。':'目前只能暫存；離開前請從「我的學習紀錄」下載備份。';if(!saving)renderProgress();return true;
  }
  function log(label,before,after){workspace.history=W.history(workspace.history,{at:new Date().toISOString(),lesson:id,label,before:{...before},after:{...after}});}
  function options(parent,name,choices){const field=el('fieldset',undefined,parent);el('legend','你的判斷',field);for(const[v,t]of choices){const label=el('label',undefined,field),input=el('input',undefined,label);input.type='radio';input.name=name;input.value=v;label.append(document.createTextNode(' '+t));}return field;}
  function select(key,focus=false){
-  if(!W.locate(key))return;id=key;mode='lesson';freeReturn=null;stepView=null;record={...(rowFrom(E.load(),id)||{})};const l=lesson();
+  if(saving||blocked||!W.locate(key))return;id=key;mode='lesson';freeReturn=null;stepView=null;const current=E.load(),savedRow=rowFrom(current,id);expectedRecord=JSON.stringify(savedRow);if(protectRecord(current))return;record={...(savedRow||{})};const l=lesson();
   value=Number.isFinite(record.value)&&record.value>=l.min&&record.value<=l.max?record.value:l.initial;
   baseline=W.plan(id,model);planned=W.apply(id,value,baseline);if(P.proven(record)&&record.workspaceSnapshot?.model){try{planned=B.buckConfig(record.workspaceSnapshot.model);}catch{}}prepared=W.changed(model,planned).length===0;
   const names={vin:'輸入電壓',duty:'開關打開的比例',inductanceUh:'電感',fswKhz:'開關頻率',loadOhm:'用電部分的電阻',capacitanceUf:'電容',esrOhm:'電容串聯電阻'};
@@ -54,8 +88,8 @@
   field.disabled=!prepared||(shown===0&&!!record.first);
   const button=el('button',shown===0?'記下判斷，開始觀察':'檢查我的判斷',box);button.type='button';button.id='workspace-submit';button.className='primary';button.disabled=!prepared||(shown===0&&!!record.first);
   if(shown===0&&record.first)el('p','首次判斷已保留：'+(l.choices.find(([v])=>v===record.first.answer)?.[1]||record.first.answer),box);
-  button.onclick=()=>{
-   const answer=choices?box.querySelector('input:checked')?.value:$('workspace-answer').value;
+  button.onclick=async()=>{
+   if(saving)return;const answer=choices?box.querySelector('input:checked')?.value:$('workspace-answer').value;
    if(answer===undefined||String(answer).trim()===''){$('ws-feedback').textContent='請先選擇或填寫答案。';return;}
    if(shown===1&&!record.operated){$('ws-feedback').textContent='先調到指定數值，看看曲線，再判斷。';return;}
    const expected=shown===0?l.answer:shown===1?check.observed:shown===2?check.because:(l.expected);
@@ -63,7 +97,7 @@
    if(shown===0){if(record.first)return;record.first={answer,correct};}
    else if(shown===1||shown===2){const kind=shown===1?'observation':'reason';record[kind+'First']||={answer,correct};if(correct){record.proof||={};record.proof[kind]=true;if(shown===1)record.observed=true;}}
    else{record.transferFirst||={answer,correct};record.transferAttempts=(record.transferAttempts||0)+1;if(correct){record.transferPassed=true;record.transferBefore={...model};const example=W.transfer(id,model);log('換條件驗證：'+example.note,model,example.model);model={...example.model};record.workspaceSnapshot={model:{...model},value};}}
-   save();if(correct||shown===0){stepView=null;updateControls();renderQuestion();if(P.stage(record)===1)$('ws-control').focus();else $('ws-question h2')?.focus();}else $('ws-feedback').textContent=shown===1?'再比較前後的數字與線條。若只是儀器設定改了，電路本身會不會改變？':shown===2?'這個原因還不能解釋剛才的變化。可以展開這一步的提示，再選一次。':'先找新題改了哪個條件，再重新判斷。首次答案已保留。';
+   if(!await accept())return;if(correct||shown===0){stepView=null;updateControls();renderQuestion();if(P.stage(record)===1)$('ws-control').focus();else $('ws-question h2')?.focus();}else $('ws-feedback').textContent=shown===1?'再比較前後的數字與線條。若只是儀器設定改了，電路本身會不會改變？':shown===2?'這個原因還不能解釋剛才的變化。可以展開這一步的提示，再選一次。':'先找新題改了哪個條件，再重新判斷。首次答案已保留。';
   };
  }
  function plot(series,xlabel,ylabel,target){
@@ -105,20 +139,22 @@
   $('context-words').replaceChildren();const terms=id==='probe'?['ADC','示波器']:id==='timing'?['PWM']:isConcept()?['回授','PI']:['CCM','DCM'];for(const term of terms){const entry=Object.entries(CircuitLearningGlossary).find(([k])=>k.includes(term));if(entry){const d=el('details',undefined,$('context-words'));el('summary',entry[0],d);el('p',entry[1],d);}}
  }
  function renderProgress(){
+  if(saving)return;
   const state=E.load(),done=W.ids.filter(key=>P.proven(rowFrom(state,key)));$('workspace-progress').textContent=`已練習 ${done.length} / 8 課 · 電路與作答都留在工作台`;
   $('workspace-route').replaceChildren();W.ids.forEach((key,i)=>{const li=el('li',undefined,$('workspace-route')),b=el('button',`${i+1}. ${done.includes(key)?'已練習：':''}${W.titles[i]}`,li);b.type='button';if(key===id)b.setAttribute('aria-current','step');b.onclick=()=>{if(location.hash==='#'+key)select(key,true);else location.hash=key;document.querySelector('.route').open=false;};});
   $('progress-summary').textContent=`已練習 ${done.length} / 8 課。目前：${W.titles[W.ids.indexOf(id)]}。`+(P.proven(record)?'接著看下一個問題，或沿用設定自由探索。':['先記下自己的預測。','接著辨認操作後的變化。','接著解釋變化的原因。','接著在新條件下判斷。'][P.stage(record)]);
   $('progress-abilities').replaceChildren();for(const key of W.ids){const r=rowFrom(state,key),stage=P.stage(r);el('li',`${P.proven(r)?'已練習：':'待練習：'}${W.abilities[W.ids.indexOf(key)]}`+((r?.observationFirst?.correct===false&&stage===1)?'；目前卡在辨認變化。':r?.reasonFirst?.correct===false&&stage===2?'；目前卡在解釋原因。':r?.transferFirst?.correct===false&&stage===3?'；目前卡在換條件判斷。':''),$('progress-abilities'));}
   $('workspace-history').replaceChildren();for(const h of [...(workspace.history||[])].reverse())el('li',`${h.label}；輸入 ${h.before.vin} → ${h.after.vin} V，開關比例 ${h.before.duty} → ${h.after.duty}，電阻 ${h.before.loadOhm} → ${h.after.loadOhm} Ω。`,$('workspace-history'));
  }
- function explore(){
-  if(!P.proven(record))return;freeReturn={model:{...model},baseline:{...baseline},value,phase};mode='free';baseline={...model};if(workspace.freeModel){try{model=B.buckConfig(workspace.freeModel);}catch{}}
-  updateControls();draw();renderQuestion();save();$('surface-status').textContent=isConcept()?'已回到真實電路的穩態曲線；上面的修正示意不會當成電路計算。':'課堂設定已保存，現在可以自由改動。';
+ async function explore(){
+  if(saving||!P.proven(record))return;freeReturn={model:{...model},baseline:{...baseline},value,phase};mode='free';baseline={...model};if(workspace.freeModel){try{model=B.buckConfig(workspace.freeModel);}catch{}}
+  if(!await accept())return;updateControls();draw();renderQuestion();$('surface-status').textContent=isConcept()?'已回到真實電路的穩態曲線；上面的修正示意不會當成電路計算。':'課堂設定已保存，現在可以自由改動。';
  }
  function reference(href,title){
   const url=new URL(href,location.href),base=new URL('.',location.href);if(url.origin!==base.origin||!url.pathname.startsWith(base.pathname))return;
   $('workspace-reference').hidden=false;$('reference-title').textContent=title;$('reference-frame').hidden=false;$('reference-frame').src=url.href;$('workspace-reference').scrollIntoView({block:'start'});
  }
+ if(protectRecord())return;
  $('answer-observation').onclick=()=>{$('ws-question h2')?.focus();};
  $('apply-setup').onclick=()=>{log('開始本課，明確切換比較條件',model,planned);model={...planned};prepared=true;record.operated=P.correct(lesson().target,value);$('setup-panel').hidden=true;updateControls();draw();renderQuestion();save();};
  $('ws-control').oninput=e=>{if(!prepared||!record.first||mode!=='lesson')return;const old={...model};value=Number(e.target.value);record.value=value;model=W.apply(id,value,model);if(id==='inductor')phase=value/100;if(P.correct(lesson().target,value))record.operated=true;log('本課操作：'+lesson().label+' = '+value,old,model);$('ws-value').textContent=String(value);draw();save();};
@@ -132,8 +168,8 @@
  $('close-reference').onclick=()=>{$('workspace-reference').hidden=true;$('reference-frame').removeAttribute('src');$('reference-links').replaceChildren();$('ws-title').focus();};$('detailed-records').onclick=()=>reference('map.html','原有工程課與測驗紀錄');$('all-materials').onclick=()=>reference('catalog.html','完整教材：選擇需要深入的主題');
  $('workspace-backup').onclick=()=>{const url=URL.createObjectURL(new Blob([E.exportBackup()],{type:'application/json'})),a=el('a');a.href=url;a.download='circuit-learning-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
  const recommendation=U.next(initial,CircuitCoreFlowV1.snapshot()),recommended=W.locate(recommendation.id.replace(/^(basic|bridge)-/,''));
- function renderRecommendation(){const recommendation=U.next(E.load(),CircuitCoreFlowV1.snapshot()),recommended=W.locate(recommendation.id.replace(/^(basic|bridge)-/,''));$('resume-task').hidden=!!recommended;if(!recommended){const b=$('resume-task');b.hidden=false;b.textContent=['formal','quiz'].includes(recommendation.id)?'接續到期複習':'繼續原本的進階任務';b.dataset.route=recommendation.remediation?U.remediationRoute(recommendation.id,recommendation.remediation):U.route(recommendation.id);b.onclick=()=>{if(recommendation.remediation)U.beginReturn(recommendation.id,recommendation.remediation);reference(b.dataset.route,U.task(recommendation.id).title);};}}
- renderRecommendation();window.addEventListener("storage",()=>{renderProgress();renderRecommendation();});
- window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#experiment'))location.reload();else select(W.locate(location.hash)||'duty',true);});
+ function renderRecommendation(){if(saving)return;const recommendation=U.next(E.load(),CircuitCoreFlowV1.snapshot()),recommended=W.locate(recommendation.id.replace(/^(basic|bridge)-/,''));$('resume-task').hidden=!!recommended;if(!recommended){const b=$('resume-task');b.hidden=false;b.textContent=['formal','quiz'].includes(recommendation.id)?'接續到期複習':'繼續原本的進階任務';b.dataset.route=recommendation.remediation?U.remediationRoute(recommendation.id,recommendation.remediation):U.route(recommendation.id);b.onclick=()=>{if(recommendation.remediation)U.beginReturn(recommendation.id,recommendation.remediation);reference(b.dataset.route,U.task(recommendation.id).title);};}}
+ renderRecommendation();window.addEventListener("storage",()=>{if(protectRecord())return;renderProgress();renderRecommendation();});
+ window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#experiment'))durableNavigate(()=>location.reload());else select(W.locate(location.hash)||'duty',true);});
  select(W.locate(location.hash)||W.locate(workspace.currentLesson)||recommended||'duty');
 })();

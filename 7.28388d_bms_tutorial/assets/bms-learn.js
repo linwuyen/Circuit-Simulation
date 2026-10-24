@@ -24,11 +24,12 @@
 
   const GLOSSARY = {
     "AFE": "類比前端:量測電池電壓/電流並透過 SPI 回報。只提供數字,不做最終安全決策。",
-    "CPU1": "F28388D 第一顆 C28x 核心:負責底層感測讀取、寫入 IPC/GSRAM、跨核 watchdog。",
+    "CPU1": "F28388D 第一顆 C28x 核心:負責底層感測讀取、寫入 IPC/CPU1-to-CM MSGRAM、跨核 watchdog。",
     "CPU2": "第二顆 C28x 核心:執行 BMS 狀態機(FSM)與接觸器控制。",
     "CM4": "內建 ARM Cortex-M4 核心:負責 CAN FD 與 UDS 診斷通訊。",
     "IPC": "Inter-Processor Communication:核心之間傳遞訊息與旗標的硬體機制。",
-    "GSRAM": "可在核心間共享的全域 SRAM,用來交換資料。",
+    "GSRAM": "C28x CPU1/CPU2 的全域共享 SRAM；CM 不可直接存取。",
+    "CPU1-to-CM MSGRAM": "CPU1 寫、CM 讀的專用方向性 message RAM；反向通信使用另一區。",
     "UDS": "ISO 14229 統一診斷服務:診斷儀與 ECU 一問一答的協定。",
     "OVP": "Over-Voltage Protection:過壓保護門檻(本教材為 4250 mV)。",
     "OCP": "Over-Current Protection:過流保護門檻(本教材為 150 A)。",
@@ -80,7 +81,7 @@
     "7": [
       { q: "多核心共享資料為什麼要鎖或有效旗標?", opts: ["為了跑得更快", "避免讀到更新到一半的資料", "為了省記憶體"], a: 1 },
       { q: "本頁 IPC 的兩步驟順序是?", opts: ["CM4 先寫,CPU1 再讀", "CPU1 寫入 → CM4 讀取後 ACK", "兩核心同時寫"], a: 1 },
-      { q: "GSRAM 是什麼?", opts: ["核心間共享的記憶體區", "一種感測器", "診斷協定"], a: 0 }
+      { q: "CPU1 與 CM 交換資料應用哪一區?", opts: ["專用 CPU1-to-CM MSGRAM", "CM 可直接讀取的 GS RAM", "ADC 結果暫存器"], a: 0 }
     ],
     "8": [
       { q: "故障注入(故意弄壞)的主要目的是?", opts: ["讓畫面變紅好看", "驗證系統能收斂到安全狀態", "加快放電"], a: 1 },
@@ -216,7 +217,7 @@
       { label: "走完安全存取,看到 67 02 解鎖成功", check: () => termHas("uds-term", "67 02") }
     ],
     "7": [
-      { label: "傳輸一次,讓 GSRAM 不再是 0x0000", check: () => { const v = txt("gsram-value"); return v && v !== "0x0000"; } },
+      { label: "傳輸一次,讓 CPU1-to-CM MSGRAM 不再是 0x0000", check: () => { const v = txt("gsram-value"); return v && v !== "0x0000"; } },
       { label: "讓 CM4 讀到資料(IPC_Rx_V 非 0)", check: () => { const v = txt("cm4-rx"); return v && v !== "0x0000"; } }
     ],
     "8": [

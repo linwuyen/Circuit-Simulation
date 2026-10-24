@@ -1,8 +1,9 @@
+const { flushEvidence, resetEvidence } = require('./evidence-fixture');
 const { test, expect } = require('@playwright/test');
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await page.evaluate(() => localStorage.clear());
+  await resetEvidence(page);
 });
 
 test('all labs expose explicit verification contracts and honest grade ceilings', async ({ page }) => {
@@ -29,11 +30,14 @@ test('PI black-box oracle closes prediction to A-strength evidence', async ({ pa
   await page.fill('#prediction','Ki增加時0dB交越頻率會提高，積分器增益曲線向上移。');
   await page.fill('#parameters','Ki=6000 1/s');
   await page.click('#commitPrediction');
+  await expect(page.locator('#predictionStatus')).toContainText('✓ preregistered');
+  await expect(page.locator('#openSimulator')).toHaveAttribute('aria-disabled', 'false');
 
   await page.goto('/4_PI/02_integrator.html');
   await expect(page.locator('.clt-root')).toBeAttached();
   await page.locator('#ki-slider').fill('6000');
-  await page.waitForTimeout(500);
+  await expect.poll(() => page.evaluate(() => CircuitEvidence.machineEvents('pi.lab.pi-ki').filter(e => e.verification?.independentValidated && e.verification?.passed).length)).toBeGreaterThan(0);
+  await flushEvidence(page);
 
   await page.goto('/report.html?labId=pi.lab.pi-ki');
   await expect(page.locator('#machineEvidence')).toContainText('independent PASS 1');
@@ -51,6 +55,8 @@ test('A-grade domain gate rejects generic fluent prose on a newly covered oracle
   await page.fill('#prediction','Ki增加所以結果會上升。');
   await page.fill('#parameters','Ki=6000 1/s');
   await page.click('#commitPrediction');
+  await expect(page.locator('#predictionStatus')).toContainText('✓ preregistered');
+  await expect(page.locator('#openSimulator')).toHaveAttribute('aria-disabled', 'false');
   await page.fill('#observation','結果是 955 Hz。');
   await page.fill('#explanation','因為月亮比較亮所以這個結果在工程上看起來很合理。');
   await page.fill('#limitations','香蕉與天氣可能造成一些限制。');

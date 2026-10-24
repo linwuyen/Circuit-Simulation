@@ -1,3 +1,4 @@
+const { resetEvidence } = require('./evidence-fixture');
 const { test, expect } = require('@playwright/test');
 async function downloadJson(page, click) {
   const pending = page.waitForEvent('download'); await click();
@@ -7,7 +8,7 @@ async function downloadJson(page, click) {
 }
 test.beforeEach(async ({ page }) => {
   await page.goto('/15_power_capstone/lab_sandbox.html');
-  await page.evaluate(() => localStorage.clear());
+  await resetEvidence(page);
   await page.reload();
 });
 test('model boundary and measurement controls produce finite real waveforms', async ({ page }) => {
@@ -46,6 +47,7 @@ test('targeted unit remediation preserves the wrong first attempt after transfer
   await page.locator('#tr-answer-controls input').fill('1'); await page.locator('#tr-answer').click();
   await expect(page.locator('#tr-feedback')).toContainText('單位換算');
   await page.locator('#tr-mini').click();
+  await expect(page.locator('#tr-transfer-answer')).toBeEnabled();
   const prompt = await page.locator('#tr-transfer-question').innerText();
   const uh = Number(prompt.match(/([\d.]+) µH/)[1]);
   await page.locator('#tr-transfer-controls input').fill(String(uh * 1e-6));
@@ -89,7 +91,7 @@ test('mainline storage failure participates in the common retry and full backup 
   await page.evaluate(() => { Storage.prototype.setItem = window.storageSetItem; });
   await page.locator('#learning-storage-status').getByRole('button',{name:'重試儲存'}).click();
   await expect(page.locator('#learning-storage-status')).toHaveCount(0);
-  await page.evaluate(() => localStorage.clear());
+  await resetEvidence(page);
   await page.reload();
   await page.locator('#training-restore').setInputFiles({name:'backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
   await expect(page.locator('#pilot-status')).toContainText('已合併');

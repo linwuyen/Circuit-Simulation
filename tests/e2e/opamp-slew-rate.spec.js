@@ -1,8 +1,10 @@
+const {machineCount,waitForMachineEvidence}=require('./machine-evidence-ready');
+const { resetEvidence } = require('./evidence-fixture');
 const { test, expect } = require('@playwright/test');
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/catalog.html');
-  await page.evaluate(() => localStorage.clear());
+  await resetEvidence(page);
 });
 
 test('advanced catalog exposes the OP AMP dynamic-response module inside the expanded system', async ({ page }) => {
@@ -18,9 +20,10 @@ test('sine lab calculates the full-power slope and records one independent PASS'
   await expect(page.locator('#op-margin')).toContainText('1.31');
   await expect(page.locator('#op-state')).toContainText('SAFE / not limited');
 
+  const beforeMachine=await machineCount(page,'opamp.lab.opamp-sine');
   await page.locator('#op-sr-plus').fill('4.2');
   await page.locator('#op-sr-minus').fill('4.1');
-  await page.waitForTimeout(800);
+  await waitForMachineEvidence(page,'opamp.lab.opamp-sine',beforeMachine,{"srPlus": 4.2, "srMinus": 4.1});
 
   const machine = await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem('circuit-learning-state-v5') || '{}');

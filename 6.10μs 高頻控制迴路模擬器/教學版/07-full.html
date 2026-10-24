@@ -45,7 +45,7 @@
 
   <div class="goal">
     <span class="ic">🎯</span>
-    <div>綜合應用:同時調整 <b>ACQPS(第3課)</b>、<b>CPU1 運算(第4課)</b>、<b>FSI Payload(第5課)</b>,看四層時序、即時數據與 <b>DAC 輸出(第6課)</b> 如何一起變化,並學會看到警告時<b>怎麼修</b>。</div>
+    <div>綜合應用:同時調整 <b>外部 ADC 結果就緒等待</b>、<b>CPU1 運算(第4課)</b>、<b>FSI Payload(第5課)</b>,看四層時序、即時數據與 <b>DAC 輸出(第6課)</b> 如何一起變化,並學會看到警告時<b>怎麼修</b>。</div>
   </div>
 
   <!-- 控制列 -->
@@ -91,9 +91,9 @@
         <h2>⚙️ 系統參數設定</h2>
         <div class="controls">
           <div class="ctl">
-            <label><span>內部 ADC 計時 (ACQPS)</span><span class="val v-blue" id="v-acq">600 ns</span></label>
+            <label><span>外部 ADC 結果就緒等待</span><span class="val v-blue" id="v-acq">600 ns</span></label>
             <input type="range" id="acq" min="300" max="1500" step="50" value="600" />
-            <div class="hint">CPU 等多久後讀資料。<span style="color:var(--red)">必須 ≥ 550ns</span>,否則讀到壞值。<a href="03-adc.html" class="term" style="text-decoration:none">→ 複習第3課</a></div>
+            <div class="hint">本頁 CPU 從觸發到使用外部結果的示意等待，不是內部 ADC 的 ACQPS。<span style="color:var(--red)">必須 ≥ 550ns</span>,否則讀到壞值。<a href="03-adc.html" class="term" style="text-decoration:none">→ 複習第3課</a></div>
           </div>
           <div class="ctl">
             <label><span>CPU1 演算法時間</span><span class="val v-purple" id="v-cpu">1500 ns</span></label>
@@ -123,7 +123,7 @@
 
           <div class="layer">
             <h4>🔵 Layer 1/2:硬體同步 &amp; ADC 計時</h4>
-            <div class="teach analogy" style="margin:0 0 10px"><span class="tag">說明</span>EPWM 像鬧鐘,時間到自動觸發 ADC(第2課)。外部 ADC 約需 550ns;內部 ADC 的 ACQPS 是取樣保持時間,設太短會抓到壞值(第3課)。</div>
+            <div class="teach analogy" style="margin:0 0 10px"><span class="tag">說明</span>EPWM 可提供觸發。此圖把外部 ADC 的「結果就緒」簡化為 550 ns 常數（非 LTC2353 時序保證）；實際需包含轉換完成/BUSY 與序列傳輸。內部 ADC 的 ACQPS 是獨立的類比取樣窗口，不會等待外部數位結果。</div>
             <div id="layer1"></div>
           </div>
           <div class="layer">
@@ -176,7 +176,7 @@
 <script>window.PAGE = '07';</script>
 <script src="nav.js"></script>
 <script>
-/* ============ 時序模型(沿用原模擬器邏輯) ============ */
+/* Timing teaching model. Legacy state.acq is external-result wait, NOT internal ACQPS. */
 var TOTAL = 10000, EXT_ADC = 550, CPU2_START = 500, CPU2_TX = 200;
 var state = { acq: 600, cpu: 1500, pay: 16, speed: 3, playing: false, t: 0, phase: 0, teach: true };
 
@@ -211,8 +211,8 @@ function renderBars() {
   var m = model();
   var L1 = document.getElementById('layer1'); L1.innerHTML = '';
   bar(L1, 'EPWM Trigger', 0, 50, '#eab308', false);
-  bar(L1, 'Ext. ADC (LTC2353)', 0, EXT_ADC, '#64748b', false);
-  bar(L1, 'Int. ADC (ACQPS)', 0, state.acq, '#2563eb', m.corrupted);
+  bar(L1, 'Ext. ADC ready (illustrative)', 0, EXT_ADC, '#64748b', false);
+  bar(L1, 'External result wait', 0, state.acq, '#2563eb', m.corrupted);
 
   var L3 = document.getElementById('layer3'); L3.innerHTML = '';
   bar(L3, 'CPU1 Compute', m.cpu1Start, m.cpu1End, '#7c3aed', m.corrupted || m.cpu1End > TOTAL);
@@ -265,7 +265,7 @@ function renderStats() {
 
   // 修正建議(實用性)
   var fixes = [];
-  if (m.corrupted) fixes.push('<b>ADC 讀到壞值:</b>把 ACQPS 調回 ≥ 550ns,讓內部 ADC 取樣窗口涵蓋外部 ADC 的轉換時間。寧可多等一點,也不要拿到假數據。');
+  if (m.corrupted) fixes.push('<b>ADC 讀到壞值:</b>延後使用外部轉換結果，並用真實 BUSY/EOC 與序列傳輸完成條件同步。本頁 550 ns 只是結果就緒假設，不是內部 ADC 的 ACQPS 設定。');
   if (m.fsiWarn) fixes.push('<b>FSI 過載:</b>減少 Payload(只傳必要的資料)、提高 FSI 傳輸速率,或把大資料拆成多輪分批傳。');
   if (m.timeout) fixes.push('<b>運算逾時:</b>縮短 CPU1 運算——用查表取代即時三角函數、改用定點數、開編譯器最佳化,或把部分工作分到 CPU2。');
   if (m.margin >= 0 && m.margin < 1000 && !m.timeout) fixes.push('<b>餘裕偏低(&lt;1000ns):</b>目前壓線,雜訊或溫度變化可能讓它瞬間逾時。建議想辦法多留一點緩衝。');
@@ -355,7 +355,7 @@ document.querySelectorAll('[data-preset]').forEach(function (b) {
 var GLOSS = [
   ['🕐 為什麼是 10μs / 100kHz?', '控制迴路每 10μs 跑完「讀→算→輸出」一輪。馬達/電源控制要這麼快才穩。所有任務必須塞進這 10μs。'],
   ['⚡ 硬體觸發 (EPWM)', 'EPWM 像鬧鐘,時間到自動觸發 ADC,不靠 CPU 輪詢,每次間隔一致(低 jitter)。'],
-  ['📏 ACQPS 取樣保持', 'ADC 抓值前要等電容充飽。設太短會讀到壞值;外部 LTC2353 約需 550ns。'],
+  ['📏 外部 ADC 結果就緒等待', '等待外部轉換與資料傳輸完成；不是內部 ADC 的 ACQPS。550 ns 只是本圖示意假設。'],
   ['🧩 雙核分工 (CPU1/CPU2)', 'CPU1 專心精密運算(PID、正弦);CPU2 專心對外通訊。分工並行,互不卡住。'],
   ['🔗 FSI 菊鏈', 'FSI 高速序列介面,把多顆晶片串成鏈條,資料一站站傳。傳越多 Byte,佔匯流排越久。'],
   ['💥 骨牌效應與餘裕', '某輪沒在 10μs 內做完,工作拖到下一輪累積,越積越多終至崩潰。所以要刻意留 idle 餘裕當緩衝。']

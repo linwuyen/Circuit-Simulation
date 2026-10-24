@@ -1,8 +1,10 @@
+const {machineCount,waitForMachineEvidence}=require('./machine-evidence-ready');
+const { resetEvidence } = require('./evidence-fixture');
 const { test, expect } = require('@playwright/test');
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await page.evaluate(() => localStorage.clear());
+  await resetEvidence(page);
 });
 
 test('prediction commit precedes simulator and produces A-strength verified evidence', async ({ page }) => {
@@ -13,8 +15,9 @@ test('prediction commit precedes simulator and produces A-strength verified evid
   await expect(page.locator('#predictionStatus')).toContainText('preregistered');
   await page.locator('#openSimulator').click();
   await expect(page.locator('.clt-root')).toBeAttached();
+  const beforeMachine=await machineCount(page,'buck.lab.buck-ripple');
   await page.locator('#ind').evaluate(el => { el.value = '12'; el.dispatchEvent(new Event('input', { bubbles: true })); });
-  await page.waitForTimeout(500);
+  await waitForMachineEvidence(page,'buck.lab.buck-ripple',beforeMachine,{"inductanceUh": 12});
   await page.goto('/report.html?labId=buck.lab.buck-ripple');
   await expect(page.locator('#machineEvidence')).toContainText(/independent PASS [1-9]/);
   await page.locator('#observation').fill('ΔI約0.399 A，約為Iout=2 A的20%，且維持CCM。');
@@ -29,8 +32,9 @@ test('prediction commit precedes simulator and produces A-strength verified evid
 test('simulator-first workflow is explicitly marked post-hoc', async ({ page }) => {
   await page.goto('/0_buck_converter_/2_current_ripple.html');
   await expect(page.locator('.clt-root')).toBeAttached();
+  const beforeMachine=await machineCount(page,'buck.lab.buck-ripple');
   await page.locator('#ind').evaluate(el => { el.value = '8'; el.dispatchEvent(new Event('input', { bubbles: true })); });
-  await page.waitForTimeout(400);
+  await waitForMachineEvidence(page,'buck.lab.buck-ripple',beforeMachine,{"inductanceUh": 8});
   await page.goto('/report.html?labId=buck.lab.buck-ripple');
   await page.locator('#prediction').fill('L增加時電流漣波會下降。');
   await page.locator('#parameters').fill('Vin=12 V, Vout=3.3 V, L=8 µH, fsw=500 kHz');

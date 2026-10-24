@@ -198,14 +198,19 @@
     sweepTimer = setInterval(() => {
       const p = i / (steps - 1);
       const freq = 10 * Math.pow(1000, p);
-      const model = 20 - 22 * Math.log10(1 + freq / 70) - 11 * Math.log10(1 + freq / 700);
-      const delayPenalty = 3.5 * Math.pow(freq / 10000, .7);
-      const measured = model - delayPenalty;
+      // Synthetic two-pole response: 10 / ((1+s/w1)(1+s/w2)).
+      // An additional exp(-s*10 us) has exactly unity magnitude.
+      const model = 20 - 10 * Math.log10(1 + (freq / 70)**2) - 10 * Math.log10(1 + (freq / 700)**2);
+      const modelPhase = -(Math.atan(freq/70)+Math.atan(freq/700))*180/Math.PI;
+      const delayPhase = -360*freq*10e-6;
+      const measured = model;
       $("sweepDot").style.left = `${p * 100}%`;
       $("sweepFreq").textContent = freq >= 1000 ? `${fmt(freq/1000,2)} kHz` : `${fmt(freq,0)} Hz`;
       $("modelMag").textContent = `${model.toFixed(1)} dB`;
       $("measuredMag").textContent = `${measured.toFixed(1)} dB`;
-      $("sweepVerdict").textContent = Math.abs(model-measured) > 2 ? "實測開始偏離模型 → 查漏掉的 delay / pole" : "模型與實測接近";
+      $("modelPhase").textContent = `${modelPhase.toFixed(1)}°`;
+      $("measuredPhase").textContent = `${(modelPhase+delayPhase).toFixed(1)}°`;
+      $("sweepVerdict").textContent = `合成示範：10 µs pure delay，magnitude 不變，額外 phase ${delayPhase.toFixed(1)}°；非實測證據`;
       i++;
       if (i >= steps) { clearInterval(sweepTimer); sweepTimer = null; $("sweepButton").textContent = "▶ 再掃一次"; }
     }, 55);

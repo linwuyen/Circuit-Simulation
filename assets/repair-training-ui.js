@@ -4,7 +4,7 @@
   if (!Core || !Records || !document.getElementById("repair-training")) return;
   const $ = id => document.getElementById(id), text = (id, value) => { $(id).textContent = value; };
   const names = { sensorGain: "感測倍率錯誤", staleCommand: "舊 command", controlSign: "回授符號錯誤", dutyClamp: "錯誤 duty 限幅", missedCommit: "PWM 更新逾時" };
-  let session = null, rehearsal = false, recordId, started = Date.now();
+  let session = null, rehearsal = false, recordId, started = Date.now(), saving = false;
   function checked(id) { return [...$(id).querySelectorAll('input:checked')].map(input => input.value); }
   function checkbox(parent, value, title, selected = false) {
     const label = document.createElement("label"), input = document.createElement("input");
@@ -52,8 +52,19 @@
       block.append(heading, list, description); $("repair-verdict").append(block);
     });
   }
-  function safe(action) {
-    try { action(); render(); save(); } catch (error) { text("repair-status", error.message); }
+  async function safe(action) {
+    if (saving) return;
+    saving = true;
+    try {
+      await action();
+      const message = $("repair-status").textContent;
+      text("repair-status", "正在儲存；本次結果尚未接受。");
+      save();
+      const persisted = await globalThis.CircuitEvidence.flush();
+      if (!persisted.saved) throw new Error("尚未儲存（"+(persisted.reason||"pending")+"）；本次結果未被接受，不揭示或推進案例。");
+      render(); text("repair-status", message);
+    } catch (error) { text("repair-status", error.message); }
+    finally { saving = false; }
   }
   for (const [id, title] of Object.entries(Core.MEASUREMENTS)) {
     const button = document.createElement("button"); button.type = "button"; button.dataset.measurement = id; button.textContent = title;
@@ -70,9 +81,12 @@
     });
     $("repair-actions").append(button);
   }
-  function start() {
+  async function start() {
     const seed = Number($("repair-seed").value), next = Core.create(seed);
-    rehearsal = !Records.claimSeed(seed); started = Date.now(); recordId = `${rehearsal ? "practice" : "repair"}-${seed}-${started}`;
+    const fresh = Records.claimSeed(seed);
+    const persisted = await globalThis.CircuitEvidence.flush();
+    if (!persisted.saved) throw new Error("案例資格未儲存；不可當作首次正式案例，請保留備份並處理衝突。");
+    rehearsal = !fresh; started = Date.now(); recordId = `${rehearsal ? "practice" : "repair"}-${seed}-${started}`;
     session = next;
     $("repair-guesses").querySelectorAll("input").forEach(input => { input.checked = false; });
     text("repair-observation", ""); text("repair-status", "請先選量測；至少引用兩項 evidence 才能提交首判。");
@@ -89,7 +103,7 @@
       const restored = Core.replay(await Records.readFile(event.target.files[0]));
       session = restored; rehearsal = true; started = Date.now(); recordId = `replay-${started}`; $("repair-seed").value = session.view().seed;
       $("repair-guesses").querySelectorAll("input").forEach(input => { input.checked = false; });
-      render(); save(); text("repair-status", "操作已依序重播，驗證重新計算；匯入案例不加入首次成績。");
+      save(); const persisted=await globalThis.CircuitEvidence.flush();if(!persisted.saved)throw new Error("匯入重播尚未儲存；請保留備份，不要重新整理。");render();text("repair-status", "操作已依序重播，驗證重新計算；匯入案例不加入首次成績。");
     } catch (error) { text("repair-status", error.message); }
     event.target.value = "";
   };
@@ -103,6 +117,6 @@
         return;
       } catch (_) { /* Incompatible old replay does not prevent opening a fresh case. */ }
     }
-    start();
+    return start();
   });
 })();

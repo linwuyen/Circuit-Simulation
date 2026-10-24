@@ -164,10 +164,10 @@
       if (locked) {
         lessonState.cm4V = lessonState.v;
         text("gsram-value", hex(lessonState.v));
-        log("ipc-log", `CPU1 將 ADC ${hex(lessonState.v)} 寫入 GSRAM。`, "ok");
+        log("ipc-log", `CPU1 將 ADC ${hex(lessonState.v)} 寫入 CPU1→CM MSGRAM。`, "ok");
       } else {
         text("cm4-rx", hex(lessonState.cm4V));
-        log("ipc-log", "CM4 讀取 GSRAM 後送出 IPCACK，鎖被釋放。", "ok");
+        log("ipc-log", "CM4 讀取 CPU1→CM MSGRAM 後送出 IPCACK，鎖被釋放。", "ok");
       }
     });
     $("#ipc-auto")?.addEventListener("click", () => {
@@ -187,41 +187,27 @@
   }
 
   function evaluateFsm(source = "tick") {
-    if (lessonState.state === "FAULT") return;
+    if (lessonState.state === "FAULT") { setContactor(false); return; }
     const v = lessonState.v;
     const i = lessonState.i;
-
+    // Teaching model: OVP/OCP/SPI veto every energized or initialization state.
+    // Temperature/undervoltage are separate comparison lessons, not sensed here.
+    const fault = v > limits.ovp ? `OVP：${v} mV > ${limits.ovp} mV`
+      : i > limits.ocp ? `OCP：${i.toFixed(1)} A > ${limits.ocp} A`
+      : lessonState.spiBroken || lessonState.spi >= limits.spiMax ? `AFE SPI 失聯：錯誤計數 ${lessonState.spi}` : null;
+    if (fault) {
+      setState("FAULT"); setContactor(false);
+      log("fsm-log", `${fault}，進入 FAULT_LOCK。`, "err"); return;
+    }
     if (lessonState.state === "INIT") {
-      setState("STANDBY");
-      log("fsm-log", "初始化完成，BMS 進入 STANDBY。", "ok");
-      return;
+      setState("STANDBY"); setContactor(false);
+      log("fsm-log", "初始化完成，BMS 進入 STANDBY。", "ok"); return;
     }
-
-    if (lessonState.state === "STANDBY") {
-      if (v > limits.ovp) {
-        setState("FAULT");
-        setContactor(false);
-        log("fsm-log", `OVP：${v} mV > ${limits.ovp} mV，進入 FAULT_LOCK。`, "err");
-      } else if (source === "request" && v <= limits.dischargeMaxVoltage) {
-        setState("DISCHARGE");
-        setContactor(true);
+    if (lessonState.state === "STANDBY" && source === "request") {
+      if (v <= limits.dischargeMaxVoltage) {
+        setState("DISCHARGE"); setContactor(true);
         log("fsm-log", "VCU 放電請求成立，接觸器閉合。", "ok");
-      } else if (source === "request") {
-        log("fsm-log", `拒絕放電：${v} mV 高於 ${limits.dischargeMaxVoltage} mV。`, "warn");
-      }
-      return;
-    }
-
-    if (lessonState.state === "DISCHARGE") {
-      if (i > limits.ocp) {
-        setState("FAULT");
-        setContactor(false);
-        log("fsm-log", `OCP：${i.toFixed(1)} A > ${limits.ocp} A，接觸器斷開。`, "err");
-      } else if (lessonState.spi >= limits.spiMax) {
-        setState("FAULT");
-        setContactor(false);
-        log("fsm-log", `AFE SPI 失聯：錯誤計數 ${lessonState.spi}，進入 FAULT_LOCK。`, "err");
-      }
+      } else log("fsm-log", `拒絕放電：${v} mV 高於 ${limits.dischargeMaxVoltage} mV。`, "warn");
     }
   }
 
@@ -462,9 +448,11 @@
       if (g) {
         g.innerHTML = "";
         for (let i = 0; i < NCELL; i++) {
-          const d = document.createElement("div");
+          const d = document.createElement("button");
+          d.type = "button";
           d.id = "cmp-cell-" + i;
           d.title = "Cell " + (i + 1) + ":點擊循環 正常→過壓→欠壓";
+          d.setAttribute("aria-label", d.title);
           d.onclick = () => {
             cells[i] = cells[i] === 3700 ? 4350 : cells[i] === 4350 ? 2500 : 3700;
             paintCell(i); verdict();
@@ -477,9 +465,11 @@
       if (n) {
         n.innerHTML = "";
         for (let i = 0; i < NNTC; i++) {
-          const d = document.createElement("div");
+          const d = document.createElement("button");
+          d.type = "button";
           d.id = "cmp-ntc-" + i;
           d.title = "NTC " + (i + 1) + ":點擊循環 正常→過溫";
+          d.setAttribute("aria-label", d.title);
           d.onclick = () => { ntcs[i] = ntcs[i] === 25 ? 65 : 25; paintNtc(i); verdict(); };
           n.appendChild(d);
           paintNtc(i);

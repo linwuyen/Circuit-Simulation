@@ -1,3 +1,4 @@
+const {machineCount,waitForMachineEvidence}=require('./machine-evidence-ready');
 const { test, expect } = require('@playwright/test');
 
 test('all top-level pages load without runtime errors', async ({ page }) => {
@@ -26,12 +27,13 @@ test('lab link keeps the full lab id and selects the exact worksheet', async ({ 
 test('simulator interaction becomes machine evidence in the matching worksheet', async ({ page }) => {
   await page.goto('/0_buck_converter_/2_current_ripple.html');
   await expect(page.locator('.clt-root')).toBeAttached();
+  const beforeMachine=await machineCount(page,'buck.lab.buck-ripple');
   await page.locator('#ind').evaluate(el => {
     el.value = '4.4';
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
   });
-  await page.waitForTimeout(400);
+  await waitForMachineEvidence(page,'buck.lab.buck-ripple',beforeMachine,{"inductanceUh": 4.4});
   await page.goto('/report.html?labId=buck.lab.buck-ripple');
   await expect(page.locator('#machineEvidence')).toContainText(/Machine: [1-9]/);
 });
@@ -58,7 +60,7 @@ test('quiz exposes misconception feedback and progress survives reload', async (
   const firstCard = page.locator('.quiz-card').first();
   const firstOption = firstCard.locator('.quiz-option').first();
   await firstOption.click();
-  await expect(page.locator('.quiz-result').first()).not.toBeEmpty();
+  await expect(page.locator('.quiz-result .quiz-explain').first()).toBeVisible();
   await page.reload();
   await expect(page.locator('.quiz-card').first()).toBeVisible();
 });

@@ -3,11 +3,26 @@
   const Core = globalThis.CircuitTrainingExperiments, Records = globalThis.CircuitTrainingRecords;
   if (!Core || !Records || !document.getElementById("training-workbench")) return;
   const $ = id => document.getElementById(id), text = (id, value) => { $(id).textContent = value; };
-  let experiment = Core.createExperiment({}, {}), started = Date.now();
-  let question, transfer, first = null, miniDone = false, transferred = false, remediationId;
+  let experiment = Core.createExperiment({}, {}), started = Date.now(), importInFlight = false;
+  let question, transfer, first = null, miniDone = false, transferred = false, remediationId, remediationSaving = false;
   const fmt = (value, digits = 3) => Number(value).toFixed(digits);
   function safe(action, target = "tr-replay-status") {
     try { action(); } catch (error) { text(target, error.message); }
+  }
+  const statusVersions = new Map();
+  async function durableStatus(target, message) {
+    const version = (statusVersions.get(target) || 0) + 1; statusVersions.set(target, version);
+    text(target, "尚未儲存；請等待操作紀錄提交。");
+    const saved = await globalThis.CircuitEvidence.flush();
+    if (statusVersions.get(target) !== version) return;
+    if (saved.saved) { text(target, message); return; }
+    text(target, "尚未儲存（" + (saved.reason || "pending") + "）；請重試或匯出完整備份。");
+    const recover = event => {
+      if (!event.detail.saved) return;
+      window.removeEventListener("circuit:evidence-persistence", recover);
+      if (statusVersions.get(target) === version) text(target, message);
+    };
+    window.addEventListener("circuit:evidence-persistence", recover);
   }
   function svgNode(name, attributes = {}, content) {
     const node = document.createElementNS("http://www.w3.org/2000/svg", name);
@@ -85,21 +100,23 @@
     if (input.value === "") throw new Error("參數不能留白");
     const target = input.dataset.model ? "model" : "instrument", key = input.dataset.model || input.dataset.instrument;
     experiment = Core.changeExperiment(experiment, target, key, Number(input.value)); render(); save();
-    text("tr-replay-status", "已保存參數操作。");
+    durableStatus("tr-replay-status", "已保存參數操作。");
   })));
-  $("tr-new").onclick = () => safe(() => { const frame = Core.replay(experiment); experiment = Core.createExperiment(frame.model, frame.instrument); render(); save(); text("tr-replay-status", "目前設定已保存為原始組。"); });
+  $("tr-new").onclick = () => safe(() => { const frame = Core.replay(experiment); experiment = Core.createExperiment(frame.model, frame.instrument); render(); save(); durableStatus("tr-replay-status", "目前設定已保存為原始組。"); });
   $("tr-capture").onclick = () => safe(() => {
     const frame = Core.replay(experiment), changed = ["model", "instrument"].flatMap(type => Object.keys(frame[type]).filter(key => frame[type][key] !== experiment.initial[type][key]));
     const label = experiment.snapshots.length === 1 ? changed.length === 1 ? "單一變因" : "多變因對照" : "修正後對照";
     experiment = Core.capture(experiment, label); render(); save();
-    text("tr-replay-status", changed.length > 1 ? "此組改了多個變因，不能把差異只歸因於其中一項。" : "已保存對照波形與設定。");
+    durableStatus("tr-replay-status", changed.length > 1 ? "此組改了多個變因，不能把差異只歸因於其中一項。" : "已保存對照波形與設定。");
   });
   $("tr-export").onclick = () => Records.download("circuit-experiment.json", experiment);
   $("tr-replay").onclick = () => safe(() => { experiment = Core.validateExperiment(experiment).record; render(); text("tr-replay-status", `已依序重播 ${experiment.actions.length} 個操作，重新計算三組波形。`); });
   $("tr-import").onchange = async event => {
-    try { experiment = Core.validateExperiment(await Records.readFile(event.target.files[0])).record; experiment.id = `import-${Date.now()}`; render(); save(); text("tr-replay-status", "匯入完成；波形與數值已重新計算。"); }
+    if (importInFlight) return;
+    const disabled = event.target.disabled; event.target.disabled = true; importInFlight = true;
+    try { experiment = Core.validateExperiment(await Records.readFile(event.target.files[0])).record; experiment.id = `import-${Date.now()}`; render(); save(); await durableStatus("tr-replay-status", "匯入完成；波形與數值已重新計算。"); }
     catch (error) { text("tr-replay-status", error.message); }
-    event.target.value = "";
+    event.target.value = ""; event.target.disabled = disabled; importInFlight = false;
   };
   function answerControls(id, q) {
     const target = $(id); target.replaceChildren();
@@ -115,9 +132,9 @@
   function storeRemediation(extra = {}) {
     Records.saveSession({ id: remediationId, kind: "remediation", category: question.kind, first,
       transferPassed: transferred, elapsedSeconds: Math.round((Date.now() - started) / 1000), ...extra });
-    document.dispatchEvent(new Event("training:updated"));
   }
   function newQuestion() {
+    if (remediationSaving) return;
     const seed = Math.floor(Math.random() * 1000000) + 1;
     started = Date.now(); remediationId = `remediation-${started}-${seed}`;
     question = Core.question($("tr-remediation-kind").value, seed); transfer = Core.question(question.kind, seed + 7, true);
@@ -127,32 +144,69 @@
     $("tr-transfer-controls").replaceChildren(); $("tr-answer").disabled = false; $("tr-mini").disabled = true; $("tr-transfer-answer").disabled = true;
   }
   $("tr-question-new").onclick = newQuestion;
-  $("tr-answer").onclick = () => safe(() => {
-    if (first) return;
+  // Keep pending drafts exportable, but do not reveal answers or award progress
+  // until their Evidence-owned primary-key write has durably committed.
+  async function acceptRemediation(target, prepare, accepted) {
+    if (remediationSaving) return;
+    try {
+      const extra = prepare();
+      if (extra === null) return;
+      remediationSaving = true;
+      for (const id of ["tr-answer", "tr-mini", "tr-transfer-answer", "tr-question-new", "tr-remediation-kind"]) $(id).disabled = true;
+      text(target, "正在儲存；尚未接受本次作答，不揭示結果。");
+      storeRemediation(extra);
+      const finish = () => {
+        accepted(); remediationSaving = false;
+        $("tr-question-new").disabled = false; $("tr-remediation-kind").disabled = false;
+        $("tr-answer").disabled = !!first;
+        $("tr-mini").disabled = !first || miniDone;
+        $("tr-transfer-answer").disabled = !miniDone || transferred;
+        document.dispatchEvent(new Event("training:updated"));
+      };
+      const status = await globalThis.CircuitEvidence.flush();
+      if (!status.saved) {
+        text(target, "本次作答未被接受（" + (status.reason || "pending") + "）；請先匯出完整備份並處理儲存問題，不授予完成紀錄。");
+        const recover = event => {
+          if (!event.detail.saved) return;
+          window.removeEventListener("circuit:evidence-persistence", recover);
+          finish();
+        };
+        window.addEventListener("circuit:evidence-persistence", recover);
+        document.dispatchEvent(new Event("training:updated"));
+        return;
+      }
+      finish();
+    } catch (error) { text(target, "本次作答未被接受：" + error.message); }
+  }
+  $("tr-answer").onclick = () => acceptRemediation("tr-feedback", () => {
+    if (first) return null;
     const answer = getAnswer("tr-answer-controls"); if (!answer) throw new Error("請先作答");
     first = { ...Core.checkAnswer(question, answer), answer, seed: question.seed };
-    $("tr-answer").disabled = true; $("tr-mini").disabled = false;
-    text("tr-feedback", first.correct ? "首次判斷正確。仍要用短實驗與另一個條件驗證。" : `這次錯在「${first.mistake}」。${question.explanation}`);
-    storeRemediation();
-  }, "tr-feedback");
-  $("tr-mini").onclick = () => safe(() => {
-    if (!first) return;
-    text("tr-mini-result", Core.miniExperiment(question.kind).text); miniDone = true;
-    text("tr-transfer-question", transfer.prompt); answerControls("tr-transfer-controls", transfer); $("tr-transfer-answer").disabled = false;
-    storeRemediation({ miniCompleted: true });
-  }, "tr-feedback");
-  $("tr-transfer-answer").onclick = () => safe(() => {
-    if (!miniDone || transferred) return;
-    const answer = getAnswer("tr-transfer-controls"); if (!answer) throw new Error("請先作答");
-    const result = Core.checkAnswer(transfer, answer); transferred = result.correct;
-    if (transferred) { $("tr-transfer-answer").disabled = true; text("tr-transfer-result", "新條件驗證通過；首次判斷紀錄仍保留。"); }
-    else {
-      text("tr-transfer-result", `尚未通過：${transfer.explanation} 下一次使用新的條件。`);
-      transfer = Core.question(question.kind, transfer.seed + 1, true); text("tr-transfer-question", transfer.prompt); answerControls("tr-transfer-controls", transfer);
-    }
-    storeRemediation();
-    if (transferred) document.dispatchEvent(new CustomEvent("learning:remediation-passed", { detail: { category: question.kind, first, miniCompleted: miniDone, transferPassed: transferred, at: Date.now() } }));
-  }, "tr-transfer-result");
+    return {};
+  }, () => text("tr-feedback", first.correct ? "首次判斷正確。仍要用短實驗與另一個條件驗證。" : `這次錯在「${first.mistake}」。${question.explanation}`));
+  $("tr-mini").onclick = () => acceptRemediation("tr-mini-result", () => {
+    if (!first || miniDone) return null;
+    miniDone = true; return { miniCompleted: true };
+  }, () => {
+    text("tr-mini-result", Core.miniExperiment(question.kind).text);
+    text("tr-transfer-question", transfer.prompt); answerControls("tr-transfer-controls", transfer);
+  });
+  $("tr-transfer-answer").onclick = () => {
+    let result;
+    return acceptRemediation("tr-transfer-result", () => {
+      if (!miniDone || transferred) return null;
+      const answer = getAnswer("tr-transfer-controls"); if (!answer) throw new Error("請先作答");
+      result = Core.checkAnswer(transfer, answer); transferred = result.correct; return { miniCompleted: miniDone };
+    }, () => {
+      if (transferred) {
+        text("tr-transfer-result", "新條件驗證通過；首次判斷紀錄仍保留。");
+        document.dispatchEvent(new CustomEvent("learning:remediation-passed", { detail: { category: question.kind, first, miniCompleted: miniDone, transferPassed: transferred, at: Date.now() } }));
+      } else {
+        text("tr-transfer-result", `尚未通過：${transfer.explanation} 下一次使用新的條件。`);
+        transfer = Core.question(question.kind, transfer.seed + 1, true); text("tr-transfer-question", transfer.prompt); answerControls("tr-transfer-controls", transfer);
+      }
+    });
+  };
   const requested = new URLSearchParams(location.search).get("remediation");
   if (["physics", "unit", "timing", "model"].includes(requested)) { $("tr-remediation-kind").value = requested; $("training-remediation").open = true; }
   try {
@@ -161,6 +215,7 @@
   } catch (_) { /* A damaged optional experiment must not hide the lesson. */ }
   render(); newQuestion();
   function installSharedSettings() {
+    let publishing=false;
     const U=globalThis.CircuitUnifiedLearning;
     if(!U||document.getElementById('shared-settings'))return;
     const panel=document.createElement('section');panel.id='shared-settings';panel.className='card';
@@ -168,9 +223,22 @@
     const note=document.createElement('p');note.textContent='只共用下方固定導通比例的 Buck 穩態模型。套用會另開一份實驗；上方閉環故障機器與既有紀錄不受影響。';
     const preview=document.createElement('p'),status=document.createElement('p');status.setAttribute('role','status');
     function describe(){try{const s=U.validateScenario(U.read().scenarios?.['buck-steady-v1']);preview.textContent=`待套用：Vin ${s.model.vin} V、導通比例 ${s.model.duty}、L ${s.model.inductanceUh} µH、頻率 ${s.model.fswKhz} kHz、負載 ${s.model.loadOhm} Ω、C ${s.model.capacitanceUf} µF、ESR ${s.model.esrOhm} Ω。`;}catch(_){preview.textContent='尚無可套用的同模型設定。';}}
-    const publish=document.createElement('button');publish.type='button';publish.textContent='保存目前電路為共用設定';publish.onclick=()=>safe(()=>{U.saveScenario(Core.replay(experiment).model,'sandbox');describe();status.textContent=globalThis.CircuitEvidence.storageStatus().saved?'已保存，可在同一案例頁套用。':'暫存於記憶體，離開前請下載備份。';});
+    const publish=document.createElement('button');publish.type='button';publish.textContent='保存目前電路為共用設定';publish.onclick=async()=>{
+      if(importInFlight){status.textContent='匯入尚未完成；請等待後再保存共用設定。';return;}
+      const controls=[publish,apply,...document.querySelectorAll('[data-model],#tr-import')],disabled=controls.map(n=>n.disabled);
+      const restore=()=>{publishing=false;controls.forEach((n,i)=>n.disabled=disabled[i]);};
+      const accepted=()=>{restore();describe();status.textContent='已保存，可在同一案例頁套用。';};
+      try{
+        publishing=true;controls.forEach(n=>n.disabled=true);U.saveScenario(Core.replay(experiment).model,'sandbox');describe();status.textContent='尚未儲存；請等待共用設定提交後再跨頁。';
+        const saved=await globalThis.CircuitEvidence.flush();
+        if(saved.saved){accepted();return;}
+        status.textContent='尚未儲存（'+(saved.reason||'pending')+'）；請重試或匯出完整備份，暫勿跨頁。';
+        const recover=event=>{if(!event.detail.saved)return;window.removeEventListener('circuit:evidence-persistence',recover);accepted();};
+        window.addEventListener('circuit:evidence-persistence',recover);
+      }catch(error){restore();status.textContent='尚未儲存：'+error.message;}
+    };
     const apply=document.createElement('button');apply.type='button';apply.textContent='套用上述設定，另開實驗';apply.onclick=()=>{try{const shared=U.validateScenario(U.read().scenarios?.['buck-steady-v1']);experiment=Core.createExperiment(shared.model,{});render();save();status.textContent='已開啟同模型新實驗，量測設定恢復預設。';}catch(e){status.textContent=e.message;}};
-    const a=document.createElement('a');a.href='../learning-case.html';a.textContent='同一案例：電路／量測／時序／控制';
+    const a=document.createElement('a');a.href='../learning-case.html';a.textContent='同一案例：電路／量測／時序／控制';a.addEventListener('click',event=>{if(publishing)event.preventDefault();});
     panel.append(title,note,preview,publish,apply,a,status);document.getElementById('boundary-lab').before(panel);describe();window.addEventListener('learning:unified-change',describe);
   }
   document.addEventListener('learning:bridge-ready',installSharedSettings);installSharedSettings();

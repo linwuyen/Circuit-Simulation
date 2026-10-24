@@ -34,7 +34,7 @@
   <aside class="panel">
     <h2>電壓指令</h2>
     <div class="ctrl">
-      <div class="row"><span>向量長度 |V|</span><span class="v" id="v-m">0.80</span></div>
+      <div class="row"><span>向量長度 |V| / (Vdc/√3)</span><span class="v" id="v-m">0.80</span></div>
       <input type="range" id="p-m" min="0.3" max="1.15" step="0.02" value="0.8">
     </div>
     <div class="ctrl">
@@ -50,14 +50,14 @@
       <div class="cell"><span>Da</span><span id="r-da">0.50</span></div>
       <div class="cell"><span>Db</span><span id="r-db">0.50</span></div>
       <div class="cell"><span>Dc</span><span id="r-dc">0.50</span></div>
-      <div class="cell"><span>線性極限</span><span id="r-lim">0.577</span></div>
+      <div class="cell"><span>線性極限</span><span id="r-lim">1.000</span></div>
     </div>
-    <div class="note">占空比 <code>D = 0.5 + (相電壓 + 共模)/2</code>，必須落在 0~1 之間。<br>
-      取消勾選共模 → 退回純正弦 SPWM，極限只到 <code>0.5</code>。</div>
+    <div class="note">占空比 <code>D = 0.5 + (正規化相電壓 + 共模)/√3</code>，必須落在 0~1 之間。<br>
+      這裡顯示未裁切的占空比命令；超出 0~1 即不可實現，並非有效 PWM。忽略 dead-time 與壓降。<br>取消勾選共模 → 退回純正弦 SPWM，極限只到 <code>√3/2 ≈ 0.866</code>。</div>
     <div class="task"><b>🎯 動手試</b>
-      看右圖三條占空比：勾選共模時是中間凹的<strong>馬鞍波</strong>；取消勾選變回純正弦。把 <code>|V|</code> 拉到 <code>0.5</code> 以上，純正弦會頂到 1（飽和），但馬鞍波還撐得住 —— 這就是 SVPWM 多出來的約 15% 電壓。</div>
+      看右圖三條占空比：勾選共模時是中間凹的<strong>馬鞍波</strong>；取消勾選變回純正弦。把 <code>|V|</code> 拉到 <code>0.866</code> 以上，純正弦會頂到 1（飽和），但馬鞍波還撐得住 —— 這就是 SVPWM 多出來的約 15% 電壓。</div>
     <div class="aha"><b>💡 你學到了</b>
-      反 Clarke 把 αβ 拆回三相 <code>Va/Vb/Vc</code>；SVPWM 再疊一個共模（≈3 次諧波，三相同步加減、不影響線電壓），把每相壓低，於是線性區從 SPWM 的 0.5 撐到 0.577（內切圓 1.0）。左圖扇區告訴你此刻該用哪兩個基本向量 V1–V6 合成。</div>
+      反 Clarke 把 αβ 拆回三相 <code>Va/Vb/Vc</code>；SVPWM 再疊一個共模（≈3 次諧波，三相同步加減、不影響線電壓），把每相壓低，於是以 Vdc/√3 為基準，線性區從 SPWM 的 0.866 撐到 SVPWM 的 1.0（六邊形內切圓）。左圖扇區告訴你此刻該用哪兩個基本向量 V1–V6 合成。</div>
   </aside>
 </main>
 
@@ -77,7 +77,7 @@ let mag=0.8,w=50,useCM=true,theta=0,last=performance.now();
 function ui(){mag=+pM.value;w=+pW.value;useCM=pCM.checked;
   document.getElementById('v-m').textContent=mag.toFixed(2);
   document.getElementById('v-w').textContent=w+' Hz';
-  document.getElementById('r-lim').textContent=useCM?'0.577':'0.500';}
+  document.getElementById('r-lim').textContent=useCM?'1.000':'0.866';}
 [pM,pW].forEach(p=>p.addEventListener('input',ui));
 pCM.addEventListener('change',ui);
 function duties(a){
@@ -85,7 +85,7 @@ function duties(a){
   const t=FOC.invClarke(al,be);
   let cm=0;
   if(useCM){const mx=Math.max(t.a,t.b,t.c),mn=Math.min(t.a,t.b,t.c);cm=-(mx+mn)/2;}
-  return {da:0.5+(t.a+cm)*0.5, db:0.5+(t.b+cm)*0.5, dc:0.5+(t.c+cm)*0.5, cm};
+  return {da:0.5+(t.a+cm)/FOC.SQ3, db:0.5+(t.b+cm)/FOC.SQ3, dc:0.5+(t.c+cm)/FOC.SQ3, cm};
 }
 function resize(){FOC.fit(cvXY);FOC.fit(cvYT);}
 window.addEventListener('resize',resize);

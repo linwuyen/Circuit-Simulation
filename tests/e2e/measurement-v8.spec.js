@@ -1,7 +1,9 @@
+const {machineCount,waitForMachineEvidence}=require('./machine-evidence-ready');
+const { resetEvidence } = require('./evidence-fixture');
 const { test, expect } = require('@playwright/test');
 
 async function seedTransfer(page, familyId) {
-  await page.evaluate((id) => {
+  await page.evaluate(async (id) => {
     const curriculum = CircuitSchema.normalizeCurriculum(CircuitCurriculum);
     const questions = CircuitAssessment.expandQuestions(CircuitQuizBank.getQuestions(curriculum));
     const family = questions.filter(q => q.familyId === id);
@@ -15,13 +17,13 @@ async function seedTransfer(page, familyId) {
     CircuitAssessment.recordAttempt(state, transfer, transfer.options.find(o => o.correct), {
       at: '2026-08-01T00:01:00.000Z', confidence: 0.7
     });
-    CircuitEvidence.save(state);
+    CircuitEvidence.save(state);if(!(await CircuitEvidence.flush()).saved)throw Error("Fixture evidence not committed");
   }, familyId);
 }
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/catalog.html');
-  await page.evaluate(() => localStorage.clear());
+  await resetEvidence(page);
 });
 
 test('FOC has a seeded family and the prerequisite DAG changes sequencing eligibility', async ({ page }) => {
@@ -82,8 +84,9 @@ test('progress exposes 16 external anchors and complete measurement capability c
 test('lesson Tutor writes typed observable provenance into independent oracle evidence', async ({ page }) => {
   await page.goto('/4_PI/02_integrator.html');
   await expect(page.locator('.clt-root')).toBeAttached();
+  const beforeMachine=await machineCount(page,'pi.lab.pi-ki');
   await page.locator('#ki-slider').fill('6000');
-  await page.waitForTimeout(700);
+  await waitForMachineEvidence(page,'pi.lab.pi-ki',beforeMachine,{"ki": 6000});
   const evidence = await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem('circuit-learning-state-v5') || '{}');
     return (state.evidence && state.evidence['pi.lab.pi-ki'] && state.evidence['pi.lab.pi-ki'].machine) || [];

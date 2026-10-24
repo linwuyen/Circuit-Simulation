@@ -77,3 +77,14 @@ test('generic code mutations actually drive the same physical simulator',()=>{
   assert.ok(stale.system.communication.maxLag>=1);
   assert.match(shadow.measurement.text,/Timing:/);
 });
+
+test('fault clear alone cannot re-authorize RUN without explicit recovery and fresh precheck',()=>{
+ const bypass=Core.runStateMachine(['precheck-pass','ready','run','fault','fault-clear','ready','run']);
+ assert.equal(bypass.state,'FAULT');
+ assert.equal(bypass.log.at(-1).pwm,false);
+ assert.equal(bypass.pass,false);
+ assert.ok(bypass.violations.includes('invalid-ready-transition'));
+ const restored=Core.runStateMachine(['precheck-pass','ready','run','fault','fault-clear','rearm','recover','precheck-pass','ready','run']);
+ assert.equal(restored.state,'RUN');
+ assert.equal(restored.pass,true);
+});

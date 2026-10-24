@@ -2,19 +2,27 @@
    proof gates: PlainCourse; persistence: Evidence V5; recommendations: UnifiedLearning. */
 (()=>{
  'use strict';
+ async function durableNavigate(action){const status=await CircuitEvidence.flush();if(status.saved){action();return true;}const node=document.getElementById('ws-save')||document.getElementById('save-status')||document.getElementById('application-status');if(node)node.textContent='尚未儲存（'+(status.reason||'pending')+'）；已取消離開，請先匯出備份或處理衝突。';return false;}
+ window.addEventListener('circuit:evidence-persistence',event=>{const node=document.getElementById('ws-save')||document.getElementById('save-status');if(node)node.textContent=event.detail.saved?'進度已儲存在這個瀏覽器。':'尚未儲存（'+(event.detail.reason||'pending')+'）；請保留備份，不要重新整理。';});
+
  const W=CircuitWorkspace,P=CircuitPlainCourse,E=CircuitEvidence,U=CircuitUnifiedLearning;
  W.mountExperiment=()=>{
   const $=id=>document.getElementById(id),lessons=W.experimentLessons();
   const el=(tag,text,parent)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(parent)parent.append(n);return n;};
+  let expectedRecord=JSON.stringify(E.load().benchmark.learningWorkspace?.experiment);
+  let saving=false;
+ async function accept(){saving=true;const controls=[...document.querySelectorAll('button,input')].filter(n=>!n.closest('#learning-storage-status')&&!['workspace-backup','detailed-records','all-materials'].includes(n.id)).map(n=>[n,n.disabled]);controls.forEach(([n])=>n.disabled=true);if(!save())return false;const status=await E.flush();if(!status.saved){const recovered=event=>{if(!event.detail.saved)return;$('ws-save').textContent='重試儲存已成功；請重新整理以繼續這次已保存的判斷。';window.removeEventListener('circuit:evidence-persistence',recovered);};window.addEventListener('circuit:evidence-persistence',recovered);$('ws-save').textContent='尚未儲存（'+(status.reason||'pending')+'）；本次判斷尚未接受；請先重試儲存，成功後重新整理，或下載備份。';return false;}saving=false;controls.forEach(([n,disabled])=>n.disabled=disabled);progress();recommendation();return true;}
+  let blocked=false;
   function protectRecord(){
    const stored=E.load().benchmark.learningWorkspace?.experiment;
-   if(!stored||stored.version===1)return false;
+   if(!blocked&&(!stored||stored.version===1)&&JSON.stringify(stored)===expectedRecord)return false;
+   blocked=true;
    if(!$('experiment-record-protection')){
     const main=document.querySelector('main');main.hidden=true;
     document.querySelectorAll('button').forEach(button=>button.disabled=true);
     const notice=el('section');notice.id='experiment-record-protection';notice.className='context-note';notice.setAttribute('role','status');
     el('h1','先保留你的學習紀錄',notice);
-    el('p','這份練習紀錄使用目前頁面無法讀取的版本。練習已暫停，原有紀錄沒有被覆蓋。請先到學習紀錄頁下載備份。',notice);
+    el('p','紀錄已被另一頁更新，或使用目前頁面無法讀取的版本。練習已暫停，原有紀錄沒有被覆蓋。請先到學習紀錄頁下載備份。',notice);
     const link=el('a','查看學習紀錄與下載備份',notice);link.href='map.html';
     main.before(notice);
    }
@@ -53,12 +61,12 @@
   function save(){
    if(protectRecord())return false;
    session.rows[id]=record;session.currentLesson=id;session.completed=lessons.every(l=>proven(l.id));
-   const state=E.load();state.benchmark.learningWorkspace={...(state.benchmark.learningWorkspace||{version:1,history:[]}),experiment:session};E.save(state);
-   $('ws-save').textContent=E.storageStatus().saved?'電路條件、首次判斷與試驗紀錄已儲存。':'目前只能暫存，請下載學習備份。';progress();recommendation();return true;
+   const state=E.load();state.benchmark.learningWorkspace={...(state.benchmark.learningWorkspace||{version:1,history:[]}),experiment:session};E.save(state);expectedRecord=JSON.stringify(session);
+   $('ws-save').textContent=E.storageStatus().saved?'電路條件、首次判斷與試驗紀錄已儲存。':'目前只能暫存，請下載學習備份。';if(!saving){progress();recommendation();}return true;
   }
   function retain(kind,result){session.history=[...session.history,{at:new Date().toISOString(),lesson:id,kind,modelId:'generic-power-causal-kernel',modelVersion:CircuitEngineeringSandboxCore.version,config:result.config,summary:result.summary}].slice(-32);}
   function choose(key){
-   const index=lessons.findIndex(l=>l.id===key);if(index<0)return;
+   if(saving)return;const index=lessons.findIndex(l=>l.id===key);if(index<0)return;
    if(lessons.slice(0,index).some(l=>!proven(l.id))){key=lessons.find(l=>!proven(l.id)).id;history.replaceState(null,'','#experiment-'+key);}
    selectedSwitchSample=0;
    id=key;record=session.rows[id]&&typeof session.rows[id]==='object'&&!Array.isArray(session.rows[id])?session.rows[id]:{};plan=W.experimentPlan(id);prepared=!lesson().prepare||record.prepared===true;shown=P.stage(record);
@@ -138,7 +146,7 @@
    timeline.replaceChildren();timeline.hidden=masked||!['deadline','protection'].includes(id);
    if(!timeline.hidden){const types=id==='deadline'?['ADC_SOC','CONTROL_DONE','PWM_COMMIT_MISSED','PWM_SHADOW_LOAD']:['TRIP_DETECT','TRIP_ACTUATE'];const names={ADC_SOC:'開始量測',CONTROL_DONE:'計算完成',PWM_COMMIT_MISSED:'寫入已晚於這輪更新點',PWM_SHADOW_LOAD:'命令真正載入開關',TRIP_DETECT:'偵測過流',TRIP_ACTUATE:'保護禁止開關'};for(const type of types){const e=result.events.find(e=>e.type===type);el('li',e?`${names[type]}：${fmt(e.tUs)} µs${e.sourceCycle!==undefined?'（來自第 '+e.sourceCycle+' 輪）':''}`:names[type]+'：這次未發生',timeline);}}
    // No evidence before operation; unseen transfer predictions must stay masked.
-   const readout=!masked&&record.operated&&[1,2,4].includes(shown)?W.experimentReadout(id,before,after):null;
+   const readout=!masked&&record.operated&&[1,2,4].includes(shown)?W.experimentReadout(id,first,result):null;
    evidence.replaceChildren();evidence.hidden=!readout;
    if(readout){
     el('h3','這次模擬的量測證據',evidence);
@@ -190,20 +198,20 @@
    field.disabled=!prepared||(shown===0&&!!record.first)||(shown===1&&!record.operated);
    const submit=el('button',shown===0?'記下預測，開始操作':'檢查判斷',$('ws-question'));submit.id='workspace-submit';submit.className='primary';submit.disabled=field.disabled;
    if(shown===0&&record.first)el('p','首次判斷已保留：'+l.choices.find(c=>c[0]===record.first.answer)?.[1],$('ws-question'));
-   submit.onclick=()=>{
-    const answer=field.querySelector('input:checked')?.value;if(!answer){$('ws-feedback').textContent='請先選擇一個判斷。';return;}
+   submit.onclick=async()=>{
+    if(saving)return;const answer=field.querySelector('input:checked')?.value;if(!answer){$('ws-feedback').textContent='請先選擇一個判斷。';return;}
     const correct=P.correct(shown===2?'reason':l.answer,answer),attempt={answer,correct,at:new Date().toISOString()};
     record.protocol='causal-workbench-v1';record.modelVersion=CircuitEngineeringSandboxCore.version;
     if(shown===0){if(record.first)return;record.first=attempt;}
     else if(shown===1||shown===2){if(shown===1&&!record.operated)return;const key=shown===1?'observation':'reason';record[key+'First']||=attempt;record.proof||={};if(correct)record.proof[key]=true;}
     else{record.transferFirst||=attempt;if(correct){record.transferPassed=true;const t=W.experimentTransfer(plan);retain('新條件驗證（不覆蓋主電路）',W.experimentRun(t.after));}}
-    if(!save())return;if(shown!==0&&!correct){$('ws-feedback').textContent='這個判斷還不能解釋結果。請回看曲線或事件，首次作答仍會保留。';renderNoviceGuide();return;}
+    if(!await accept())return;if(shown!==0&&!correct){$('ws-feedback').textContent='這個判斷還不能解釋結果。請回看曲線或事件，首次作答仍會保留。';renderNoviceGuide();return;}
     shown=P.stage(record);render();$('ws-question h2')?.focus();
    };
   }
   run.onclick=()=>{after=W.experimentRun(plan.after);record.operated=true;record.config=plan.after;session.currentConfig=plan.after;retain(lesson().action,after);if(!save())return;render();};
   $('apply-setup').onclick=()=>{retain('修正比較條件前',before);prepared=true;record.prepared=true;before=W.experimentRun(plan.prepared);session.currentConfig=plan.prepared;retain('修正比較條件後',before);$('setup-panel').hidden=true;if(!save())return;render();};
-  function progress(){
+  function progress(){if(saving)return;
    const count=lessons.filter(l=>proven(l.id)).length;$('workspace-progress').textContent=`連續電路實驗 ${count} / 8 · 電路、讀值與控制使用同一核心`;
    $('workspace-route').replaceChildren();lessons.forEach((l,i)=>{const li=el('li',undefined,$('workspace-route')),b=el('button',`${i+1}. ${proven(l.id)?'已練習：':''}${l.title}`,li);b.disabled=lessons.slice(0,i).some(x=>!proven(x.id));b.setAttribute('aria-current',l.id===id?'step':'false');b.onclick=()=>{location.hash='experiment-'+l.id;document.querySelector('.route').open=false;};});
    const transferLink=el('a','沿用條件，比較降壓與升壓',el('li',undefined,$('workspace-route')));transferLink.href='#topology';
@@ -211,15 +219,15 @@
    $('workspace-history').replaceChildren();for(const h of [...session.history].reverse())el('li',`${h.kind} · 輸入 ${h.config.vin} V · 平均輸出 ${fmt(h.summary.avgV)} V · ${h.summary.tripSeen?'保護觸發':'未觸發保護'}`,$('workspace-history'));
   }
   function reference(href,title){const url=new URL(href,location.href),base=new URL('.',location.href);if(url.origin!==base.origin||!url.pathname.startsWith(base.pathname))return;$('workspace-reference').hidden=false;$('reference-frame').hidden=false;$('reference-frame').src=url.href;$('reference-title').textContent=title;$('workspace-reference').scrollIntoView({block:'start'});}
-  function recommendation(){const n=U.next(E.load(),CircuitCoreFlowV1.snapshot()),b=$('resume-task');b.hidden=n.id==='experiment'||/^(basic|bridge)-/.test(n.id);b.textContent=['formal','quiz'].includes(n.id)?'接續到期複習':'繼續原本的進階任務';b.dataset.route=n.remediation?U.remediationRoute(n.id,n.remediation):U.route(n.id);b.onclick=()=>{if(n.remediation)U.beginReturn(n.id,n.remediation);reference(b.dataset.route,U.task(n.id).title);};}
+  function recommendation(){if(saving)return;const n=U.next(E.load(),CircuitCoreFlowV1.snapshot()),b=$('resume-task');b.hidden=n.id==='experiment'||/^(basic|bridge)-/.test(n.id);b.textContent=['formal','quiz'].includes(n.id)?'接續到期複習':'繼續原本的進階任務';b.dataset.route=n.remediation?U.remediationRoute(n.id,n.remediation):U.route(n.id);b.onclick=()=>{if(n.remediation)U.beginReturn(n.id,n.remediation);reference(b.dataset.route,U.task(n.id).title);};}
   $('ws-next').onclick=()=>{if(!proven(id))return;const next=lessons[currentIndex()+1];if(next)location.hash='experiment-'+next.id;else location.hash='topology';};
   $('show-progress').onclick=()=>{$('workspace-progress-panel').hidden=false;progress();$('workspace-progress-panel').scrollIntoView({block:'start'});};$('close-progress').onclick=()=>{$('workspace-progress-panel').hidden=true;$('ws-title').focus();};
   $('workspace-backup').onclick=()=>{const url=URL.createObjectURL(new Blob([E.exportBackup()],{type:'application/json'})),a=el('a');a.href=url;a.download='circuit-learning-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
   $('detailed-records').onclick=()=>reference('map.html','原有紀錄與正式測驗');$('all-materials').onclick=()=>reference('catalog.html','完整教材');
   $('deeper').onclick=()=>{$('workspace-reference').hidden=false;$('reference-frame').hidden=true;$('reference-title').textContent='接回目前電路的問題';$('reference-links').replaceChildren();for(const m of CircuitLearningMap.filter(m=>lesson().modules.includes(m.number))){const b=el('button',m.title,$('reference-links'));b.onclick=()=>reference(m.href,m.title);}};
   $('close-reference').onclick=()=>{$('workspace-reference').hidden=true;$('reference-frame').removeAttribute('src');$('ws-title').focus();};
-  $('reference-frame').addEventListener('load',()=>{try{const doc=$('reference-frame').contentDocument;if(!doc)return;doc.addEventListener('click',event=>{const a=event.target.closest('a[href]');if(!a)return;const url=new URL(a.href),base=new URL('.',location.href);if(url.origin!==base.origin||!url.pathname.startsWith(base.pathname))return;const path=url.pathname.slice(base.pathname.length);if(!['','index.html','learn.html'].includes(path))return;event.preventDefault();$('close-reference').click();if(!url.hash||url.hash.startsWith('#experiment')){location.hash=url.hash||'#experiment';}else location.assign(url.href);});}catch{/* An external document cannot navigate the workspace. */}});
-  window.addEventListener('hashchange',()=>{if(!location.hash.startsWith('#experiment')){location.reload();return;}choose(location.hash.slice(12)||session.currentLesson||lessons[0].id);});
+  $('reference-frame').addEventListener('load',()=>{try{const doc=$('reference-frame').contentDocument;if(!doc)return;doc.addEventListener('click',event=>{const a=event.target.closest('a[href]');if(!a)return;const url=new URL(a.href),base=new URL('.',location.href);if(url.origin!==base.origin||!url.pathname.startsWith(base.pathname))return;const path=url.pathname.slice(base.pathname.length);if(!['','index.html','learn.html'].includes(path))return;event.preventDefault();$('close-reference').click();if(!url.hash||url.hash.startsWith('#experiment')){location.hash=url.hash||'#experiment';}else durableNavigate(()=>location.assign(url.href));});}catch{/* An external document cannot navigate the workspace. */}});
+  window.addEventListener('hashchange',()=>{if(!location.hash.startsWith('#experiment')){durableNavigate(()=>location.reload());return;}choose(location.hash.slice(12)||session.currentLesson||lessons[0].id);});
   window.addEventListener('storage',()=>recommendation());
   const requested=location.hash.slice(12),start=lessons.some(l=>l.id===requested)?requested:lessons.some(l=>l.id===session.currentLesson)?session.currentLesson:lessons[0].id;
   history.replaceState(null,'','#experiment-'+start);choose(start);

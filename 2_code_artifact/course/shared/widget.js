@@ -296,13 +296,14 @@ window.PE = (function () {
             <div id="snap-list" class="mt-1.5 space-y-1 font-mono text-[10px]"></div>
           </div>
 
+          <p class="text-[10px] text-slate-400">教學邊界：理想開關、固定步長近似；續流方向由橋側電感電流決定。未求解二極體截止的精確零交越、寄生與三相浮接節點換流，不能當作實機死區／保護驗證。</p>
           <div id="channel-toggles" class="grid grid-cols-2 gap-x-3 gap-y-1.5 mt-2 pt-2 border-t border-slate-800/40 text-[10px]">
             <label data-ch="1" class="ch-label flex items-center gap-1.5 cursor-pointer text-emerald-400">
               <input type="checkbox" id="chk-ch1" class="rounded accent-emerald-500 bg-slate-950"> CH1: 橋臂輸出 (PWM)</label>
             <label data-ch="2" class="ch-label flex items-center gap-1.5 cursor-pointer text-cyan-400">
               <input type="checkbox" id="chk-ch2" class="rounded accent-cyan-500 bg-slate-950"> CH2: 濾波電壓 (LC)</label>
             <label data-ch="3" class="ch-label flex items-center gap-1.5 cursor-pointer text-amber-500">
-              <input type="checkbox" id="chk-ch3" class="rounded accent-amber-500 bg-slate-950"> CH3: 負載電流</label>
+              <input type="checkbox" id="chk-ch3" class="rounded accent-amber-500 bg-slate-950"> CH3: 負載電流（LC：電阻支路，非續流電感）</label>
             <label data-ch="4" class="ch-label flex items-center gap-1.5 cursor-pointer text-red-400">
               <input type="checkbox" id="chk-ch4" class="rounded accent-red-500 bg-slate-950"> CH4: 調變對照波</label>
           </div>
@@ -596,14 +597,18 @@ window.PE = (function () {
 
       diodeStates = [false, false, false, false, false, false];
 
+      // Diodes carry bridge-side inductor current, not the LC resistor current.
+      const bridgeI = loadType === 'LC' ? il_filter : current_L;
+      const bridgeIb = loadType === 'LC' ? il_filter_b : current_L_b;
+      const bridgeIc = loadType === 'LC' ? il_filter_c : current_L_c;
       if (currentTopology === 'half') {
         const q1 = switchStates[0], q2 = switchStates[1];
         if (q1) v_applied = V_half;
         else if (q2) v_applied = -V_half;
         else {
-          if (loadType === 'RL') {
-            if (current_L > 0.05) { diodeStates[1] = true; v_applied = -V_half; }
-            else if (current_L < -0.05) { diodeStates[0] = true; v_applied = V_half; }
+          if (loadType === 'RL' || loadType === 'LC') {
+            if (bridgeI > 0) { diodeStates[1] = true; v_applied = -V_half; }
+            else if (bridgeI < 0) { diodeStates[0] = true; v_applied = V_half; }
             else v_applied = 0;
           } else v_applied = 0;
         }
@@ -618,8 +623,8 @@ window.PE = (function () {
         const q1 = switchStates[0], q2 = switchStates[1], q3 = switchStates[2], q4 = switchStates[3];
         let va = q1 ? V_half : (q2 ? -V_half : 0);
         let vb = q3 ? V_half : (q4 ? -V_half : 0);
-        if (!q1 && !q2) { if (current_L > 0.05) { diodeStates[1] = true; va = -V_half; } else if (current_L < -0.05) { diodeStates[0] = true; va = V_half; } }
-        if (!q3 && !q4) { if (current_L > 0.05) { diodeStates[2] = true; vb = V_half; } else if (current_L < -0.05) { diodeStates[3] = true; vb = -V_half; } }
+        if (!q1 && !q2) { if (bridgeI > 0) { diodeStates[1] = true; va = -V_half; } else if (bridgeI < 0) { diodeStates[0] = true; va = V_half; } }
+        if (!q3 && !q4) { if (bridgeI > 0) { diodeStates[2] = true; vb = V_half; } else if (bridgeI < 0) { diodeStates[3] = true; vb = -V_half; } }
         v_applied = va - vb;
         if (loadType === 'R') current_L = v_applied / R_val;
         else if (loadType === 'RL') current_L += ((v_applied - current_L * R_val) / L_val) * dt;
@@ -631,13 +636,13 @@ window.PE = (function () {
       } else if (currentTopology === 'three') {
         const legV = (qUp, qLow, iP, dUp, dLow) => {
           if (qUp) return V_half; if (qLow) return -V_half;
-          if (iP > 0.05) { diodeStates[dLow] = true; return -V_half; }
-          if (iP < -0.05) { diodeStates[dUp] = true; return V_half; }
+          if (iP > 0) { diodeStates[dLow] = true; return -V_half; }
+          if (iP < 0) { diodeStates[dUp] = true; return V_half; }
           return 0;
         };
-        const va = legV(switchStates[0], switchStates[1], current_L, 0, 1);
-        const vb = legV(switchStates[2], switchStates[3], current_L_b, 2, 3);
-        const vc = legV(switchStates[4], switchStates[5], current_L_c, 4, 5);
+        const va = legV(switchStates[0], switchStates[1], bridgeI, 0, 1);
+        const vb = legV(switchStates[2], switchStates[3], bridgeIb, 2, 3);
+        const vc = legV(switchStates[4], switchStates[5], bridgeIc, 4, 5);
         const vn = (va + vb + vc) / 3.0;
         const van = va - vn, vbn = vb - vn, vcn = vc - vn;
         v_applied = va - vb; v_applied_b = vb - vc; v_applied_c = vc - va;
