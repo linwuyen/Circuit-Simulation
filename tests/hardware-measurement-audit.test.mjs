@@ -13,6 +13,13 @@ function dds(){
  vm.runInContext(src.slice(src.indexOf('let isRunning ='),src.indexOf('// --- 2. 硬體'))+src.slice(src.indexOf('const runPML ='),src.indexOf('// --- 5. 數據'))+'\nthis.engine={pml,runPML};',ctx);
  return {ctx,...ctx.engine};
 }
+
+function armDds(e){
+ e.runPML(1000,2048); // observe a real negative sample
+ e.runPML(3000,2048); // acquire the first genuine rising boundary
+ e.runPML(1000,2048); // next rising sample is now a measured interval
+}
+
 for(const path of ['9.afe-tutorial/afe.html','9.afe-tutorial/simulator-core.html']){
  test(path+': SOGI tracks sinusoidal grid with independent quadrature states',()=>{
   const e=afe(path); for(let n=0;n<40000;n++)e.runAfeEngine();
@@ -46,7 +53,7 @@ test('DDS dynamic correction does not bias RMS or quadrature PF',()=>{
  assert.ok(Math.abs(e.pml.powerFactor)<.005,`PF ${e.pml.powerFactor}`);
 });
 test('DDS timeout clears every partial-cycle and multi-cycle accumulator',()=>{
- const e=dds();Object.assign(e.pml,{nSamples:444,vSum:12,vSqrSum:34,iSqrSum:56,pSum:78,pRmsSumMul:90,vaSumMul:100,acFreqSum:110,slewPowerUpdate:9});
+ const e=dds();armDds(e);Object.assign(e.pml,{nSamples:e.pml.nSamplesMax,vSum:12,vSqrSum:34,iSqrSum:56,pSum:78,pRmsSumMul:90,vaSumMul:100,acFreqSum:110,slewPowerUpdate:9});
  e.runPML(2048,2048);
  for(const key of ['nSamples','vSum','vSqrSum','iSqrSum','pSum','pRmsSumMul','vaSumMul','acFreqSum','slewPowerUpdate'])assert.equal(e.pml[key],0,key);
 });
@@ -57,12 +64,12 @@ test('ADC acquisition lesson uses SYSCLK and CPU-CM lesson uses dedicated messag
  assert.match(ipc,/CPU1-to-CM MSGRAM/); assert.doesNotMatch(ipc,/資料放在 <code>GSRAM/);
 });
 test('DDS overlong window crossing is invalid and clears old batch power',()=>{
- const e=dds();Object.assign(e.pml,{nSamples:444,prevSign:0,pRmsSumMul:90,vaSumMul:100,acFreqSum:110,slewPowerUpdate:9});
+ const e=dds();armDds(e);Object.assign(e.pml,{nSamples:e.pml.nSamplesMax,prevSign:0,pRmsSumMul:90,vaSumMul:100,acFreqSum:110,slewPowerUpdate:9});
  e.runPML(3000,2100);
  assert.equal(e.pml.pRmsSumMul,0);assert.equal(e.pml.slewPowerUpdate,0);
 });
 test('DDS short jitter rejects both sample numerator and denominator',()=>{
- const e=dds();Object.assign(e.pml,{nSamples:20,prevSign:0,vSqrSum:100,pSum:200});e.runPML(3000,2100);
+ const e=dds();armDds(e);Object.assign(e.pml,{nSamples:20,prevSign:0,vSqrSum:100,pSum:200});e.runPML(3000,2100);
  assert.equal(e.pml.nSamples,0);assert.equal(e.pml.vSqrSum,0);assert.equal(e.pml.pSum,0);
 });
 test('AFE recovers sine-phase lock after 45 degree step with harmonic injection',()=>{
@@ -79,7 +86,7 @@ test('AFE signed sampled PF reflects reverse power rather than a positive score'
  e.runAfeEngine();assert.ok(e.sysState.pf<-.99);
 });
 test('DDS recovers cleanly after timeout and retains reverse-power PF sign',()=>{
- const e=dds();Object.assign(e.pml,{nSamples:444,vSqrSum:1e12,pSum:1e12,pRmsSumMul:1e12,slewPowerUpdate:9});e.runPML(2048,2048);
+ const e=dds();armDds(e);Object.assign(e.pml,{nSamples:e.pml.nSamplesMax,vSqrSum:1e12,pSum:1e12,pRmsSumMul:1e12,slewPowerUpdate:9});e.runPML(2048,2048);
  for(let n=0;n<30000;n++){
   const theta=2*Math.PI*50*n/20000;
   e.runPML(2048+120*Math.sin(theta)*(1.2*4095/3.3)/155,2048+15*Math.sin(theta-5*Math.PI/6)*(1.2*4095/3.3)/30);

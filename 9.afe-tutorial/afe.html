@@ -258,7 +258,8 @@
                         <div id="node-ac" class="z-10 flex flex-col items-center p-3 bg-slate-900 border-2 border-amber-500/80 rounded-xl text-center cursor-pointer transition transform hover:scale-105 active:scale-95">
                             <i data-lucide="utility-pole" class="w-8 h-8 text-amber-500 mb-1"></i>
                             <span class="text-[10px] font-bold tracking-widest text-amber-500">AC 電網端</span>
-                            <span id="topo-vgrid" class="text-xs font-mono-tech text-slate-400">110.0 V</span>
+                            <span id="topo-vgrid" class="text-xs font-mono-tech text-slate-400">0.0 Vrms</span>
+                            <span class="text-[9px] text-slate-500">20 ms RMS window</span>
                         </div>
 
                         <!-- 能量傳輸動態指示線 -->
@@ -400,6 +401,17 @@
             theta: new Array(BUFFER_SIZE).fill(0),
             v_bus: new Array(BUFFER_SIZE).fill(400)
         };
+
+        // CH1 and topology share sqrt(sum(v[n]^2) / N) over the visible scope window.
+        // N = 400 at TS = 50 us: 20 ms (1.2 nominal 60 Hz cycles), including startup zeros.
+        // This finite-window RMS varies with phase/transients; an empty window reads zero.
+        function gridVoltageRms() {
+            const samples = scopeBuffer.v_grid;
+            if (samples.length === 0) return 0;
+            let sumSquares = 0;
+            for (const voltage of samples) sumSquares += voltage * voltage;
+            return Math.sqrt(sumSquares / samples.length);
+        }
 
         // ============================================================================
         // 2. AFE 演算法核心離散時間運算
@@ -648,7 +660,7 @@
 
             ctx.font = '11px "Share Tech Mono"';
             ctx.fillStyle = '#f59e0b';
-            ctx.fillText(`CH1 V_GRID RMS: ${(Math.max(...scopeBuffer.v_grid) / Math.sqrt(2)).toFixed(1)} V`, 20, 28);
+            ctx.fillText(`CH1 V_GRID RMS (20 ms): ${(gridVoltageRms()).toFixed(1)} V`, 20, 28);
             
             ctx.fillStyle = '#10b981';
             let max_cur = Math.max(...scopeBuffer.i_grid.map(Math.abs));
@@ -693,7 +705,7 @@
             }
 
             // 更新拓撲圖電壓
-            document.getElementById('topo-vgrid').innerText = `${(Math.max(...scopeBuffer.v_grid) / Math.sqrt(2)).toFixed(1)} Vrms`;
+            document.getElementById('topo-vgrid').innerText = `${(gridVoltageRms()).toFixed(1)} Vrms`;
             document.getElementById('topo-vbus').innerText = `${sysState.v_bus_actual.toFixed(1)} VDC`;
 
             // 更新粒子流動速度與方向

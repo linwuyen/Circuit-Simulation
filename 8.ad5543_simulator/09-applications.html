@@ -61,7 +61,7 @@
       <div class="concept"><div class="t">〰️ 波形產生 / 縮放</div><p>VREF 餵入參考波形,連續更新數位碼即可做振幅調變(AM)、包絡控制或任意波形縮放。</p></div>
       <div class="concept"><div class="t">🎯 自動校正 / 微調源</div><p>當作高解析度的可程式電壓/增益微調(trim),取代手調可變電阻,做產線自動校正。</p></div>
       <div class="concept"><div class="t">🔧 增益微調 (Gain Trim)</div><p>串在訊號鏈中對既有增益做 ±少許百分比的精細修正,補償元件容差。</p></div>
-      <div class="concept"><div class="t">🧪 四象限相乘</div><p>D 是 unsigned 0…65535，不是 signed code。需額外偏移加總級實現 (D/32768 − 1) × VREF，才能得到四象限乘法；本課模擬器未包含此級。</p></div>
+      <div class="concept"><div class="t">🧪 四象限相乘</div><p>D 是 unsigned 0…65535，標準增益 −D/65536 僅為非正；VREF 即使是正負交替的 AC，仍是二象限。需額外參考偏移加總級實現 (D/32768 − 1) × VREF，讓增益跨越零點，才能得到四象限乘法；本課模擬器未包含此級。</p></div>
     </div>
   </div>
 
@@ -70,6 +70,7 @@
     <ul>
       <li>把 VREF 換成<b>會動的訊號</b>,乘法 DAC 就是<b>數位控制的旋鈕</b>:輸出 = 訊號 × (D/2¹⁶)。</li>
       <li>基本接法是<b>衰減(0~1×)</b>;放進回授路徑則成<b>可程式增益(PGA)</b>。</li>
+      <li>AC 的正負半週不會把 unsigned D 變成 signed 增益；本頁兩種相位接法均是<b>二象限</b>，四象限需要參考偏移加總級。</li>
       <li>整套課:<b>比例旋鈕 → 位元 → R-2R/IOUT → TIA/RFB → 極性 → 線性 → 誤差校正 → SPI → 應用</b>。你已經走完一條完整訊號鏈!🎓</li>
     </ul>
   </div>
@@ -138,12 +139,16 @@ function render(){
 DAC.renderNav('09-applications.html');
 render();
 document.getElementById('refs').innerHTML = DAC.readMore([
-  { term: 'Multiplying Mode (AC Reference)', desc: 'VREF 可為交流;datasheet 會給 VREF 的頻寬與多象限應用電路。' },
+  { term: 'Multiplying Mode (AC Reference)', desc: 'VREF 可為交流；unsigned D 的增益符號仍固定，因此基本接法是二象限。完整四象限需 datasheet Bipolar Output 的參考偏移加總級，與本頁的相位反轉接法不同。' },
   { term: 'Programmable Gain (MDAC in feedback)', desc: '把 MDAC 放進運放回授,增益 = 2¹⁶/D,即可程式增益放大器。' },
   { term: 'Reference Multiplying Bandwidth', desc: '訊號路徑可用頻寬上限;做波形縮放/調變時要看這項。' },
   { term: 'Applications Section', desc: 'datasheet 末段的典型應用:可程式衰減器、增益微調、波形產生等。' },
 ]);
 DAC.quiz('quiz', [
+  { q: '標準接法保留 unsigned D，VREF 改為正負交替的 AC，就成為四象限乘法嗎?',
+    options: ['會，AC 的正負半週就代表四象限','不會，仍是二象限；需偏移加總級才有四象限','會，只要 D 超過中碼','會，再接增益 −1 反相器即可'],
+    answer: 1,
+    explain: 'D/65536 介於 0 與 65535/65536，標準增益 −D/65536 僅為非正；AC 只讓 VREF 變號。四象限需偏移加總級實作 (D/32768 − 1) × VREF，本模擬器未包含此級。' },
   { q: '把交流訊號接到 VREF、數位碼當旋鈕,DAC 的基本功能是?',
     options: ['放大 100 倍','用數位碼控制的衰減器(0~1 倍)','整流','濾波'],
     answer: 1,

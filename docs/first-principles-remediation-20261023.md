@@ -6,7 +6,7 @@ Baseline: remote PR #135 head `d780409b9f5156294391b851340262ac4576b6d8`, cloned
 
 | # | Finding / implementation | Negative evidence and boundary |
 |---|---|---|
-| 1 | Transfer readout uses active before/result (baseline) | `experiment-causal-readout`; transfer is 36 V, not original 48 V |
+| 1 | Transfer readout uses active first/result (baseline) | `experiment-causal-readout`; transfer is 36 V, not original 48 V |
 | 2 | Fault revokes precheck, explicit recovery before RUN (baseline) | `engineering-sandbox`; fault-clear → ready → run rejected |
 | 3 | LCL multiple unity crossings cannot claim CLOSED | `control-audit-regressions`; 100 Hz design with 3 crossings; undamped model never certified stable |
 | 4 | Module 4 PI first-crossing margin cannot PASS | same suite; Kp .1 / Ki 3600 exposes 3 crossings on all 3 routes |
@@ -35,4 +35,9 @@ Additional regression found during full browser run: mobile bridge-axis label cl
 
 Negative tests use fixed hand-derived quantities or independently specified state/timing contracts, not generated golden values from the same production function. Numerical solver assumptions and intentionally unimplemented topologies remain visible. CI/software PASS is not independent SPICE/PLECS validation, physical BOARD_PASS, or human learning-effectiveness proof.
 
-Final exact-commit logs, firmware outputs/checksums, patch series, and Git bundle are delivered outside the worktree. Windows validation and required GitHub Actions on the new local SHA require authorized publication; old remote green CI is not reused as evidence for these commits. Public Pages smoke remains after a separately authorized merge only. PR must remain Draft until those external acceptance gates are verified.
+Final exact-commit logs, firmware outputs/checksums, patch series, and Git bundle are delivered outside the worktree. At the original2026-10-23 delivery, Windows/new-SHA GitHub validation was pending. The2026-10-24 local five-gap follow-up records its own Windows validation separately; new GitHub Actions still require authorized publication. Old remote green CI is not reused as evidence for newer changes. Public Pages smoke remains after a separately authorized merge only. PR must remain Draft until those external acceptance gates are verified.
+
+
+## 2026-10-24 review: five gaps, not universal closure
+
+The table above is a historical implementation/evidence inventory, not proof that every acceptance condition is closed. A later review found residual AD5543 quadrant teaching, opamp ramp-duration teaching, harmonic AFE RMS and DDS endpoint/rate-change gaps. These are corrected locally, with a new numeric regression for the already-correct active36 V transfer readout. See [the five-gap follow-up](five-gap-follow-up-20261024.md) for independently derived negative vectors, actual RED/GREEN results, aggregate validation and remaining limits. This batch is unpublished; prior CI is not reused as evidence for it.
