@@ -160,12 +160,30 @@
     const points = freqs.map(f => buckLoopPoint(f, delayUs, state));
     const mags = points.map(p => p.magDb);
     const phases = unwrap(points.map(p => p.phase));
-    const crossings = [];
-    for (let i = 0; i < mags.length - 1; i += 1) {
-      if (mags[i] === 0 || mags[i] * mags[i + 1] < 0) crossings.push(interpolateCrossing(freqs[i], freqs[i + 1], mags[i], mags[i + 1], phases[i], phases[i + 1]));
+    // This owner's magnitude is exactly a PI times the declared CCM LC/ESR plant;
+    // pure delay has unit magnitude. With y = w² L C (1+Rc/R), unity gain is
+    // a cubic. Its derivative partitions the band into monotone intervals, so
+    // even a narrow pair of crossings between same-sign plot samples is retained.
+    const p=state.plant,c=state.control,rc=Number(p.esr)||0;
+    const a=p.inductance*p.capacitance*(1+rc/p.load),b=rc*p.capacitance,d=p.inductance/p.load+b;
+    if(![a,b,d,c.kp,c.ki].every(Number.isFinite)||a<=0||p.load<=0||rc<0||c.kp<0||c.ki<0)throw new RangeError('Invalid CCM loop parameters');
+    const B=d*d/a-2-c.kp*c.kp*b*b/a,C=1-c.kp*c.kp-c.ki*c.ki*b*b,D=-c.ki*c.ki*a;
+    const poly=y=>((y+B)*y+C)*y+D;
+    const nearZero=y=>Math.abs(poly(y))<=1e-12*Math.max(1e-30,Math.abs(y*y*y)+Math.abs(B*y*y)+Math.abs(C*y)+Math.abs(D));
+    const lo=a*(2*Math.PI*band.minHz)**2,hi=a*(2*Math.PI*band.maxHz)**2,turns=[];
+    const disc=B*B-3*C;
+    if(disc>=0)for(const y of [(-B-Math.sqrt(disc))/3,(-B+Math.sqrt(disc))/3])if(y>lo&&y<hi)turns.push(y);
+    const cuts=[lo,...turns.sort((x,y)=>x-y),hi],roots=[];let hasTangency=false;
+    const add=y=>{const freq=Math.sqrt(y/a)/(2*Math.PI);if(!roots.some(x=>Math.abs(x-freq)<1e-8*Math.max(1,freq)))roots.push(freq);};
+    for(const y of cuts)if(nearZero(y)){add(y);if(turns.includes(y))hasTangency=true;}
+    for(let i=0;i<cuts.length-1;i++){
+      let left=cuts[i],right=cuts[i+1],fl=poly(left),fr=poly(right);
+      if(nearZero(left)||nearZero(right)||Math.sign(fl)===Math.sign(fr))continue;
+      for(let n=0;n<80;n++){const mid=(left+right)/2,fm=poly(mid);if(Math.sign(fm)===Math.sign(fl)){left=mid;fl=fm;}else{right=mid;fr=fm;}}
+      add((left+right)/2);
     }
-    crossings.forEach(c => { c.phaseMargin = 180 + c.phase; });
-    return { freqs, mags, phases, crossings, minHz:band.minHz, maxHz:band.maxHz, status: crossings.length === 0 ? "NO_CROSSOVER" : crossings.length === 1 ? "SINGLE" : "MULTIPLE" };
+    const crossings=roots.sort((x,y)=>x-y).map(freq=>{const phase=buckLoopPoint(freq,delayUs,state).phase;return {freq,phase,phaseMargin:180+phase};});
+    return { freqs, mags, phases, crossings, hasTangency, minHz:band.minHz, maxHz:band.maxHz, status: crossings.length === 0 ? "NO_CROSSOVER" : crossings.length === 1&&!hasTangency ? "SINGLE" : "MULTIPLE" };
   }
 
   const PLANTS = Object.freeze({

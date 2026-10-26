@@ -107,3 +107,19 @@ test('diagnostic measurement reduces hypothesis space quantitatively', () => {
   assert.equal(result.reduction, 80);
   assert.ok(result.bits > 2);
 });
+
+test('narrow resonant peaks retain both hidden unity crossings between plotting samples',()=>{
+ Store.reset();const s=Store.snapshot();s.control.kp=.08;s.control.ki=530;
+ const r=Models.analyzeLoop(s,7.5);
+ assert.equal(r.status,'MULTIPLE');assert.equal(r.crossings.length,3);
+ for(const [i,want]of [87.0732158,506.3618555,511.2799002].entries())assert.ok(Math.abs(r.crossings[i].freq-want)<.0001,JSON.stringify(r.crossings));
+ const other=Models.analyzeLoop({...s,plant:{...s.plant,fsw:110000}},25);
+ assert.equal(other.crossings.length,3);
+ for(let i=0;i<3;i++)assert.ok(Math.abs(other.crossings[i].freq-r.crossings[i].freq)<1e-6);
+});
+test('a tangent unity-gain contact is explicitly uncertain rather than a single-margin claim',()=>{
+ Store.reset();const s=Store.snapshot();Object.assign(s.plant,{inductance:.001,capacitance:.001,load:1,esr:0});Object.assign(s.control,{kp:Math.sqrt(3)/2,ki:0});
+ // |P| denominator squared is y²-y+1; its minimum is 3/4 at y=1/2.
+ const r=Models.analyzeLoop(s,0);assert.equal(r.status,'MULTIPLE');assert.equal(r.hasTangency,true);
+ assert.ok(r.crossings.some(c=>Math.abs(c.freq-112.5395395196)<1e-6));
+});

@@ -28,7 +28,7 @@ test('trip timestamps represent sampled detection and actual grid actuation, nev
  const r=K.simulateSystem({vin:48,cycles:20,controlMode:'manual',manualDuty:.5,inductanceUh:500,tripCurrent:.03,tripLatencyUs:.1,plantDtUs:.25,detailCycle:1});
  const detect=r.events.find(x=>x.type==='TRIP_DETECT'),act=r.events.find(x=>x.type==='TRIP_ACTUATE');
  assert.equal(detect.tUs,10.5); // 0.024 A at 10.25 us, 0.048 A at 10.5 us.
- assert.equal(act.tUs,10.75); // next integration boundary after requested 10.6 us.
+ assert.equal(act.tUs,10.6); // event-aware integration splits at the requested actuation time.
  assert.ok(r.waveform.filter(x=>x.tUs<=detect.tUs).every(x=>x.gate));
  assert.ok(r.waveform.filter(x=>x.tUs>act.tUs).every(x=>!x.gate));
 });

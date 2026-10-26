@@ -193,7 +193,7 @@
       boundary:'與平均閉環、切換暫態與 C2000 HIL 是不同模型，不自動交換狀態。'
     },
     {
-      id:'generic-power-causal-kernel',moduleId:'power-capstone',version:'3.2.0',title:'Module 15 連續因果電源核心',
+      id:'generic-power-causal-kernel',moduleId:'power-capstone',version:'3.3.0',title:'Module 15 連續因果電源核心',
       type:'Teaching surrogate',executable:true,owner:'assets/engineering-sandbox-core.js',
       calculate:input=>delegate('CircuitEngineeringSandboxCore','../engineering-sandbox-core.js','simulateSystem',input),
       inputs:{vin:'V',inductanceUh:'µH',capacitanceUf:'µF',controlPeriodUs:'µs',cycles:'count',controlMode:'manual / feedback',manualDuty:'ratio',detailCycle:'optional cycle index',sensorGain:'ratio',samplePct:'percent',computeUs:'µs'},

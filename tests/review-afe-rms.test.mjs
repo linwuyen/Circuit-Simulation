@@ -17,7 +17,7 @@ function loadAfe(route) {
   };
   const nodes = new Map();
   const getNode = id => {
-    if (!nodes.has(id)) nodes.set(id, { innerText: '', style: {} });
+    if (!nodes.has(id)) nodes.set(id, { innerText: '', style: {}, dataset: {} });
     return nodes.get(id);
   };
   nodes.set('scope-canvas', {

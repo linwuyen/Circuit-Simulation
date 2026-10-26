@@ -106,7 +106,8 @@
     return Object.freeze({ view, measure, submit, repair, verify, reveal, exportRecord });
   }
   function replay(record) {
-    if (!record || record.schema !== "circuit-repair-replay" || record.version !== 1 || record.modelVersion !== VERSION || record.engineVersion !== Engine.version) throw new Error("維修案例版本不相容");
+    if (!record || record.schema !== "circuit-repair-replay" || record.version !== 1 || record.modelVersion !== VERSION) throw new Error("維修案例版本不相容");
+    if (record.engineVersion !== Engine.version) throw new Error(`此紀錄使用引擎 ${record.engineVersion}，目前為 ${Engine.version}；請用原版本重播。原始紀錄保留，不會以新引擎覆寫量測。`);
     if (!Array.isArray(record.actions) || record.actions.length > 20) throw new Error("維修操作紀錄過長");
     const session = create(record.seed);
     for (const a of record.actions) {

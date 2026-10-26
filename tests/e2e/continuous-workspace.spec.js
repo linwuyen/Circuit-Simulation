@@ -30,7 +30,7 @@ test('wrong attempts cannot unlock proof, reload retains first attempts and lega
  expect(s.beginnerLessons.rows.duty.first.answer).toBe('down');await page.goto('/#experiment-protection');await expect(page.locator('#ws-title')).toContainText('開久一點');
 });
 test('context names the actual kernel and due review retains priority',async({page})=>{
- await page.locator('#workbench-context-slot summary').click();await expect(page.locator('.ec-model')).toContainText('generic-power-causal-kernel');await expect(page.locator('.ec-model')).toContainText('3.2.0');
+ await page.locator('#workbench-context-slot summary').click();await expect(page.locator('.ec-model')).toContainText('generic-power-causal-kernel');await expect(page.locator('.ec-model')).toContainText('3.3.0');
  await page.evaluate(async ()=>{const s=CircuitEvidence.load();s.benchmark.outcomeV1={sessions:{post:{completedAt:'2026-01-01'}},retention:{r1:{dueAt:'2026-01-02'}}};CircuitEvidence.save(s);if(!(await CircuitEvidence.flush()).saved)throw Error("Fixture evidence not committed");});await page.reload();
  await expect(page.locator('#resume-task')).toHaveText('接續到期複習');await expect(page.locator('#resume-task')).toHaveAttribute('data-route',/layer=evidence/);
 });

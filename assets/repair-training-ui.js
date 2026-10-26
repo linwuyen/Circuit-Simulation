@@ -107,7 +107,8 @@
     } catch (error) { text("repair-status", error.message); }
     event.target.value = "";
   };
-  safe(() => {
+  safe(async () => {
+    let legacyReason = "";
     const unfinished = Records.read().sessions.filter(row => row.kind === "repair" && !row.rehearsal && !row.passed && !row.revealed && row.replay).at(-1);
     if (unfinished) {
       try {
@@ -115,8 +116,9 @@
         started = Date.now() - (unfinished.elapsedSeconds || 0) * 1000; $("repair-seed").value = session.view().seed;
         text("repair-status", "已續接本機未完成案例，首次判斷保持鎖定。");
         return;
-      } catch (_) { /* Incompatible old replay does not prevent opening a fresh case. */ }
+      } catch (error) { legacyReason = error.message; }
     }
-    return start();
+    await start();
+    if (legacyReason) text("repair-status", legacyReason + " 已開啟新的練習；歷史紀錄與備份仍可匯出。");
   });
 })();
