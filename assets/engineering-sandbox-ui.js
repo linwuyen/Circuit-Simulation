@@ -2,7 +2,7 @@
   "use strict";
   const Core=globalThis.CircuitEngineeringSandboxCore;if(!Core)return;
   const Evidence=globalThis.CircuitEvidence||null;
-  const $=id=>document.getElementById(id),num=(id,d=0)=>{const e=$(id),v=e?Number(e.value):NaN;return Number.isFinite(v)?v:d;},txt=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
+  const $=id=>document.getElementById(id),num=(id,d=0)=>{const e=$(id);if(!e)return d;const v=Number(e.value),invalid=String(e.value).trim()===''||!Number.isFinite(v)||(e.min!==undefined&&e.min!==''&&v<Number(e.min))||(e.max!==undefined&&e.max!==''&&v>Number(e.max));if(invalid){e.setAttribute('aria-invalid','true');throw new RangeError('請填入範圍內的有效數值：'+(e.closest?.('label')?.textContent.trim()||id));}e.removeAttribute('aria-invalid');return v;},txt=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
   const status=(id,text,kind)=>{const e=$(id);if(e){e.textContent=text;e.className="sandbox-status "+(kind||"");}};
   const fmt=(v,d=2)=>Number.isFinite(v)?Number(v).toFixed(d):"—";
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -22,9 +22,15 @@
   }
   function sandbox(){
     const run=()=>{
+      try{
       const startV=num("sb-vref-start",24),targetV=num("sb-vref",48),commandAt=Math.round(num("sb-command-at",120));
       const cfg={controlPeriodUs:num("sb-period",10),plantDtUs:num("sb-plant-dt",.25),cycles:Math.round(num("sb-steps",2400)),vin:num("sb-vin",80),inductanceUh:num("sb-inductance",500),inductorDcrOhm:num("sb-dcr",0),saturationCurrentA:num("sb-saturation",0),saturatedInductanceRatio:num("sb-saturation-ratio",.2),commandProfile:[{cycle:0,vref:startV},{cycle:commandAt,vref:targetV}],loadProfile:[{cycle:0,ohm:num("sb-load",12)},{cycle:Math.round(num("sb-load-at",300)),ohm:num("sb-load-step",6)}],currentLimit:num("sb-ilim",12),kpV:num("sb-kpv",.4),kiV:num("sb-kiv",40),kpI:num("sb-kpi",.05),kiI:num("sb-kii",800),sensorGain:num("sb-gain",1),sensorOffset:num("sb-offset",0),noisePct:num("sb-noise",0),edgeNoisePct:num("sb-edge-noise",0),jitterUs:num("sb-jitter",0),adcBits:Math.round(num("sb-bits",12)),communicationMode:$("sb-comm")?$("sb-comm").value:"safe",staleCommandCycles:Math.round(num("sb-stale",0)),controlSign:num("sb-sign",1),dutyClamp:$("sb-clamp")&&$("sb-clamp").value?num("sb-clamp",.95):null,samplePct:num("sb-sample",50),adcLatencyUs:num("sb-adc",1.2),isrLatencyUs:num("sb-isr",.8),computeUs:num("sb-compute",1.7),pwmCommitUs:num("sb-commit",.3),tripCurrent:num("sb-trip-current",18),tripLatencyUs:num("sb-trip-latency",.4),seed:17};
       const r=Core.simulateSystem(cfg);grid("sandbox-scope");const dec=Math.max(1,Math.floor(r.trace.length/260)),trace=r.trace.filter((_,i)=>i%dec===0),vmax=Math.max(startV*1.4,targetV*1.4,...trace.map(x=>x.vOut),10);polyline("sandbox-scope","scope-v",trace.map(x=>x.vOut),vmax);polyline("sandbox-scope","scope-i",trace.map(x=>x.iL),Math.max(cfg.currentLimit*1.5,5));polyline("sandbox-scope","scope-duty",trace.map(x=>x.appliedDuty*Math.max(startV,targetV)),vmax);txt("sb-final-v",`${fmt(r.summary.finalV)} V`);txt("sb-final-i",`${fmt(r.summary.finalI)} A`);txt("sb-mode",r.summary.mode);txt("sb-peak-i",`${fmt(r.summary.peakI)} A`);txt("sb-missed",String(r.summary.missedCommits));txt("sb-lag",String(r.communication.maxLag));txt("sb-state",r.state.state);txt("sb-energy",fmt(r.summary.faultEnergyProxy,6));const minMargin=Math.min(...r.trace.map(x=>x.timingMarginUs));txt("sb-margin",`${fmt(minMargin)} µs`);timeline(r.events);status("sb-status",plainCause(r),r.state.state==="FAULT"?"fail":r.summary.missedCommits||r.communication.maxLag?"warn":"pass");globalThis.__sandboxLast=r;saveMachine("power-capstone.sandbox.unified",r,{minTimingMarginUs:minMargin});
+      }catch(error){
+        ['sb-final-v','sb-final-i','sb-mode','sb-peak-i','sb-margin','sb-missed','sb-lag','sb-energy'].forEach(id=>txt(id,'—'));txt('sb-state','INVALID');
+        $('sandbox-scope')?.replaceChildren();$('sandbox-timeline')?.replaceChildren();globalThis.__sandboxLast=null;
+        status('sb-status','尚未執行有效模擬。'+error.message+'；修正後會重新計算，這次輸入不會保存為量測證據。','fail');
+      }
     };
     bind(["sb-inductance","sb-dcr","sb-saturation","sb-saturation-ratio","sb-period","sb-plant-dt","sb-steps","sb-vin","sb-vref-start","sb-vref","sb-command-at","sb-load","sb-load-step","sb-load-at","sb-ilim","sb-kpv","sb-kiv","sb-kpi","sb-kii","sb-gain","sb-offset","sb-noise","sb-edge-noise","sb-jitter","sb-bits","sb-comm","sb-stale","sb-sign","sb-clamp","sb-sample","sb-adc","sb-isr","sb-compute","sb-commit","sb-trip-current","sb-trip-latency"],run);$("sb-run")?.addEventListener("click",run);
   }

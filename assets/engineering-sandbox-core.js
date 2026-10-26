@@ -11,6 +11,15 @@
   function profileAt(profile,cycle,key){let v=profile[0][key];for(const p of profile){if(p.cycle>cycle)break;v=p[key];}return v;}
   function defaults(input){
     const src=Object.assign({},input||{});
+    const positive=['vin','inductanceUh','capacitanceUf','controlPeriodUs','dtUs','plantDtUs','voltageFullScale','currentFullScale','currentLimit','tripCurrent'];
+    for(const [key,value] of Object.entries(src)){
+      if(typeof value==='number'&&!Number.isFinite(value))throw new RangeError(key+' must be finite');
+      if(positive.includes(key)&&(value===null||String(value).trim()===''||!Number.isFinite(Number(value))||Number(value)<=0))throw new RangeError(key+' must be positive and finite');
+    }
+    for(const key of ['cycles','steps'])if(src[key]!==undefined&&(!Number.isFinite(Number(src[key]))||Number(src[key])<20||Number(src[key])>20000))throw new RangeError(key+' must be between 20 and 20000');
+    if(src.samplePct!==undefined&&(!Number.isFinite(Number(src.samplePct))||src.samplePct<0||src.samplePct>=100))throw new RangeError('samplePct must be between 0 and 100 (exclusive)');
+    if(src.adcBits!==undefined&&(!Number.isInteger(Number(src.adcBits))||src.adcBits<1||src.adcBits>24))throw new RangeError('adcBits must be an integer between 1 and 24');
+    for(const p of src.loadProfile||[])if(!Number.isFinite(Number(p.ohm))||Number(p.ohm)<=0)throw new RangeError('load resistance must be positive and finite');
     const controlPeriodUs=finite(src.controlPeriodUs,finite(src.dtUs,10));
     const cycles=Math.max(20,Math.floor(finite(src.cycles,finite(src.steps,800))));
     const vref=finite(src.vref,48),loadOhm=finite(src.loadOhm,12),loadStepOhm=finite(src.loadStepOhm,6),loadStepAt=Math.floor(finite(src.loadStepAt,300));
@@ -69,6 +78,7 @@
     if(input?.controlMode!==undefined&&!['feedback','manual'].includes(input.controlMode))throw new Error('Unknown control mode');
     if(input?.controlMode==='manual'&&(!Number.isFinite(input.manualDuty)||input.manualDuty<0||input.manualDuty>.95))throw new Error('Manual duty must be between 0 and 0.95');
     const base=defaults(input),c=applyCodeBug(base),random=rng(c.seed),T=c.controlPeriodUs,dtPlant=Math.max(.02,Math.min(c.plantDtUs,T)),substeps=Math.max(1,Math.ceil(T/dtPlant)),dtUs=T/substeps,dt=dtUs*1e-6,L=c.inductanceUh*1e-6,C=c.capacitanceUf*1e-6;
+    if(substeps*c.cycles>5000000)throw new RangeError('Simulation exceeds the 5000000 integration-step budget; reduce cycles or increase the step');
     const state=stateRuntime(c),program=new Map();
     for(const x of c.stateProgram||[]){if(!program.has(x.cycle))program.set(x.cycle,[]);program.get(x.cycle).push(x.action);}
     let iL=0,vOut=0,vInt=0,iInt=0,appliedDuty=0,loadedDuty=0,nextDuty=0,tripDueAbs=null,faultEnergy=0,pendingDutyWrites=[];
@@ -123,6 +133,7 @@
         const effectiveL=knee>0?L*(ratio+(1-ratio)/(1+Math.pow(iL/knee,4))):L;
         const di=vL/effectiveL,dv=(iL-vOut/load)/C;
         iL=Math.max(0,iL+di*dt);vOut=Math.max(0,vOut+dv*dt);peakIThis=Math.max(peakIThis,iL);
+        if(!Number.isFinite(iL)||!Number.isFinite(vOut))throw new RangeError('Model left its finite operating range; use a smaller step or valid circuit parameters');
         if(k===c.detailCycle)waveform.push({tUs:cycleStart+t1,phaseUs:t1,iL,vOut,gate,vL,diDtAperS:di});
         // Detection uses the integrated end-of-step sample; actuation is quantized
         // to the next integration boundary, not backdated to its requested deadline.
