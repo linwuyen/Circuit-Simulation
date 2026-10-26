@@ -121,31 +121,52 @@
       appliedDuty=(state.state==="RUN"&&!state.fault)?loadedDuty:0;
       const sampleAt=T*c.samplePct/100,pwmEdge=appliedDuty*T;
       let sampleCaptured=false,sample=lastSample,peakIThis=iL;
-      for(let s=0;s<substeps;s++){
-        const t0=s*dtUs,t1=(s+1)*dtUs,abs=cycleStart+t0;
-        if(tripDueAbs!==null&&abs>=tripDueAbs&&state.state!=="FAULT"){
-          state.fault=true;state.state="FAULT";appliedDuty=0;events.push({tUs:abs,requestedTUs:tripDueAbs,type:"TRIP_ACTUATE",cycle:k});tripDueAbs=null;
-        }
-        const gate=state.state==="RUN"&&!state.fault&&t0<appliedDuty*T;
-        const vL=(gate?(c.vin-vOut):(-vOut))-iL*Math.max(0,finite(c.inductorDcrOhm,0));
-        // Smooth differential-inductance teaching curve; no hysteresis or thermal claim.
-        const knee=Math.max(0,finite(c.saturationCurrentA,0)),ratio=clamp(finite(c.saturatedInductanceRatio,.2),.05,1);
-        const effectiveL=knee>0?L*(ratio+(1-ratio)/(1+Math.pow(iL/knee,4))):L;
-        const di=vL/effectiveL,dv=(iL-vOut/load)/C;
-        iL=Math.max(0,iL+di*dt);vOut=Math.max(0,vOut+dv*dt);peakIThis=Math.max(peakIThis,iL);
-        if(!Number.isFinite(iL)||!Number.isFinite(vOut))throw new RangeError('Model left its finite operating range; use a smaller step or valid circuit parameters');
-        if(k===c.detailCycle)waveform.push({tUs:cycleStart+t1,phaseUs:t1,iL,vOut,gate,vL,diDtAperS:di});
-        // Detection uses the integrated end-of-step sample; actuation is quantized
-        // to the next integration boundary, not backdated to its requested deadline.
-        if(iL>=c.tripCurrent&&tripDueAbs===null&&state.state==="RUN"&&!state.fault){tripDueAbs=cycleStart+t1+Math.max(0,c.tripLatencyUs);events.push({tUs:cycleStart+t1,type:"TRIP_DETECT",cycle:k});}
-        if(iL>=c.tripCurrent&&state.state==="RUN"&&!state.fault)faultEnergy+=iL*iL*dt;
-        if(!sampleCaptured&&t1>=sampleAt){
+      const eps=T*1e-10,dcr=Math.max(0,c.inductorDcrOhm),knee=Math.max(0,c.saturationCurrentA),ratio=clamp(c.saturatedInductanceRatio,.05,1);
+      const derivative=(i,v,gate)=>{
+        const vL=(gate?c.vin:0)-v-i*dcr;
+        const effectiveL=knee>0?L*(ratio+(1-ratio)/(1+Math.pow(i/knee,4))):L;
+        return {vL,di:!gate&&i<=0?0:vL/effectiveL,dv:(i-v/load)/C};
+      };
+      const capture=()=>{
           const edgeDistance=Math.min(Math.abs(sampleAt),Math.abs(sampleAt-pwmEdge),Math.abs(T-sampleAt));
           const edgeFactor=edgeDistance<c.edgeNoiseWindowUs?(1-edgeDistance/Math.max(.001,c.edgeNoiseWindowUs)):0;
           const noise=((random()-.5)*2*c.noisePct/100)+((random()-.5)*2*c.edgeNoisePct/100*edgeFactor);
           const vs=adcSample(vOut,c.voltageFullScale,c.adcBits,c.sensorGain,c.sensorOffset,noise),is=adcSample(iL,c.currentFullScale,c.adcBits,c.currentSensorGain,c.currentSensorOffset,noise);
-          sample={rawV:vs.raw,rawI:is.raw,measuredV:vs.engineering,measuredI:is.engineering,physicalV:vOut,physicalI:iL,edgeDistanceUs:edgeDistance,edgeNoiseFactor:edgeFactor};sampleCaptured=true;
+          sample={rawV:vs.raw,rawI:is.raw,measuredV:vs.engineering,measuredI:is.engineering,physicalV:vOut,physicalI:iL,tUs:cycleStart+sampleAt,edgeDistanceUs:edgeDistance,edgeNoiseFactor:edgeFactor};sampleCaptured=true;
           events.push({tUs:cycleStart+sampleAt,type:"ADC_SOC",cycle:k});events.push({tUs:cycleStart+sampleAt+c.adcLatencyUs,type:"ADC_EOC",cycle:k});
+      };
+      const actuateTrip=abs=>{
+        if(tripDueAbs!==null&&abs+eps>=tripDueAbs&&state.state!=="FAULT"){
+          state.fault=true;state.state="FAULT";appliedDuty=0;events.push({tUs:tripDueAbs,requestedTUs:tripDueAbs,type:"TRIP_ACTUATE",cycle:k});tripDueAbs=null;
+        }
+      };
+      actuateTrip(cycleStart);
+      if(sampleAt===0)capture();
+      if(k===c.detailCycle){const gate=state.state==='RUN'&&!state.fault&&appliedDuty>0,d=derivative(iL,vOut,gate);waveform.push({tUs:cycleStart,phaseUs:0,iL,vOut,gate,vL:d.vL,diDtAperS:d.di});}
+      for(let s=0;s<substeps;s++){
+        let t0=s*dtUs;const gridEnd=(s+1)*dtUs;
+        while(t0<gridEnd-eps){
+          actuateTrip(cycleStart+t0);
+          const gate=state.state==='RUN'&&!state.fault&&t0<appliedDuty*T-eps;
+          let t1=gridEnd;
+          if(gate&&pwmEdge>t0+eps)t1=Math.min(t1,pwmEdge);
+          if(!sampleCaptured&&sampleAt>t0+eps)t1=Math.min(t1,sampleAt);
+          if(tripDueAbs!==null&&tripDueAbs>cycleStart+t0+eps)t1=Math.min(t1,tripDueAbs-cycleStart);
+          const h=(t1-t0)*1e-6,d=derivative(iL,vOut,gate);
+          // Midpoint LC integration; switching and acquisition events split the step.
+          // The diode blocks reverse current. A zero-current interval discharges C only.
+          if(!gate&&iL<=0){iL=0;vOut*=Math.exp(-h/(load*C));}
+          else{
+            const mid=derivative(Math.max(0,iL+d.di*h/2),Math.max(0,vOut+d.dv*h/2),gate);
+            iL=Math.max(0,iL+mid.di*h);vOut=Math.max(0,vOut+mid.dv*h);
+          }
+          peakIThis=Math.max(peakIThis,iL);
+          if(!Number.isFinite(iL)||!Number.isFinite(vOut))throw new RangeError('Model left its finite operating range; use a smaller step or valid circuit parameters');
+          if(k===c.detailCycle)waveform.push({tUs:cycleStart+t1,phaseUs:t1,iL,vOut,gate,vL:d.vL,diDtAperS:d.di});
+          if(iL>=c.tripCurrent&&tripDueAbs===null&&state.state==='RUN'&&!state.fault){tripDueAbs=cycleStart+t1+Math.max(0,c.tripLatencyUs);events.push({tUs:cycleStart+t1,type:'TRIP_DETECT',cycle:k});}
+          if(iL>=c.tripCurrent&&state.state==='RUN'&&!state.fault)faultEnergy+=iL*iL*h;
+          if(!sampleCaptured&&Math.abs(t1-sampleAt)<=eps)capture();
+          actuateTrip(cycleStart+t1);t0=t1;
         }
       }
       lastSample=sample;
@@ -159,14 +180,14 @@
       let computedDuty=(state.state==="RUN"&&!state.fault)?inner.output:0;
       if(c.controlMode==='manual'&&state.state==='RUN'&&!state.fault)computedDuty=Math.min(c.manualDuty,c.dutyMax);
       if(c.dutyClamp!==null&&c.dutyClamp!==undefined)computedDuty=Math.min(computedDuty,finite(c.dutyClamp,c.dutyMax));
-      const jitter=(random()-.5)*2*c.jitterUs,isrAt=sampleAt+c.adcLatencyUs+c.isrLatencyUs+jitter,doneAt=isrAt+c.computeUs,commitAt=doneAt+c.pwmCommitUs,margin=T-commitAt,writeAbsUs=cycleStart+commitAt,scheduledApplyCycle=Math.floor(writeAbsUs/T)+1,timingMiss=scheduledApplyCycle>k+1;
+      const jitter=(random()-.5)*2*c.jitterUs,isrAt=sampleAt+c.adcLatencyUs+c.isrLatencyUs+jitter,doneAt=isrAt+c.computeUs,commitAt=doneAt+c.pwmCommitUs,margin=T-commitAt,writeAbsUs=cycleStart+commitAt,scheduledApplyCycle=Math.floor((writeAbsUs+eps)/T)+1,timingMiss=scheduledApplyCycle>k+1;
       events.push({tUs:cycleStart+isrAt,type:"ISR",cycle:k});events.push({tUs:cycleStart+doneAt,type:"CONTROL_DONE",cycle:k});events.push({tUs:writeAbsUs,type:timingMiss?"PWM_COMMIT_MISSED":"PWM_COMMIT",cycle:k,scheduledApplyCycle});
       if(timingMiss)missedCommits++;
       pendingDutyWrites.push({sourceCycle:k,writeAbsUs,applyCycle:scheduledApplyCycle,duty:(state.state==="RUN"&&!state.fault)?computedDuty:0});
       const nextWrites=pendingDutyWrites.filter(x=>x.applyCycle<=k+1);
       nextDuty=nextWrites.length?nextWrites.reduce((latest,x)=>x.writeAbsUs>latest.writeAbsUs?x:latest).duty:loadedDuty;
       const mode=c.controlMode==="manual"?"MANUAL":outer.unsat>=c.currentLimit-.0001?"CC":"CV";
-      trace.push({k,tUs:cycleStart,vOut,iL,peakIThis,load,producerCommand,consumedCommand,producerSeq,publishedSeq,completeSeq,consumedSeq,state:state.state,mode,computedDuty,appliedDuty,nextDuty,loadedFromCycle,scheduledApplyCycle,pendingDutyCount:pendingDutyWrites.length,sampledV:sample.measuredV,sampledI:sample.measuredI,rawV:sample.rawV,rawI:sample.rawI,samplePhysicalV:sample.physicalV,samplePhysicalI:sample.physicalI,edgeDistanceUs:sample.edgeDistanceUs,timingMarginUs:margin,timingMiss,controlSaturated:inner.saturated,currentRef:outer.output});
+      trace.push({k,tUs:cycleStart,vOut,iL,peakIThis,load,producerCommand,consumedCommand,producerSeq,publishedSeq,completeSeq,consumedSeq,state:state.state,mode,computedDuty,appliedDuty,nextDuty,loadedFromCycle,scheduledApplyCycle,pendingDutyCount:pendingDutyWrites.length,sampledV:sample.measuredV,sampledI:sample.measuredI,rawV:sample.rawV,rawI:sample.rawI,sampleTUs:sample.tUs,samplePhysicalV:sample.physicalV,samplePhysicalI:sample.physicalI,edgeDistanceUs:sample.edgeDistanceUs,timingMarginUs:margin,timingMiss,controlSaturated:inner.saturated,currentRef:outer.output});
     }
     events.sort((a,b)=>a.tUs-b.tUs||String(a.type).localeCompare(String(b.type)));
     const tail=trace.slice(Math.floor(trace.length*.8)),avgV=tail.reduce((s,x)=>s+x.vOut,0)/Math.max(1,tail.length),last=trace[trace.length-1]||{},maxSeqLag=Math.max(...trace.map(x=>Math.max(0,x.publishedSeq-x.consumedSeq)));
