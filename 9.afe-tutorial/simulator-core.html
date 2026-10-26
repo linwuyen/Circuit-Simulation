@@ -67,6 +67,7 @@
     </header>
 
     <!-- 主容器 -->
+    <p id="afe-runtime-status" role="status" class="mx-6 mt-4 p-3 rounded-lg border border-slate-700 text-sm">準備模擬。預設 1.0 kW 是本教學代理模型可達的工作點；重設會保留模式、負載與增益，清除控制器與波形歷史。</p>
     <main class="flex-1 p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-[1920px] mx-full w-full">
         
         <!-- 左側面板: 控制面板與物理參數調整 (佔 4 格) -->
@@ -93,7 +94,7 @@
                     </span>
                     <div class="mt-2 flex items-baseline gap-2">
                         <span id="stat-pf" class="text-3xl font-mono-tech text-amber-400">0.999</span>
-                        <span class="text-xs text-slate-500">COS φ</span>
+                        <span class="text-xs text-slate-500">Total PF</span>
                     </div>
                     <div id="stat-pf-label" class="text-xs text-slate-500 mt-2">完美同相 (極致能效)</div>
                 </div>
@@ -135,9 +136,9 @@
                         <span class="text-slate-400 flex items-center gap-1">
                             <i data-lucide="cpu" class="w-3.5 h-3.5 text-rose-400"></i>直流端負載功率 (GPU 功耗)
                         </span>
-                        <span id="val-load" class="text-rose-400 font-mono-tech">1.5 kW</span>
+                        <span id="val-load" class="text-rose-400 font-mono-tech">1.0 kW</span>
                     </div>
-                    <input type="range" id="slide-load" min="-3000" max="5000" value="1500" step="100" class="w-full accent-rose-500 bg-slate-800 rounded-lg appearance-none h-2">
+                    <input type="range" id="slide-load" min="-3000" max="5000" value="1000" step="100" class="w-full accent-rose-500 bg-slate-800 rounded-lg appearance-none h-2">
                     <p class="text-[10px] text-slate-500 leading-normal">拉大表示 GPU 滿載抽電；拉到負值（例如 -2.0kW）模擬大型馬達回充電能到直流母線，觀察 AFE 逆變器卸荷送電。</p>
                 </div>
 
@@ -145,9 +146,9 @@
                 <div class="flex flex-col gap-2 mt-2">
                     <div class="flex justify-between text-xs font-semibold">
                         <span class="text-slate-400 flex items-center gap-1">
-                            <i data-lucide="snowflake" class="w-3.5 h-3.5 text-sky-400"></i>電網諧波干擾 (3rd, 5th, 7th THD)
+                            <i data-lucide="snowflake" class="w-3.5 h-3.5 text-sky-400"></i>諧波注入強度（3、5、7次）
                         </span>
-                        <span id="val-thd" class="text-sky-400 font-mono-tech">0 %</span>
+                        <span id="val-thd" class="text-sky-400 font-mono-tech">注入 0% · 實算 THD 0.0%</span>
                     </div>
                     <input type="range" id="slide-thd" min="0" max="50" value="0" class="w-full accent-sky-500 bg-slate-800 rounded-lg appearance-none h-2">
                     <p class="text-[10px] text-slate-500 leading-normal">增加諧波會扭曲輸入交流電網波形，觀察 SOGI-PLL 的有限濾波能力；諧波與暫態仍會造成相位誤差。這是簡化教學模型，不是已驗證的實機控制器。</p>
@@ -162,7 +163,7 @@
                         <span id="val-phase" class="text-emerald-400 font-mono-tech">0°</span>
                     </div>
                     <input type="range" id="slide-phase" min="-180" max="180" value="0" class="w-full accent-emerald-500 bg-slate-800 rounded-lg appearance-none h-2">
-                    <p class="text-[10px] text-slate-500 leading-normal">手動模擬電網發生擾動時的瞬時相位偏移，看 PLL 在幾個微秒（微小週期）內重新牢牢鎖定相位。</p>
+                    <p class="text-[10px] text-slate-500 leading-normal">手動模擬電網發生擾動時的瞬時相位偏移，觀察 PLL 經過多個取樣與市電週期重新追蹤；圖中使用模擬時間，不能把畫面更新時間當成硬體鎖定時間。</p>
                 </div>
             </div>
 
@@ -345,13 +346,13 @@
             v_grid_sampled: 0.0,
             i_grid_actual: 0.0,
             v_bus_actual: 380.0,
-            i_load: 15.0 / 400.0, // 初始 1.5kW @ 400V 負載電流
-            pf: 0.0
+            i_load: 1000.0 / 400.0, // 初始 1.0kW @ 400V 負載電流
+            pf: 0.0, dpf: 0.0, modelLimit: null, unservedEnergyJ: 0
         };
 
         // 參數設定 (來自 UI 阻尼 slider)
         let settings = {
-            loadWatts: 1500, // 瓦特數
+            loadWatts: 1000, // 瓦特數
             thdPercent: 0,   // 諧波百分比
             phaseShiftDeg: 0, // 電網相位突變
             pllKp: 180.0,
@@ -399,8 +400,19 @@
             i_grid: new Array(BUFFER_SIZE).fill(0),
             i_ref: new Array(BUFFER_SIZE).fill(0),
             theta: new Array(BUFFER_SIZE).fill(0),
-            v_bus: new Array(BUFFER_SIZE).fill(400)
+            v_bus: new Array(BUFFER_SIZE).fill(380)
         };
+
+        // Reset dynamic state, retaining the chosen parameters and pause/run state.
+        function resetAfeState() {
+            time = 0;
+            Object.assign(sysState, {v_grid_raw:0, v_grid_sampled:0, i_grid_actual:0, v_bus_actual:380, i_load:settings.loadWatts/400, pf:0, dpf:0, modelLimit:null, unservedEnergyJ:0});
+            Object.assign(pll, {v_alpha:0, v_beta:0, osg_x0:0, osg_x1:0, theta:0, omega:GRID_OMEGA_NOMINAL, pi_err_prev:0, pi_out:0});
+            Object.assign(ctrl, {v_bus_ref:400, v_bus_err_prev:0, v_bus_out:0, i_ref:0, i_err_prev:0, i_out:0});
+            Object.assign(dds, {gain:0, out:0});
+            for (const [key, values] of Object.entries(scopeBuffer)) values.fill(key==='v_bus'?380:0);
+        }
+        function gridHarmonicThdPct() { return settings.thdPercent * Math.sqrt(.5**2 + .3**2 + .1**2); }
 
         // CH1 and topology share sqrt(sum(v[n]^2) / N) over the visible scope window.
         // N = 400 at TS = 50 us: 20 ms (1.2 nominal 60 Hz cycles), including startup zeros.
@@ -417,7 +429,7 @@
         // 2. AFE 演算法核心離散時間運算
         // ============================================================================
         function runAfeEngine() {
-            if (!simActive) return;
+            if (!simActive || sysState.modelLimit) return;
 
             // 步進增加時間
             time += TS;
@@ -506,10 +518,11 @@
             let c_bus_farad = 0.0012; // 1200uF 直流母線電容
             const energy = 0.5 * c_bus_farad * sysState.v_bus_actual ** 2 + (power_ac - power_dc_load) * TS;
             sysState.v_bus_actual = Math.sqrt(Math.max(0, 2 * energy / c_bus_farad));
-
-            // 限制防炸機物理極限
-            if (sysState.v_bus_actual < 50.0) sysState.v_bus_actual = 50.0;
-            if (sysState.v_bus_actual > 600.0) sysState.v_bus_actual = 600.0;
+            // A constant-power load ceases to be meaningful at zero stored energy.
+            // Expose the undelivered energy; never fabricate a 50 V supply or erase excess energy.
+            if (energy < 0) { sysState.unservedEnergyJ += -energy; sysState.modelLimit = 'ENERGY_EXHAUSTED'; }
+            else if (sysState.v_bus_actual > 600) sysState.modelLimit = 'OVERVOLTAGE_MODEL_LIMIT';
+            if (sysState.modelLimit) simActive = false;
 
             // PF is a sampled window measurement, not a current-error score.
             // Nominal 60 Hz window (~333 samples); transient/noninteger-window error remains.
@@ -521,12 +534,18 @@
             scopeBuffer.v_bus.push(sysState.v_bus_actual);
 
             const count = Math.min(Math.round(1 / (60 * TS)), scopeBuffer.v_grid.length);
-            let vv = 0, ii = 0, vi = 0;
+            let vv = 0, ii = 0, vi = 0, vs=0, vc=0, is=0, ic=0;
+            const angleStep=GRID_OMEGA_NOMINAL*TS, cd=Math.cos(angleStep), sd=Math.sin(angleStep);
+            let sn=Math.sin(GRID_OMEGA_NOMINAL*(time-(count-1)*TS)), cs=Math.cos(GRID_OMEGA_NOMINAL*(time-(count-1)*TS));
             for (let n = scopeBuffer.v_grid.length - count; n < scopeBuffer.v_grid.length; n++) {
                 const v = scopeBuffer.v_grid[n], i = scopeBuffer.i_grid[n];
                 vv += v * v; ii += i * i; vi += v * i;
+                vs+=v*sn; vc+=v*cs; is+=i*sn; ic+=i*cs;
+                const nextSn=sn*cd+cs*sd;cs=cs*cd-sn*sd;sn=nextSn;
             }
             sysState.pf = vv > 0 && ii > 1e-12 ? Math.max(-1, Math.min(1, vi / Math.sqrt(vv * ii))) : 0;
+            const fundamentalNorm=Math.hypot(vs,vc)*Math.hypot(is,ic);
+            sysState.dpf=fundamentalNorm>1e-12?Math.max(-1,Math.min(1,(vs*is+vc*ic)/fundamentalNorm)):0;
 
             // 維持緩衝大小
             if (scopeBuffer.v_grid.length > BUFFER_SIZE) {
@@ -686,6 +705,18 @@
         const statPfLabel = document.getElementById('stat-pf-label');
 
         function updateWidgets() {
+            const runtimeStatus=document.getElementById('afe-runtime-status');
+            if(runtimeStatus){
+                runtimeStatus.textContent=sysState.modelLimit
+                    ? `模型已停止：${sysState.modelLimit==='ENERGY_EXHAUSTED'?'電容儲能耗盡，定功率負載假設失效':'母線超過 600 V 教學範圍'}。請調整負載或模式後重設狀態；未供應能量 ${sysState.unservedEnergyJ.toFixed(4)} J。`
+                    : Math.abs(ctrl.v_bus_out)>=24.99&&Math.abs(sysState.v_bus_actual-400)>5
+                    ? '電流命令已達限制，目前未能穩壓；請減小負載或檢查設定。'
+                    : `${simActive?'運行中':'已暫停'} · 模擬時間 ${time.toFixed(3)} s · 基波 DPF ${sysState.dpf.toFixed(3)}（約一週期窗）；Total PF 包含失真，不等於效率。`;
+                runtimeStatus.dataset.state=sysState.modelLimit?'invalid':Math.abs(ctrl.v_bus_out)>=24.99?'limited':'ready';
+            }
+            const pause=document.getElementById('btn-pause');if(pause)pause.disabled=!!sysState.modelLimit;
+            const pauseText=document.getElementById('text-pause');if(pauseText)pauseText.innerText=simActive?'暫停模擬':'繼續模擬';
+
             // 直流母線顯示
             statVbus.innerText = sysState.v_bus_actual.toFixed(1);
             let percent = (sysState.v_bus_actual / 500.0) * 100;
@@ -763,7 +794,7 @@
         const valThd = document.getElementById('val-thd');
         slideThd.addEventListener('input', (e) => {
             settings.thdPercent = parseInt(e.target.value);
-            valThd.innerText = `${settings.thdPercent} %`;
+            valThd.innerText = `注入 ${settings.thdPercent}% · 實算 THD ${gridHarmonicThdPct().toFixed(1)}%`;
         });
 
         // 相位突變
@@ -965,15 +996,9 @@ void runVoltageLoop(CTRL_OBJ *ctrl)
 
         // 重新載入復位
         document.getElementById('btn-reset').addEventListener('click', () => {
-            sysState.v_bus_actual = 380.0;
-            sysState.i_grid_actual = 0.0;
-            time = 0.0;
-            pll.theta = 0.0;
-            pll.v_alpha = 0.0;
-            pll.v_beta = 0.0;
-            ctrl.v_bus_out = 0.0;
-            scopeBuffer.v_bus.fill(380.0);
-            scopeBuffer.i_grid.fill(0);
+            resetAfeState();
+            updateWidgets();
+            drawScope();
         });
 
         // 引擎高速實時運算迴圈 (以多個 step 加速物理進程，使示波器流暢)
