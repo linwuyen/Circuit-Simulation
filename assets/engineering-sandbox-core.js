@@ -12,10 +12,11 @@
   function defaults(input){
     const src=Object.assign({},input||{});
     const positive=['vin','inductanceUh','capacitanceUf','controlPeriodUs','dtUs','plantDtUs','voltageFullScale','currentFullScale','currentLimit','tripCurrent','loadOhm','loadStepOhm','ringSize'];
-    const nonnegative=['adcLatencyUs','isrLatencyUs','computeUs','pwmCommitUs','tripLatencyUs','jitterUs','noisePct','edgeNoisePct','edgeNoiseWindowUs','inductorDcrOhm','saturationCurrentA','staleCommandCycles'];
-    const numeric=[...positive,...nonnegative,'kpV','kiV','kpI','kiI','sensorGain','currentSensorGain','sensorOffset','currentSensorOffset','controlSign','saturatedInductanceRatio'];
+    const nonnegative=['adcLatencyUs','isrLatencyUs','computeUs','pwmCommitUs','tripLatencyUs','jitterUs','noisePct','edgeNoisePct','edgeNoiseWindowUs','inductorDcrOhm','saturationCurrentA','staleCommandCycles','vref'];
+    const numeric=[...positive,...nonnegative,'kpV','kiV','kpI','kiI','sensorGain','currentSensorGain','sensorOffset','currentSensorOffset','controlSign','saturatedInductanceRatio','samplePct','dutyMax','dutyClamp'];
     for(const [key,value] of Object.entries(src)){
       if(typeof value==='number'&&!Number.isFinite(value))throw new RangeError(key+' must be finite');
+      if(key==='dutyClamp'&&(value===null||value===undefined))continue;
       if(numeric.includes(key)){
         if(value===null||String(value).trim()===''||!Number.isFinite(Number(value)))throw new RangeError(key+' must be finite and nonempty');
         src[key]=Number(value);
@@ -23,6 +24,7 @@
         if(nonnegative.includes(key)&&src[key]<0)throw new RangeError(key+' cannot be negative');
       }
     }
+    for(const key of ['dutyMax','dutyClamp'])if(src[key]!==undefined&&src[key]!==null&&(src[key]<0||src[key]>1))throw new RangeError(key+' must be between 0 and 1');
     for(const key of ['cycles','steps'])if(src[key]!==undefined&&(!Number.isFinite(Number(src[key]))||Number(src[key])<20||Number(src[key])>20000))throw new RangeError(key+' must be between 20 and 20000');
     if(src.samplePct!==undefined&&(!Number.isFinite(Number(src.samplePct))||src.samplePct<0||src.samplePct>=100))throw new RangeError('samplePct must be between 0 and 100 (exclusive)');
     if(src.adcBits!==undefined&&(!Number.isInteger(Number(src.adcBits))||src.adcBits<1||src.adcBits>24))throw new RangeError('adcBits must be an integer between 1 and 24');
@@ -130,10 +132,10 @@
       const sampleAt=T*c.samplePct/100,pwmEdge=appliedDuty*T;
       let sampleCaptured=false,sample=lastSample,peakIThis=iL;
       const eps=T*1e-10,dcr=Math.max(0,c.inductorDcrOhm),knee=Math.max(0,c.saturationCurrentA),ratio=clamp(c.saturatedInductanceRatio,.05,1);
-      const derivative=(i,v,gate)=>{
+      const derivative=(i,v,gate,unconstrained=false)=>{
         const vL=(gate?c.vin:0)-v-i*dcr;
         const effectiveL=knee>0?L*(ratio+(1-ratio)/(1+Math.pow(i/knee,4))):L;
-        return {vL,di:!gate&&i<=0?0:vL/effectiveL,dv:(i-v/load)/C};
+        return {vL,di:!unconstrained&&!gate&&i<=0?0:vL/effectiveL,dv:(i-v/load)/C};
       };
       const capture=()=>{
           const edgeDistance=Math.min(Math.abs(sampleAt),Math.abs(sampleAt-pwmEdge),Math.abs(T-sampleAt));
@@ -165,8 +167,17 @@
           // The diode blocks reverse current. A zero-current interval discharges C only.
           if(!gate&&iL<=0){iL=0;vOut*=Math.exp(-h/(load*C));}
           else{
-            const mid=derivative(Math.max(0,iL+d.di*h/2),Math.max(0,vOut+d.dv*h/2),gate);
-            iL=Math.max(0,iL+mid.di*h);vOut=Math.max(0,vOut+mid.dv*h);
+            // Trial states are unconstrained: clipping the midpoint current to zero
+            // would apply a zero slope to a still-positive starting current.
+            const advance=span=>{const mid=derivative(iL+d.di*span/2,vOut+d.dv*span/2,gate,true);return{i:iL+mid.di*span,v:vOut+mid.dv*span};};
+            const next=advance(h);
+            if(!gate&&next.i<=0){
+              let lo=0,hi=h;
+              for(let n=0;n<40;n++){const mid=(lo+hi)/2;if(advance(mid).i>0)lo=mid;else hi=mid;}
+              const zeroAt=(lo+hi)/2,zeroV=Math.max(0,advance(zeroAt).v),phaseUs=t0+zeroAt*1e6;
+              if(k===c.detailCycle)waveform.push({tUs:cycleStart+phaseUs,phaseUs,iL:0,vOut:zeroV,gate:false,vL:-zeroV,diDtAperS:0});
+              iL=0;vOut=zeroV*Math.exp(-(h-zeroAt)/(load*C));
+            }else{iL=Math.max(0,next.i);vOut=Math.max(0,next.v);}
           }
           peakIThis=Math.max(peakIThis,iL);
           if(!Number.isFinite(iL)||!Number.isFinite(vOut))throw new RangeError('Model left its finite operating range; use a smaller step or valid circuit parameters');
@@ -225,6 +236,6 @@
     truncation:{line:"uint16_t gain = 3/5;",effect:"integer truncation collapses the scale to zero, so feedback becomes physically wrong",measurement:"inspect runtime gain and compare scaled value with the DMM",preset:"truncation"}
   };
   function codeTrace(bug){const key=bug in CODE_BUGS?bug:"unit",meta=CODE_BUGS[key],config=defaults({cycles:650,seed:31,commandProfile:[{cycle:0,vref:24},{cycle:120,vref:48}],loadProfile:[{cycle:0,ohm:12}],codeBug:key});const system=simulateSystem(config);return{bug:key,...meta,system,measurement:measureSystem(system,key==="stale"?"seq":key==="shadow"?"timing":key==="unit"||key==="truncation"?"scaled":"duty")};}
-  const api={version:"3.2.0",defaults,simulateSystem,simulateConverter,timingWindow,dmaScenario,runStateMachine,multiFault,measureSystem,diagnosticScore,codeTrace,CODE_BUGS,FAULT_PRESETS};
+  const api={version:"3.3.0",defaults,simulateSystem,simulateConverter,timingWindow,dmaScenario,runStateMachine,multiFault,measureSystem,diagnosticScore,codeTrace,CODE_BUGS,FAULT_PRESETS};
   root.CircuitEngineeringSandboxCore=api;if(typeof module!=="undefined"&&module.exports)module.exports=api;
 })(typeof globalThis!=="undefined"?globalThis:this);

@@ -24,40 +24,42 @@
 ## Task 1: validation and truthful sandbox state
 Files: assets/engineering-sandbox-core.js, assets/engineering-sandbox-ui.js, 15_power_capstone/lab_sandbox.html, tests/kernel-input-contract.test.mjs, tests/e2e/kernel-input-contract.spec.js.
 Interface: simulateSystem(input) retains its valid result shape; invalid input throws RangeError. UI invalid state clears metrics/chart and withholds recordMachine.
-- [ ] Add tests for zero/negative/blank/nonfinite L/C/period/dt and UI blank editing; watch RED.
-- [ ] Implement finite positive bounded validation, explicit invalid UI feedback, valid recovery.
-- [ ] Run focused and full unit tests; commit the validated batch.
+- [x] Add tests for zero/negative/blank/nonfinite L/C/period/dt and UI blank editing; watch RED.
+- [x] Implement finite positive bounded validation, explicit invalid UI feedback, valid recovery.
+- [x] Run focused and full unit tests; commit the validated batch.
 
 ## Task 2: strict load timing and event-aware plant
 Files: assets/engineering-sandbox-core.js, assets/learning/control-engineering-v1.js, tests/kernel-event-accuracy.test.mjs, tests/control-engineering-v1.test.mjs, related legacy regression expectations where the actual numerical accuracy changes.
 Interfaces: Keep original exports and waveform fields; add actual sample time metadata if helpful. Retain diode nonnegative-current semantics and existing trip authority.
-- [ ] Add non-grid duty .251 -> 12.048 V CCM, 0/51% ADC timing, h convergence, strict before/equal/after ZERO/PERIOD tests; watch RED.
-- [ ] Split integration at gate, ADC and trip events; use a convergent integrator with bounded h and actual sample time. Unify strict event eligibility.
-- [ ] Run affected course/physics regressions and full unit suite; commit.
+- [x] Add non-grid duty .251 -> 12.048 V CCM, 0/51% ADC timing, h convergence, strict before/equal/after ZERO/PERIOD tests; watch RED.
+- [x] Split integration at gate, ADC and trip events; use a convergent integrator with bounded h and actual sample time. Unify strict event eligibility.
+- [x] Run affected course/physics regressions and full unit suite; commit.
 
 ## Task 3: AFE state, power and teaching quantities
 Files: 9.afe-tutorial/afe.html, 9.afe-tutorial/simulator-core.html, optional shared engine/adapter asset only if existing extraction tests are adapted to exercise it, tests/afe-runtime-contract.test.mjs and relevant existing hardware/RMS tests.
 Interface: Existing route controls, waveHistory/scopeBuffer concepts and visible metrics preserved. Avoid silently changing user parameters on reset.
-- [ ] Add long-time default regulation, cycle energy, reverse load/model limit, fresh/reset equivalence, paused reset, harmonic THD and signed PF cases; watch RED.
-- [ ] Use a power-reachable default load (derive capacity before selecting), explicit energy-limit state, complete dynamic initialization, consistent PF/THD/PLL labels.
-- [ ] Run old/new AFE/DDS/measurement and full unit tests; commit.
+- [x] Add long-time default regulation, cycle energy, reverse load/model limit, fresh/reset equivalence, paused reset, harmonic THD and signed PF cases; watch RED.
+- [x] Use a power-reachable default load (derive capacity before selecting), explicit energy-limit state, complete dynamic initialization, consistent PF/THD/PLL labels.
+- [x] Run old/new AFE/DDS/measurement and full unit tests; commit.
 
 ## Task 4: usable controls, navigation and responsive results
 Files: sandbox and AFE HTML/CSS/adapters, index/course navigation only where needed, focused e2e tests.
 Interface: Preserve evidence format and explicit saving failures. Reuse existing durable navigation rather than inventing another state store.
-- [ ] Walk course -> edit -> result/warning -> compare/save -> reset/back on desktop/mobile. Add regressions for actual observed failures.
-- [ ] Add grouped controls/result anchors, clear reset semantics, formal labels, accessible canvas summaries, wrapping legends, keyboard focus, navigation links and visible persistence failures.
-- [ ] Verify repeated edits, paused reset, navigation, mobile overflow, labels and failed-save behavior with available installed browser tools; commit.
+- [x] Walk course -> edit -> result/warning -> compare/save -> reset/back on desktop/mobile. Add regressions for actual observed failures.
+- [x] Add grouped controls/result anchors, clear reset semantics, formal labels, accessible canvas summaries, wrapping legends, keyboard focus, navigation links and visible persistence failures.
+- [x] Verify repeated edits, paused reset, navigation, mobile overflow, labels and failed-save behavior with available installed browser tools; commit.
 
 ## Task 5: retained crossover algorithm
 Files: assets/learning/power-system-models-v1.js, tests/power-system-models.test.mjs.
 Interface: analyzeLoop(state,delayUs) retains output shape; do not activate retired UI.
-- [ ] Add Kp=.08, Ki=530, delay=7.5 us narrow-peak regression with roots 87.0732158/506.3618555/511.2799002 Hz; watch RED.
-- [ ] Bracket extrema and adaptively solve gain roots, including tangent/near-threshold uncertainty instead of trusting fixed sign samples.
-- [ ] Run focused/full unit tests; commit.
+- [x] Add Kp=.08, Ki=530, delay=7.5 us narrow-peak regression with roots 87.0732158/506.3618555/511.2799002 Hz; watch RED.
+- [x] Bracket extrema and adaptively solve gain roots, including tangent/near-threshold uncertainty instead of trusting fixed sign samples.
+- [x] Run focused/full unit tests; commit.
 
 ## Task 6: final integration verification and review
-- [ ] Run full Node suite, static and graphics checks on final source.
+- [x] Run full Node suite, static and graphics checks on final source.
 - [ ] Run existing browser suites using an already installed compatible runtime only; no package download. Record missing runtime as blocker if unavailable.
-- [ ] Fresh whole-branch reviewer receives complete diff, spec/plan and test evidence; address important findings with RED/GREEN.
+- [x] Fresh whole-branch reviewer receives complete diff, spec/plan and test evidence; address important findings with RED/GREEN.
 - [ ] Record exact local HEAD, source cleanliness, changed behavior, test failures/skips/unrun scopes, screenshots and local startup instructions. Keep local branch without publication.
+
+Review resolution: accepted all five P2 findings; treated the dead workflow anchor as Important and fixed it in the same bounded wave. Three new numeric/provenance tests failed before repair and passed afterward; six initial desktop/mobile counterexamples likewise failed then passed. Final focused browser set is 10/10, including legacy record preservation and the other shared numeric reader. No cosmetic or speculative review scope was added.
