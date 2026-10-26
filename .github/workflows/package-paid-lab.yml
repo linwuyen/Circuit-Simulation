@@ -24,6 +24,8 @@ jobs:
           cp PAID_START_HERE.md "$OUT/"
           cp paid-entry.html "$OUT/paid-entry.html"
           cp paid-entry.html "$OUT/index.html"
+          # The offline catalog lists only the modules included in this bundle.
+          cp paid-entry.html "$OUT/catalog.html"
           cp package.json package-lock.json playwright.config.js "$OUT/"
           cp -R assets "$OUT/"
           cp -R 15_power_capstone "$OUT/"
