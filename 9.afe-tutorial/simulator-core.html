@@ -38,7 +38,8 @@
         }
     </style>
 <link rel="stylesheet" href="../assets/learning/tutor.css" data-circuit-tutor-css>
-<link rel="stylesheet" href="../assets/learning/unified-learning.css"><script src="../assets/learning/learning-glossary.js"></script></head>
+<link rel="stylesheet" href="../assets/learning/unified-learning.css"><script src="../assets/learning/learning-glossary.js"></script><link rel="stylesheet" href="../assets/afe-runtime.css">
+</head>
 <body class="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col antialiased selection:bg-cyan-500 selection:text-slate-950">
 
     <!-- 頂部導航欄 -->
@@ -61,17 +62,19 @@
                 <i data-lucide="pause" id="icon-pause" class="w-4 h-4 text-cyan-400"></i> <span id="text-pause">暫停模擬</span>
             </button>
             <button id="btn-reset" class="flex items-center gap-2 px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold active:scale-95 transition rounded-lg text-sm">
-                <i data-lucide="rotate-ccw" class="w-4 h-4"></i> 重新載入
+                <i data-lucide="rotate-ccw" class="w-4 h-4"></i> 重設狀態
             </button>
         </div>
     </header>
 
     <!-- 主容器 -->
+<nav class="afe-task-nav" aria-label="實驗操作導覽"><a href="index.html">返回 AFE 教材</a><a href="../catalog.html">全部課程</a><a href="#afe-controls">調整條件</a><a href="#afe-results">查看結果</a></nav>
+<p class="afe-reset-note">重設狀態：保留模式、負載與增益，清除控制器及波形歷史。模擬時間 <span id="afe-sim-time" aria-live="off">0.000 s</span>；畫面不是硬體即時運算速度。</p>
     <p id="afe-runtime-status" role="status" class="mx-6 mt-4 p-3 rounded-lg border border-slate-700 text-sm">準備模擬。預設 1.0 kW 是本教學代理模型可達的工作點；重設會保留模式、負載與增益，清除控制器與波形歷史。</p>
     <main class="flex-1 p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-[1920px] mx-full w-full">
         
         <!-- 左側面板: 控制面板與物理參數調整 (佔 4 格) -->
-        <section class="lg:col-span-4 flex flex-col gap-6">
+        <section id="afe-controls" tabindex="-1" class="lg:col-span-4 flex flex-col gap-6">
             
             <!-- 狀態卡片群 -->
             <div class="grid grid-cols-2 gap-4">
@@ -96,7 +99,7 @@
                         <span id="stat-pf" class="text-3xl font-mono-tech text-amber-400">0.999</span>
                         <span class="text-xs text-slate-500">Total PF</span>
                     </div>
-                    <div id="stat-pf-label" class="text-xs text-slate-500 mt-2">完美同相 (極致能效)</div>
+                    <p class="text-xs text-slate-400">基波 DPF <span id="stat-dpf" aria-live="off">0.000</span>（約一週期窗）</p><div id="stat-pf-label" class="text-xs text-slate-500 mt-2">完美同相 (極致能效)</div>
                 </div>
             </div>
 
@@ -138,7 +141,7 @@
                         </span>
                         <span id="val-load" class="text-rose-400 font-mono-tech">1.0 kW</span>
                     </div>
-                    <input type="range" id="slide-load" min="-3000" max="5000" value="1000" step="100" class="w-full accent-rose-500 bg-slate-800 rounded-lg appearance-none h-2">
+                    <label class="afe-sr-only" for="slide-load">直流端負載功率（W）</label><input type="range" id="slide-load" min="-3000" max="5000" value="1000" step="100" class="w-full accent-rose-500 bg-slate-800 rounded-lg appearance-none h-2">
                     <p class="text-[10px] text-slate-500 leading-normal">拉大表示 GPU 滿載抽電；拉到負值（例如 -2.0kW）模擬大型馬達回充電能到直流母線，觀察 AFE 逆變器卸荷送電。</p>
                 </div>
 
@@ -150,7 +153,7 @@
                         </span>
                         <span id="val-thd" class="text-sky-400 font-mono-tech">注入 0% · 實算 THD 0.0%</span>
                     </div>
-                    <input type="range" id="slide-thd" min="0" max="50" value="0" class="w-full accent-sky-500 bg-slate-800 rounded-lg appearance-none h-2">
+                    <label class="afe-sr-only" for="slide-thd">諧波注入強度（%）</label><input type="range" id="slide-thd" min="0" max="50" value="0" class="w-full accent-sky-500 bg-slate-800 rounded-lg appearance-none h-2">
                     <p class="text-[10px] text-slate-500 leading-normal">增加諧波會扭曲輸入交流電網波形，觀察 SOGI-PLL 的有限濾波能力；諧波與暫態仍會造成相位誤差。這是簡化教學模型，不是已驗證的實機控制器。</p>
                 </div>
 
@@ -162,7 +165,7 @@
                         </span>
                         <span id="val-phase" class="text-emerald-400 font-mono-tech">0°</span>
                     </div>
-                    <input type="range" id="slide-phase" min="-180" max="180" value="0" class="w-full accent-emerald-500 bg-slate-800 rounded-lg appearance-none h-2">
+                    <label class="afe-sr-only" for="slide-phase">電網相位偏移（度）</label><input type="range" id="slide-phase" min="-180" max="180" value="0" class="w-full accent-emerald-500 bg-slate-800 rounded-lg appearance-none h-2">
                     <p class="text-[10px] text-slate-500 leading-normal">手動模擬電網發生擾動時的瞬時相位偏移，觀察 PLL 經過多個取樣與市電週期重新追蹤；圖中使用模擬時間，不能把畫面更新時間當成硬體鎖定時間。</p>
                 </div>
             </div>
@@ -183,14 +186,14 @@
                             <span class="text-slate-400">電流內環 Kp (快)</span>
                             <span id="val-ikp" class="text-indigo-400 font-mono-tech">2.50</span>
                         </div>
-                        <input type="range" id="slide-ikp" min="0.1" max="10" value="2.5" step="0.1" class="w-full accent-indigo-500 bg-slate-800 rounded-lg appearance-none h-1.5">
+                        <label class="afe-sr-only" for="slide-ikp">電流內環 Kp</label><input type="range" id="slide-ikp" min="0.1" max="10" value="2.5" step="0.1" class="w-full accent-indigo-500 bg-slate-800 rounded-lg appearance-none h-1.5">
                     </div>
                     <div class="flex flex-col gap-1.5">
                         <div class="flex justify-between text-[11px] font-semibold">
                             <span class="text-slate-400">電流內環 Ki</span>
                             <span id="val-iki" class="text-indigo-400 font-mono-tech">500</span>
                         </div>
-                        <input type="range" id="slide-iki" min="50" max="2000" value="500" step="50" class="w-full accent-indigo-500 bg-slate-800 rounded-lg appearance-none h-1.5">
+                        <label class="afe-sr-only" for="slide-iki">電流內環 Ki</label><input type="range" id="slide-iki" min="50" max="2000" value="500" step="50" class="w-full accent-indigo-500 bg-slate-800 rounded-lg appearance-none h-1.5">
                     </div>
                 </div>
 
@@ -201,14 +204,14 @@
                             <span class="text-slate-400">電壓外環 Kp (慢)</span>
                             <span id="val-vkp" class="text-indigo-400 font-mono-tech">0.50</span>
                         </div>
-                        <input type="range" id="slide-vkp" min="0.05" max="3.0" value="0.5" step="0.05" class="w-full accent-indigo-500 bg-slate-800 rounded-lg appearance-none h-1.5">
+                        <label class="afe-sr-only" for="slide-vkp">電壓外環 Kp</label><input type="range" id="slide-vkp" min="0.05" max="3.0" value="0.5" step="0.05" class="w-full accent-indigo-500 bg-slate-800 rounded-lg appearance-none h-1.5">
                     </div>
                     <div class="flex flex-col gap-1.5">
                         <div class="flex justify-between text-[11px] font-semibold">
                             <span class="text-slate-400">電壓外環 Ki</span>
                             <span id="val-vki" class="text-indigo-400 font-mono-tech">10</span>
                         </div>
-                        <input type="range" id="slide-vki" min="1" max="100" value="10" step="1" class="w-full accent-indigo-500 bg-slate-800 rounded-lg appearance-none h-1.5">
+                        <label class="afe-sr-only" for="slide-vki">電壓外環 Ki</label><input type="range" id="slide-vki" min="1" max="100" value="10" step="1" class="w-full accent-indigo-500 bg-slate-800 rounded-lg appearance-none h-1.5">
                     </div>
                 </div>
                 <p class="text-[10px] text-slate-500 leading-normal">
@@ -219,7 +222,7 @@
         </section>
 
         <!-- 右側面板: 示波器圖表與拓撲圖 (佔 8 格) -->
-        <section class="lg:col-span-8 flex flex-col gap-6">
+        <section id="afe-results" tabindex="-1" class="lg:col-span-8 flex flex-col gap-6">
             
             <!-- 示波器主顯示區 -->
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col gap-4 glow-cyan">
@@ -229,7 +232,7 @@
                         <i data-lucide="monitor-play" class="w-5 h-5 text-cyan-400 animate-pulse"></i>
                         <h2 class="text-sm font-bold tracking-widest text-slate-200">ANTIGRAVITY 數位高頻示波器 (DYNAMIC SCOPE)</h2>
                     </div>
-                    <div class="flex items-center gap-4 text-[10px] font-semibold text-slate-400">
+                    <div class="afe-scope-legend flex items-center gap-4 text-[10px] font-semibold text-slate-400">
                         <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-amber-500 inline-block"></span> 電網電壓 (V_grid)</span>
                         <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-400 inline-block"></span> 實際電流 (I_grid)</span>
                         <span class="flex items-center gap-1 text-slate-500"><span class="w-2.5 h-2.5 rounded-sm bg-cyan-500/30 border border-cyan-500 border-dashed inline-block"></span> DDS 指令 (I_ref)</span>
@@ -238,9 +241,10 @@
                     </div>
                 </div>
 
+                <p id="afe-wave-summary" aria-live="off" class="text-sm text-slate-300">準備波形；可先調整條件，再暫停查看數值。</p>
                 <!-- 畫布區域 (動態繪圖) -->
                 <div class="relative w-full h-[380px] bg-slate-950 rounded-lg overflow-hidden border border-slate-800/80">
-                    <canvas id="scope-canvas" class="w-full h-full block"></canvas>
+                    <canvas id="scope-canvas" class="w-full h-full block" role="img" aria-label="電網電壓、實際電流、電流命令、PLL相位與母線電壓" aria-describedby="afe-wave-summary">波形摘要及讀值列於圖後方。</canvas>
                 </div>
             </div>
 
@@ -711,9 +715,12 @@
                     ? `模型已停止：${sysState.modelLimit==='ENERGY_EXHAUSTED'?'電容儲能耗盡，定功率負載假設失效':'母線超過 600 V 教學範圍'}。請調整負載或模式後重設狀態；未供應能量 ${sysState.unservedEnergyJ.toFixed(4)} J。`
                     : Math.abs(ctrl.v_bus_out)>=24.99&&Math.abs(sysState.v_bus_actual-400)>5
                     ? '電流命令已達限制，目前未能穩壓；請減小負載或檢查設定。'
-                    : `${simActive?'運行中':'已暫停'} · 模擬時間 ${time.toFixed(3)} s · 基波 DPF ${sysState.dpf.toFixed(3)}（約一週期窗）；Total PF 包含失真，不等於效率。`;
+                    : `${simActive?'運行中':'已暫停'}；Total PF 包含失真，不等於效率。`;
                 runtimeStatus.dataset.state=sysState.modelLimit?'invalid':Math.abs(ctrl.v_bus_out)>=24.99?'limited':'ready';
             }
+            const simTime=document.getElementById('afe-sim-time');if(simTime)simTime.innerText=time.toFixed(3)+' s';
+            const dpfReadout=document.getElementById('stat-dpf');if(dpfReadout)dpfReadout.innerText=sysState.dpf.toFixed(3);
+            const summary=document.getElementById('afe-wave-summary');if(summary)summary.innerText=`模擬 ${time.toFixed(3)} s；電網 RMS ${gridVoltageRms().toFixed(1)} V（20 ms 窗），母線 ${sysState.v_bus_actual.toFixed(1)} V，PF ${sysState.pf.toFixed(3)}。${sysState.modelLimit?'模型已停止，請先處理上方警告。':'電壓、電流與 PLL 曲線來自同一次模擬。'}`;
             const pause=document.getElementById('btn-pause');if(pause)pause.disabled=!!sysState.modelLimit;
             const pauseText=document.getElementById('text-pause');if(pauseText)pauseText.innerText=simActive?'暫停模擬':'繼續模擬';
 

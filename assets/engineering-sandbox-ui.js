@@ -7,7 +7,7 @@
   const fmt=(v,d=2)=>Number.isFinite(v)?Number(v).toFixed(d):"—";
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   function bind(ids,fn){ids.forEach(id=>{const e=$(id);if(e){e.addEventListener("input",fn);e.addEventListener("change",fn);}});fn();}
-  function saveMachine(id,r,extra){try{Evidence&&Evidence.recordMachine(id,"engineering-sandbox",{summary:r.summary,communication:r.communication,state:r.state,...(extra||{})},null);}catch(_){}}
+  function saveMachine(id,r,extra){try{if(!Evidence)return;Evidence.recordMachine(id,"engineering-sandbox",{summary:r.summary,communication:r.communication,state:r.state,...(extra||{})},null);if(Evidence.flush){txt('sb-save-status','正在保存這次有效模擬…');Evidence.flush().then(s=>txt('sb-save-status',s.saved?'本次有效模擬已儲存在這個瀏覽器。':'尚未儲存：'+(s.reason||'pending')+'；請使用頁面備份／重試工具。')).catch(()=>txt('sb-save-status','尚未儲存；請先匯出備份再重試。'));}}catch(_){txt('sb-save-status','尚未儲存；請先匯出備份再重試。');}}
   function saveDiagnostic(id,result){try{Evidence&&Evidence.recordDiagnosticGame(id,result);}catch(_){}}
   function grid(svgId){const svg=$(svgId);if(!svg||svg.querySelector(".scope-grid"))return;for(let i=1;i<10;i++){const x=document.createElementNS("http://www.w3.org/2000/svg","line");x.setAttribute("x1",i*100);x.setAttribute("x2",i*100);x.setAttribute("y1",0);x.setAttribute("y2",260);x.setAttribute("class","scope-grid");svg.appendChild(x);}for(let i=1;i<5;i++){const y=document.createElementNS("http://www.w3.org/2000/svg","line");y.setAttribute("x1",0);y.setAttribute("x2",1000);y.setAttribute("y1",i*52);y.setAttribute("y2",i*52);y.setAttribute("class","scope-grid");svg.appendChild(y);}}
   function polyline(svgId,cls,values,maxY){const svg=$(svgId);if(!svg||!values.length)return;let p=svg.querySelector("."+cls);if(!p){p=document.createElementNS("http://www.w3.org/2000/svg","polyline");p.setAttribute("class",cls);svg.appendChild(p);}const w=1000,h=260,den=Math.max(1,values.length-1),m=Math.max(.001,maxY||Math.max(...values.map(v=>Math.abs(v))));p.setAttribute("points",values.map((v,i)=>`${i/den*w},${h-clamp(v,0,m)/m*h}`).join(" "));}
@@ -21,6 +21,7 @@
     return`目前因果鏈正常：取樣來得及、資料沒有落後、PWM 有吃到新 duty，輸出也接近命令。`;
   }
   function sandbox(){
+    const initialControls=Array.from(document.querySelectorAll('.sandbox-controls input,.sandbox-controls select')).map(n=>[n,n.value]);
     const run=()=>{
       try{
       const startV=num("sb-vref-start",24),targetV=num("sb-vref",48),commandAt=Math.round(num("sb-command-at",120));
@@ -30,9 +31,13 @@
         ['sb-final-v','sb-final-i','sb-mode','sb-peak-i','sb-margin','sb-missed','sb-lag','sb-energy'].forEach(id=>txt(id,'—'));txt('sb-state','INVALID');
         $('sandbox-scope')?.replaceChildren();$('sandbox-timeline')?.replaceChildren();globalThis.__sandboxLast=null;
         status('sb-status','尚未執行有效模擬。'+error.message+'；修正後會重新計算，這次輸入不會保存為量測證據。','fail');
+        txt('sb-input-status','輸入尚未完成或超出範圍，結果已清空。'+error.message);txt('sb-chart-summary','沒有有效波形；請先修正標示的欄位。');return;
       }
+      txt('sb-input-status','已重新計算；可用「查看結果」核對讀值、波形及警告。');
+      const r=globalThis.__sandboxLast;if(r)txt('sb-chart-summary',`本次輸出 ${fmt(r.summary.finalV)} V，最高電感電流 ${fmt(r.summary.peakI)} A，狀態 ${r.state.state}；藍線電壓、橙線電流、綠線開關命令。`);
     };
     bind(["sb-inductance","sb-dcr","sb-saturation","sb-saturation-ratio","sb-period","sb-plant-dt","sb-steps","sb-vin","sb-vref-start","sb-vref","sb-command-at","sb-load","sb-load-step","sb-load-at","sb-ilim","sb-kpv","sb-kiv","sb-kpi","sb-kii","sb-gain","sb-offset","sb-noise","sb-edge-noise","sb-jitter","sb-bits","sb-comm","sb-stale","sb-sign","sb-clamp","sb-sample","sb-adc","sb-isr","sb-compute","sb-commit","sb-trip-current","sb-trip-latency"],run);$("sb-run")?.addEventListener("click",run);
+    $('sb-reset')?.addEventListener('click',()=>{initialControls.forEach(([n,value])=>n.value=value);run();txt('sb-input-status','已還原本頁實驗設定；既有學習紀錄保留。');});
   }
   function dma(){
     const run=()=>{const mode=$("dma-mode")?$("dma-mode").value:"safe",r=Core.simulateSystem({cycles:320,ringSize:Math.round(num("dma-ring",4)),communicationMode:mode,staleCommandCycles:Math.round(num("dma-stale",25)),commandProfile:[{cycle:0,vref:24},{cycle:70,vref:48},{cycle:210,vref:36}],loadProfile:[{cycle:0,ohm:12}],seed:19});txt("dma-published",String(r.communication.publishedSeq));txt("dma-consumed",String(r.communication.consumedSeq));txt("dma-lag",String(r.communication.maxLag));txt("dma-vout",`${fmt(r.summary.finalV)} V`);txt("dma-violations",r.communication.violations.join(", ")||"none");const e=$("dma-events");if(e)e.innerHTML=r.events.filter(x=>/DMA|PUBLISH|CONSUME|WRAP/.test(x.type)).slice(0,34).map(x=>`<div class="timeline-row"><span>${fmt(x.tUs,1)} µs</span><b>${x.type}</b><span>seq ${x.seq??"-"}</span></div>`).join("");const bad=r.communication.violations.length>0,stale=r.communication.maxLag>0;status("dma-status",bad?`資料 ownership 被破壞：${r.communication.violations.join(", ")}。控制器因此不能把「新資料」當成一定完整。`:stale?`資料沒有壞，但控制器曾落後 ${r.communication.maxLag} 個 sequence；輸出會晚幾拍跟上新命令。`:`PASS：DMA 完成後才 publish，CPU 吃到的是完整而且最新的 command。`,bad?"fail":stale?"warn":"pass");globalThis.__dmaLast=r;saveMachine("power-capstone.sandbox.dma",r,{mode});};bind(["dma-ring","dma-stale","dma-mode"],run);
