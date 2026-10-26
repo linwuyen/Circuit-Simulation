@@ -8,8 +8,16 @@ test('nonphysical or unfinished kernel inputs cannot return a RUN trace',()=>{
  for(const key of ['inductanceUh','capacitanceUf','controlPeriodUs','plantDtUs','vin','voltageFullScale','currentFullScale'])
   for(const value of [0,-1,'',' ',null,NaN,Infinity])
    assert.throws(()=>K.simulateSystem({cycles:20,[key]:value}),RangeError,`${key}=${String(value)}`);
- for(const input of [{cycles:Infinity},{cycles:1000000},{samplePct:-1},{samplePct:100},{adcBits:0},{loadProfile:[{cycle:0,ohm:0}]}])
+ for(const input of [{cycles:Infinity},{cycles:1000000},{samplePct:-1},{samplePct:100},{adcBits:0},{loadProfile:[{cycle:0,ohm:0}]},{loadOhm:0},{adcLatencyUs:-1},{computeUs:''},{noisePct:-1},{commandProfile:[{cycle:0,vref:Infinity}]}])
   assert.throws(()=>K.simulateSystem(input),RangeError,JSON.stringify(input));
+});
+
+test('ISR jitter cannot start computation before the ADC conversion is complete',()=>{
+ const r=K.simulateSystem({cycles:30,jitterUs:20,seed:9});
+ for(let k=0;k<30;k++){
+  const eoc=r.events.find(e=>e.cycle===k&&e.type==='ADC_EOC'),isr=r.events.find(e=>e.cycle===k&&e.type==='ISR');
+  assert.ok(isr.tUs>=eoc.tUs,`cycle ${k}: ${isr.tUs} < ${eoc.tUs}`);
+ }
 });
 
 function sandbox(){

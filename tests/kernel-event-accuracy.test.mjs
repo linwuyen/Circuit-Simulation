@@ -9,10 +9,10 @@ test('non-grid PWM duty obeys volt-second balance and converges without a duty-g
  assert.ok(Math.max(...values)-Math.min(...values)<.001,JSON.stringify(values));
 });
 test('ADC acquisition observes the physical state at its declared time including cycle start',()=>{
- for(const [samplePct,plantDtUs,want]of [[0,2,900],[51,.25,905.1]]){
+ for(const [samplePct,plantDtUs,want]of [[0,2,900],[51,.25,905.1],[1e-11,.25,900.000000000001]]){
   const r=K.simulateSystem({...base,cycles:100,samplePct,plantDtUs,detailCycle:90});
   assert.equal(r.trace[90].sampleTUs,want);
-  const sample=r.waveform.find(x=>Math.abs(x.tUs-want)<1e-8);
+  const sample=r.waveform.find(x=>x.tUs===want);
   assert.ok(sample,'no physical sample at declared time '+want);
   assert.equal(sample.vOut,r.trace[90].samplePhysicalV);
   assert.equal(r.events.find(x=>x.cycle===90&&x.type==='ADC_SOC').tUs,want);
