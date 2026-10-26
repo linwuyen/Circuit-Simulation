@@ -28,7 +28,8 @@ test('AFE controls have names, wrap on mobile and paused reset updates all reado
  await page.getByRole('link',{name:'查看結果',exact:true}).click();
  expect(await page.evaluate(()=>document.querySelector('header').getBoundingClientRect().bottom<=document.querySelector('#afe-results').getBoundingClientRect().top+1)).toBe(true);
  await page.evaluate(()=>window.scrollTo(0,0));
- await page.screenshot({path:info.outputPath('afe-after.png'),fullPage:true});
+ // CI uploads test-results; visual captures are an explicit local-only option.
+ if(process.env.CAPTURE_UI&&!process.env.CI)await page.screenshot({path:info.outputPath('afe-after.png'),fullPage:true});
  await page.getByRole('link',{name:'返回 AFE 教材',exact:true}).click();await expect(page).toHaveURL(/9\.afe-tutorial\/index\.html/);
 });
 test('sandbox failed persistence is visible beside results rather than silently claiming saved',async({page})=>{
